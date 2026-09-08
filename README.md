@@ -57,6 +57,17 @@ pnpm --filter @nx-verify/console run dev   # الكونسول
 NX_PROVIDERS=wathq:https://api.example.com
 ```
 
+**خادم MCP** يتيح لمساعد ذكي استخدام المنصة بمفتاح مشترك واحد. العملية الواحدة لمشترك واحد، لأن المفتاح يثبّت المستأجر ولا أداة تقبل معرّف مستأجر.
+
+```bash
+NX_API_URL=http://localhost:3000 \
+NX_API_KEY=nx_live_... \
+NX_MCP_SPEND_CEILING_HALALAS=50000 \
+pnpm run mcp
+```
+
+سقف الإنفاق يقرأه من يشغّل العملية، ولا شيء يرسله النموذج يرفعه. الأدوات: `list_products`، `quote_verification`، `run_verification`، `get_verification`، `get_entity_profile`، `get_wallet_balance`، `check_evidence`. ولا أداة تقرر حالة مراجعة ولا تغيّر مزوّداً ولا سعراً ولا سياسة.
+
 ---
 
 ## بنية الكود
@@ -64,10 +75,11 @@ NX_PROVIDERS=wathq:https://api.example.com
 ```
 apps/api        الـAPI العام والتشغيلي، المصادقة، Webhooks، OpenAPI
 apps/console    الكونسول (Next.js, RTL): الكيان 360، السجل، الطابور، المحافظ، اللوحة، الإعدادات
-apps/worker     المراقبة، الدفعات، تسليم Webhooks، الاحتفاظ، الأقسام
+apps/worker     المراقبة، الدفعات، تسليم Webhooks، الاحتفاظ، الأقسام، تدوير المفاتيح
+apps/mcp        خادم MCP: عميل للـAPI العام لا للقاعدة، بسقف إنفاق وأدوات مقروءة
 packages/core   المجال: الإفادات، الهوية، الحداثة، المنتجات، التطبيع، التسعير،
                 القرار، المراجعة، المحافظ، الأدلة، التقارير
-packages/db     المخطط، سبعة عشر ترحيلاً، الأدوار وRLS، البذرة
+packages/db     المخطط، واحد وعشرون ترحيلاً، الأدوار وRLS، البذرة
 packages/providers  واجهة VerificationProvider، المزوّد الوهمي، محوّل HTTP، المصنع
 ```
 
