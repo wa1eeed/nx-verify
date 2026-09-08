@@ -50,7 +50,11 @@ export function buildContext(options: BuildContextOptions = {}): AppContext {
   }
 
   const pool = createPool(connectionString);
-  const keys = new DerivedTenantKeyProvider(new EnvMasterKeySource(options.masterKey));
+  const keys = new DerivedTenantKeyProvider(
+    new EnvMasterKeySource(
+      options.masterKey === undefined ? process.env : { NX_MASTER_KEY: options.masterKey },
+    ),
+  );
   const registry = options.registry ?? createProviderRegistry(providerConfigFromEnv());
   const secrets = options.secrets ?? new InMemorySecretStore();
 

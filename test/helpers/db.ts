@@ -4,7 +4,6 @@ import { inject } from 'vitest';
 import { createPool, withTenant } from '../../packages/db/src/client.js';
 import { DerivedTenantKeyProvider } from '../../packages/core/src/crypto/tenant-keys.js';
 import { StaticMasterKeySource } from '../../packages/core/src/crypto/master-key.js';
-import type { TenantKeyProvider } from '../../packages/core/src/crypto/tenant-keys.js';
 import { quoteIdentifier } from '../../packages/db/src/sql-identifier.js';
 import { TEST_ROLE_PASSWORDS } from './constants.js';
 
@@ -169,8 +168,8 @@ export async function insertAttestation(
  * A deterministic master key for tests. Real environments read it from a KMS through
  * MasterKeySource, and it never reaches the database in either case (rule 10).
  */
-export function testKeys(): TenantKeyProvider {
-  return new DerivedTenantKeyProvider(new StaticMasterKeySource(Buffer.alloc(32, 7)));
+export function testKeys(versions: Map<number, Buffer> = new Map([[1, Buffer.alloc(32, 7)]])) {
+  return new DerivedTenantKeyProvider(new StaticMasterKeySource(versions));
 }
 
 /** Creates an additional entity inside an existing tenant. */

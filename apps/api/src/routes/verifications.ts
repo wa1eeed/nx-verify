@@ -104,11 +104,13 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
         let evidenceToken: string | null = null;
         if (!outcome.replayed && outcome.status !== 'ERROR') {
           const content = await buildEvidenceContent(tx, outcome.runId);
+          const keyVersion = await context.keys.currentVersion();
           const sealed = await sealEvidence(tx, {
             runId: outcome.runId,
             content,
             storageKey: `evidence/${caller.tenantId}/${outcome.runId}.pdf`,
-            signingKey: await context.keys.signingKey(caller.tenantId),
+            signingKey: await context.keys.signingKey(caller.tenantId, keyVersion),
+            keyVersion,
           });
           evidenceToken = sealed.publicToken;
         }

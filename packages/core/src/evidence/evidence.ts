@@ -49,6 +49,8 @@ export interface SealEvidenceInput {
   content: EvidenceContent;
   storageKey: string;
   signingKey: Buffer;
+  /** The version that produced the signing key. Recorded so it stays verifiable. */
+  keyVersion?: number;
   /** How long the public page stays available. Null means indefinitely. */
   expiresAt?: Date | null;
 }
@@ -58,6 +60,14 @@ export interface SealedEvidence {
   contentHash: string;
   publicToken: string;
   signedAt: Date;
+  /**
+   * Which key version signed this seal.
+   *
+   * Never rewritten. Re-keying an identifier changes how a value is stored; re-signing
+   * evidence would change a seal a customer has already handed to an auditor, and the
+   * hash on their printed copy would stop matching ours.
+   */
+  keyVersion: number;
 }
 
 export async function sealEvidence(
@@ -69,10 +79,12 @@ export async function sealEvidence(
   // Long enough that it cannot be guessed, and carrying no information about the subject.
   const publicToken = randomBytes(24).toString('base64url');
 
+  const keyVersion = input.keyVersion ?? 1;
+
   const { rows } = await tx.query<{ id: string; signed_at: Date }>(
     `INSERT INTO evidence (tenant_id, run_id, storage_key, content_hash, signature,
-                           public_token, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+                           public_token, expires_at, key_version)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id, signed_at`,
     [
       tx.tenantId,
@@ -82,6 +94,7 @@ export async function sealEvidence(
       signature,
       publicToken,
       input.expiresAt ?? null,
+      keyVersion,
     ],
   );
 
@@ -95,6 +108,7 @@ export async function sealEvidence(
     contentHash: contentHash.toString('hex'),
     publicToken,
     signedAt: row.signed_at,
+    keyVersion,
   };
 }
 
@@ -133,6 +147,13 @@ export async function resolvePublicEvidence(
 }
 
 /** Confirms a document still matches what was sealed. */
+/**
+ * Confirms a document still matches what was sealed.
+ *
+ * The key is supplied by the caller, which must ask for the version this row recorded.
+ * `evidenceKeyVersion` below is how a caller learns which one that is, so a seal made
+ * before a rotation keeps verifying after it.
+ */
 export async function checkEvidence(
   tx: TenantTransaction,
   evidenceId: string,
@@ -154,6 +175,22 @@ export async function checkEvidence(
     hashMatches: recomputed.equals(row.content_hash),
     signatureValid: verifySignature(signingKey, row.content_hash, row.signature),
   };
+}
+
+/** Which key version signed a seal, so the right one can be asked for to verify it. */
+export async function evidenceKeyVersion(
+  tx: TenantTransaction,
+  evidenceId: string,
+): Promise<number> {
+  const { rows } = await tx.query<{ key_version: number }>(
+    `SELECT key_version FROM evidence WHERE tenant_id = $1 AND id = $2`,
+    [tx.tenantId, evidenceId],
+  );
+  const version = rows[0]?.key_version;
+  if (version === undefined) {
+    throw new NxError('NX-4041', { detail: 'no such evidence' });
+  }
+  return version;
 }
 
 /** Builds the sealed content from a completed run. */
@@ -295,6 +332,7 @@ export async function sealBundle(
     portfolioId: string;
     runId: string;
     signingKey: Buffer;
+    keyVersion?: number;
     expiresAt?: Date | null;
   },
 ): Promise<SealedBundle> {
@@ -307,10 +345,12 @@ export async function sealBundle(
   const signature = signContent(input.signingKey, contentHash);
   const publicToken = randomBytes(24).toString('base64url');
 
+  const keyVersion = input.keyVersion ?? 1;
+
   const { rows } = await tx.query<{ id: string; signed_at: Date }>(
     `INSERT INTO evidence (tenant_id, run_id, storage_key, content_hash, signature,
-                           public_token, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+                           public_token, expires_at, key_version)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id, signed_at`,
     [
       tx.tenantId,
@@ -320,6 +360,7 @@ export async function sealBundle(
       signature,
       publicToken,
       input.expiresAt ?? null,
+      keyVersion,
     ],
   );
 
@@ -333,6 +374,7 @@ export async function sealBundle(
     contentHash: contentHash.toString('hex'),
     publicToken,
     signedAt: row.signed_at,
+    keyVersion,
     entityCount: content.entityCount,
     fieldCount: content.fieldCount,
   };

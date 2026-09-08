@@ -237,6 +237,7 @@ export {
   buildBundleContent,
   buildEvidenceContent,
   checkEvidence,
+  evidenceKeyVersion,
   hashBundle,
   sealBundle,
   hashContent,
@@ -386,3 +387,6 @@ export type {
   SetBindingInput,
   TenantBinding,
 } from './routing/provider-routing.js';
+
+export { activateKeyVersion, listKeyVersions, retireKeyVersion } from './crypto/key-versions.js';
+export type { KeyVersion, KeyVersionStatus } from './crypto/key-versions.js';

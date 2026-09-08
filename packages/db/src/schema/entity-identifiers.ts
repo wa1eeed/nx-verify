@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, customType, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { boolean, customType, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType: () => 'bytea',
@@ -19,4 +19,6 @@ export const entityIdentifiers = pgTable('entity_identifiers', {
   idValueHash: bytea('id_value_hash').notNull(),
   idValueEnc: bytea('id_value_enc').notNull(),
   isPrimary: boolean('is_primary').notNull().default(false),
+  /** Which key version produced this hash and ciphertext. Rewritten by rotation. */
+  keyVersion: integer('key_version').notNull().default(1),
 });
