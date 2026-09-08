@@ -146,6 +146,23 @@ export async function resolvePublicEvidence(
   };
 }
 
+/**
+ * Where the rendered document for a run was written.
+ *
+ * Tenant scoped, so the storage key of one subscriber's document is unreachable from
+ * another's session even before the store is asked for the file.
+ */
+export async function evidenceStorageKey(
+  tx: TenantTransaction,
+  runId: string,
+): Promise<string | null> {
+  const { rows } = await tx.query<{ storage_key: string }>(
+    'SELECT storage_key FROM evidence WHERE tenant_id = $1 AND run_id = $2',
+    [tx.tenantId, runId],
+  );
+  return rows[0]?.storage_key ?? null;
+}
+
 /** Confirms a document still matches what was sealed. */
 /**
  * Confirms a document still matches what was sealed.

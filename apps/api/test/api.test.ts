@@ -288,6 +288,29 @@ describe('the public API', () => {
     expect(body.note_ar).toContain('لا تعرض أي بيانات شخصية');
   });
 
+  it('serves the sealed document, in Arabic, with no provider on it', async () => {
+    const created = await call('POST', '/v1/verifications', {
+      body: { product: 'KYB_COMPLETE', subject: { unn: '7001272184' } },
+    });
+
+    const document = await call('GET', `/v1/verifications/${created.json().verification_id}/document`);
+    expect(document.statusCode).toBe(200);
+    expect(document.headers['content-type']).toContain('text/html');
+    expect(document.body).toContain('<html lang="ar" dir="rtl">');
+    // The document was written when the seal was made, so it is served, not regenerated.
+    expect(document.body).toContain(created.json().verification_id);
+    expect(document.body).not.toContain('7001272184');
+    expect(document.body.toLowerCase()).not.toContain('provider');
+  });
+
+  it('refuses the document of a run that belongs to nobody', async () => {
+    const response = await call(
+      'GET',
+      '/v1/verifications/00000000-0000-4000-8000-000000000000/document',
+    );
+    expect(response.statusCode).toBe(404);
+  });
+
   it('refuses an unknown evidence token', async () => {
     const response = await call('GET', '/v1/evidence/not-a-real-token', { key: null });
     expect(response.statusCode).toBe(404);

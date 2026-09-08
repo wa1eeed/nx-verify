@@ -4,8 +4,11 @@ import {
   assertNoProviderLeak,
   audit,
   buildEvidenceContent,
+  buildEvidenceDocument,
+  evidenceStorageKey,
   getVerification,
   halalasToRiyals,
+  renderEvidenceHtml,
   resolvePublicEvidence,
   sealEvidence,
   verify,
@@ -108,10 +111,24 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
           const sealed = await sealEvidence(tx, {
             runId: outcome.runId,
             content,
-            storageKey: `evidence/${caller.tenantId}/${outcome.runId}.pdf`,
+            storageKey: `evidence/${caller.tenantId}/${outcome.runId}.html`,
             signingKey: await context.keys.signingKey(caller.tenantId, keyVersion),
             keyVersion,
           });
+          // The document is produced with the seal, not on request. One that has to be
+          // generated later can be generated differently later, and the whole point of
+          // this record is that it cannot.
+          const evidenceDocument = await buildEvidenceDocument(tx, {
+            content,
+            contentHash: sealed.contentHash,
+            publicToken: sealed.publicToken,
+            verifyBaseUrl: context.publicBaseUrl,
+          });
+          await context.evidence.put(
+            `evidence/${caller.tenantId}/${outcome.runId}.html`,
+            await renderEvidenceHtml(evidenceDocument),
+          );
+
           evidenceToken = sealed.publicToken;
         }
 
@@ -144,6 +161,31 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
       // Rule 5, checked on the way out rather than trusted.
       assertNoProviderLeak(response, context.registry.names());
       return reply.status(result.replayed ? 200 : 201).send(response);
+    },
+  );
+
+  /**
+   * The rendered document for a run.
+   *
+   * Served rather than generated here: the file was written when the seal was made, and a
+   * document that can be regenerated on request can be regenerated differently, which is
+   * the one thing a sealed record must not allow.
+   */
+  app.get<{ Params: { id: string } }>(
+    '/v1/verifications/:id/document',
+    { preHandler: requireAuth(context, 'verifications:read') },
+    async (request, reply) => {
+      const caller = callerOf(request);
+      const key = await context.withTenant(caller.tenantId, (tx) =>
+        evidenceStorageKey(tx, request.params.id),
+      );
+
+      const html = key === null ? null : await context.evidence.get(key);
+      if (html === null) {
+        throw new NxError('NX-4041', { requestId: request.id });
+      }
+
+      return reply.type('text/html; charset=utf-8').send(html);
     },
   );
 

@@ -157,6 +157,21 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
           },
         },
       },
+      '/v1/verifications/{id}/document': {
+        get: {
+          summary: 'Download the sealed evidence document',
+          description:
+            'The Arabic document as it was rendered when the run was sealed. Served, never regenerated, so the hash printed on a copy in circulation keeps matching.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': {
+              description: 'The document',
+              content: { 'text/html': { schema: { type: 'string' } } },
+            },
+            '404': { description: 'Not found', content: jsonError(errorSchema) },
+          },
+        },
+      },
       '/v1/entities/{id}': {
         get: {
           summary: 'Read the live profile of an entity',

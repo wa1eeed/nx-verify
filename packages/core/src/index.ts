@@ -238,6 +238,7 @@ export {
   buildEvidenceContent,
   checkEvidence,
   evidenceKeyVersion,
+  evidenceStorageKey,
   hashBundle,
   sealBundle,
   hashContent,
@@ -390,3 +391,20 @@ export type {
 
 export { activateKeyVersion, listKeyVersions, retireKeyVersion } from './crypto/key-versions.js';
 export type { KeyVersion, KeyVersionStatus } from './crypto/key-versions.js';
+
+export {
+  buildEvidenceDocument,
+  decisionLabel,
+  statusLabel,
+  verificationQrSvg,
+} from './evidence/document.js';
+export type {
+  BuildDocumentInput,
+  DocumentField,
+  DocumentHeader,
+  EvidenceDocument,
+} from './evidence/document.js';
+export { renderEvidenceHtml } from './evidence/render.js';
+export type { RenderOptions } from './evidence/render.js';
+export { FilesystemEvidenceStore, InMemoryEvidenceStore } from './evidence/store.js';
+export type { EvidenceStore } from './evidence/store.js';

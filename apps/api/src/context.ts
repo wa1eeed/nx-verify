@@ -2,6 +2,8 @@ import { createPool, withTenant, withoutTenant, type TenantTransaction } from '@
 import {
   DerivedTenantKeyProvider,
   EnvMasterKeySource,
+  InMemoryEvidenceStore,
+  type EvidenceStore,
   type TenantKeyProvider,
 } from '@nx-verify/core';
 import {
@@ -27,6 +29,10 @@ import type pg from 'pg';
 export interface AppContext {
   pool: pg.Pool;
   keys: TenantKeyProvider;
+  /** Where rendered evidence documents are written. */
+  evidence: EvidenceStore;
+  /** The address the verification link on a document points at. */
+  publicBaseUrl: string;
   registry: ProviderRegistry;
   secrets: SecretStore;
   withTenant: <T>(tenantId: string, handler: (tx: TenantTransaction) => Promise<T>) => Promise<T>;
@@ -41,6 +47,8 @@ export interface BuildContextOptions {
   masterKey?: string;
   secrets?: SecretStore;
   registry?: ProviderRegistry;
+  evidence?: EvidenceStore;
+  publicBaseUrl?: string;
 }
 
 export function buildContext(options: BuildContextOptions = {}): AppContext {
@@ -63,6 +71,8 @@ export function buildContext(options: BuildContextOptions = {}): AppContext {
     keys,
     registry,
     secrets,
+    evidence: options.evidence ?? new InMemoryEvidenceStore(),
+    publicBaseUrl: options.publicBaseUrl ?? process.env['NX_PUBLIC_BASE_URL'] ?? 'https://verify.nx.sa',
     withTenant: (tenantId, handler) => withTenant(pool, tenantId, handler),
     withoutTenant: (handler) => withoutTenant(pool, handler),
     stepRunnerFor: (tx) =>

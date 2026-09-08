@@ -9,6 +9,10 @@
   },
   "dependencies": {
     "@nx-verify/db": "workspace:*",
-    "ajv": "^8.17.1"
+    "ajv": "^8.17.1",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5"
   }
 }
