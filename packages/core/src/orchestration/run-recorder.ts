@@ -223,6 +223,7 @@ export interface StoredRun {
   entityId: string | null;
   status: string;
   decision: string | null;
+  decisionReasons: { code: string; message_ar: string; message_en: string }[];
   clientRef: string | null;
   idempotencyKey: string | null;
   createdAt: Date;
@@ -236,11 +237,13 @@ export async function getRun(tx: TenantTransaction, runId: string): Promise<Stor
     entity_id: string | null;
     status: string;
     decision: string | null;
+    decision_reasons: { code: string; message_ar: string; message_en: string }[] | null;
     client_ref: string | null;
     idempotency_key: string | null;
     created_at: Date;
   }>(
-    `SELECT id, product_code, entity_id, status, decision, client_ref, idempotency_key, created_at
+    `SELECT id, product_code, entity_id, status, decision, decision_reasons,
+            client_ref, idempotency_key, created_at
      FROM verification_runs
      WHERE tenant_id = $1 AND id = $2`,
     [tx.tenantId, runId],
@@ -275,6 +278,7 @@ export async function getRun(tx: TenantTransaction, runId: string): Promise<Stor
     entityId: run.entity_id,
     status: run.status,
     decision: run.decision,
+    decisionReasons: run.decision_reasons ?? [],
     clientRef: run.client_ref,
     idempotencyKey: run.idempotency_key,
     createdAt: run.created_at,

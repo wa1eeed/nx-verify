@@ -94,7 +94,10 @@ describe('sealed evidence', () => {
     );
     expect(intact).toEqual({ hashMatches: true, signatureValid: true });
 
-    const altered = { ...content, status: 'OK', decision: 'PASS' };
+    // Genuinely different from what was sealed. Asserting on a value the run already
+    // carries would make this test pass without testing anything.
+    const altered = { ...content, status: 'TAMPERED', decision: 'FAIL' };
+    expect(altered.status).not.toBe(content.status);
     const tampered = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       checkEvidence(tx, sealed.evidenceId, altered, signingKey),
     );

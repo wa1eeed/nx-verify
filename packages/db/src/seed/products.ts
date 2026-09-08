@@ -43,6 +43,8 @@ export interface SeedProduct {
   partialPolicy?: 'ALL_OR_NOTHING' | 'BEST_EFFORT';
   steps: SeedStep[];
   fieldMap?: SeedFieldMap[];
+  /** Ruleset code, resolved to its id at seed time. */
+  decisionRuleset?: string;
 }
 
 export const SEED_PRODUCTS: readonly SeedProduct[] = [
@@ -136,6 +138,7 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
     subjectType: 'BUSINESS',
     isComposite: true,
     partialPolicy: 'BEST_EFFORT',
+    decisionRuleset: 'KYB_DEFAULT',
     inputSchema: {
       type: 'object',
       // The customer sends the unified number or the commercial registration, not both.
@@ -279,15 +282,18 @@ export async function applyProductSeed(
   for (const product of products) {
     await db.query(
       `INSERT INTO products (code, name_ar, name_en, subject_type, input_schema,
-                             is_composite, partial_policy)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
+                             is_composite, partial_policy, decision_ruleset)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7,
+               (SELECT id FROM decision_rulesets
+                WHERE code = $8 AND tenant_id IS NULL))
        ON CONFLICT (code) DO UPDATE SET
          name_ar = EXCLUDED.name_ar,
          name_en = EXCLUDED.name_en,
          subject_type = EXCLUDED.subject_type,
          input_schema = EXCLUDED.input_schema,
          is_composite = EXCLUDED.is_composite,
-         partial_policy = EXCLUDED.partial_policy`,
+         partial_policy = EXCLUDED.partial_policy,
+         decision_ruleset = EXCLUDED.decision_ruleset`,
       [
         product.code,
         product.nameAr,
@@ -296,6 +302,7 @@ export async function applyProductSeed(
         JSON.stringify(product.inputSchema),
         product.isComposite ?? false,
         product.partialPolicy ?? 'BEST_EFFORT',
+        product.decisionRuleset ?? null,
       ],
     );
 

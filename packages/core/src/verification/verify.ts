@@ -12,6 +12,7 @@ import {
 } from '../orchestration/run-recorder.js';
 import { normaliseRun, type NormaliseResult } from '../normalisation/normalise.js';
 import { queueEvent } from '../webhooks/dispatch.js';
+import { decide, storeDecision, type Decision } from '../decision/engine.js';
 import { resolveEntity, type IdentifierInput } from '../repositories/entities.js';
 import { computeBilling, maximumCharge, type BillingBreakdown } from '../billing/compute.js';
 import { resolvePrice } from '../billing/price-book.js';
@@ -58,6 +59,7 @@ export interface VerifyResult {
   status: string;
   entityId: string | null;
   results: PublicResults;
+  decision: Decision | null;
   billing: { amount: number; currency: string };
   normalised: NormaliseResult | null;
   breakdown: BillingBreakdown | null;
@@ -126,6 +128,16 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     steps: outcome.steps,
   });
 
+  // The decision runs after normalisation, over the profile as it now stands rather than
+  // over this run's steps alone. A verification that confirms two fields is judged
+  // against everything known about the entity, which is the difference between a lookup
+  // service and a compliance layer.
+  const decision =
+    outcome.status === 'ERROR' ? null : await decide(tx, subject.entityId, product.decisionRuleset);
+  if (decision) {
+    await storeDecision(tx, runId, decision);
+  }
+
   await settle(tx, { runId, heldAmount: reserved, chargeAmount: breakdown.total });
 
   // Announced here rather than by the caller, so that a run started by a monitor, a
@@ -137,6 +149,7 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
       verification_id: runId,
       product: product.code,
       status: outcome.status,
+      decision: decision?.outcome ?? null,
       entity_id: subject.entityId,
       client_ref: input.clientRef ?? null,
       triggered_by: input.triggeredBy,
@@ -148,6 +161,7 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     status: outcome.status,
     entityId: subject.entityId,
     results: toPublicResults(outcome.steps),
+    decision,
     billing: { amount: breakdown.total, currency: 'SAR' },
     normalised,
     breakdown,
@@ -169,6 +183,21 @@ function replayed(run: StoredRun): VerifyResult {
     status: run.status,
     entityId: run.entityId,
     results,
+    // Rule 7 covers the decision too. The same key returns the same answer, and the
+    // answer is not only the status.
+    decision:
+      run.decision === null
+        ? null
+        : {
+            outcome: run.decision as Decision['outcome'],
+            reasons: run.decisionReasons.map((reason) => ({
+              code: reason.code,
+              messageAr: reason.message_ar,
+              messageEn: reason.message_en,
+            })),
+            matchedSeq: null,
+            rulesetId: null,
+          },
     billing: {
       amount: run.steps.reduce((sum, step) => sum + Math.round((step.billedAmount ?? 0) * 100), 0),
       currency: 'SAR',

@@ -248,3 +248,14 @@ export type {
   SealEvidenceInput,
   SealedEvidence,
 } from './evidence/evidence.js';
+
+export { evaluate, isCondition } from './decision/conditions.js';
+export type { Condition, ConditionOperator, EvaluationContext } from './decision/conditions.js';
+export { decide, listRulesets, simulateRuleset, storeDecision } from './decision/engine.js';
+export type {
+  Decision,
+  DecisionReason,
+  Outcome,
+  RulesetSummary,
+  SimulationResult,
+} from './decision/engine.js';

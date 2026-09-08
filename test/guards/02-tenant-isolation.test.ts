@@ -19,6 +19,15 @@ import {
 /** Tables that are tenant scoped through a column other than tenant_id. */
 const TENANT_SCOPED_BY_PRIMARY_KEY = ['tenants'];
 
+/**
+ * Tables that carry no tenant_id and are scoped through a row they belong to.
+ *
+ * decision_rules belongs to a ruleset, and the ruleset carries the tenant, so its policy
+ * reaches the tenant through that reference. Listing them here is deliberate friction:
+ * adding one means arguing that the reference really is the boundary.
+ */
+const TENANT_SCOPED_BY_REFERENCE = ['decision_rules'];
+
 describe('guard 02: tenant isolation', () => {
   let db: TestDatabase;
   let alpha: SeededTenant;
@@ -170,9 +179,21 @@ describe('guard 02: tenant isolation', () => {
     );
 
     const tablesWithPolicy = [...new Set(rows.map((row) => row.tablename))].sort();
-    // Derived from the catalog rather than listed here, so a table added in a later unit
-    // has to carry a policy without anyone remembering to edit this test.
-    expect(tablesWithPolicy).toEqual(expected.map((row) => row.table_name));
+
+    // The direction that matters, derived from the catalog rather than listed here: every
+    // table carrying tenant data has a policy, and a table added in a later unit fails
+    // this without anyone remembering to edit the test.
+    for (const table of expected.map((row) => row.table_name)) {
+      expect(tablesWithPolicy, `${table} has no policy`).toContain(table);
+    }
+
+    // And nothing else has one unless it was argued for above.
+    const unexplained = tablesWithPolicy.filter(
+      (table) =>
+        !expected.some((row) => row.table_name === table) &&
+        !TENANT_SCOPED_BY_REFERENCE.includes(table),
+    );
+    expect(unexplained).toEqual([]);
 
     for (const table of tablesWithPolicy) {
       const policies = rows.filter((row) => row.tablename === table);

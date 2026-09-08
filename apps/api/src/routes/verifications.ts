@@ -120,6 +120,13 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
         verification_id: result.runId,
         product: body.product,
         status: result.status,
+        decision: result.decision?.outcome ?? null,
+        decision_reasons:
+          result.decision?.reasons.map((reason) => ({
+            code: reason.code,
+            message_ar: reason.messageAr,
+            message_en: reason.messageEn,
+          })) ?? [],
         entity_id: result.entityId,
         results: result.results,
         billing: {
