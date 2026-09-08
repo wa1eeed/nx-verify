@@ -10,5 +10,7 @@ export const tenants = pgTable('tenants', {
   status: text('status').notNull().default('active'),
   dataRegion: text('data_region').notNull().default('ksa'),
   retentionDays: integer('retention_days').notNull().default(1825),
+  /** How long a review case may sit before it counts as late. */
+  reviewSlaHours: integer('review_sla_hours').notNull().default(48),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

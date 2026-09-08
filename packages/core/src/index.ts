@@ -259,3 +259,23 @@ export type {
   RulesetSummary,
   SimulationResult,
 } from './decision/engine.js';
+
+export {
+  approveCase,
+  assignCase,
+  decideCase,
+  listQueue,
+  openCase,
+  queueStats,
+  returnCase,
+} from './review/queue.js';
+export type {
+  CaseOutcome,
+  CasePriority,
+  CaseStatus,
+  DecideCaseInput,
+  OpenCaseInput,
+  QueueFilter,
+  QueueItem,
+  QueueStats,
+} from './review/queue.js';

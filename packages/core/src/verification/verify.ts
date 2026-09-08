@@ -13,6 +13,7 @@ import {
 import { normaliseRun, type NormaliseResult } from '../normalisation/normalise.js';
 import { queueEvent } from '../webhooks/dispatch.js';
 import { decide, storeDecision, type Decision } from '../decision/engine.js';
+import { openCase } from '../review/queue.js';
 import { resolveEntity, type IdentifierInput } from '../repositories/entities.js';
 import { computeBilling, maximumCharge, type BillingBreakdown } from '../billing/compute.js';
 import { resolvePrice } from '../billing/price-book.js';
@@ -136,6 +137,16 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     outcome.status === 'ERROR' ? null : await decide(tx, subject.entityId, product.decisionRuleset);
   if (decision) {
     await storeDecision(tx, runId, decision);
+
+    // A REVIEW that opens no case is a REVIEW nobody does. This is what makes the
+    // outcome a piece of work rather than a label on a response.
+    if (decision.outcome === 'REVIEW') {
+      await openCase(tx, {
+        entityId: subject.entityId,
+        runId,
+        reasonCodes: decision.reasons.map((reason) => reason.code),
+      });
+    }
   }
 
   await settle(tx, { runId, heldAmount: reserved, chargeAmount: breakdown.total });
