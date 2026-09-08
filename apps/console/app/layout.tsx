@@ -25,7 +25,10 @@ export default function RootLayout({ children }: { children: ReactNode }): React
         <header className="header">
           <nav className="row">
             <strong>NX Verify</strong>
+            <a href="/dashboard">لوحة المخاطر</a>
             <a href="/registry">السجل</a>
+            <a href="/queue">طابور المراجعة</a>
+            <a href="/portfolios">المحافظ</a>
             <a href="/settings/freshness">مدد الصلاحية</a>
           </nav>
         </header>

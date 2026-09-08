@@ -9,6 +9,16 @@ import {
 import { getKeys } from '../../../lib/keys';
 import { Entity360 } from '../../../components/entity-360';
 import { query } from '../../../lib/context';
+
+/**
+ * Never prerendered and never cached.
+ *
+ * This page reads one tenant's live data, and a build machine has no database and no
+ * business holding a copy of it. Rendering it at request time is also what keeps a page
+ * from showing a snapshot of somebody else's tenant after a deployment.
+ */
+export const dynamic = 'force-dynamic';
+
 import type { ProfileFieldView } from '../../../components/field-card';
 import type { TimelineEntryView, TriggeredBy } from '../../../components/timeline';
 

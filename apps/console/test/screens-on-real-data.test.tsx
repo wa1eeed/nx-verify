@@ -182,6 +182,26 @@ describe('the console renders real data', () => {
     expect(html).toContain('معدّل من المشترك');
   });
 
+  it('renders the risk dashboard, the queue and the portfolios on real data', async () => {
+    const { default: DashboardPage } = await import('../app/dashboard/page');
+    const { default: QueuePage } = await import('../app/queue/page');
+    const { default: PortfoliosPage } = await import('../app/portfolios/page');
+
+    const dashboard = renderToStaticMarkup(await DashboardPage());
+    const queue = renderToStaticMarkup(await QueuePage());
+    const portfolios = renderToStaticMarkup(await PortfoliosPage());
+
+    expect(dashboard).toContain('لوحة المخاطر');
+    expect(dashboard).toContain('data-role="tiles"');
+    expect(queue).toContain('طابور المراجعة');
+    expect(portfolios).toContain('المحافظ');
+
+    // Rule 5 holds on every screen, not only the ones written first.
+    for (const html of [dashboard, queue, portfolios]) {
+      expect(html).not.toContain(PROVIDER_NAME);
+    }
+  });
+
   it('reports completeness gaps the tenant can act on', async () => {
     const { default: RegistryPage } = await import('../app/registry/page.js');
     const html = await render(RegistryPage({ searchParams: Promise.resolve({ view: 'people' }) }));

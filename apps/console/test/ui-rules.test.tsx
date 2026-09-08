@@ -9,6 +9,9 @@ import { Entity360 } from '../components/entity-360';
 import { FreshnessSettings } from '../components/freshness-settings';
 import { Timeline } from '../components/timeline';
 import RootLayout from '../app/layout';
+import { ReviewQueue, reasonLabel } from '../components/review-queue';
+import { Dashboard } from '../components/dashboard';
+import { Portfolios } from '../components/portfolios';
 import type { ProfileFieldView } from '../components/field-card';
 
 /**
@@ -239,5 +242,121 @@ describe('the document itself', () => {
     for (const colour of ['#0a1628', '#00d2a8', '#00a886', '#f5b942']) {
       expect(css).toContain(colour);
     }
+  });
+});
+
+describe('the phase two screens keep the same rules', () => {
+  const queueRows = [
+    {
+      caseId: 'c1',
+      entityId: 'e1',
+      entityName: 'شركة المثال',
+      reasonCodes: ['ADDRESS_UNAVAILABLE'],
+      status: 'OPEN' as const,
+      assignedTo: null,
+      decidedBy: null,
+      ageHours: 51.4,
+      overdue: true,
+    },
+    {
+      caseId: 'c2',
+      entityId: 'e2',
+      entityName: 'منشأة ثانية',
+      reasonCodes: ['NETWORK_SIGNAL'],
+      status: 'DECIDED' as const,
+      assignedTo: 'user:analyst-1',
+      decidedBy: 'user:analyst-1',
+      ageHours: 3,
+      overdue: false,
+    },
+  ];
+
+  it('shows one primary action on the review queue', () => {
+    const html = renderToStaticMarkup(<ReviewQueue rows={queueRows} />);
+    expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
+  });
+
+  it('marks a late case and names who decided', () => {
+    const html = renderToStaticMarkup(<ReviewQueue rows={queueRows} />);
+    expect(html).toContain('data-overdue="true"');
+    expect(html).toContain('متأخرة');
+    // The control is visible, not merely enforced.
+    expect(html).toContain('user:analyst-1');
+    expect(html).toContain('لا يجوز أن يكون المقرِّر هو المعتمِد');
+  });
+
+  it('translates a reason code rather than showing it raw', () => {
+    expect(reasonLabel('CR_NOT_ACTIVE')).toBe('السجل التجاري غير نشط');
+    // An unknown code shows itself rather than disappearing.
+    expect(reasonLabel('SOMETHING_NEW')).toBe('SOMETHING_NEW');
+  });
+
+  it('keeps aged out and changed apart on the dashboard', () => {
+    const html = renderToStaticMarkup(
+      <Dashboard
+        view={{
+          entities: 120,
+          entitiesWithExpired: 14,
+          fieldFreshness: { fresh: 300, expiring: 20, expired: 40, permanent: 5 },
+          openChanges: { critical: 2, warning: 6, info: 1 },
+          reviewQueue: { open: 9, overdue: 2, awaitingApproval: 1 },
+          wallet: { balance: 120_000, isLow: false },
+          monitors: { active: 4, budgetExhausted: 1 },
+        }}
+      />,
+    );
+
+    // The two states carry different words as well as different colours, because merging
+    // them would be the most misleading number on the page.
+    expect(html).toContain('معرفتنا قديمة');
+    expect(html).toContain('تحققنا واكتشفنا اختلافاً');
+    expect(html).toContain('data-role="freshness"');
+    expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
+  });
+
+  it('shows numbers left to right on the dashboard', () => {
+    const html = renderToStaticMarkup(
+      <Dashboard
+        view={{
+          entities: 120,
+          entitiesWithExpired: 0,
+          fieldFreshness: { fresh: 1, expiring: 0, expired: 0, permanent: 0 },
+          openChanges: { critical: 0, warning: 0, info: 0 },
+          reviewQueue: { open: 0, overdue: 0, awaitingApproval: 0 },
+          wallet: { balance: 4_400, isLow: true },
+          monitors: { active: 0, budgetExhausted: 0 },
+        }}
+      />,
+    );
+    expect(html).toContain('dir="ltr"');
+    expect(html).toContain('44.00');
+    expect(html).toContain('الرصيد منخفض');
+  });
+
+  it('shows what belonging to a portfolio costs and enforces', () => {
+    const html = renderToStaticMarkup(
+      <Portfolios
+        rows={[
+          {
+            portfolioId: 'p1',
+            code: 'MERCHANTS',
+            nameAr: 'محفظة التجار',
+            entities: 40,
+            withExpired: 3,
+            openCases: 1,
+            monitorByDefault: true,
+            monitorBudget: 30_000,
+            decisionRuleset: 'r1',
+          },
+        ]}
+      />,
+    );
+
+    // A portfolio that does not show its policy is a folder.
+    expect(html).toContain('data-role="monitoring"');
+    expect(html).toContain('300.00');
+    expect(html).toContain('خاصة بالمحفظة');
+    expect(html).toContain('تفوز المدة الأقصر');
+    expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
   });
 });

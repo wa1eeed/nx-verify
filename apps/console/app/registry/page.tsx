@@ -5,6 +5,15 @@ import { SAVED_VIEWS, findCompletenessGaps, findView, listRegistry } from '../..
 import { fieldLabel } from '../../components/field-card';
 
 /**
+ * Never prerendered and never cached.
+ *
+ * This page reads one tenant's live data, and a build machine has no database and no
+ * business holding a copy of it. Rendering it at request time is also what keeps a page
+ * from showing a snapshot of somebody else's tenant after a deployment.
+ */
+export const dynamic = 'force-dynamic';
+
+/**
  * The registry.
  *
  * One table for every entity type, and the tabs are saved views over it (ADR-002). Adding

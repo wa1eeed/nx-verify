@@ -4,6 +4,15 @@ import { FreshnessSettings } from '../../../components/freshness-settings';
 import { query } from '../../../lib/context';
 
 /**
+ * Never prerendered and never cached.
+ *
+ * This page reads one tenant's live data, and a build machine has no database and no
+ * business holding a copy of it. Rendering it at request time is also what keeps a page
+ * from showing a snapshot of somebody else's tenant after a deployment.
+ */
+export const dynamic = 'force-dynamic';
+
+/**
  * Retention settings on real data, with the impact preview computed from the tenant's
  * own attestations. The preview writes nothing: it is a question, not a change.
  */
