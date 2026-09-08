@@ -172,6 +172,103 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
           responses: { '200': { description: 'The balance' } },
         },
       },
+      '/v1/evidence/{token}': {
+        get: {
+          summary: 'Confirm a sealed evidence document',
+          description:
+            'Public and unauthenticated, because the holder of a printed document has no account. Returns the content hash and the sealing time only, and no personal data.',
+          parameters: [{ name: 'token', in: 'path', required: true, schema: { type: 'string' } }],
+          security: [],
+          responses: {
+            '200': { description: 'The seal' },
+            '404': { description: 'Unknown token' },
+          },
+        },
+      },
+      '/v1/review-cases': {
+        get: {
+          summary: 'List review cases, oldest and latest first',
+          responses: { '200': { description: 'The queue' } },
+        },
+      },
+      '/v1/review-cases/{id}/decide': {
+        post: {
+          summary: 'Decide a case',
+          description:
+            'A written reason is required. It is the one free text field in the platform.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Decided' } },
+        },
+      },
+      '/v1/review-cases/{id}/approve': {
+        post: {
+          summary: 'Approve a decided case',
+          description:
+            'Four eyes. The person who decided a case cannot approve it, and the database refuses it as well as the API.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Approved and closed' },
+            '403': {
+              description: 'The approver decided this case',
+              content: jsonError(errorSchema),
+            },
+          },
+        },
+      },
+      '/v1/portfolios': {
+        get: {
+          summary: 'List portfolios with their policy and health',
+          responses: { '200': { description: 'Portfolios' } },
+        },
+        post: { summary: 'Create a portfolio', responses: { '201': { description: 'Created' } } },
+      },
+      '/v1/batches/preview': {
+        post: {
+          summary: 'Count and price a batch without creating it',
+          description: 'Writes nothing. A preview is a question.',
+          responses: { '200': { description: 'The estimate' } },
+        },
+      },
+      '/v1/batches/{id}/confirm': {
+        post: {
+          summary: 'Confirm a batch against the figure that was shown',
+          description:
+            'accepted_cost must equal the estimate. If it has moved since, the batch is refused rather than run at the new number.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Confirmed' },
+            '422': { description: 'The estimate changed', content: jsonError(errorSchema) },
+          },
+        },
+      },
+      '/v1/monitors': {
+        post: {
+          summary: 'Start monitoring an entity',
+          description:
+            'A budget is required and is not defaulted. Monitoring spends the balance automatically, so the cap and the person who activated it are both recorded.',
+          responses: { '201': { description: 'Monitoring started' } },
+        },
+      },
+      '/v1/dashboard': {
+        get: {
+          summary: 'Portfolio health at a glance',
+          responses: { '200': { description: 'The dashboard' } },
+        },
+      },
+      '/v1/reports/monthly': {
+        get: {
+          summary: 'The monthly report',
+          parameters: [
+            {
+              name: 'month',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', example: '2026-09' },
+            },
+          ],
+          responses: { '200': { description: 'The report' } },
+        },
+      },
     },
   };
 }

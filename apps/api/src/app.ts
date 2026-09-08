@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit';
 import { registerErrorHandler } from './errors.js';
 import { registerEvidenceRoutes, registerVerificationRoutes } from './routes/verifications.js';
 import { registerProductRoutes } from './routes/products.js';
+import { registerOperationsRoutes } from './routes/operations.js';
 import { buildOpenApiDocument } from './openapi.js';
 import type { AppContext } from './context.js';
 
@@ -42,6 +43,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   registerProductRoutes(app, options.context);
   registerVerificationRoutes(app, options.context);
   registerEvidenceRoutes(app, options.context);
+  registerOperationsRoutes(app, options.context);
 
   return app;
 }
