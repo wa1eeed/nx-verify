@@ -202,6 +202,18 @@ describe('the console renders real data', () => {
     }
   });
 
+  it('renders the rules studio with a simulation on this tenant own entities', async () => {
+    const { default: RulesPage } = await import('../app/settings/rules/page');
+    const html = renderToStaticMarkup(
+      await RulesPage({ searchParams: Promise.resolve({ simulate: '1' }) }),
+    );
+
+    expect(html).toContain('قواعد القرار');
+    expect(html).toContain('data-role="simulation"');
+    // The default set is published by the operator and cannot be edited by a tenant.
+    expect(html).toContain('غير قابل للتعديل');
+  });
+
   it('reports completeness gaps the tenant can act on', async () => {
     const { default: RegistryPage } = await import('../app/registry/page.js');
     const html = await render(RegistryPage({ searchParams: Promise.resolve({ view: 'people' }) }));

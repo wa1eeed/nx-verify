@@ -12,6 +12,7 @@ import RootLayout from '../app/layout';
 import { ReviewQueue, reasonLabel } from '../components/review-queue';
 import { Dashboard } from '../components/dashboard';
 import { Portfolios } from '../components/portfolios';
+import { RulesStudio, describeCondition } from '../components/rules-studio';
 import type { ProfileFieldView } from '../components/field-card';
 
 /**
@@ -402,5 +403,60 @@ describe('the phase two screens keep the same rules', () => {
     expect(html).toContain('خاصة بالمحفظة');
     expect(html).toContain('تفوز المدة الأقصر');
     expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
+  });
+});
+
+describe('the rules studio', () => {
+  const rules = [
+    {
+      seq: 1,
+      description: 'cr.status لا يساوي ACTIVE',
+      outcome: 'FAIL' as const,
+      reasonAr: 'غير نشط',
+    },
+    { seq: 99, description: 'في كل الحالات الأخرى', outcome: 'PASS' as const, reasonAr: 'مقبول' },
+  ];
+
+  it('says that order decides, because it does', () => {
+    const html = renderToStaticMarkup(
+      <RulesStudio rulesetName="القواعد الافتراضية" isDefault rules={rules} />,
+    );
+    // A screen that hides evaluation order invites rules that never fire.
+    expect(html).toContain('data-role="order-notice"');
+    expect(html).toContain('أول قاعدة تنطبق هي التي تحسم');
+  });
+
+  it('will not let the system default be edited', () => {
+    const html = renderToStaticMarkup(
+      <RulesStudio rulesetName="القواعد الافتراضية" isDefault rules={rules} />,
+    );
+    expect(html).toContain('غير قابل للتعديل');
+    expect(html).toContain('disabled');
+  });
+
+  it('shows what a change would do before it is saved', () => {
+    const html = renderToStaticMarkup(
+      <RulesStudio
+        rulesetName="قواعد مشددة"
+        isDefault={false}
+        rules={rules}
+        simulation={{
+          entitiesEvaluated: 412,
+          outcomes: { PASS: 300, FAIL: 12, REVIEW: 100 },
+          changed: 87,
+        }}
+      />,
+    );
+
+    expect(html).toContain('data-role="simulation"');
+    // The number that stops a Monday morning surprise.
+    expect(html).toContain('data-role="changed"');
+    expect(html).toContain('87');
+  });
+
+  it('describes a condition in words rather than showing json', () => {
+    expect(describeCondition({ op: 'always' })).toBe('في كل الحالات الأخرى');
+    expect(describeCondition({ op: 'stale', field: 'cr.status' })).toContain('قديم');
+    expect(describeCondition({ op: 'linked_gte', relation: 'MANAGES', value: 3 })).toContain('3');
   });
 });

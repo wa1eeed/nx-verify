@@ -30,6 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
             <a href="/queue">طابور المراجعة</a>
             <a href="/portfolios">المحافظ</a>
             <a href="/settings/freshness">مدد الصلاحية</a>
+            <a href="/settings/rules">قواعد القرار</a>
           </nav>
         </header>
         <main className="page">{children}</main>
