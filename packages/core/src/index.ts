@@ -279,3 +279,20 @@ export type {
   QueueItem,
   QueueStats,
 } from './review/queue.js';
+
+export {
+  addToPortfolio,
+  createPortfolio,
+  listPortfolios,
+  membershipsOf,
+  removeFromPortfolio,
+  resolveRuleset,
+  setPortfolioTtl,
+} from './portfolios/portfolios.js';
+export type {
+  AddMemberResult,
+  CreatePortfolioInput,
+  Portfolio,
+  PortfolioMembership,
+  PortfolioPolicy,
+} from './portfolios/portfolios.js';

@@ -47,7 +47,7 @@ export async function computeScore(tx: TenantTransaction, entityId: string): Pro
   const { rows: policy } = await tx.query<{ field_path: string; weight: number }>(
     `SELECT DISTINCT ON (field_path) field_path, weight
      FROM freshness_policy
-     WHERE tenant_id IS NULL OR tenant_id = $1
+     WHERE portfolio_id IS NULL AND (tenant_id IS NULL OR tenant_id = $1)
      ORDER BY field_path, tenant_id NULLS LAST`,
     [tx.tenantId],
   );

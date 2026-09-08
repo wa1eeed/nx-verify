@@ -14,6 +14,7 @@ import { normaliseRun, type NormaliseResult } from '../normalisation/normalise.j
 import { queueEvent } from '../webhooks/dispatch.js';
 import { decide, storeDecision, type Decision } from '../decision/engine.js';
 import { openCase } from '../review/queue.js';
+import { resolveRuleset } from '../portfolios/portfolios.js';
 import { resolveEntity, type IdentifierInput } from '../repositories/entities.js';
 import { computeBilling, maximumCharge, type BillingBreakdown } from '../billing/compute.js';
 import { resolvePrice } from '../billing/price-book.js';
@@ -134,7 +135,16 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
   // against everything known about the entity, which is the difference between a lookup
   // service and a compliance layer.
   const decision =
-    outcome.status === 'ERROR' ? null : await decide(tx, subject.entityId, product.decisionRuleset);
+    outcome.status === 'ERROR'
+      ? null
+      : // A portfolio's rules beat the product's, because the portfolio is where the
+        // purpose lives: the same check means one thing when onboarding a merchant and
+        // another when paying out to a beneficiary.
+        await decide(
+          tx,
+          subject.entityId,
+          await resolveRuleset(tx, subject.entityId, product.decisionRuleset),
+        );
   if (decision) {
     await storeDecision(tx, runId, decision);
 

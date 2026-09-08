@@ -31,7 +31,7 @@ export async function listFreshnessPolicy(tx: TenantTransaction): Promise<Freshn
   }>(
     `SELECT DISTINCT ON (field_path) field_path, ttl_days, weight, tenant_id
      FROM freshness_policy
-     WHERE tenant_id IS NULL OR tenant_id = $1
+     WHERE portfolio_id IS NULL AND (tenant_id IS NULL OR tenant_id = $1)
      ORDER BY field_path, tenant_id NULLS LAST`,
     [tx.tenantId],
   );
@@ -60,9 +60,11 @@ export async function setTenantTtl(tx: TenantTransaction, input: SetTtlInput): P
   }
 
   await tx.query(
-    `INSERT INTO freshness_policy (tenant_id, field_path, ttl_days, weight)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT ((COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid)), field_path)
+    `INSERT INTO freshness_policy (tenant_id, portfolio_id, field_path, ttl_days, weight)
+     VALUES ($1, NULL, $2, $3, $4)
+     ON CONFLICT ((COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid)),
+                  (COALESCE(portfolio_id, '00000000-0000-0000-0000-000000000000'::uuid)),
+                  field_path)
      DO UPDATE SET ttl_days = EXCLUDED.ttl_days,
                    weight = EXCLUDED.weight,
                    updated_at = now()`,
@@ -72,10 +74,11 @@ export async function setTenantTtl(tx: TenantTransaction, input: SetTtlInput): P
 
 /** Returns the field to the system default. */
 export async function clearTenantTtl(tx: TenantTransaction, fieldPath: string): Promise<void> {
-  await tx.query('DELETE FROM freshness_policy WHERE tenant_id = $1 AND field_path = $2', [
-    tx.tenantId,
-    fieldPath,
-  ]);
+  await tx.query(
+    `DELETE FROM freshness_policy
+     WHERE tenant_id = $1 AND portfolio_id IS NULL AND field_path = $2`,
+    [tx.tenantId, fieldPath],
+  );
 }
 
 export type FreshnessCounts = Record<Freshness, number>;
@@ -109,6 +112,7 @@ export async function previewTtlChange(
        SELECT ttl_days
        FROM freshness_policy
        WHERE ($2 = field_path OR $2 LIKE field_path || '.%')
+         AND portfolio_id IS NULL
          AND (tenant_id = $1 OR tenant_id IS NULL)
        ORDER BY tenant_id NULLS LAST, length(field_path) DESC
        LIMIT 1
