@@ -47,6 +47,8 @@ export interface PricedTenantOptions {
     negativePct?: number;
     cachePct?: number;
   }[];
+  /** Provider named on every seeded step, and bound for this tenant. */
+  providerName?: string;
 }
 
 /** Seeds products, a provider binding, a funded wallet and a price list for a tenant. */
@@ -55,15 +57,16 @@ export async function preparePricedTenant(
   tenantId: string,
   options: PricedTenantOptions = {},
 ): Promise<void> {
+  const providerName = options.providerName ?? 'stub';
   invalidateSchemaCache();
-  await withoutTenant(pool, (tx) => applyProductSeed(tx));
+  await withoutTenant(pool, (tx) => applyProductSeed(tx, undefined, { providerName }));
 
   await withTenant(pool, tenantId, async (tx) => {
     await tx.query(
       `INSERT INTO tenant_provider_binding (tenant_id, provider, mode, credential_ref)
-       VALUES ($1, 'stub', 'BYOC', $2)
+       VALUES ($1, $3, 'BYOC', $2)
        ON CONFLICT (tenant_id, provider) DO NOTHING`,
-      [tenantId, SECRET_REF],
+      [tenantId, SECRET_REF, providerName],
     );
 
     await topUp(tx, {

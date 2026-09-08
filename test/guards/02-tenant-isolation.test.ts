@@ -116,7 +116,7 @@ describe('guard 02: tenant isolation', () => {
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE n.nspname = 'public'
-         AND c.relkind = 'r'
+         AND c.relkind IN ('r', 'p')
          AND (
            EXISTS (
              SELECT 1 FROM pg_attribute a
@@ -156,7 +156,7 @@ describe('guard 02: tenant isolation', () => {
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE n.nspname = 'public'
-         AND c.relkind = 'r'
+         AND c.relkind IN ('r', 'p')
          AND (
            EXISTS (
              SELECT 1 FROM pg_attribute a
@@ -197,6 +197,9 @@ describe('guard 02: tenant isolation', () => {
         expect(roles, `${table}: ${policy.policyname} must name its roles`).not.toContain('public');
         expect(roles, `${table}: ${policy.policyname} must not widen nx_app`).not.toContain(
           'nx_app',
+        );
+        expect(roles, `${table}: ${policy.policyname} must not widen nx_retention`).not.toContain(
+          'nx_retention',
         );
       }
     }
@@ -246,7 +249,12 @@ describe('guard 02: tenant isolation', () => {
        ORDER BY rolname`,
     );
 
-    expect(roles.map((role) => role.rolname)).toEqual(['nx_app', 'nx_migrator', 'nx_retention']);
+    expect(roles.map((role) => role.rolname)).toEqual([
+      'nx_app',
+      'nx_auth',
+      'nx_migrator',
+      'nx_retention',
+    ]);
     for (const role of roles) {
       expect(role.rolbypassrls, `${role.rolname} must not bypass row level security`).toBe(false);
       expect(role.rolsuper, `${role.rolname} must not be a superuser`).toBe(false);

@@ -167,3 +167,38 @@ export type { LedgerEntry, SettleInput, TopUpInput, WalletState } from './billin
 
 export { assertBillingIsSane, getVerification, verify } from './verification/verify.js';
 export type { VerifyInput, VerifyResult } from './verification/verify.js';
+
+export {
+  assertScope,
+  authenticate,
+  hashApiKey,
+  issueApiKey,
+  revokeApiKey,
+  secureEquals,
+  touchApiKey,
+} from './auth/api-keys.js';
+export type { AuthenticatedCaller, IssueKeyInput, IssuedKey } from './auth/api-keys.js';
+export { audit, readAudit } from './auth/audit.js';
+export type { ActorType, AuditEntry, AuditRecord } from './auth/audit.js';
+
+export {
+  DEFAULT_TOLERANCE_SECONDS,
+  RETRY_DELAYS_SECONDS,
+  SIGNATURE_HEADER,
+  nextRetryAt,
+  signPayload,
+  verifySignature,
+} from './webhooks/signing.js';
+export {
+  claimPendingDeliveries,
+  listEndpoints,
+  queueEvent,
+  recordDeliveryResult,
+  registerEndpoint,
+} from './webhooks/dispatch.js';
+export type {
+  PendingDelivery,
+  QueueEventInput,
+  WebhookEndpoint,
+  WebhookEventType,
+} from './webhooks/dispatch.js';

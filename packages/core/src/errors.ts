@@ -6,7 +6,16 @@
  * they reach an end user through the console and the API.
  */
 
-export type NxErrorCode = 'NX-4001' | 'NX-4002' | 'NX-4041' | 'NX-4091' | 'NX-5001' | 'NX-5002';
+export type NxErrorCode =
+  | 'NX-4001'
+  | 'NX-4002'
+  | 'NX-4011'
+  | 'NX-4029'
+  | 'NX-4031'
+  | 'NX-4041'
+  | 'NX-4091'
+  | 'NX-5001'
+  | 'NX-5002';
 
 interface NxErrorShape {
   status: number;
@@ -27,6 +36,24 @@ const CATALOG: Record<NxErrorCode, NxErrorShape> = {
     retryable: false,
     messageAr: 'المدخلات لا تطابق مخطط المنتج',
     messageEn: 'Input does not match the product schema',
+  },
+  'NX-4011': {
+    status: 401,
+    retryable: false,
+    messageAr: 'مفتاح غير صالح',
+    messageEn: 'Invalid credentials',
+  },
+  'NX-4029': {
+    status: 429,
+    retryable: true,
+    messageAr: 'تجاوزت الحد المسموح، أعد المحاولة لاحقاً',
+    messageEn: 'Rate limit exceeded, retry later',
+  },
+  'NX-4031': {
+    status: 403,
+    retryable: false,
+    messageAr: 'الصلاحية غير كافية',
+    messageEn: 'Insufficient scope',
   },
   'NX-4041': {
     status: 404,

@@ -24,6 +24,8 @@ export interface TestDatabase {
   retentionPool: pg.Pool;
   /** Owner role. Migrations and inspection only, never used to prove isolation. */
   migratorPool: pg.Pool;
+  /** Connection string for the application role, for code that builds its own pool. */
+  appConnectionString: string;
   databaseName: string;
   close: () => Promise<void>;
 }
@@ -60,6 +62,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     appPool,
     retentionPool,
     migratorPool,
+    appConnectionString: urlFor(baseUrl, databaseName, 'nx_app', TEST_ROLE_PASSWORDS.nx_app),
     databaseName,
     close: async () => {
       await Promise.all([appPool.end(), retentionPool.end(), migratorPool.end()]);

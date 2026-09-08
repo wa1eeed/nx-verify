@@ -23,7 +23,12 @@ export default tseslint.config(
   },
   {
     // Migration runner and operational scripts report progress on stdout by design.
-    files: ['packages/db/scripts/**/*.ts', 'scripts/**/*.ts', 'test/global-setup.ts'],
+    files: [
+      'packages/db/scripts/**/*.ts',
+      'scripts/**/*.ts',
+      'test/global-setup.ts',
+      'apps/api/src/server.ts',
+    ],
     rules: {
       'no-console': 'off',
     },

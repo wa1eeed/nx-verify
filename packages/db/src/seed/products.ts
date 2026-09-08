@@ -259,9 +259,22 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
   },
 ];
 
+export interface SeedOptions {
+  /**
+   * Overrides the provider named on every step.
+   *
+   * A product definition names a provider, and which provider serves a step is an
+   * operational choice rather than part of the product. Tests that need a distinctive
+   * name pass one here instead of rewriting rows afterwards, which silently came undone
+   * the next time the seed was applied.
+   */
+  providerName?: string;
+}
+
 export async function applyProductSeed(
   db: Queryable,
   products: readonly SeedProduct[] = SEED_PRODUCTS,
+  options: SeedOptions = {},
 ): Promise<void> {
   for (const product of products) {
     await db.query(
@@ -305,7 +318,7 @@ export async function applyProductSeed(
           product.code,
           step.stepKey,
           step.seq,
-          step.provider,
+          options.providerName ?? step.provider,
           step.endpoint,
           JSON.stringify(step.inputBinding),
           step.dependsOn ?? [],
