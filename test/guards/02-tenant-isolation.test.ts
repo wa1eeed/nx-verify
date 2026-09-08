@@ -140,10 +140,12 @@ describe('guard 02: tenant isolation', () => {
   it('gives every tenant scoped table a policy with both USING and WITH CHECK', async () => {
     const { rows } = await db.migratorPool.query<{
       tablename: string;
+      policyname: string;
+      roles: string;
       qual: string | null;
       with_check: string | null;
     }>(
-      `SELECT p.tablename, p.qual, p.with_check
+      `SELECT p.tablename, p.policyname, p.roles::text AS roles, p.qual, p.with_check
        FROM pg_policies p
        WHERE p.schemaname = 'public'
        ORDER BY p.tablename, p.policyname`,
@@ -172,11 +174,31 @@ describe('guard 02: tenant isolation', () => {
     // has to carry a policy without anyone remembering to edit this test.
     expect(tablesWithPolicy).toEqual(expected.map((row) => row.table_name));
 
-    for (const row of rows) {
-      expect(row.qual, `${row.tablename} policy needs USING`).toBeTruthy();
-      expect(row.with_check, `${row.tablename} policy needs WITH CHECK`).toBeTruthy();
-      expect(row.qual).toContain('current_tenant()');
-      expect(row.with_check).toContain('current_tenant()');
+    for (const table of tablesWithPolicy) {
+      const policies = rows.filter((row) => row.tablename === table);
+
+      // At least one policy must scope the table to the tenant in context, with both a
+      // read and a write clause. Without WITH CHECK a tenant could write rows into
+      // another tenant while still being unable to see them, which is worse.
+      const tenantScoped = policies.filter(
+        (policy) =>
+          policy.qual?.includes('current_tenant()') &&
+          policy.with_check?.includes('current_tenant()'),
+      );
+      expect(tenantScoped.length, `${table} needs a tenant scoped policy`).toBeGreaterThan(0);
+
+      // Any other policy must be restricted to a named role that is not the application
+      // role. An operator path is acceptable; a wider path for nx_app is not.
+      for (const policy of policies) {
+        if (tenantScoped.includes(policy)) {
+          continue;
+        }
+        const roles = policy.roles;
+        expect(roles, `${table}: ${policy.policyname} must name its roles`).not.toContain('public');
+        expect(roles, `${table}: ${policy.policyname} must not widen nx_app`).not.toContain(
+          'nx_app',
+        );
+      }
     }
   });
 

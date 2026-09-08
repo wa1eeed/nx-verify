@@ -1,4 +1,4 @@
-import type { TenantTransaction } from '@nx-verify/db';
+import { withSavepoint, type TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import type { RunStatus, StepOutcome } from './executor.js';
 
@@ -30,62 +30,180 @@ export interface RecordedRun {
   status: RunStatus;
 }
 
-export async function recordRun(
-  tx: TenantTransaction,
-  input: RecordRunInput,
-): Promise<RecordedRun> {
-  const { rows } = await tx.query<{ id: string }>(
-    `INSERT INTO verification_runs
-       (tenant_id, product_code, entity_id, client_ref, idempotency_key, mode_at_execution,
-        provider_used, status, latency_ms, triggered_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     RETURNING id`,
+export interface OpenRunInput {
+  productCode: string;
+  entityId: string | null;
+  clientRef?: string | null;
+  idempotencyKey?: string | null;
+  modeAtExecution: 'MANAGED' | 'BYOC';
+  triggeredBy: TriggeredBy;
+}
+
+export type OpenRunOutcome =
+  { kind: 'opened'; runId: string } | { kind: 'replayed'; run: StoredRun };
+
+/**
+ * Claims the idempotency key before anything is called.
+ *
+ * Rule 7. The key is reserved by inserting a PENDING run, so a duplicate request loses
+ * the race at the unique index and never reaches a provider. Checking for an existing
+ * run first and inserting afterwards would leave a window in which two concurrent
+ * requests both see nothing, both call the provider, and both charge.
+ */
+export async function openRun(tx: TenantTransaction, input: OpenRunInput): Promise<OpenRunOutcome> {
+  try {
+    const rows = await withSavepoint(tx, async () => {
+      const result = await tx.query<{ id: string }>(
+        `INSERT INTO verification_runs
+           (tenant_id, product_code, entity_id, client_ref, idempotency_key,
+            mode_at_execution, status, triggered_by)
+         VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7)
+         RETURNING id`,
+        [
+          tx.tenantId,
+          input.productCode,
+          input.entityId,
+          input.clientRef ?? null,
+          input.idempotencyKey ?? null,
+          input.modeAtExecution,
+          input.triggeredBy,
+        ],
+      );
+      return result.rows;
+    });
+
+    const runId = rows[0]?.id;
+    if (!runId) {
+      throw new NxError('NX-5001', { detail: 'run insert returned no id' });
+    }
+    return { kind: 'opened', runId };
+  } catch (error) {
+    if (!isUniqueViolation(error) || !input.idempotencyKey) {
+      throw error;
+    }
+    const existing = await findRunByIdempotencyKey(tx, input.idempotencyKey);
+    if (!existing) {
+      throw error;
+    }
+    return { kind: 'replayed', run: existing };
+  }
+}
+
+export interface StepCharge {
+  stepKey: string;
+  /** In halalas. Zero for a step that did not run. */
+  amount: number;
+}
+
+export interface CloseRunInput {
+  runId: string;
+  status: RunStatus;
+  latencyMs: number;
+  providerUsed?: string | null;
+  decision?: 'PASS' | 'FAIL' | 'REVIEW' | null;
+  decisionReasons?: unknown;
+  steps: readonly StepOutcome[];
+  /** Per step charges in halalas, keyed by step_key. Absent means zero. */
+  charges?: ReadonlyMap<string, number>;
+  billedAmount?: number;
+  providerCost?: number;
+}
+
+export async function closeRun(tx: TenantTransaction, input: CloseRunInput): Promise<void> {
+  const billed = input.billedAmount ?? 0;
+
+  await tx.query(
+    `UPDATE verification_runs
+     SET status = $3, latency_ms = $4, provider_used = $5, decision = $6,
+         decision_reasons = $7::jsonb, billed_amount = $8::numeric,
+         provider_cost = $9::numeric, billable = $10
+     WHERE tenant_id = $1 AND id = $2`,
     [
       tx.tenantId,
-      input.productCode,
-      input.entityId,
-      input.clientRef ?? null,
-      input.idempotencyKey ?? null,
-      input.modeAtExecution,
-      input.providerUsed ?? null,
+      input.runId,
       input.status,
       input.latencyMs,
-      input.triggeredBy,
+      input.providerUsed ?? null,
+      input.decision ?? null,
+      input.decisionReasons === undefined ? null : JSON.stringify(input.decisionReasons),
+      decimal(billed),
+      input.providerCost === undefined ? null : decimal(input.providerCost),
+      billed > 0,
     ],
   );
 
-  const runId = rows[0]?.id;
-  if (!runId) {
-    throw new NxError('NX-5001', { detail: 'run insert returned no id' });
-  }
-
   for (const step of input.steps) {
+    const amount = input.charges?.get(step.stepKey) ?? 0;
     await tx.query(
       `INSERT INTO run_steps
          (tenant_id, run_id, step_key, provider, endpoint, status, served_from_cache,
           latency_ms, billable, billed_amount, provider_cost, error_code, skipped_because)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::numeric, $11::numeric, $12, $13)
+       ON CONFLICT (tenant_id, run_id, step_key) DO NOTHING`,
       [
         tx.tenantId,
-        runId,
+        input.runId,
         step.stepKey,
         step.provider,
         step.endpoint,
         step.status,
         step.servedFromCache,
         step.latencyMs,
-        step.billable,
-        // Pricing lands in unit 6. Until then a step records what it may be billed, and
-        // a step that never ran records zero, which the database also enforces.
-        step.billable ? null : 0,
-        step.providerCost ?? null,
+        // A step that never ran, and a step that errored, are never billable. The
+        // database refuses the alternative through ck_skipped_not_billed.
+        amount > 0,
+        decimal(amount),
+        step.providerCost === undefined ? null : decimal(step.providerCost * 100),
         step.errorCode ?? null,
         step.skippedBecause ?? null,
       ],
     );
   }
+}
 
-  return { runId, status: input.status };
+function decimal(halalas: number): string {
+  const rounded = Math.round(halalas);
+  const sign = rounded < 0 ? '-' : '';
+  const absolute = Math.abs(rounded);
+  return `${sign}${Math.floor(absolute / 100)}.${String(absolute % 100).padStart(2, '0')}`;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  );
+}
+
+/** Opens and closes a run in one call, for callers that have already executed it. */
+export async function recordRun(
+  tx: TenantTransaction,
+  input: RecordRunInput,
+): Promise<RecordedRun> {
+  const opened = await openRun(tx, {
+    productCode: input.productCode,
+    entityId: input.entityId,
+    clientRef: input.clientRef ?? null,
+    idempotencyKey: input.idempotencyKey ?? null,
+    modeAtExecution: input.modeAtExecution,
+    triggeredBy: input.triggeredBy,
+  });
+
+  if (opened.kind === 'replayed') {
+    return { runId: opened.run.runId, status: input.status };
+  }
+
+  await closeRun(tx, {
+    runId: opened.runId,
+    status: input.status,
+    latencyMs: input.latencyMs,
+    providerUsed: input.providerUsed ?? null,
+    steps: input.steps,
+  });
+
+  return { runId: opened.runId, status: input.status };
 }
 
 export interface StoredRunStep {

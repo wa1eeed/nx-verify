@@ -111,6 +111,9 @@ export type {
 } from './orchestration/executor.js';
 export { findRunByIdempotencyKey, getRun, recordRun } from './orchestration/run-recorder.js';
 export type {
+  CloseRunInput,
+  OpenRunInput,
+  OpenRunOutcome,
   RecordRunInput,
   RecordedRun,
   StoredRun,
@@ -130,3 +133,37 @@ export type {
 } from './normalisation/normalise.js';
 export { findEntitiesLinkedToMany, getRelations } from './normalisation/network.js';
 export type { EntityLink, RelationEdge } from './normalisation/network.js';
+
+export {
+  HALALAS_PER_RIYAL,
+  VAT_RATE,
+  applyFraction,
+  halalasToDecimalString,
+  halalasToRiyals,
+  riyalsToHalalas,
+  vatOn,
+} from './billing/money.js';
+export { checkMargin, openPriceVersion, resolvePrice } from './billing/price-book.js';
+export type {
+  MarginCheck,
+  OpenPriceInput,
+  PriceRow,
+  ResolvePriceOptions,
+} from './billing/price-book.js';
+export { computeBilling, maximumCharge } from './billing/compute.js';
+export type { BillingBreakdown, StepCharge } from './billing/compute.js';
+export {
+  ensureWallet,
+  getLedger,
+  getWallet,
+  hold,
+  reconcile,
+  releaseHold,
+  settle,
+  topUp,
+  vatForTopUp,
+} from './billing/wallet.js';
+export type { LedgerEntry, SettleInput, TopUpInput, WalletState } from './billing/wallet.js';
+
+export { assertBillingIsSane, getVerification, verify } from './verification/verify.js';
+export type { VerifyInput, VerifyResult } from './verification/verify.js';
