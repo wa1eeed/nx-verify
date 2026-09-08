@@ -38,11 +38,20 @@ import type { AppContext } from '../context.js';
  * in. Halalas are an internal representation and stay internal (ADR-021).
  */
 
+/**
+ * The actor is a user id, not a name.
+ *
+ * It used to be free text, which made four eyes a comparison of two strings that any
+ * caller could choose. It is now an identity that must exist in this tenant and hold a
+ * role that permits the action, and the database enforces both underneath.
+ */
 const decideBody = z.object({
   outcome: z.enum(['PASS', 'FAIL']),
-  actor: z.string().min(1).max(128),
+  actor: z.string().uuid(),
   note: z.string().min(1).max(2000),
 });
+
+const actorBody = z.object({ actor: z.string().uuid() });
 
 const batchBody = z.object({
   product: z.string().min(1).max(64),
@@ -94,7 +103,7 @@ export function registerOperationsRoutes(app: FastifyInstance, context: AppConte
     { preHandler: requireAuth(context, 'review:write') },
     async (request, reply) => {
       const caller = callerOf(request);
-      const body = z.object({ actor: z.string().min(1).max(128) }).parse(request.body);
+      const body = actorBody.parse(request.body);
 
       await context.withTenant(caller.tenantId, (tx) =>
         assignCase(tx, request.params.id, body.actor),
@@ -127,10 +136,10 @@ export function registerOperationsRoutes(app: FastifyInstance, context: AppConte
     { preHandler: requireAuth(context, 'review:approve') },
     async (request, reply) => {
       const caller = callerOf(request);
-      const body = z.object({ actor: z.string().min(1).max(128) }).parse(request.body);
+      const body = actorBody.parse(request.body);
 
-      // The database refuses an approver who decided. This surfaces that refusal as our
-      // own 403 rather than a constraint violation.
+      // The database refuses an approver who decided, and refuses a role that may not
+      // approve at all. This surfaces both as our own 403 rather than a constraint name.
       await context.withTenant(caller.tenantId, (tx) =>
         approveCase(tx, request.params.id, body.actor),
       );
@@ -144,7 +153,7 @@ export function registerOperationsRoutes(app: FastifyInstance, context: AppConte
     async (request, reply) => {
       const caller = callerOf(request);
       const body = z
-        .object({ actor: z.string().min(1).max(128), reason: z.string().min(1).max(1000) })
+        .object({ actor: z.string().uuid(), reason: z.string().min(1).max(1000) })
         .parse(request.body);
 
       await context.withTenant(caller.tenantId, (tx) =>
@@ -231,7 +240,7 @@ export function registerOperationsRoutes(app: FastifyInstance, context: AppConte
     async (request, reply) => {
       const caller = callerOf(request);
       const body = z
-        .object({ entity_id: z.string().uuid(), actor: z.string().min(1).max(128) })
+        .object({ entity_id: z.string().uuid(), actor: z.string().uuid() })
         .parse(request.body);
 
       const result = await context.withTenant(caller.tenantId, (tx) =>

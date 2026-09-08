@@ -330,3 +330,27 @@ export type {
   PortfolioHealth,
   RiskDashboard,
 } from './reporting/dashboard.js';
+
+export {
+  assertRole,
+  canAdminister,
+  canApprove,
+  canDecide,
+  createSession,
+  createUser,
+  disableUser,
+  getUser,
+  hashSessionToken,
+  listUsers,
+  resolveSession,
+  revokeSession,
+  setUserRole,
+} from './auth/users.js';
+export type {
+  CreateSessionInput,
+  CreateUserInput,
+  IssuedSession,
+  ResolvedSession,
+  User,
+  UserRole,
+} from './auth/users.js';

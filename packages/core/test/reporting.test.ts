@@ -7,6 +7,7 @@ import { verify } from '../src/verification/verify.js';
 import { buildMonthlyReport, portfolioHealth, riskDashboard } from '../src/reporting/dashboard.js';
 import { addToPortfolio, createPortfolio } from '../src/portfolios/portfolios.js';
 import { decideCase, listQueue } from '../src/review/queue.js';
+import { createUser } from '../src/auth/users.js';
 import {
   createTestDatabase,
   seedTenant,
@@ -74,13 +75,16 @@ describe('reporting', () => {
   });
 
   it('builds the monthly report the risk committee sees', async () => {
+    const analystId = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      createUser(tx, { email: 'a@report.sa', displayName: 'محلل', role: 'ANALYST' }),
+    );
     const queue = await withTenant(db.appPool, tenant.tenantId, (tx) => listQueue(tx));
     if (queue[0]) {
       await withTenant(db.appPool, tenant.tenantId, (tx) =>
         decideCase(tx, {
           caseId: queue[0]?.caseId ?? '',
           outcome: 'PASS',
-          decidedBy: 'user:analyst-1',
+          decidedBy: analystId,
           note: 'تم التحقق يدوياً من المستندات.',
         }),
       );

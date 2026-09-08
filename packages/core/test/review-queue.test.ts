@@ -10,6 +10,7 @@ import {
   returnCase,
 } from '../src/review/queue.js';
 import { readAudit } from '../src/auth/audit.js';
+import { createUser } from '../src/auth/users.js';
 import {
   createTestDatabase,
   seedTenant,
@@ -23,8 +24,9 @@ import { preparePricedTenant, providerFixture } from '../../../test/helpers/bill
  * The review queue, and the control that makes it worth having.
  */
 
-const ANALYST = 'user:analyst-1';
-const APPROVER = 'user:manager-1';
+let ANALYST = '';
+let APPROVER = '';
+let VIEWER = '';
 
 describe('the review queue', () => {
   let db: TestDatabase;
@@ -53,6 +55,24 @@ describe('the review queue', () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Review Tenant');
     await preparePricedTenant(db.appPool, tenant.tenantId, { balanceHalalas: 5_000_00 });
+
+    await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      ANALYST = await createUser(tx, {
+        email: 'analyst@example.sa',
+        displayName: 'محلل الامتثال',
+        role: 'ANALYST',
+      });
+      APPROVER = await createUser(tx, {
+        email: 'manager@example.sa',
+        displayName: 'مدير المخاطر',
+        role: 'APPROVER',
+      });
+      VIEWER = await createUser(tx, {
+        email: 'viewer@example.sa',
+        displayName: 'مراقب',
+        role: 'VIEWER',
+      });
+    });
   });
 
   afterAll(async () => {
@@ -141,9 +161,16 @@ describe('the review queue', () => {
     );
     const caseId = queue[0]?.caseId ?? '';
 
+    // The approver decides this one, so the role rule is satisfied and only four eyes can
+    // refuse the self approval below. Testing it with an analyst would prove the role
+    // check instead, and leave the constraint untested.
     await withTenant(db.appPool, tenant.tenantId, (tx) =>
-      decideCase(tx, { caseId, outcome: 'PASS', decidedBy: ANALYST, note: 'مقبول.' }),
+      decideCase(tx, { caseId, outcome: 'PASS', decidedBy: APPROVER, note: 'مقبول.' }),
     );
+
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) => approveCase(tx, caseId, APPROVER)),
+    ).rejects.toMatchObject({ code: 'NX-4031' });
 
     // A control that lives only in application code is a control a hotfix removes.
     await expect(
@@ -192,6 +219,79 @@ describe('the review queue', () => {
     const item = reopened.find((entry) => entry.caseId === caseId);
     expect(item?.outcome).toBeNull();
     expect(item?.decidedBy).toBeNull();
+  });
+
+  it('refuses a viewer who tries to decide, at both layers', async () => {
+    await runReviewable('7000000003');
+    const queue = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listQueue(tx, { status: 'OPEN' }),
+    );
+    const caseId = queue[0]?.caseId ?? '';
+
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) =>
+        decideCase(tx, { caseId, outcome: 'PASS', decidedBy: VIEWER, note: 'مقبول.' }),
+      ),
+    ).rejects.toMatchObject({ code: 'NX-4031' });
+
+    // And underneath the service, the trigger refuses it too.
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) =>
+        tx.query(
+          `UPDATE review_cases
+           SET outcome = 'PASS', decided_by = $2, decided_at = now(),
+               decision_note = 'تجاوز', status = 'DECIDED'
+           WHERE id = $1`,
+          [caseId, VIEWER],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: 'NX005' });
+  });
+
+  it('refuses an analyst who tries to approve', async () => {
+    await runReviewable('7000000003');
+    const queue = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listQueue(tx, { status: 'OPEN' }),
+    );
+    const caseId = queue[0]?.caseId ?? '';
+
+    await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      decideCase(tx, { caseId, outcome: 'PASS', decidedBy: ANALYST, note: 'مقبول.' }),
+    );
+
+    // A second analyst is still not an approver. Four eyes and role are two separate
+    // controls, and passing one does not satisfy the other.
+    const secondAnalyst = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      createUser(tx, {
+        email: 'analyst2@example.sa',
+        displayName: 'محلل ثانٍ',
+        role: 'ANALYST',
+      }),
+    );
+
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) => approveCase(tx, caseId, secondAnalyst)),
+    ).rejects.toMatchObject({ code: 'NX-4031' });
+  });
+
+  it('refuses an actor who does not exist in this tenant', async () => {
+    await runReviewable('7000000003');
+    const queue = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listQueue(tx, { status: 'OPEN' }),
+    );
+    const caseId = queue[0]?.caseId ?? '';
+
+    const other = await seedTenant(db.appPool, 'Review Foreign Tenant');
+    const outsider = await withTenant(db.appPool, other.tenantId, (tx) =>
+      createUser(tx, { email: 'x@other.sa', displayName: 'غريب', role: 'APPROVER' }),
+    );
+
+    // The decider is now an identity, not a spelling, and identities belong to a tenant.
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) =>
+        decideCase(tx, { caseId, outcome: 'PASS', decidedBy: outsider, note: 'مقبول.' }),
+      ),
+    ).rejects.toMatchObject({ code: 'NX-4041' });
   });
 
   it('records who did what, so the queue itself is auditable', async () => {

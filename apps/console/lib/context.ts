@@ -1,4 +1,5 @@
 import { createPool, withTenant, type TenantTransaction } from '@nx-verify/db';
+import { currentSession, type ConsoleSession } from './session';
 import type pg from 'pg';
 
 /**
@@ -7,8 +8,8 @@ import type pg from 'pg';
  * One pool, and every read goes through withTenant. There is no query in this app that
  * runs without a tenant in scope, so rule 2 holds by construction rather than by review.
  *
- * The tenant comes from the session in a deployment. Until sessions exist it is read from
- * the environment, and that is stated plainly rather than hidden behind a default.
+ * The tenant comes from the session cookie, never from the URL, so a user cannot reach
+ * another tenant by editing an address. See lib/session.ts.
  */
 
 let pool: pg.Pool | undefined;
@@ -24,16 +25,19 @@ export function getPool(): pg.Pool {
   return pool;
 }
 
-export function currentTenantId(): string {
-  const tenantId = process.env['NX_CONSOLE_TENANT_ID'];
-  if (!tenantId) {
-    throw new Error('NX_CONSOLE_TENANT_ID is not set. Sessions replace this in deployment.');
-  }
-  return tenantId;
+export async function currentTenantId(): Promise<string> {
+  const session = await currentSession();
+  return session.tenantId;
 }
 
-export function query<T>(handler: (tx: TenantTransaction) => Promise<T>): Promise<T> {
-  return withTenant(getPool(), currentTenantId(), handler);
+export async function query<T>(handler: (tx: TenantTransaction) => Promise<T>): Promise<T> {
+  const session = await currentSession();
+  return withTenant(getPool(), session.tenantId, handler);
+}
+
+/** The caller, for screens that need to know what this person may do. */
+export async function actingUser(): Promise<ConsoleSession> {
+  return currentSession();
 }
 
 /** Releases the pool. Used on shutdown and by tests. */

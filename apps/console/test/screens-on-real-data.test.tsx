@@ -63,8 +63,10 @@ describe('the console renders real data', () => {
   });
 
   afterAll(async () => {
-    const { closePool } = await import('../lib/context.js');
+    const { closePool } = await import('../lib/context');
+    const { closeSessionPool } = await import('../lib/session');
     await closePool();
+    await closeSessionPool();
     await db.close();
   });
 

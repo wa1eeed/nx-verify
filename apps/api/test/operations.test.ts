@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../../../packages/db/src/client.js';
 import { issueApiKey } from '../../../packages/core/src/auth/api-keys.js';
+import { createUser } from '../../../packages/core/src/auth/users.js';
 import {
   createTestDatabase,
   seedTenant,
@@ -26,8 +27,8 @@ import type { FastifyInstance } from 'fastify';
  */
 
 const PROVIDER_NAME = 'wathq-example-connector';
-const ANALYST = 'user:analyst-1';
-const APPROVER = 'user:manager-1';
+let ANALYST = '';
+let APPROVER = '';
 
 const SCOPES = [
   'verifications:write',
@@ -60,6 +61,19 @@ describe('the operational API', () => {
     await preparePricedTenant(db.appPool, tenant.tenantId, {
       providerName: PROVIDER_NAME,
       balanceHalalas: 5_000_00,
+    });
+
+    await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      ANALYST = await createUser(tx, {
+        email: 'analyst@ops.sa',
+        displayName: 'محلل',
+        role: 'ANALYST',
+      });
+      APPROVER = await createUser(tx, {
+        email: 'manager@ops.sa',
+        displayName: 'معتمد',
+        role: 'APPROVER',
+      });
     });
 
     const issued = await withTenant(db.appPool, tenant.tenantId, (tx) =>
