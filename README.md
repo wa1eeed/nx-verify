@@ -21,27 +21,54 @@ nx-verify/
 
 ---
 
-## البدء
+## الحالة
+
+**المرحلة الأولى مكتملة.** الوحدات 0 إلى 10، حراس المعمارية الثمانية خضر، 237 اختباراً يمر.
+
+تفاصيل ما بُني وما تبقى في `docs/progress.md`، والقرارات في `docs/decisions.md`.
+
+---
+
+## التشغيل
 
 ```bash
-cd nx-verify
-git init
-git add .
-git commit -m "docs: architecture and product specification"
+pnpm install
 ```
 
-ثم افتح كلود كود في مجلد المشروع، وأرسل هذي الرسالة **حرفياً**:
+الاختبارات تحتاج Docker مشغّلاً، لأنها تعمل على بوستجرس 16 حقيقي عبر Testcontainers (القاعدة 11).
 
-```
-اقرأ CLAUDE.md ثم docs/00-START-HERE.md ثم docs/02-schema.md.
-
-نفّذ الوحدة 0 فقط.
-
-اعرض خطتك أولاً: هيكل المونوريبو، أداة الترحيل، إعداد RLS،
-إطار الاختبار، وخط CI. لا تكتب أي كود حتى أوافق على الخطة.
+```bash
+pnpm run test              # كل الاختبارات
+pnpm run guards            # حراس المعمارية وحدهم
+pnpm run migrate:verify    # الترحيل صعوداً ونزولاً وصعوداً، ومقارنة المخطط
+pnpm run lint && pnpm run typecheck && pnpm run style
 ```
 
-**لا تشرح المشروع في الرسالة.** المستندات تكفي، وشرحه مجدداً يخلق مصدر حقيقة ثانياً قد يتعارض معها.
+للتشغيل المحلي انسخ `.env.example` إلى `.env` واملأه.
+
+```bash
+pnpm --filter @nx-verify/api run dev       # الـAPI
+pnpm --filter @nx-verify/console run dev   # الكونسول
+```
+
+**تشغيل مزوّد حقيقي** متغير بيئة واحد، ولا سطر كود:
+
+```
+NX_PROVIDERS=wathq:https://api.example.com
+```
+
+---
+
+## بنية الكود
+
+```
+apps/api        الـAPI العام (Fastify)، المصادقة، Webhooks، OpenAPI
+apps/console    الكونسول (Next.js, RTL)
+apps/worker     المراقبة، تسليم Webhooks، الاحتفاظ، الأقسام
+packages/core   المجال: الإفادات، الهوية، الحداثة، المنتجات، التطبيع، التسعير، الأدلة
+packages/db     المخطط، ثلاثة عشر ترحيلاً، الأدوار وRLS، البذرة
+packages/providers  واجهة VerificationProvider، المزوّد الوهمي، محوّل HTTP
+```
 
 ---
 
