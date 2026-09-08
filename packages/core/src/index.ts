@@ -316,3 +316,11 @@ export type {
   CreatedBatch,
   PendingBatchItem,
 } from './batches/batches.js';
+
+export { buildMonthlyReport, portfolioHealth, riskDashboard } from './reporting/dashboard.js';
+export type {
+  FreshnessDistribution,
+  MonthlyReport,
+  PortfolioHealth,
+  RiskDashboard,
+} from './reporting/dashboard.js';
