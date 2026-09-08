@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -25,6 +26,34 @@ export interface TenantTransaction {
     values?: readonly unknown[],
   ): Promise<pg.QueryResult<R>>;
   readonly db: NodePgDatabase<typeof schema>;
+}
+
+export interface Queryable {
+  query<R extends pg.QueryResultRow = pg.QueryResultRow>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<pg.QueryResult<R>>;
+}
+
+/**
+ * Runs a handler inside a savepoint.
+ *
+ * A statement that raises aborts the entire transaction in PostgreSQL, so any code that
+ * means to catch a constraint violation and carry on must set a savepoint first.
+ * Without it the recovery path runs against an aborted transaction and fails with 25P02,
+ * masking the original error.
+ */
+export async function withSavepoint<T>(tx: Queryable, handler: () => Promise<T>): Promise<T> {
+  const name = `nx_sp_${randomBytes(8).toString('hex')}`;
+  await tx.query(`SAVEPOINT ${name}`);
+  try {
+    const result = await handler();
+    await tx.query(`RELEASE SAVEPOINT ${name}`);
+    return result;
+  } catch (error) {
+    await tx.query(`ROLLBACK TO SAVEPOINT ${name}`);
+    throw error;
+  }
 }
 
 export function createPool(connectionString: string): pg.Pool {

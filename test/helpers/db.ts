@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { inject } from 'vitest';
 import { createPool, withTenant } from '../../packages/db/src/client.js';
+import { DerivedTenantKeyProvider } from '../../packages/core/src/crypto/tenant-keys.js';
+import { StaticMasterKeySource } from '../../packages/core/src/crypto/master-key.js';
+import type { TenantKeyProvider } from '../../packages/core/src/crypto/tenant-keys.js';
 import { quoteIdentifier } from '../../packages/db/src/sql-identifier.js';
 import { TEST_ROLE_PASSWORDS } from './constants.js';
 
@@ -132,6 +135,34 @@ export async function insertAttestation(
     const id = rows[0]?.id;
     if (!id) {
       throw new Error('attestation insert returned no id');
+    }
+    return id;
+  });
+}
+
+/**
+ * A deterministic master key for tests. Real environments read it from a KMS through
+ * MasterKeySource, and it never reaches the database in either case (rule 10).
+ */
+export function testKeys(): TenantKeyProvider {
+  return new DerivedTenantKeyProvider(new StaticMasterKeySource(Buffer.alloc(32, 7)));
+}
+
+/** Creates an additional entity inside an existing tenant. */
+export async function seedEntity(
+  pool: pg.Pool,
+  tenantId: string,
+  entityType = 'PERSON',
+  displayName = 'Seeded Entity',
+): Promise<string> {
+  return withTenant(pool, tenantId, async (tx) => {
+    const { rows } = await tx.query<{ id: string }>(
+      'INSERT INTO entities (tenant_id, entity_type, display_name) VALUES ($1, $2, $3) RETURNING id',
+      [tenantId, entityType, displayName],
+    );
+    const id = rows[0]?.id;
+    if (!id) {
+      throw new Error('entity insert returned no id');
     }
     return id;
   });

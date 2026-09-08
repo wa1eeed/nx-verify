@@ -150,7 +150,12 @@ describe('guard 02: tenant isolation', () => {
     );
 
     const tablesWithPolicy = new Set(rows.map((row) => row.tablename));
-    expect([...tablesWithPolicy].sort()).toEqual(['attestations', 'entities', 'tenants']);
+    expect([...tablesWithPolicy].sort()).toEqual([
+      'attestations',
+      'entities',
+      'entity_identifiers',
+      'tenants',
+    ]);
 
     for (const row of rows) {
       expect(row.qual, `${row.tablename} policy needs USING`).toBeTruthy();
@@ -158,6 +163,38 @@ describe('guard 02: tenant isolation', () => {
       expect(row.qual).toContain('current_tenant()');
       expect(row.with_check).toContain('current_tenant()');
     }
+  });
+
+  it('makes every view a security invoker view', async () => {
+    // A view runs with its owner's privileges by default, and the owner owns every
+    // table. Without security_invoker a view reads straight past every policy and hands
+    // one tenant another tenant's rows.
+    const { rows } = await db.migratorPool.query<{
+      viewname: string;
+      options: string[] | null;
+    }>(
+      `SELECT c.relname AS viewname, c.reloptions AS options
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public' AND c.relkind IN ('v', 'm')
+       ORDER BY c.relname`,
+    );
+
+    for (const view of rows) {
+      expect(
+        view.options ?? [],
+        `view ${view.viewname} must be created WITH (security_invoker = true)`,
+      ).toContain('security_invoker=true');
+    }
+  });
+
+  it('hides another tenant rows through the profile view', async () => {
+    const visible = await withTenant(db.appPool, alpha.tenantId, async (tx) => {
+      const result = await tx.query<{ entity_id: string }>('SELECT entity_id FROM entity_profile');
+      return result.rows;
+    });
+    expect(visible).toHaveLength(1);
+    expect(visible[0]?.entity_id).toBe(alpha.entityId);
   });
 
   it('keeps the application role free of BYPASSRLS and free of ownership', async () => {

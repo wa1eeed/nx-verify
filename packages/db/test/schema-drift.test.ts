@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import { createTestDatabase, type TestDatabase } from '../../../test/helpers/db.js';
-import { attestations, entities, tenants } from '../src/schema/index.js';
+import { attestations, entities, entityIdentifiers, tenants } from '../src/schema/index.js';
 
 /**
  * ADR-009 leaves the SQL migrations as the single source of truth and keeps Drizzle as a
@@ -13,7 +13,7 @@ import { attestations, entities, tenants } from '../src/schema/index.js';
  * the live catalog is stricter and adds no dependency.
  */
 
-const TABLES: PgTable[] = [tenants, entities, attestations];
+const TABLES: PgTable[] = [tenants, entities, entityIdentifiers, attestations];
 
 /** Both sides describe the same type in slightly different words. */
 function normalizeType(type: string): string {

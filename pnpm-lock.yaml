@@ -52,7 +52,11 @@ importers:
 
   apps/worker: {}
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      '@nx-verify/db':
+        specifier: workspace:*
+        version: link:../db
 
   packages/db:
     dependencies:
