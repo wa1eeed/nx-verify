@@ -6,6 +6,8 @@ export const tenants = pgTable('tenants', {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   legalName: text('legal_name').notNull(),
+  /** The workspace name a person types when signing in. Generated when not supplied. */
+  slug: text('slug').notNull(),
   crNumber: text('cr_number'),
   status: text('status').notNull().default('active'),
   dataRegion: text('data_region').notNull().default('ksa'),

@@ -354,3 +354,19 @@ export type {
   User,
   UserRole,
 } from './auth/users.js';
+
+export {
+  DEFAULT_PARAMS,
+  PASSWORD_REQUIREMENTS,
+  assertPasswordAcceptable,
+  changeOwnPassword,
+  login,
+  setPassword,
+} from './auth/passwords.js';
+export type {
+  LoginInput,
+  LoginSuccess,
+  PasswordRequirements,
+  ScryptParams,
+  SetPasswordInput,
+} from './auth/passwords.js';
