@@ -128,14 +128,53 @@ CREATE INDEX ix_att_expiry
 
 ### قيود منع التحديث
 
-```sql
-CREATE RULE att_no_update AS ON UPDATE TO attestations
-  WHERE OLD.superseded_by IS NOT NULL DO INSTEAD NOTHING;
+طبقتان، لا واحدة. الصلاحيات تجعل العملية غير متاحة، والمحفزات تجعلها خطأ.
 
-REVOKE DELETE ON attestations FROM app_role;
+```sql
+-- الطبقة الأولى: الصلاحيات. دور التطبيق لا يملك DELETE ولا UPDATE
+-- إلا على عمود superseded_by وحده.
+REVOKE UPDATE, DELETE ON attestations FROM nx_app;
+GRANT UPDATE (superseded_by) ON attestations TO nx_app;
+GRANT DELETE ON attestations TO nx_retention;
+
+-- الطبقة الثانية: محفزان يرفعان أخطاء بأكوادنا.
+CREATE FUNCTION app.attestations_forbid_update() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.superseded_by IS NOT NULL THEN
+    RAISE EXCEPTION 'attestation % is already superseded' USING ERRCODE = 'NX001';
+  END IF;
+  IF NEW.superseded_by IS NULL THEN
+    RAISE EXCEPTION 'superseded_by cannot be cleared' USING ERRCODE = 'NX001';
+  END IF;
+  IF (to_jsonb(NEW) - 'superseded_by') IS DISTINCT FROM (to_jsonb(OLD) - 'superseded_by') THEN
+    RAISE EXCEPTION 'superseded_by is the only mutable column' USING ERRCODE = 'NX001';
+  END IF;
+  RETURN NEW;
+END; $$;
+
+CREATE TRIGGER trg_attestations_forbid_update
+  BEFORE UPDATE ON attestations
+  FOR EACH ROW EXECUTE FUNCTION app.attestations_forbid_update();
+
+CREATE FUNCTION app.attestations_forbid_delete() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  IF pg_has_role(current_user, 'nx_retention', 'USAGE') THEN
+    RETURN OLD;
+  END IF;
+  RAISE EXCEPTION 'attestations may only be deleted by the retention role'
+    USING ERRCODE = 'NX002';
+END; $$;
+
+CREATE TRIGGER trg_attestations_forbid_delete
+  BEFORE DELETE ON attestations
+  FOR EACH ROW EXECUTE FUNCTION app.attestations_forbid_delete();
 ```
 
 التحديث الوحيد المسموح هو ضبط `superseded_by` مرة واحدة. الحذف حصراً عبر دور الاحتفاظ.
+
+> **تصحيح (ADR-010).** كان هذا القسم يقترح `CREATE RULE ... DO INSTEAD NOTHING`. تلك القاعدة تفشل الحارس 01 من وجهين: تسمح بأي `UPDATE` على صف لم يُوسم بعد بما فيه إعادة كتابة `value` أو `observed_at`، وتبتلع المخالفة صامتة بدل رفع خطأ. والمحفزات ترفض المالك نفسه، وهو ما يثبته الحارس بتشغيل نفس المحاولات بدور المالك الذي يملك الصلاحية أصلاً.
 
 ---
 
@@ -186,22 +225,63 @@ HAVING count(DISTINCT r.from_entity) >= 3;
 الملف ليس جدولاً بل عرضاً محسوباً:
 
 ```sql
-CREATE VIEW entity_profile AS
+-- security_invoker إلزامي. العرض بلا هذا الخيار يعمل بصلاحيات مالكه،
+-- والمالك يملك كل الجداول، فيقرأ متجاوزاً كل سياسات RLS.
+CREATE VIEW entity_profile WITH (security_invoker = true) AS
 SELECT DISTINCT ON (a.tenant_id, a.entity_id, a.field_path)
   a.tenant_id, a.entity_id, a.field_path, a.value,
-  a.authority, a.observed_at, a.valid_until, a.confidence,
-  CASE
-    WHEN a.valid_until IS NULL THEN 'permanent'
-    WHEN a.valid_until <= now() THEN 'expired'
-    WHEN a.valid_until <= now() + interval '14 days' THEN 'expiring'
-    ELSE 'fresh'
-  END AS freshness
+  a.authority, a.observed_at, a.confidence, a.id AS attestation_id,
+  policy.ttl_days, policy.weight,
+  COALESCE(a.valid_until, a.observed_at + make_interval(days => policy.ttl_days))
+    AS effective_until,
+  app.freshness_state(
+    COALESCE(a.valid_until, a.observed_at + make_interval(days => policy.ttl_days)),
+    policy.ttl_days
+  ) AS freshness
 FROM attestations a
+LEFT JOIN LATERAL (
+  SELECT p.ttl_days, p.weight
+  FROM freshness_policy p
+  WHERE (a.field_path = p.field_path OR a.field_path LIKE p.field_path || '.%')
+    AND (
+      (p.portfolio_id IS NOT NULL AND EXISTS (
+         SELECT 1 FROM portfolio_members m
+         WHERE m.tenant_id = a.tenant_id AND m.entity_id = a.entity_id
+           AND m.portfolio_id = p.portfolio_id))
+      OR (p.portfolio_id IS NULL AND (p.tenant_id = a.tenant_id OR p.tenant_id IS NULL))
+    )
+  ORDER BY (p.portfolio_id IS NOT NULL) DESC, p.tenant_id NULLS LAST,
+           length(p.field_path) DESC, p.ttl_days ASC
+  LIMIT 1
+) policy ON true
 WHERE a.superseded_by IS NULL
 ORDER BY a.tenant_id, a.entity_id, a.field_path, a.observed_at DESC;
 ```
 
+وحالات الحداثة الأربع تُعرَّف مرة واحدة في دالة يستعملها العرض ومعاينة الأثر معاً:
+
+```sql
+CREATE FUNCTION app.freshness_state(effective_until timestamptz, ttl_days int DEFAULT NULL)
+  RETURNS text LANGUAGE sql STABLE AS $$
+  SELECT CASE
+    WHEN effective_until IS NULL THEN 'permanent'
+    WHEN effective_until <= now() THEN 'expired'
+    WHEN effective_until <= now() + CASE
+           WHEN ttl_days IS NULL THEN interval '14 days'
+           ELSE least(interval '14 days', make_interval(days => ttl_days) * 0.25)
+         END THEN 'expiring'
+    ELSE 'fresh'
+  END;
+$$;
+```
+
 للأداء عند الحجم الكبير، حوّله إلى `MATERIALIZED VIEW` مع تحديث تدريجي عند كتابة كل إفادة، أو جدول إسقاط مُصان بـtrigger. **ابدأ بالعرض العادي**، ولا تُحسّن قبل أن تقيس.
+
+> **تصحيحان.**
+>
+> **الأول (ADR-013).** كان العرض يحسب الحداثة من `valid_until` المخزّن. ذلك يجمّد عمر الحقل على المدة التي كانت سارية يوم كُتب، ويجعل تعديل المدة يستلزم إعادة كتابة إفادات، وهو ما تمنعه القاعدة 1. الحساب الآن من `observed_at` والمدة السارية لحظة القراءة، و`valid_until` يبقى لانتهاء فعلي صادر عن الجهة وهو يتغلب لأن انتهاءً حقيقياً أولى من تقدير.
+>
+> **الثاني (ADR-012).** كانت نافذة "مقترب من الانتهاء" أربعة عشر يوماً ثابتة. بعد التحول إلى الحساب انكسر هذا الثابت: `cr.status` مدته سبعة أيام، فنافذة أربعة عشر تجعله مقترب الانتهاء لحظة التحقق منه، وتحذير يعمل دائماً ليس تحذيراً. النافذة الآن الأقل بين أربعة عشر يوماً وربع المدة، والحقل بلا مدة يبقى على الثابت لأنه لا مدة لتؤخذ منها نسبة.
 
 ---
 
@@ -209,15 +289,31 @@ ORDER BY a.tenant_id, a.entity_id, a.field_path, a.observed_at DESC;
 
 ```sql
 CREATE TABLE freshness_policy (
-  tenant_id   uuid,
-  field_path  text NOT NULL,
-  ttl_days    int  NOT NULL,
-  weight      int  NOT NULL DEFAULT 10,
-  PRIMARY KEY (COALESCE(tenant_id,'00000000-0000-0000-0000-000000000000'::uuid), field_path)
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id    uuid,
+  portfolio_id uuid,
+  field_path   text NOT NULL,
+  ttl_days     int  NOT NULL CHECK (ttl_days > 0),
+  weight       int  NOT NULL DEFAULT 10 CHECK (weight >= 0),
+  updated_at   timestamptz NOT NULL DEFAULT now()
 );
+
+-- صف واحد لكل حقل لكل مستوى.
+CREATE UNIQUE INDEX uq_freshness_policy
+  ON freshness_policy (
+    (COALESCE(tenant_id,   '00000000-0000-0000-0000-000000000000'::uuid)),
+    (COALESCE(portfolio_id,'00000000-0000-0000-0000-000000000000'::uuid)),
+    field_path
+  );
 ```
 
-`tenant_id = NULL` يعني السياسة الافتراضية، ويمكن لكل عميل تجاوزها.
+`tenant_id = NULL` يعني السياسة الافتراضية، ويمكن لكل عميل تجاوزها، ولكل محفظة تجاوزها فوقه.
+
+**ترتيب الأخصية:** المحفظة، ثم المشترك، ثم افتراضي النظام. وبين المحافظ المتعارضة تفوز المدة الأقصر (ADR-035): إن قالت أي محفظة إن هذا الحقل يجب فحصه أسبوعياً فهو كذلك، والحسم في الاتجاه المتساهل يُضعف صامتاً سياسة أشد وضعها أحدهم عمداً.
+
+**والمطابقة بأطول بادئة** (ADR-029): صف على `cr.core` يحكم `cr.core.name` و`cr.core.capital` بلا صف لكل واحد. بلا ذلك يحتاج كل تخطيط جديد في `step_field_map` صف سياسة مرافقاً، وأول نسيان يُسقط الحقل من الحداثة والدرجة معاً بصمت.
+
+> **تصحيح.** كان المفتاح مكتوباً `PRIMARY KEY (COALESCE(tenant_id, ...), field_path)`. بوستجرس لا يقبل تعبيراً في مفتاح أساسي. الفهرس الفريد على نفس التعبير يعطي الضمان ذاته.
 
 ### القيم الافتراضية المقترحة
 
@@ -419,6 +515,8 @@ CREATE TABLE price_book (
 CREATE TABLE wallets (
   tenant_id       uuid PRIMARY KEY REFERENCES tenants(id),
   balance         numeric(12,2) NOT NULL DEFAULT 0,
+  -- المحجوز لعمليات بدأت ولم تُسوَّ بعد.
+  held            numeric(12,2) NOT NULL DEFAULT 0 CHECK (held >= 0),
   currency        char(3) NOT NULL DEFAULT 'SAR',
   expires_at      timestamptz,
   low_threshold   numeric(12,2) NOT NULL DEFAULT 0.15
@@ -429,12 +527,19 @@ CREATE TABLE wallet_ledger (
   tenant_id   uuid NOT NULL,
   delta       numeric(12,2) NOT NULL,
   balance_after numeric(12,2) NOT NULL,
-  reason      text NOT NULL,   -- TOPUP | CHARGE | REFUND | EXPIRY | ADJUSTMENT
+  reason      text NOT NULL,
+    -- TOPUP | CHARGE | REFUND | EXPIRY | ADJUSTMENT | HOLD | RELEASE
   run_id      uuid REFERENCES verification_runs(id),
   vat_invoice_id text,
-  created_at  timestamptz NOT NULL DEFAULT now()
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  -- الضريبة تستحق عند الشحن. لا فاتورة ضريبية ثانية عند الاستهلاك.
+  CONSTRAINT ck_vat_only_on_topup CHECK (vat_invoice_id IS NULL OR reason = 'TOPUP')
 );
 ```
+
+والدفتر append-only بمحفز يرفع `NX004` على أي `UPDATE` أو `DELETE`، تماماً كجدول الإفادات وللسبب نفسه: رصيد قابل للتعديل رصيد لا يستطيع أحد الدفاع عنه في خلاف فوترة.
+
+> **تصحيح (ADR-019).** أُضيف سببان إلى القائمة: `HOLD` و`RELEASE`، وعمود `held` إلى `wallets`. القاعدة 3 في القسم 6 من ملحق المنتجات توجب حجز أعلى تكلفة قبل التنفيذ ثم تسوية الفرق، وهذا لا يُعبَّر عنه بـ`CHARGE` وحده: البديلان هما إمساك قفل على صف المحفظة عبر استدعاءات الشبكة، أو السماح برصيد سالب عند التوازي، وكلاهما مرفوض. المسار: حجز الحد الأقصى، تنفيذ، ثم `RELEASE` للحجز و`CHARGE` بالمبلغ الفعلي في معاملة واحدة.
 
 ### قواعد التسعير
 
@@ -481,13 +586,19 @@ CREATE TABLE audit_log (
 
 ```
 لكل مستأجر:
-  حدد الإفادات حيث observed_at < now() - retention_days
-  إن لم تكن الإفادة الأخيرة السارية لحقلها:
-     أتلفها إتلافاً تاماً
-  وإلا:
-     أبقِ القيمة، أخفِ التفاصيل الشخصية (tombstone)
+  أتلف إتلافاً تاماً كل إفادة مُوسَمة superseded_by
+    وobserved_at أقدم من retention_days
+  ولكل كيان لا تحمل أي إفادة له تاريخاً داخل المدة:
+     احذف معرّفاته من entity_identifiers
+     وسِمه بـarchived_at
   سجّل عملية الإتلاف في audit_log
 ```
+
+الحذف يجري بدور `nx_retention` وحده، وهو الدور الوحيد في النظام الحامل لـ`DELETE` على `attestations`.
+
+> **تصحيح (ADR-028).** كان النص يقول: أبقِ القيمة وأخفِ التفاصيل الشخصية على الإفادة السارية. ذلك يستلزم تعديل صف في `attestations`، وهو ممنوع بالقاعدة 1 ويرفضه الحارس 01 ويرفضه المحفز في القسم 3.
+>
+> الإتلاف يطال إذن المكان الذي تعيش فيه البيانات الشخصية فعلاً: المعرّفات. قيم الإفادات تبقى لأنها لا تحمل معرّفاً صريحاً أصلاً (القاعدة 4)، فيبقى سجل ما تم التحقق منه وتزول القدرة على ربطه بشخص. وهذا يحفظ الوعدين معاً: "بياناتكم تُتلف تلقائياً"، و"سجل التدقيق يبقى قابلاً للتقديم".
 
 سياسة الاحتفاظ **ميزة بيعية لا عبء**. "بياناتكم تُتلف تلقائياً بعد المدة المتعاقد عليها" جملة يحبها مسؤول الامتثال.
 

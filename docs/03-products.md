@@ -85,25 +85,58 @@ CREATE TABLE product_steps (
 
 ```sql
 CREATE TABLE step_field_map (
-  product_code    text NOT NULL,
-  step_key        text NOT NULL,
-  source_path     text NOT NULL,
-  field_path      text NOT NULL,
-  entity_role     text NOT NULL DEFAULT 'SUBJECT',
+  product_code           text NOT NULL,
+  step_key               text NOT NULL,
+  -- مسار في حمولة المزوّد. يقبل [*] واحدة للمرور على مصفوفة،
+  -- وعندها @.<path> يقرأ حقلاً من العنصر الحالي.
+  source_path            text NOT NULL,
+  field_path             text NOT NULL,
+  entity_role            text NOT NULL DEFAULT 'SUBJECT',
     -- SUBJECT | MANAGER | OWNER | ACCOUNT_HOLDER | PROPERTY_OWNER
-  entity_type     text,
-  identifier_path text,
-  relation_type   text,
-  ttl_override    int,
-  PRIMARY KEY (product_code, step_key, source_path)
+  entity_type            text,
+  identifier_path        text,
+  -- نوع المعرّف: literal:<TYPE> أو مسار. إلزامي لكل كيان فرعي.
+  identifier_type_source text,
+  relation_type          text,
+  -- انتهاء فعلي مطبوع في الحمولة، مثل تاريخ انتهاء وثيقة العمل الحر.
+  valid_until_path       text,
+  confidence             numeric(4,3) NOT NULL DEFAULT 1.000,
+  PRIMARY KEY (product_code, step_key, source_path),
+  -- كيان فرعي بلا معرّف لا يمكن حلّه، وإنشاؤه بلا حل هو ما يُدخل التكرار.
+  CONSTRAINT ck_secondary_entity_is_resolvable CHECK (
+    entity_role = 'SUBJECT' OR (identifier_path IS NOT NULL AND entity_type IS NOT NULL)
+  )
 );
 ```
 
 هذا الجدول هو ما يحوّل استجابة المزود إلى إفادات وكيانات وعلاقات، **بلا سطر كود لكل منتج**.
 
+> **ثلاثة تصحيحات.**
+>
+> **حُذف `ttl_override` (ADR-017).** كتابة مدة لكل تخطيط على الإفادة تجمّد عمر الحقل على ما قاله تعريف المنتج يوم كُتبت، وهو بالضبط ما أزاله ADR-013، ويعيد تعديل المدة إلى كتابة على `attestations`. مدة الحقل تعيش في `freshness_policy` وحدها، وهي أصلاً ثلاثية المستويات وأثرها فوري.
+>
+> **أُضيف `identifier_type_source` (ADR-018).** `identifier_path` وحده يعطي سلسلة أرقام، وسجل تجاري وهوية وطنية قد يتشابهان طولاً وشكلاً. التخمين هنا يدمج شخصين مختلفين في كيان واحد، وهو خطأ لا يظهر إلا متأخراً ولا يُفكّ بسهولة. النوع يُصرَّح به، والتطبيع يرفع خطأ إن لم يُحسم.
+>
+> **أُضيف `valid_until_path` و`confidence`.** الأول لانتهاء فعلي صادر عن الجهة، وهو ما كان `ttl_override` يحاول تغطيته بالطريقة الخاطئة. والثاني لأن مطابقة بالاسم ليست دليلاً بقوة مطابقة بمعرّف.
+
 - `entity_role = SUBJECT` يعني أن الإفادة تُلحق بالكيان الرئيسي.
 - أي دور آخر يعني إنشاء أو مطابقة كيان فرعي، وربطه بعلاقة من نوع `relation_type`.
 - `identifier_path` يحدد المعرّف الذي يُحل به الكيان الفرعي، وهو ما يمنع تكرار نفس الشخص عشر مرات.
+- اتجاه العلاقة ثابت: من الكيان الرئيسي إلى الكيان الفرعي. فـ`MANAGES` تعني `from_entity` المنشأة و`to_entity` الشخص، وهو ما يجعل استعلام الشبكة في المخطط يعدّ المنشآت لكل شخص.
+
+**المرور على مصفوفة.** عقد التأسيس يُرجع عدة مدراء، وصف تخطيط واحد يغطيهم:
+
+```
+source_path            = $.managers[*].signing_authority
+field_path             = manager.signing_authority
+entity_role            = MANAGER
+entity_type            = PERSON
+identifier_path        = @.id
+identifier_type_source = @.id_type
+relation_type          = MANAGES
+```
+
+كل عنصر يُنتج كياناً وإفادة وعلاقة. ونفس الشخص في ثلاث منشآت يُحل إلى كيان واحد بثلاث علاقات، وهو ما يجعل استعلام الشبكة يجده بلا تخزين إضافي.
 
 ---
 
