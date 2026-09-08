@@ -6,3 +6,5 @@ export { enforceRetention, ensureAuditPartitions } from './jobs/retention.js';
 export type { RetentionOptions, RetentionSummary } from './jobs/retention.js';
 export { runBatchItems } from './jobs/batches.js';
 export type { BatchItemSummary, RunBatchesOptions } from './jobs/batches.js';
+export { checkProviderHealth } from './jobs/provider-health.js';
+export type { ProviderHealthOptions, ProviderHealthSummary } from './jobs/provider-health.js';
