@@ -1,6 +1,24 @@
 export { NxError } from './errors.js';
 export type { NxErrorCode, NxErrorOptions } from './errors.js';
 export { canonicalJson } from './canonical-json.js';
+export {
+  REDACTED,
+  describeProviderInput,
+  redactForLog,
+  stripProviderNames,
+} from './logging/redact.js';
+export {
+  assertNoProviderLeak,
+  scrubText,
+  toPublicResults,
+  toPublicStepResult,
+} from './public-view.js';
+export type {
+  InternalStepRecord,
+  PublicResults,
+  PublicStepResult,
+  PublicStepStatus,
+} from './public-view.js';
 
 export { EnvMasterKeySource, StaticMasterKeySource } from './crypto/master-key.js';
 export type { MasterKeySource } from './crypto/master-key.js';

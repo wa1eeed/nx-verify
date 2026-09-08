@@ -6,5 +6,9 @@
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@nx-verify/core": "workspace:*",
+    "@nx-verify/db": "workspace:*"
   }
 }
