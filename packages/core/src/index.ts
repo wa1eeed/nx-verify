@@ -39,5 +39,27 @@ export type {
   RecordAttestationResult,
 } from './repositories/attestations.js';
 
+export { getEntity, resolveEntity } from './repositories/entities.js';
+export type {
+  EntitySummary,
+  EntityType,
+  IdentifierInput,
+  ResolveEntityInput,
+  ResolvedEntity,
+} from './repositories/entities.js';
+
+export {
+  clearTenantTtl,
+  listFreshnessPolicy,
+  previewTtlChange,
+  setTenantTtl,
+} from './repositories/freshness.js';
+export type {
+  FreshnessCounts,
+  FreshnessPolicyRow,
+  SetTtlInput,
+  TtlChangePreview,
+} from './repositories/freshness.js';
+
 export { getEntityProfile } from './repositories/profile.js';
 export type { Freshness, ProfileField } from './repositories/profile.js';

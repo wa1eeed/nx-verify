@@ -149,13 +149,28 @@ describe('guard 02: tenant isolation', () => {
        ORDER BY p.tablename, p.policyname`,
     );
 
-    const tablesWithPolicy = new Set(rows.map((row) => row.tablename));
-    expect([...tablesWithPolicy].sort()).toEqual([
-      'attestations',
-      'entities',
-      'entity_identifiers',
-      'tenants',
-    ]);
+    const { rows: expected } = await db.migratorPool.query<{ table_name: string }>(
+      `SELECT c.relname AS table_name
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public'
+         AND c.relkind = 'r'
+         AND (
+           EXISTS (
+             SELECT 1 FROM pg_attribute a
+             WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND a.attnum > 0
+               AND NOT a.attisdropped
+           )
+           OR c.relname = ANY($1::text[])
+         )
+       ORDER BY c.relname`,
+      [TENANT_SCOPED_BY_PRIMARY_KEY],
+    );
+
+    const tablesWithPolicy = [...new Set(rows.map((row) => row.tablename))].sort();
+    // Derived from the catalog rather than listed here, so a table added in a later unit
+    // has to carry a policy without anyone remembering to edit this test.
+    expect(tablesWithPolicy).toEqual(expected.map((row) => row.table_name));
 
     for (const row of rows) {
       expect(row.qual, `${row.tablename} policy needs USING`).toBeTruthy();

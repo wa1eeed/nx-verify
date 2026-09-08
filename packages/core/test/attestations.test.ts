@@ -109,11 +109,12 @@ describe('recording attestations and reading the profile', () => {
     }
   });
 
-  it('computes freshness from valid_until alone, with no call and no cost', async () => {
+  it('computes freshness with no call and no cost', async () => {
     const past = new Date(Date.now() - 30 * 24 * HOUR);
     const soon = new Date(Date.now() + 3 * 24 * HOUR);
     const far = new Date(Date.now() + 300 * 24 * HOUR);
 
+    // A real expiry from the authority.
     await write('address.national', { city: 'Riyadh' }, new Date(), past);
     await write('iban.ownership', { matched: true }, new Date(), soon);
     await write('property.deed', { number: 'X' }, new Date(), far);
@@ -126,7 +127,25 @@ describe('recording attestations and reading the profile', () => {
     expect(byPath.get('address.national')).toBe('expired');
     expect(byPath.get('iban.ownership')).toBe('expiring');
     expect(byPath.get('property.deed')).toBe('fresh');
-    expect(byPath.get('cr.status')).toBe('permanent');
+    // No expiry given, but cr.status has a TTL, so it ages from observed_at.
+    expect(byPath.get('cr.status')).toBe('fresh');
+    // No expiry and no TTL. Nothing ages it, so it stays permanent.
+    expect(byPath.get('manager.core')).toBe('permanent');
+  });
+
+  it('leaves valid_until stored but ages TTL driven fields from observed_at', async () => {
+    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getEntityProfile(tx, tenant.entityId),
+    );
+
+    const crStatus = profile.find((field) => field.fieldPath === 'cr.status');
+    expect(crStatus?.ttlDays).toBe(7);
+    // observed_at plus the TTL in force right now, computed on read and never stored.
+    expect(crStatus?.effectiveUntil?.getTime()).toBeGreaterThan(Date.now());
+
+    const managerCore = profile.find((field) => field.fieldPath === 'manager.core');
+    expect(managerCore?.ttlDays).toBeNull();
+    expect(managerCore?.effectiveUntil).toBeNull();
   });
 
   it('never exposes the provider through the profile or the timeline', async () => {

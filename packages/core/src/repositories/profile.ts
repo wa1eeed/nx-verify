@@ -12,7 +12,14 @@ export interface ProfileField {
   value: unknown;
   authority: string | null;
   observedAt: Date;
-  validUntil: Date | null;
+  /**
+   * When this field stops counting as current. Either a real expiry from the authority
+   * or observed_at plus the TTL in force right now. It is computed on read, never stored,
+   * which is what makes a TTL edit inert (ADR-007).
+   */
+  effectiveUntil: Date | null;
+  ttlDays: number | null;
+  weight: number | null;
   confidence: number;
   freshness: Freshness;
   attestationId: string;
@@ -27,13 +34,15 @@ export async function getEntityProfile(
     value: unknown;
     authority: string | null;
     observed_at: Date;
-    valid_until: Date | null;
+    effective_until: Date | null;
+    ttl_days: number | null;
+    weight: number | null;
     confidence: string;
     freshness: Freshness;
     attestation_id: string;
   }>(
-    `SELECT field_path, value, authority, observed_at, valid_until, confidence,
-            freshness, attestation_id
+    `SELECT field_path, value, authority, observed_at, effective_until, ttl_days, weight,
+            confidence, freshness, attestation_id
      FROM entity_profile
      WHERE tenant_id = $1 AND entity_id = $2
      ORDER BY field_path`,
@@ -45,7 +54,9 @@ export async function getEntityProfile(
     value: row.value,
     authority: row.authority,
     observedAt: row.observed_at,
-    validUntil: row.valid_until,
+    effectiveUntil: row.effective_until,
+    ttlDays: row.ttl_days,
+    weight: row.weight,
     confidence: Number(row.confidence),
     freshness: row.freshness,
     attestationId: row.attestation_id,
