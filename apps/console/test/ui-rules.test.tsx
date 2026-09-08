@@ -117,7 +117,11 @@ describe('one primary button per screen', () => {
       displayName: 'شركة المثال',
       entityType: 'BUSINESS',
       identifiers: [{ idType: 'CR', masked: '••••••8213' }],
-      score: null,
+      score: 72,
+      scoreBreakdown: [
+        { fieldPath: 'cr.status', weight: 20, earned: 20, freshness: 'fresh' },
+        { fieldPath: 'address.national', weight: 14, earned: 0, freshness: 'expired' },
+      ],
       completeness: 50,
     },
     fields: [FIELD],
@@ -161,6 +165,46 @@ describe('one primary button per screen', () => {
     const html = renderToStaticMarkup(<Entity360 {...quiet} />);
     expect(html).not.toContain('data-role="alert-changes"');
     expect(html).not.toContain('data-role="alert-expired"');
+  });
+
+  it('never shows a score without its working', () => {
+    const html = renderToStaticMarkup(<Entity360 {...props} />);
+    // A number without a breakdown is refused by risk management. Showing one without
+    // the other on screen would put the analyst in the same position.
+    expect(html).toContain('data-role="score-breakdown"');
+    expect(html).toContain('كيف حُسبت الدرجة');
+    expect(html).toContain('72');
+  });
+
+  it('marks a counterparty linked to several entities as a signal', () => {
+    const html = renderToStaticMarkup(
+      <Entity360
+        {...props}
+        relations={[
+          {
+            relType: 'MANAGES',
+            otherEntityId: 'p1',
+            otherName: 'محمد عبدالله',
+            direction: 'from',
+            linkedCount: 7,
+          },
+          {
+            relType: 'OWNS',
+            otherEntityId: 'p2',
+            otherName: 'شريك',
+            direction: 'from',
+            linkedCount: 1,
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('data-role="relations"');
+    expect(html).toContain('data-signal="high"');
+    expect(html).toContain('data-signal="normal"');
+    expect(html).toContain('إشارة شبكة');
+    // The limit is contractual as well as technical, and the screen says so.
+    expect(html).toContain('لا تجميع عبر العملاء');
   });
 
   it('names what triggered each line of the timeline', () => {

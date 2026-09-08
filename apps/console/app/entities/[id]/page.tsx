@@ -1,9 +1,11 @@
 import { notFound } from 'next/navigation';
 import type { ReactElement } from 'react';
 import {
+  computeScore,
   getAttestationTimeline,
   getEntity,
   getEntityProfile,
+  getRelations,
   listIdentifiers,
 } from '@nx-verify/core';
 import { getKeys } from '../../../lib/keys';
@@ -54,7 +56,30 @@ export default async function EntityPage({
       [tx.tenantId],
     );
 
-    return { entity, profile, identifiers, timeline, triggers };
+    const score = await computeScore(tx, id);
+    const edges = await getRelations(tx, id);
+
+    // Names and link counts for the other side of each relation. The count is what turns
+    // a list of relationships into a signal: one person signing for several companies.
+    const otherIds = edges.map((edge) =>
+      edge.fromEntity === id ? edge.toEntity : edge.fromEntity,
+    );
+    const { rows: others } = await tx.query<{
+      id: string;
+      display_name: string | null;
+      linked: string;
+    }>(
+      `SELECT e.id, e.display_name,
+              (SELECT count(DISTINCT r.from_entity)
+               FROM entity_relations r
+               WHERE r.tenant_id = e.tenant_id AND r.to_entity = e.id AND r.ended_at IS NULL
+              )::text AS linked
+       FROM entities e
+       WHERE e.tenant_id = $1 AND e.id = ANY($2::uuid[])`,
+      [tx.tenantId, otherIds],
+    );
+
+    return { entity, profile, identifiers, timeline, triggers, score, edges, others };
   });
 
   if (!data) {
@@ -86,6 +111,21 @@ export default async function EntityPage({
   }));
 
   const trackedFields = 6;
+  const otherById = new Map(
+    data.others.map((row) => [row.id, { name: row.display_name, linked: Number(row.linked) }]),
+  );
+
+  const relations = data.edges.map((edge) => {
+    const otherId = edge.fromEntity === id ? edge.toEntity : edge.fromEntity;
+    const other = otherById.get(otherId);
+    return {
+      relType: edge.relType,
+      otherEntityId: otherId,
+      otherName: other?.name ?? null,
+      direction: edge.fromEntity === id ? ('from' as const) : ('to' as const),
+      linkedCount: other?.linked ?? 0,
+    };
+  });
 
   return (
     <Entity360
@@ -97,12 +137,19 @@ export default async function EntityPage({
           idType: identifier.idType,
           masked: identifier.masked,
         })),
-        score: null,
+        score: data.score.score,
+        scoreBreakdown: data.score.breakdown.components.map((component) => ({
+          fieldPath: component.fieldPath,
+          weight: component.weight,
+          earned: component.earned,
+          freshness: component.freshness,
+        })),
         completeness: Math.min(100, Math.round((fields.length / trackedFields) * 100)),
       }}
       fields={fields}
       changes={[]}
       timeline={entries}
+      relations={relations}
     />
   );
 }

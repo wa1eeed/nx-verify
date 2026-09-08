@@ -234,8 +234,11 @@ export type {
 export { computeScore, storeScore } from './monitoring/scoring.js';
 export type { EntityScore, ScoreComponent } from './monitoring/scoring.js';
 export {
+  buildBundleContent,
   buildEvidenceContent,
   checkEvidence,
+  hashBundle,
+  sealBundle,
   hashContent,
   resolvePublicEvidence,
   sealEvidence,
@@ -243,9 +246,12 @@ export {
   verifySignature as verifyEvidenceSignature,
 } from './evidence/evidence.js';
 export type {
+  BundleContent,
+  BundleEntry,
   EvidenceContent,
   PublicEvidence,
   SealEvidenceInput,
+  SealedBundle,
   SealedEvidence,
 } from './evidence/evidence.js';
 

@@ -159,6 +159,72 @@ describe('sealed evidence', () => {
     expect(gone).toBeNull();
   });
 
+  it('seals a whole portfolio into one bundle', async () => {
+    const { createPortfolio, addToPortfolio } = await import('../src/portfolios/portfolios.js');
+    const { buildBundleContent, sealBundle } = await import('../src/evidence/evidence.js');
+
+    const portfolioId = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      createPortfolio(tx, { code: 'AUDIT', nameAr: 'محفظة التدقيق', nameEn: 'Audit' }),
+    );
+
+    const { rows } = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      tx.query<{ id: string }>(`SELECT id FROM entities WHERE entity_type = 'BUSINESS' LIMIT 2`),
+    );
+    for (const row of rows) {
+      await withTenant(db.appPool, tenant.tenantId, (tx) =>
+        addToPortfolio(tx, portfolioId, row.id, 'user:auditor'),
+      );
+    }
+
+    const sealed = await withTenant(db.appPool, tenant.tenantId, async (tx) =>
+      sealBundle(tx, {
+        portfolioId,
+        runId,
+        signingKey: await keys.signingKey(tenant.tenantId),
+      }),
+    );
+
+    // One file, one hash, one signature. The button that saves a week of assembling
+    // folders is only worth anything because it is sealed like a single document.
+    expect(sealed.contentHash).toHaveLength(64);
+
+    const content = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      buildBundleContent(tx, portfolioId),
+    );
+
+    // A member with no verified facts contributes nothing. A bundle attests to what was
+    // verified, so an entity nobody has checked has nothing to attest to.
+    expect(sealed.entityCount).toBe(content.entities.length);
+    expect(sealed.entityCount).toBeGreaterThan(0);
+    expect(sealed.entityCount).toBeLessThanOrEqual(rows.length);
+    // It lists what was verified and by whom, and never who the entities are.
+    expect(JSON.stringify(content)).not.toContain('7001272184');
+    for (const entry of content.entities) {
+      for (const field of entry.fields) {
+        expect(field.observedAt).toBeTruthy();
+      }
+    }
+  });
+
+  it('refuses to seal an empty portfolio', async () => {
+    const { createPortfolio } = await import('../src/portfolios/portfolios.js');
+    const { sealBundle } = await import('../src/evidence/evidence.js');
+
+    const portfolioId = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      createPortfolio(tx, { code: 'EMPTY', nameAr: 'فارغة', nameEn: 'Empty' }),
+    );
+
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, async (tx) =>
+        sealBundle(tx, {
+          portfolioId,
+          runId,
+          signingKey: await keys.signingKey(tenant.tenantId),
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'NX-4002' });
+  });
+
   it('keeps evidence inside the tenant that produced it', async () => {
     const { sealed } = await seal();
     const other = await seedTenant(db.appPool, 'Evidence Other Tenant');

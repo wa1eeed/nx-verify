@@ -205,3 +205,135 @@ export async function buildEvidenceContent(
     sealedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * A bundle covering many entities at once.
+ *
+ * docs/01-blueprint.md section 5.8: one file for a whole portfolio when an auditor asks.
+ * A single button that saves a week of assembling folders, and the reason it is worth
+ * anything is that it is sealed exactly like a single document: one hash, one signature,
+ * one public page confirming both.
+ *
+ * The bundle lists what was verified, by which authority and when. It does not list who
+ * the entities are: the identifiers stay where they are (rule 4), and an auditor checking
+ * a seal does not need them.
+ */
+export interface BundleEntry {
+  entityId: string;
+  fields: { fieldPath: string; authority: string | null; observedAt: string; freshness: string }[];
+}
+
+export interface BundleContent {
+  kind: 'portfolio-bundle';
+  portfolioId: string;
+  entities: BundleEntry[];
+  entityCount: number;
+  fieldCount: number;
+  sealedAt: string;
+}
+
+export function hashBundle(content: BundleContent): Buffer {
+  return createHash('sha256').update(canonicalJson(content), 'utf8').digest();
+}
+
+export async function buildBundleContent(
+  tx: TenantTransaction,
+  portfolioId: string,
+): Promise<BundleContent> {
+  const { rows } = await tx.query<{
+    entity_id: string;
+    field_path: string;
+    authority: string | null;
+    observed_at: Date;
+    freshness: string;
+  }>(
+    `SELECT p.entity_id, p.field_path, p.authority, p.observed_at, p.freshness
+     FROM entity_profile p
+     JOIN portfolio_members m
+       ON m.tenant_id = p.tenant_id AND m.entity_id = p.entity_id
+     WHERE p.tenant_id = $1 AND m.portfolio_id = $2
+     ORDER BY p.entity_id, p.field_path`,
+    [tx.tenantId, portfolioId],
+  );
+
+  const byEntity = new Map<string, BundleEntry>();
+  for (const row of rows) {
+    const entry = byEntity.get(row.entity_id) ?? { entityId: row.entity_id, fields: [] };
+    entry.fields.push({
+      fieldPath: row.field_path,
+      authority: row.authority,
+      observedAt: row.observed_at.toISOString(),
+      freshness: row.freshness,
+    });
+    byEntity.set(row.entity_id, entry);
+  }
+
+  const entities = [...byEntity.values()];
+  return {
+    kind: 'portfolio-bundle',
+    portfolioId,
+    entities,
+    entityCount: entities.length,
+    fieldCount: rows.length,
+    sealedAt: new Date().toISOString(),
+  };
+}
+
+export interface SealedBundle extends SealedEvidence {
+  entityCount: number;
+  fieldCount: number;
+}
+
+/**
+ * Seals a bundle against a run, because evidence belongs to a verification in this
+ * schema. The run supplied should be the one that produced the newest fact in the
+ * bundle, which is what an auditor would ask for if they asked.
+ */
+export async function sealBundle(
+  tx: TenantTransaction,
+  input: {
+    portfolioId: string;
+    runId: string;
+    signingKey: Buffer;
+    expiresAt?: Date | null;
+  },
+): Promise<SealedBundle> {
+  const content = await buildBundleContent(tx, input.portfolioId);
+  if (content.entityCount === 0) {
+    throw new NxError('NX-4002', { detail: 'this portfolio has nothing to seal' });
+  }
+
+  const contentHash = hashBundle(content);
+  const signature = signContent(input.signingKey, contentHash);
+  const publicToken = randomBytes(24).toString('base64url');
+
+  const { rows } = await tx.query<{ id: string; signed_at: Date }>(
+    `INSERT INTO evidence (tenant_id, run_id, storage_key, content_hash, signature,
+                           public_token, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, signed_at`,
+    [
+      tx.tenantId,
+      input.runId,
+      `evidence/${tx.tenantId}/bundles/${input.portfolioId}.pdf`,
+      contentHash,
+      signature,
+      publicToken,
+      input.expiresAt ?? null,
+    ],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new NxError('NX-5001', { detail: 'bundle insert returned no id' });
+  }
+
+  return {
+    evidenceId: row.id,
+    contentHash: contentHash.toString('hex'),
+    publicToken,
+    signedAt: row.signed_at,
+    entityCount: content.entityCount,
+    fieldCount: content.fieldCount,
+  };
+}

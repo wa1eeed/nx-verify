@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { FieldCard, type ProfileFieldView } from './field-card';
-import { ChangeBadge, FreshnessBadge } from './freshness';
+import { ChangeBadge, FreshnessBadge, type FreshnessState } from './freshness';
 import { Identifier } from './identifier';
 import { Timeline, type TimelineEntryView } from './timeline';
 
@@ -20,8 +20,31 @@ export interface EntityHeaderView {
   /** Already masked. The console never receives a full identifier (rule 4). */
   identifiers: { idType: string; masked: string }[];
   score: number | null;
+  /**
+   * How the score was reached. Never omitted when a score is shown: a number without its
+   * working is refused by risk management, and showing one without the other on screen
+   * would put the analyst in the same position.
+   */
+  scoreBreakdown: { fieldPath: string; weight: number; earned: number; freshness: string }[];
   completeness: number;
 }
+
+export interface RelationView {
+  relType: string;
+  otherEntityId: string;
+  otherName: string | null;
+  direction: 'from' | 'to';
+  /** How many entities that counterparty is linked to across this tenant. */
+  linkedCount: number;
+}
+
+const RELATION_LABELS: Record<string, string> = {
+  MANAGES: 'يدير',
+  OWNS: 'يملك',
+  HOLDS_ACCOUNT: 'صاحب الحساب',
+  OWNS_PROPERTY: 'يملك العقار',
+  SHARES_ADDRESS: 'يشارك العنوان',
+};
 
 export interface DetectedChange {
   fieldPath: string;
@@ -34,6 +57,7 @@ export interface Entity360Props {
   fields: ProfileFieldView[];
   changes: DetectedChange[];
   timeline: TimelineEntryView[];
+  relations?: RelationView[];
   now?: Date;
 }
 
@@ -42,6 +66,7 @@ export function Entity360({
   fields,
   changes,
   timeline,
+  relations = [],
   now,
 }: Entity360Props): ReactElement {
   const expired = fields.filter((field) => field.freshness === 'expired');
@@ -82,6 +107,42 @@ export function Entity360({
             </bdi>
           </span>
         </div>
+
+        {header.score !== null && header.scoreBreakdown.length > 0 ? (
+          <details data-role="score-breakdown">
+            <summary className="muted">كيف حُسبت الدرجة</summary>
+            <table>
+              <thead>
+                <tr>
+                  <th>الحقل</th>
+                  <th>الوزن</th>
+                  <th>المحتسب</th>
+                  <th>الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {header.scoreBreakdown.map((component) => (
+                  <tr key={component.fieldPath}>
+                    <td>{component.fieldPath}</td>
+                    <td>
+                      <bdi dir="ltr" className="mono">
+                        {component.weight}
+                      </bdi>
+                    </td>
+                    <td>
+                      <bdi dir="ltr" className="mono">
+                        {component.earned}
+                      </bdi>
+                    </td>
+                    <td>
+                      <FreshnessBadge state={component.freshness as FreshnessState} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        ) : null}
       </section>
 
       {/*
@@ -121,6 +182,57 @@ export function Entity360({
           <FieldCard key={field.fieldPath} field={field} {...(now ? { now } : {})} />
         ))}
       </section>
+
+      {relations.length > 0 ? (
+        <section className="card stack" data-role="relations">
+          <strong>شبكة العلاقات</strong>
+          <p className="muted">
+            داخل هذا المستأجر وحده. لا تجميع عبر العملاء، وهو حظر تعاقدي وتقني معاً.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>العلاقة</th>
+                <th>الطرف الآخر</th>
+                <th>مرتبط بـ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {relations.map((relation) => (
+                <tr
+                  key={`${relation.relType}-${relation.otherEntityId}`}
+                  data-signal={relation.linkedCount >= 3 ? 'high' : 'normal'}
+                >
+                  <td>{RELATION_LABELS[relation.relType] ?? relation.relType}</td>
+                  <td>
+                    <a href={`/entities/${relation.otherEntityId}`}>
+                      {relation.otherName ?? 'بلا اسم'}
+                    </a>
+                  </td>
+                  <td>
+                    <bdi dir="ltr" className="mono">
+                      {relation.linkedCount}
+                    </bdi>{' '}
+                    {relation.linkedCount >= 3 ? (
+                      <span
+                        className="badge"
+                        data-kind="change"
+                        style={{
+                          color: 'var(--changed-fg)',
+                          background: 'var(--changed-bg)',
+                          borderColor: 'var(--changed-line)',
+                        }}
+                      >
+                        إشارة شبكة
+                      </span>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
 
       <section className="card stack" data-role="timeline">
         <strong>الخط الزمني</strong>
