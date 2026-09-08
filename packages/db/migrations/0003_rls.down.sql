@@ -1,0 +1,16 @@
+SET LOCAL ROLE nx_migrator;
+
+REVOKE ALL ON tenants, entities, attestations FROM nx_app, nx_retention;
+
+DROP POLICY IF EXISTS t_isolation ON attestations;
+DROP POLICY IF EXISTS t_isolation ON entities;
+DROP POLICY IF EXISTS t_isolation ON tenants;
+
+ALTER TABLE attestations NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE attestations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE entities NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE entities DISABLE ROW LEVEL SECURITY;
+ALTER TABLE tenants NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE tenants DISABLE ROW LEVEL SECURITY;
+
+DROP FUNCTION IF EXISTS app.current_tenant();

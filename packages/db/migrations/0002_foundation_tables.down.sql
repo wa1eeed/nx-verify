@@ -1,0 +1,5 @@
+SET LOCAL ROLE nx_migrator;
+
+DROP TABLE IF EXISTS attestations;
+DROP TABLE IF EXISTS entities;
+DROP TABLE IF EXISTS tenants;
