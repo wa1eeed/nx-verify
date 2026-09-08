@@ -3,7 +3,10 @@
 set -uo pipefail
 
 status=0
-paths=(apps packages test scripts .github)
+# Documents count as text. The rule says no em dash in any text, and the documents are
+# read at the start of every session, so they are exactly the text it matters in.
+paths=(apps packages test scripts .github docs)
+root_docs=(README.md CLAUDE.md)
 
 # No em dash in source. Use a comma, a colon, or a full stop.
 # Built from bytes so that this file does not trip its own check.
@@ -11,7 +14,8 @@ em_dash=$'\xe2\x80\x94'
 if grep -RIn --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next \
      --include='*.ts' --include='*.tsx' --include='*.js' --include='*.sql' \
      --include='*.json' --include='*.yml' --include='*.yaml' --include='*.sh' \
-     "$em_dash" "${paths[@]}" 2>/dev/null; then
+     --include='*.md' \
+     "$em_dash" "${paths[@]}" "${root_docs[@]}" 2>/dev/null; then
   echo "style: em dash found in source. Use a comma, a colon, or a full stop."
   status=1
 fi

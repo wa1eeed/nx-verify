@@ -1,4 +1,4 @@
-# NX Verify — كتالوج المنتجات وتنسيق الخطوات
+# NX Verify · كتالوج المنتجات وتنسيق الخطوات
 
 **ملحق لمخطط قاعدة البيانات · الإصدار 1.0**
 
@@ -207,7 +207,7 @@ relation_type          = MANAGES
 
 | `source_path` | `field_path` | `entity_role` | `relation_type` |
 |---|---|---|---|
-| `$.match_result` | `iban.ownership` | `SUBJECT` | — |
+| `$.match_result` | `iban.ownership` | `SUBJECT` | لا شيء |
 | `$.account_holder.name` | `holder.name` | `ACCOUNT_HOLDER` | `HOLDS_ACCOUNT` |
 
 فيصبح الآيبان كياناً مستقلاً، مرتبطاً بالشخص أو المنشأة، ويظهر تلقائياً في قائمة الآيبانات وفي شبكة العلاقات.
@@ -246,7 +246,7 @@ relation_type          = MANAGES
 
 | `step_key` | `seq` | `depends_on` | `required` | `cache_ttl_days` |
 |---|---|---|---|---|
-| `cr_full` | 1 | — | نعم | 0 (حي دائماً) |
+| `cr_full` | 1 | لا شيء | نعم | 0 (حي دائماً) |
 | `address` | 2 | `cr_full` | لا | 30 |
 | `aoa` | 3 | `cr_full` | لا | 90 |
 | `manager_auth` | 4 | `aoa` | لا | 90 |
