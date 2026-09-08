@@ -81,3 +81,39 @@ export type {
 
 export { getEntityProfile } from './repositories/profile.js';
 export type { Freshness, ProfileField } from './repositories/profile.js';
+
+export { getProduct, listProducts, requireProduct } from './products/catalog.js';
+export type {
+  PartialPolicy,
+  ProductDefinition,
+  ProductStepDefinition,
+  ProductSummary,
+  SubjectType,
+} from './products/catalog.js';
+export {
+  assertValidSubject,
+  invalidateSchemaCache,
+  validateSubject,
+} from './products/input-validation.js';
+export type { ValidationIssue, ValidationResult } from './products/input-validation.js';
+
+export { resolveBinding } from './orchestration/binding.js';
+export type { BindingContext } from './orchestration/binding.js';
+export { collectDependants, planExecution } from './orchestration/plan.js';
+export type { ExecutionPlan } from './orchestration/plan.js';
+export { executeProduct } from './orchestration/executor.js';
+export type {
+  ExecuteProductInput,
+  ExecutionOutcome,
+  RunStatus,
+  StepOutcome,
+  StepRunner,
+} from './orchestration/executor.js';
+export { findRunByIdempotencyKey, getRun, recordRun } from './orchestration/run-recorder.js';
+export type {
+  RecordRunInput,
+  RecordedRun,
+  StoredRun,
+  StoredRunStep,
+  TriggeredBy,
+} from './orchestration/run-recorder.js';

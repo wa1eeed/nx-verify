@@ -14,3 +14,5 @@ export type { Migration, AppliedMigration, RolePasswords } from './migrator.js';
 export { snapshotSchema, serializeSnapshot } from './schema-snapshot.js';
 export type { SchemaSnapshot } from './schema-snapshot.js';
 export * as schema from './schema/index.js';
+export { SEED_PRODUCTS, applyProductSeed } from './seed/products.js';
+export type { SeedProduct, SeedStep } from './seed/products.js';

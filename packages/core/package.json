@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@nx-verify/db": "workspace:*"
+    "@nx-verify/db": "workspace:*",
+    "ajv": "^8.17.1"
   }
 }

@@ -18,3 +18,6 @@ export { StubProvider } from './stub/stub-provider.js';
 export type { StubProviderOptions } from './stub/stub-provider.js';
 export { STUB_SCENARIOS, scenarioKeyFor } from './stub/scenarios.js';
 export type { StubScenario, StubScenarioKind } from './stub/scenarios.js';
+
+export { createProviderStepRunner } from './step-runner.js';
+export type { StepDescriptor, StepRunResult, StepRunnerOptions } from './step-runner.js';
