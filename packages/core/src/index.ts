@@ -296,3 +296,23 @@ export type {
   PortfolioMembership,
   PortfolioPolicy,
 } from './portfolios/portfolios.js';
+
+export {
+  cancelBatch,
+  claimBatchItems,
+  confirmBatch,
+  createBatch,
+  getBatch,
+  previewBatch,
+  recordBatchItem,
+} from './batches/batches.js';
+export type {
+  BatchCriteria,
+  BatchPreview,
+  BatchStatus,
+  BatchSummary,
+  ConfirmBatchInput,
+  CreateBatchInput,
+  CreatedBatch,
+  PendingBatchItem,
+} from './batches/batches.js';
