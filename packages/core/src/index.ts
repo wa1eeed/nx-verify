@@ -370,3 +370,19 @@ export type {
   ScryptParams,
   SetPasswordInput,
 } from './auth/passwords.js';
+
+export {
+  listCatalog,
+  listTenantBindings,
+  resolveProviders,
+  setTenantBinding,
+  upsertCatalogEntry,
+} from './routing/provider-routing.js';
+export type {
+  BindingLevel,
+  CatalogEntry,
+  ProviderCandidate,
+  ResolveProvidersInput,
+  SetBindingInput,
+  TenantBinding,
+} from './routing/provider-routing.js';

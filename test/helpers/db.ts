@@ -24,8 +24,15 @@ export interface TestDatabase {
   retentionPool: pg.Pool;
   /** Owner role. Migrations and inspection only, never used to prove isolation. */
   migratorPool: pg.Pool;
+  /**
+   * Operator role. Manages provider configuration across tenants and can reach nothing
+   * else, which guard 02 asserts.
+   */
+  operatorPool: pg.Pool;
   /** Connection string for the application role, for code that builds its own pool. */
   appConnectionString: string;
+  /** Connection string for the operator role, for the operator panel. */
+  operatorConnectionString: string;
   databaseName: string;
   close: () => Promise<void>;
 }
@@ -57,15 +64,30 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   const migratorPool = createPool(
     urlFor(baseUrl, databaseName, 'nx_migrator', TEST_ROLE_PASSWORDS.nx_migrator),
   );
+  const operatorPool = createPool(
+    urlFor(baseUrl, databaseName, 'nx_operator', TEST_ROLE_PASSWORDS.nx_operator),
+  );
 
   return {
     appPool,
     retentionPool,
     migratorPool,
+    operatorPool,
     appConnectionString: urlFor(baseUrl, databaseName, 'nx_app', TEST_ROLE_PASSWORDS.nx_app),
+    operatorConnectionString: urlFor(
+      baseUrl,
+      databaseName,
+      'nx_operator',
+      TEST_ROLE_PASSWORDS.nx_operator,
+    ),
     databaseName,
     close: async () => {
-      await Promise.all([appPool.end(), retentionPool.end(), migratorPool.end()]);
+      await Promise.all([
+        appPool.end(),
+        retentionPool.end(),
+        migratorPool.end(),
+        operatorPool.end(),
+      ]);
       const cleanup = new pg.Client({ connectionString: baseUrl });
       await cleanup.connect();
       await cleanup.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)} WITH (FORCE)`);

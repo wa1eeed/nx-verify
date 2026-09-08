@@ -222,6 +222,15 @@ describe('guard 02: tenant isolation', () => {
         expect(roles, `${table}: ${policy.policyname} must not widen nx_retention`).not.toContain(
           'nx_retention',
         );
+
+        // nx_operator crosses tenants by design, and only for configuration. It must
+        // never be given a policy on a table that holds a subscriber's own data.
+        if (roles.includes('nx_operator')) {
+          expect(
+            ['tenant_provider_binding', 'tenants', 'audit_log'],
+            `${table}: nx_operator must not reach subscriber data`,
+          ).toContain(table);
+        }
       }
     }
   });
@@ -274,6 +283,7 @@ describe('guard 02: tenant isolation', () => {
       'nx_app',
       'nx_auth',
       'nx_migrator',
+      'nx_operator',
       'nx_retention',
     ]);
     for (const role of roles) {

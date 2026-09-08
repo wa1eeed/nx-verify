@@ -65,8 +65,10 @@ describe('the console renders real data', () => {
   afterAll(async () => {
     const { closePool } = await import('../lib/context');
     const { closeSessionPool } = await import('../lib/session');
+    const { closeOperatorPool } = await import('../lib/operator');
     await closePool();
     await closeSessionPool();
+    await closeOperatorPool();
     await db.close();
   });
 
@@ -214,6 +216,40 @@ describe('the console renders real data', () => {
     expect(html).toContain('data-role="simulation"');
     // The default set is published by the operator and cannot be edited by a tenant.
     expect(html).toContain('غير قابل للتعديل');
+  });
+
+  it('refuses the operator panel without a token, and shows it with one', async () => {
+    const { default: OperatorPage } = await import('../app/operator/providers/page');
+
+    delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+    process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
+    process.env['NX_OPERATOR_DATABASE_URL'] = db.operatorConnectionString;
+
+    // No token, no page. Every provider name on this screen depends on that refusal.
+    await expect(OperatorPage()).rejects.toThrow();
+
+    process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
+    const html = renderToStaticMarkup(await OperatorPage());
+
+    expect(html).toContain('data-role="bindings"');
+    expect(html).toContain(PROVIDER_NAME);
+    expect(html).toContain('المشترك لا يرى اسم أي مزوّد');
+
+    delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+  });
+
+  it('names no provider on a subscriber screen even while the operator panel does', async () => {
+    const { default: RegistryPage } = await import('../app/registry/page');
+    const { default: DashboardPage } = await import('../app/dashboard/page');
+
+    // The operator panel and these pages read the same database. Only one of them may
+    // say the name, and it is the one a subscriber cannot open.
+    for (const html of [
+      renderToStaticMarkup(await RegistryPage({ searchParams: Promise.resolve({}) })),
+      renderToStaticMarkup(await DashboardPage()),
+    ]) {
+      expect(html).not.toContain(PROVIDER_NAME);
+    }
   });
 
   it('reports completeness gaps the tenant can act on', async () => {

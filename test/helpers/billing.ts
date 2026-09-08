@@ -11,6 +11,7 @@ import {
   createProviderStepRunner,
   resolveCredential,
 } from '../../packages/providers/src/index.js';
+import { resolveProviders } from '../../packages/core/src/routing/provider-routing.js';
 import type { TenantTransaction } from '../../packages/db/src/client.js';
 
 export const SECRET_REF = 'kms://tenants/test/providers/stub';
@@ -31,10 +32,18 @@ export function providerFixture(providerName = 'stub'): BillingFixture {
     registry,
     secrets,
     provider,
+    // The routing resolver is wired in by default, so tests take the same path
+    // production does: the subscriber's bindings first, the product's declaration last.
     runnerFor: (tx) =>
       createProviderStepRunner({
         registry,
-        credentialFor: (name) => resolveCredential(tx, secrets, name),
+        candidatesFor: (step) =>
+          resolveProviders(tx, {
+            endpoint: step.endpoint,
+            declaredProvider: step.provider,
+            declaredFallback: step.fallbackProvider,
+          }),
+        credentialFor: (name, ref) => resolveCredential(tx, secrets, name, ref),
       }),
   };
 }
@@ -63,8 +72,8 @@ export async function preparePricedTenant(
 
   await withTenant(pool, tenantId, async (tx) => {
     await tx.query(
-      `INSERT INTO tenant_provider_binding (tenant_id, provider, mode, credential_ref)
-       VALUES ($1, $3, 'BYOC', $2)
+      `INSERT INTO tenant_provider_binding (tenant_id, provider, mode, credential_ref, activated_at)
+       VALUES ($1, $3, 'BYOC', $2, now())
        ON CONFLICT (tenant_id, provider) DO NOTHING`,
       [tenantId, SECRET_REF, providerName],
     );

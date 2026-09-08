@@ -61,7 +61,14 @@ export async function resolveCredential(
   tx: TenantTransaction,
   secrets: SecretStore,
   provider: string,
+  credentialRef?: string | null,
 ): Promise<ResolvedCredential> {
+  // A binding that named its own reference wins, because the routing chain already chose
+  // that binding and the reference travels with it.
+  if (credentialRef) {
+    return { ref: credentialRef, mode: 'BYOC', material: await secrets.fetch(credentialRef) };
+  }
+
   const binding = await getProviderBinding(tx, provider);
   if (!binding) {
     // The provider name is internal, so it does not go into the message (rule 5).
