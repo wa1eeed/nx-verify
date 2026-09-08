@@ -3,9 +3,11 @@ import {
   NxError,
   assertNoProviderLeak,
   audit,
+  buildEvidenceContent,
   getVerification,
   halalasToRiyals,
-  queueEvent,
+  resolvePublicEvidence,
+  sealEvidence,
   verify,
   type IdentifierInput,
 } from '@nx-verify/core';
@@ -96,20 +98,22 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
           metadata: { product: body.product, status: outcome.status },
         });
 
-        if (!outcome.replayed) {
-          await queueEvent(tx, {
-            eventType: 'verification.completed',
-            payload: {
-              verification_id: outcome.runId,
-              product: body.product,
-              status: outcome.status,
-              entity_id: outcome.entityId,
-              client_ref: body.reference ?? null,
-            },
+        // The evidence file is sealed as part of the run, not on request. A document
+        // that has to be generated later can be generated differently later, and the
+        // whole point of this record is that it cannot.
+        let evidenceToken: string | null = null;
+        if (!outcome.replayed && outcome.status !== 'ERROR') {
+          const content = await buildEvidenceContent(tx, outcome.runId);
+          const sealed = await sealEvidence(tx, {
+            runId: outcome.runId,
+            content,
+            storageKey: `evidence/${caller.tenantId}/${outcome.runId}.pdf`,
+            signingKey: await context.keys.signingKey(caller.tenantId),
           });
+          evidenceToken = sealed.publicToken;
         }
 
-        return outcome;
+        return { ...outcome, evidenceToken };
       });
 
       const response = {
@@ -122,6 +126,9 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
           amount: halalasToRiyals(result.billing.amount),
           currency: result.billing.currency,
         },
+        // A field no provider has, and one of the reasons our response resembles none of
+        // theirs (ADR-006). It opens a page showing the seal and nothing else.
+        evidence_url: result.evidenceToken === null ? null : `/v1/evidence/${result.evidenceToken}`,
         replayed: result.replayed,
       };
 
@@ -167,6 +174,35 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
       return reply.send(response);
     },
   );
+}
+
+/**
+ * The public evidence check, behind the QR code on the document.
+ *
+ * No authentication, because the person holding the document has no account here. It
+ * returns the content hash and the sealing time and nothing else: no name, no identifier,
+ * no field values. A public verification page that leaks personal data is worse than not
+ * having one.
+ */
+export function registerEvidenceRoutes(app: FastifyInstance, context: AppContext): void {
+  app.get<{ Params: { token: string } }>('/v1/evidence/:token', async (request, reply) => {
+    const evidence = await context.withoutTenant((tx) =>
+      resolvePublicEvidence(tx, request.params.token),
+    );
+
+    if (!evidence) {
+      throw new NxError('NX-4041', { requestId: request.id });
+    }
+
+    return reply.send({
+      content_hash: evidence.contentHash,
+      sealed_at: evidence.signedAt.toISOString(),
+      expires_at: evidence.expiresAt?.toISOString() ?? null,
+      // Said plainly on the page, so nobody expects to find the subject here.
+      note_ar: 'هذه الصفحة تثبت ختم المستند ووقته فقط، ولا تعرض أي بيانات شخصية.',
+      note_en: 'This page confirms the document seal and its time only. It shows no personal data.',
+    });
+  });
 }
 
 function headerValue(value: string | string[] | undefined): string | null {

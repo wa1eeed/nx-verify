@@ -108,14 +108,17 @@ export async function previewTtlChange(
     `WITH policy AS (
        SELECT ttl_days
        FROM freshness_policy
-       WHERE field_path = $2 AND (tenant_id = $1 OR tenant_id IS NULL)
-       ORDER BY tenant_id NULLS LAST
+       WHERE ($2 = field_path OR $2 LIKE field_path || '.%')
+         AND (tenant_id = $1 OR tenant_id IS NULL)
+       ORDER BY tenant_id NULLS LAST, length(field_path) DESC
        LIMIT 1
      ),
      live AS (
        SELECT DISTINCT ON (entity_id) entity_id, observed_at, valid_until
        FROM attestations
-       WHERE tenant_id = $1 AND field_path = $2 AND superseded_by IS NULL
+       WHERE tenant_id = $1
+         AND ($2 = field_path OR field_path LIKE $2 || '.%')
+         AND superseded_by IS NULL
        ORDER BY entity_id, observed_at DESC
      )
      SELECT (SELECT ttl_days FROM policy) AS current_ttl,

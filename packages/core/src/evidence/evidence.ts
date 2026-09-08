@@ -1,0 +1,207 @@
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import type { Queryable, TenantTransaction } from '@nx-verify/db';
+import { NxError } from '../errors.js';
+import { canonicalJson } from '../canonical-json.js';
+
+/**
+ * The evidence file.
+ *
+ * What makes this worth anything is not the document, it is that the document can be
+ * checked later by someone who does not have an account here. So the record holds a hash
+ * of the sealed content and a signature over it, and the public token opens a page
+ * showing the hash and the sealing time.
+ *
+ * That page shows nothing else. No name, no identifier, no field values. A public
+ * verification page that leaks personal data is worse than having none, and the token is
+ * printed on a document that will be forwarded to people we never see.
+ */
+
+export interface EvidenceContent {
+  runId: string;
+  productCode: string;
+  status: string;
+  decision: string | null;
+  entityId: string | null;
+  /** Field summaries. Each carries its authority and its timestamp, as everything does. */
+  fields: { fieldPath: string; authority: string | null; observedAt: string }[];
+  sealedAt: string;
+}
+
+export function hashContent(content: EvidenceContent): Buffer {
+  return createHash('sha256').update(canonicalJson(content), 'utf8').digest();
+}
+
+export function signContent(signingKey: Buffer, contentHash: Buffer): Buffer {
+  return createHmac('sha256', signingKey).update(contentHash).digest();
+}
+
+export function verifySignature(
+  signingKey: Buffer,
+  contentHash: Buffer,
+  signature: Buffer,
+): boolean {
+  const expected = signContent(signingKey, contentHash);
+  return expected.length === signature.length && timingSafeEqual(expected, signature);
+}
+
+export interface SealEvidenceInput {
+  runId: string;
+  content: EvidenceContent;
+  storageKey: string;
+  signingKey: Buffer;
+  /** How long the public page stays available. Null means indefinitely. */
+  expiresAt?: Date | null;
+}
+
+export interface SealedEvidence {
+  evidenceId: string;
+  contentHash: string;
+  publicToken: string;
+  signedAt: Date;
+}
+
+export async function sealEvidence(
+  tx: TenantTransaction,
+  input: SealEvidenceInput,
+): Promise<SealedEvidence> {
+  const contentHash = hashContent(input.content);
+  const signature = signContent(input.signingKey, contentHash);
+  // Long enough that it cannot be guessed, and carrying no information about the subject.
+  const publicToken = randomBytes(24).toString('base64url');
+
+  const { rows } = await tx.query<{ id: string; signed_at: Date }>(
+    `INSERT INTO evidence (tenant_id, run_id, storage_key, content_hash, signature,
+                           public_token, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, signed_at`,
+    [
+      tx.tenantId,
+      input.runId,
+      input.storageKey,
+      contentHash,
+      signature,
+      publicToken,
+      input.expiresAt ?? null,
+    ],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new NxError('NX-5001', { detail: 'evidence insert returned no id' });
+  }
+
+  return {
+    evidenceId: row.id,
+    contentHash: contentHash.toString('hex'),
+    publicToken,
+    signedAt: row.signed_at,
+  };
+}
+
+export interface PublicEvidence {
+  contentHash: string;
+  signedAt: Date;
+  expiresAt: Date | null;
+}
+
+/**
+ * The public check behind the QR code.
+ *
+ * Deliberately returns three values and cannot return more: the function it calls selects
+ * three columns. Someone holding a printed document can confirm that this hash was sealed
+ * by us at this time, and learns nothing about whom it concerns.
+ */
+export async function resolvePublicEvidence(
+  db: Queryable,
+  token: string,
+): Promise<PublicEvidence | null> {
+  const { rows } = await db.query<{
+    content_hash: Buffer;
+    signed_at: Date;
+    expires_at: Date | null;
+  }>('SELECT content_hash, signed_at, expires_at FROM app.resolve_evidence_token($1)', [token]);
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+  return {
+    contentHash: row.content_hash.toString('hex'),
+    signedAt: row.signed_at,
+    expiresAt: row.expires_at,
+  };
+}
+
+/** Confirms a document still matches what was sealed. */
+export async function checkEvidence(
+  tx: TenantTransaction,
+  evidenceId: string,
+  content: EvidenceContent,
+  signingKey: Buffer,
+): Promise<{ hashMatches: boolean; signatureValid: boolean }> {
+  const { rows } = await tx.query<{ content_hash: Buffer; signature: Buffer }>(
+    `SELECT content_hash, signature FROM evidence WHERE tenant_id = $1 AND id = $2`,
+    [tx.tenantId, evidenceId],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new NxError('NX-4041', { detail: 'no such evidence' });
+  }
+
+  const recomputed = hashContent(content);
+  return {
+    hashMatches: recomputed.equals(row.content_hash),
+    signatureValid: verifySignature(signingKey, row.content_hash, row.signature),
+  };
+}
+
+/** Builds the sealed content from a completed run. */
+export async function buildEvidenceContent(
+  tx: TenantTransaction,
+  runId: string,
+): Promise<EvidenceContent> {
+  const { rows } = await tx.query<{
+    id: string;
+    product_code: string;
+    status: string;
+    decision: string | null;
+    entity_id: string | null;
+  }>(
+    `SELECT id, product_code, status, decision, entity_id
+     FROM verification_runs WHERE tenant_id = $1 AND id = $2`,
+    [tx.tenantId, runId],
+  );
+
+  const run = rows[0];
+  if (!run) {
+    throw new NxError('NX-4041', { detail: 'no such run' });
+  }
+
+  const { rows: fields } = await tx.query<{
+    field_path: string;
+    authority: string | null;
+    observed_at: Date;
+  }>(
+    `SELECT field_path, authority, observed_at
+     FROM attestations
+     WHERE tenant_id = $1 AND run_id = $2
+     ORDER BY field_path`,
+    [tx.tenantId, runId],
+  );
+
+  return {
+    runId: run.id,
+    productCode: run.product_code,
+    status: run.status,
+    decision: run.decision,
+    entityId: run.entity_id,
+    // Rule 5: the provider is not among these. The authority is.
+    fields: fields.map((field) => ({
+      fieldPath: field.field_path,
+      authority: field.authority,
+      observedAt: field.observed_at.toISOString(),
+    })),
+    sealedAt: new Date().toISOString(),
+  };
+}

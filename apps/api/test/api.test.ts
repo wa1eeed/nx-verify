@@ -267,6 +267,32 @@ describe('the public API', () => {
     expect(rows[0]?.payload.client_ref).toBe('ENJ-1');
   });
 
+  it('returns an evidence link and a public page that shows only the seal', async () => {
+    const created = await call('POST', '/v1/verifications', {
+      body: { product: 'KYB_COMPLETE', subject: { unn: '7001272184' } },
+    });
+
+    const evidenceUrl = created.json().evidence_url as string;
+    expect(evidenceUrl).toMatch(/^\/v1\/evidence\//);
+
+    // No key. Whoever scans the code on a printed document has no account here.
+    const publicPage = await call('GET', evidenceUrl, { key: null });
+    expect(publicPage.statusCode).toBe(200);
+
+    const body = publicPage.json();
+    expect(body.content_hash).toHaveLength(64);
+    expect(body.sealed_at).toBeTruthy();
+    // It confirms the seal and says so, and shows nothing about the subject.
+    expect(publicPage.body).not.toContain('7001272184');
+    expect(publicPage.body).not.toContain(created.json().entity_id);
+    expect(body.note_ar).toContain('لا تعرض أي بيانات شخصية');
+  });
+
+  it('refuses an unknown evidence token', async () => {
+    const response = await call('GET', '/v1/evidence/not-a-real-token', { key: null });
+    expect(response.statusCode).toBe(404);
+  });
+
   it('serves an OpenAPI document generated from the routes', async () => {
     const response = await call('GET', '/openapi.json', { key: null });
     expect(response.statusCode).toBe(200);

@@ -39,6 +39,7 @@ export {
   attachIdentifier,
   findEntityIdByIdentifier,
   listIdentifiers,
+  revealIdentifier,
 } from './repositories/identifiers.js';
 export type {
   AttachIdentifierInput,
@@ -202,3 +203,48 @@ export type {
   WebhookEndpoint,
   WebhookEventType,
 } from './webhooks/dispatch.js';
+
+export {
+  acknowledgeChange,
+  listChangeEvents,
+  recordChangeEvent,
+} from './monitoring/change-events.js';
+export type {
+  ChangeEventView,
+  RecordChangeInput,
+  RecordedChange,
+  Severity,
+} from './monitoring/change-events.js';
+export {
+  budgetRemaining,
+  claimDueMonitors,
+  createMonitor,
+  findExpiringFields,
+  nextRunFor,
+  pauseMonitor,
+  recordMonitorSpend,
+  scheduleNextRun,
+} from './monitoring/monitors.js';
+export type {
+  Cadence,
+  CreateMonitorInput,
+  DueMonitor,
+  ExpiryAlert,
+} from './monitoring/monitors.js';
+export { computeScore, storeScore } from './monitoring/scoring.js';
+export type { EntityScore, ScoreComponent } from './monitoring/scoring.js';
+export {
+  buildEvidenceContent,
+  checkEvidence,
+  hashContent,
+  resolvePublicEvidence,
+  sealEvidence,
+  signContent,
+  verifySignature as verifyEvidenceSignature,
+} from './evidence/evidence.js';
+export type {
+  EvidenceContent,
+  PublicEvidence,
+  SealEvidenceInput,
+  SealedEvidence,
+} from './evidence/evidence.js';

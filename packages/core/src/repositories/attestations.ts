@@ -36,6 +36,8 @@ export interface RecordAttestationResult {
   changed: boolean;
   /** True when there was no previous attestation for the field. */
   firstObservation: boolean;
+  /** The value being replaced, so change detection does not have to read it back. */
+  previousValue: unknown;
 }
 
 export function hashValue(value: unknown): Buffer {
@@ -51,8 +53,8 @@ export async function recordAttestation(
 
   // Lock the live rows for this field so two concurrent writers cannot both believe they
   // are superseding the same predecessor.
-  const { rows: liveRows } = await tx.query<{ id: string; value_hash: Buffer }>(
-    `SELECT id, value_hash
+  const { rows: liveRows } = await tx.query<{ id: string; value_hash: Buffer; value: unknown }>(
+    `SELECT id, value_hash, value
      FROM attestations
      WHERE tenant_id = $1 AND entity_id = $2 AND field_path = $3 AND superseded_by IS NULL
      ORDER BY observed_at DESC
@@ -107,6 +109,7 @@ export async function recordAttestation(
     previousAttestationId: previous?.id ?? null,
     changed: previous !== null && !previous.value_hash.equals(valueHash),
     firstObservation: previous === null,
+    previousValue: previous?.value ?? null,
   };
 }
 

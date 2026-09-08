@@ -129,10 +129,12 @@ FROM attestations a
 LEFT JOIN LATERAL (
   SELECT p.ttl_days, p.weight
   FROM freshness_policy p
-  WHERE p.field_path = a.field_path
+  WHERE (a.field_path = p.field_path OR a.field_path LIKE p.field_path || '.%')
     AND (p.tenant_id = a.tenant_id OR p.tenant_id IS NULL)
-  -- The more specific row wins: a tenant override before the system default.
-  ORDER BY p.tenant_id NULLS LAST
+  -- Two kinds of specificity, in order. A tenant override beats the system default, and
+  -- a longer path beats a shorter one, so a policy on cr.core governs cr.core.name and
+  -- cr.core.capital without a row having to exist for each of them.
+  ORDER BY p.tenant_id NULLS LAST, length(p.field_path) DESC
   LIMIT 1
 ) policy ON true
 WHERE a.superseded_by IS NULL

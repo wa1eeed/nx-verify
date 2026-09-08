@@ -2,6 +2,7 @@ import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { recordAttestation } from '../repositories/attestations.js';
 import { resolveEntity } from '../repositories/entities.js';
+import { recordChangeEvent, type Severity } from '../monitoring/change-events.js';
 import { getFieldMappings, isIdentifierType, type FieldMapping } from './field-map.js';
 import { readMatches, resolveReference } from './paths.js';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
@@ -41,11 +42,27 @@ export interface NormalisedChange {
   firstObservation: boolean;
 }
 
+export interface DetectedChangeEvent {
+  changeEventId: string;
+  entityId: string;
+  fieldPath: string;
+  severity: Severity;
+  reasonAr: string | null;
+}
+
 export interface NormaliseResult {
   attestations: NormalisedChange[];
   /** Secondary entities created or matched, keyed by role. */
   entities: { role: string; entityId: string; created: boolean }[];
   relations: { relationId: string; relType: string; toEntity: string; created: boolean }[];
+  /**
+   * Changes worth telling someone about.
+   *
+   * A re-verification returning the same value produces an attestation and no event. That
+   * is what keeps an alert meaningful: it fires when something differs, not every time we
+   * looked.
+   */
+  changes: DetectedChangeEvent[];
 }
 
 export async function normaliseRun(
@@ -61,7 +78,12 @@ export async function normaliseRun(
     byStep.set(mapping.stepKey, list);
   }
 
-  const result: NormaliseResult = { attestations: [], entities: [], relations: [] };
+  const result: NormaliseResult = {
+    attestations: [],
+    entities: [],
+    relations: [],
+    changes: [],
+  };
   const observedAt = input.observedAt ?? new Date();
 
   for (const step of input.steps) {
@@ -101,6 +123,26 @@ export async function normaliseRun(
           changed: recorded.changed,
           firstObservation: recorded.firstObservation,
         });
+
+        if (recorded.changed) {
+          const event = await recordChangeEvent(tx, {
+            entityId,
+            fieldPath: mapping.fieldPath,
+            oldAttestationId: recorded.previousAttestationId,
+            newAttestationId: recorded.attestationId,
+            oldValue: recorded.previousValue,
+            newValue: match.value,
+          });
+          if (event) {
+            result.changes.push({
+              changeEventId: event.changeEventId,
+              entityId,
+              fieldPath: mapping.fieldPath,
+              severity: event.severity,
+              reasonAr: event.reasonAr,
+            });
+          }
+        }
 
         if (mapping.relationType && entityId !== input.subjectEntityId) {
           const relation = await upsertRelation(tx, {

@@ -164,3 +164,35 @@ function isUniqueViolation(error: unknown): boolean {
     (error as { code?: unknown }).code === UNIQUE_VIOLATION
   );
 }
+
+/**
+ * Decrypts one identifier, for an outbound call to an authority.
+ *
+ * This is the only function in the system that returns an identifier in the clear, and it
+ * exists because a re-verification has to send the authority the number it is asking
+ * about. It is for provider calls, never for display, never for a log line, and never for
+ * a response body. Everything user facing goes through listIdentifiers, which masks.
+ */
+export async function revealIdentifier(
+  tx: TenantTransaction,
+  keys: TenantKeyProvider,
+  entityId: string,
+  idTypes: readonly IdentifierType[],
+): Promise<{ idType: IdentifierType; value: string } | null> {
+  const encryptionKey = await keys.encryptionKey(tx.tenantId);
+
+  const { rows } = await tx.query<{ id_type: IdentifierType; id_value_enc: Buffer }>(
+    `SELECT id_type, id_value_enc
+     FROM entity_identifiers
+     WHERE tenant_id = $1 AND entity_id = $2 AND id_type = ANY($3::text[])
+     ORDER BY is_primary DESC, array_position($3::text[], id_type)
+     LIMIT 1`,
+    [tx.tenantId, entityId, [...idTypes]],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+  return { idType: row.id_type, value: decryptIdentifier(encryptionKey, row.id_value_enc) };
+}

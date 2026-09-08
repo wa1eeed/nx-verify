@@ -11,6 +11,7 @@ import {
   type TriggeredBy,
 } from '../orchestration/run-recorder.js';
 import { normaliseRun, type NormaliseResult } from '../normalisation/normalise.js';
+import { queueEvent } from '../webhooks/dispatch.js';
 import { resolveEntity, type IdentifierInput } from '../repositories/entities.js';
 import { computeBilling, maximumCharge, type BillingBreakdown } from '../billing/compute.js';
 import { resolvePrice } from '../billing/price-book.js';
@@ -126,6 +127,21 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
   });
 
   await settle(tx, { runId, heldAmount: reserved, chargeAmount: breakdown.total });
+
+  // Announced here rather than by the caller, so that a run started by a monitor, a
+  // batch or the console emits the same event as one started through the API. An event
+  // that only fires on one path is worse than none, because the customer builds on it.
+  await queueEvent(tx, {
+    eventType: 'verification.completed',
+    payload: {
+      verification_id: runId,
+      product: product.code,
+      status: outcome.status,
+      entity_id: subject.entityId,
+      client_ref: input.clientRef ?? null,
+      triggered_by: input.triggeredBy,
+    },
+  });
 
   return {
     runId,

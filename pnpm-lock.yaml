@@ -94,7 +94,17 @@ importers:
         specifier: ^19.0.2
         version: 19.2.7(@types/react@19.2.18)
 
-  apps/worker: {}
+  apps/worker:
+    dependencies:
+      '@nx-verify/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@nx-verify/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@nx-verify/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
 
   packages/core:
     dependencies:
