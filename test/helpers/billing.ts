@@ -22,8 +22,8 @@ export interface BillingFixture {
   runnerFor: (tx: TenantTransaction) => ReturnType<typeof createProviderStepRunner>;
 }
 
-export function providerFixture(): BillingFixture {
-  const provider = new StubProvider();
+export function providerFixture(providerName = 'stub'): BillingFixture {
+  const provider = new StubProvider({ name: providerName });
   const registry = new ProviderRegistry().register(provider);
   const secrets = new InMemorySecretStore({ [SECRET_REF]: { apiKey: 'test-key' } });
 

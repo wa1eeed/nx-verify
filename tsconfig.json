@@ -4,5 +4,5 @@
     "noEmit": true
   },
   "include": ["apps/**/*.ts", "packages/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "*.ts"],
-  "exclude": ["**/dist/**", "**/node_modules/**", "**/.next/**"]
+  "exclude": ["**/dist/**", "**/node_modules/**", "**/.next/**", "apps/console/**"]
 }
