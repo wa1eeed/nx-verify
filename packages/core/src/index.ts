@@ -117,3 +117,16 @@ export type {
   StoredRunStep,
   TriggeredBy,
 } from './orchestration/run-recorder.js';
+
+export { getFieldMappings, isIdentifierType } from './normalisation/field-map.js';
+export type { EntityRole, FieldMapping, RelationType } from './normalisation/field-map.js';
+export { readMatches, resolveReference } from './normalisation/paths.js';
+export type { PathMatch } from './normalisation/paths.js';
+export { endRelation, normaliseRun } from './normalisation/normalise.js';
+export type {
+  NormaliseInput,
+  NormaliseResult,
+  NormalisedChange,
+} from './normalisation/normalise.js';
+export { findEntitiesLinkedToMany, getRelations } from './normalisation/network.js';
+export type { EntityLink, RelationEdge } from './normalisation/network.js';

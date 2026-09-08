@@ -20,6 +20,19 @@ export interface SeedStep {
   stepWeight?: number;
 }
 
+export interface SeedFieldMap {
+  stepKey: string;
+  sourcePath: string;
+  fieldPath: string;
+  entityRole?: string;
+  entityType?: string | null;
+  identifierPath?: string | null;
+  identifierTypeSource?: string | null;
+  relationType?: string | null;
+  validUntilPath?: string | null;
+  confidence?: number;
+}
+
 export interface SeedProduct {
   code: string;
   nameAr: string;
@@ -29,6 +42,7 @@ export interface SeedProduct {
   isComposite?: boolean;
   partialPolicy?: 'ALL_OR_NOTHING' | 'BEST_EFFORT';
   steps: SeedStep[];
+  fieldMap?: SeedFieldMap[];
 }
 
 export const SEED_PRODUCTS: readonly SeedProduct[] = [
@@ -51,6 +65,15 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
         endpoint: 'business_verification',
         inputBinding: { identifications: '$.subject.unn', type: 'literal:ADDRESS' },
         cacheTtlDays: 30,
+      },
+    ],
+    fieldMap: [
+      { stepKey: 'address', sourcePath: '$.city', fieldPath: 'address.national.city' },
+      { stepKey: 'address', sourcePath: '$.district', fieldPath: 'address.national.district' },
+      {
+        stepKey: 'address',
+        sourcePath: '$.building_number',
+        fieldPath: 'address.national.building_number',
       },
     ],
   },
@@ -86,6 +109,23 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
           identifier: '$.subject.identifier.value',
           identifier_type: '$.subject.identifier.type',
         },
+      },
+    ],
+    fieldMap: [
+      { stepKey: 'iban', sourcePath: '$.match_result', fieldPath: 'iban.ownership' },
+      { stepKey: 'iban', sourcePath: '$.bank_name', fieldPath: 'iban.bank' },
+      {
+        // Creates the account holder as an entity of its own and links it to the IBAN,
+        // so the holder appears in the relationship network without a second product.
+        stepKey: 'iban',
+        sourcePath: '$.account_holder_name',
+        fieldPath: 'holder.name',
+        entityRole: 'ACCOUNT_HOLDER',
+        entityType: 'BUSINESS',
+        identifierPath: '$.holder_identifier',
+        identifierTypeSource: 'literal:CR',
+        relationType: 'HOLDS_ACCOUNT',
+        confidence: 0.9,
       },
     ],
   },
@@ -176,6 +216,46 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
         stepWeight: 10,
       },
     ],
+    fieldMap: [
+      { stepKey: 'cr_full', sourcePath: '$.cr_status', fieldPath: 'cr.status' },
+      { stepKey: 'cr_full', sourcePath: '$.company_name', fieldPath: 'cr.core.name' },
+      { stepKey: 'cr_full', sourcePath: '$.capital', fieldPath: 'cr.core.capital' },
+      { stepKey: 'address', sourcePath: '$.city', fieldPath: 'address.national.city' },
+      { stepKey: 'address', sourcePath: '$.district', fieldPath: 'address.national.district' },
+      {
+        // One row per manager in the array, each resolved to a person entity and linked
+        // to the company. This is what makes "this person signs for seven companies"
+        // answerable later without storing anything extra.
+        stepKey: 'aoa',
+        sourcePath: '$.managers[*].signing_authority',
+        fieldPath: 'manager.signing_authority',
+        entityRole: 'MANAGER',
+        entityType: 'PERSON',
+        identifierPath: '@.id',
+        identifierTypeSource: '@.id_type',
+        relationType: 'MANAGES',
+      },
+      {
+        stepKey: 'manager_auth',
+        sourcePath: '$.verified',
+        fieldPath: 'manager.signing_authority.verified',
+        entityRole: 'MANAGER',
+        entityType: 'PERSON',
+        identifierPath: '$.manager_id',
+        identifierTypeSource: 'literal:NATIONAL_ID',
+        relationType: 'MANAGES',
+      },
+      {
+        stepKey: 'ubo',
+        sourcePath: '$.owners[*].percentage',
+        fieldPath: 'owner.percentage',
+        entityRole: 'OWNER',
+        entityType: 'PERSON',
+        identifierPath: '@.id',
+        identifierTypeSource: 'literal:NATIONAL_ID',
+        relationType: 'OWNS',
+      },
+    ],
   },
 ];
 
@@ -232,6 +312,38 @@ export async function applyProductSeed(
           step.required ?? true,
           step.cacheTtlDays ?? null,
           step.stepWeight ?? 1,
+        ],
+      );
+    }
+
+    for (const mapping of product.fieldMap ?? []) {
+      await db.query(
+        `INSERT INTO step_field_map (product_code, step_key, source_path, field_path,
+                                     entity_role, entity_type, identifier_path,
+                                     identifier_type_source, relation_type, valid_until_path,
+                                     confidence)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (product_code, step_key, source_path) DO UPDATE SET
+           field_path = EXCLUDED.field_path,
+           entity_role = EXCLUDED.entity_role,
+           entity_type = EXCLUDED.entity_type,
+           identifier_path = EXCLUDED.identifier_path,
+           identifier_type_source = EXCLUDED.identifier_type_source,
+           relation_type = EXCLUDED.relation_type,
+           valid_until_path = EXCLUDED.valid_until_path,
+           confidence = EXCLUDED.confidence`,
+        [
+          product.code,
+          mapping.stepKey,
+          mapping.sourcePath,
+          mapping.fieldPath,
+          mapping.entityRole ?? 'SUBJECT',
+          mapping.entityType ?? null,
+          mapping.identifierPath ?? null,
+          mapping.identifierTypeSource ?? null,
+          mapping.relationType ?? null,
+          mapping.validUntilPath ?? null,
+          mapping.confidence ?? 1,
         ],
       );
     }

@@ -67,6 +67,7 @@ const FULL_SUCCESS: StubScenario = {
       iban: 'SA0380000000608010167519',
       match_result: 'MATCHED',
       account_holder_name: 'شركة المثال للتجارة',
+      holder_identifier: '1010478213',
       bank_name: 'Example Bank',
     },
   },
