@@ -21,3 +21,13 @@ export type { StubScenario, StubScenarioKind } from './stub/scenarios.js';
 
 export { createProviderStepRunner } from './step-runner.js';
 export type { StepDescriptor, StepRunResult, StepRunnerOptions } from './step-runner.js';
+
+export { HttpVerificationProvider } from './http/http-provider.js';
+export type { FetchLike, HttpProviderOptions } from './http/http-provider.js';
+export { DEFAULT_ENDPOINTS, buildPath, mapResponse } from './http/response-mapping.js';
+export type { EndpointMapping } from './http/response-mapping.js';
+export { failureForStatus, failureForThrown, isSubjectAbsent } from './http/errors.js';
+export type { NormalisedFailure } from './http/errors.js';
+
+export { createProviderRegistry, providerConfigFromEnv } from './factory.js';
+export type { ProviderConfig } from './factory.js';

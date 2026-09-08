@@ -6,10 +6,11 @@ import {
 } from '@nx-verify/core';
 import {
   InMemorySecretStore,
-  ProviderRegistry,
-  StubProvider,
+  createProviderRegistry,
   createProviderStepRunner,
+  providerConfigFromEnv,
   resolveCredential,
+  type ProviderRegistry,
   type SecretStore,
 } from '@nx-verify/providers';
 import type pg from 'pg';
@@ -17,9 +18,10 @@ import type pg from 'pg';
 /**
  * Everything the API needs that is not a request.
  *
- * The registry is assembled once here, which is the only place in the running system
- * that names a provider. Unit 9 swaps StubProvider for a real implementation on this one
- * line and nothing else moves, which is the test ADR-006 sets for itself.
+ * The registry is built from configuration, never from a named implementation. Going
+ * from the stub to a real provider is an environment variable, and nothing in this file
+ * or anywhere else in the app changes. That is the test unit 9 sets for the abstraction,
+ * and packages/providers/test/abstraction-boundary.test.ts enforces it.
  */
 
 export interface AppContext {
@@ -49,7 +51,7 @@ export function buildContext(options: BuildContextOptions = {}): AppContext {
 
   const pool = createPool(connectionString);
   const keys = new DerivedTenantKeyProvider(new EnvMasterKeySource(options.masterKey));
-  const registry = options.registry ?? new ProviderRegistry().register(new StubProvider());
+  const registry = options.registry ?? createProviderRegistry(providerConfigFromEnv());
   const secrets = options.secrets ?? new InMemorySecretStore();
 
   return {
