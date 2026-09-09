@@ -156,3 +156,41 @@ td {
   padding: 10px 12px;
   text-align: start;
 }
+
+/*
+ * The sign in screen. One message for every failure, so it is styled once.
+ *
+ * Critical rather than the warning colour: the warning colour belongs to a detected
+ * change and nothing else, and a failed sign in is not that.
+ */
+.sign-in-error {
+  border: 1px solid var(--critical-line);
+  background: var(--critical-bg);
+  color: var(--critical-fg);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.sign-in-divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 22px 0 18px;
+}
+
+/* The way out, sitting in the navigation as a form rather than a link, because signing
+   out changes state and a link would let another site trigger it. */
+form.inline {
+  display: inline;
+  margin-inline-start: 20px;
+}
+
+button.link {
+  background: none;
+  border: none;
+  color: var(--paper);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0;
+}

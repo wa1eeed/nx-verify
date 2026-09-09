@@ -11,7 +11,12 @@ export type {
 } from './types.js';
 
 export { ProviderRegistry } from './registry.js';
-export { InMemorySecretStore, getProviderBinding, resolveCredential } from './credentials.js';
+export {
+  EnvSecretStore,
+  InMemorySecretStore,
+  getProviderBinding,
+  resolveCredential,
+} from './credentials.js';
 export type { ProviderBinding, SecretStore } from './credentials.js';
 
 export { StubProvider } from './stub/stub-provider.js';

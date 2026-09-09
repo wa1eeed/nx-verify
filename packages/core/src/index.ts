@@ -412,6 +412,7 @@ export { addSsoDomain, beginSso, completeSso, configureIdp, verifyIdToken } from
 export type {
   BeginSsoInput,
   CompleteSsoInput,
+  HttpJson,
   ConfigureIdpInput,
   IdTokenClaims,
   IdpConfig,

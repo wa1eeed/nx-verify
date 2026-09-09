@@ -26,18 +26,35 @@ export function getPool(): pg.Pool {
 }
 
 export async function currentTenantId(): Promise<string> {
-  const session = await currentSession();
+  const session = await requireSession();
   return session.tenantId;
 }
 
 export async function query<T>(handler: (tx: TenantTransaction) => Promise<T>): Promise<T> {
-  const session = await currentSession();
+  const session = await requireSession();
   return withTenant(getPool(), session.tenantId, handler);
 }
 
 /** The caller, for screens that need to know what this person may do. */
 export async function actingUser(): Promise<ConsoleSession> {
-  return currentSession();
+  return requireSession();
+}
+
+/**
+ * A session, or the sign in screen.
+ *
+ * A page that cannot say who is looking at it must not render, and it must not show an
+ * error either: there is nothing on it yet, and the person simply needs to sign in. The
+ * redirect is what makes every screen private without every screen remembering to be.
+ */
+async function requireSession(): Promise<ConsoleSession> {
+  try {
+    return await currentSession();
+  } catch {
+    const { redirect } = await import('next/navigation');
+    // redirect throws, so nothing after it runs. TypeScript needs to be told.
+    return redirect('/login') as never;
+  }
 }
 
 /** Releases the pool. Used on shutdown and by tests. */

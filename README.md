@@ -51,6 +51,13 @@ pnpm --filter @nx-verify/api run dev       # الـAPI
 pnpm --filter @nx-verify/console run dev   # الكونسول
 ```
 
+الدخول إلى الكونسول على `/login`: كلمة مرور بمعرّف مساحة العمل، أو بريد العمل إن كانت الشركة مرتبطة بدليل موحّد. وسر عميل الدليل يُقرأ من مخزن الأسرار:
+
+```
+NX_CONSOLE_URL=https://console.example.sa
+NX_SECRETS={"kms://tenants/acme/idp":{"clientSecret":"..."}}
+```
+
 **تشغيل مزوّد حقيقي** متغير بيئة واحد، ولا سطر كود:
 
 ```

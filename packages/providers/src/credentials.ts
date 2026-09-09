@@ -103,3 +103,42 @@ export class InMemorySecretStore implements SecretStore {
     return Promise.resolve(material);
   }
 }
+
+/**
+ * Secrets from the environment of the process.
+ *
+ * A stopgap with one honest property: the material is not in the database and not in a
+ * backup of it, which is what rule 10 is about. It is still visible to anyone who can
+ * read the process environment, so a KMS backed store replaces it wherever that matters.
+ *
+ * NX_SECRETS holds a JSON object of reference to material:
+ *   {"kms://tenants/acme/idp":{"clientSecret":"..."}}
+ */
+export class EnvSecretStore implements SecretStore {
+  readonly #variable: string;
+
+  constructor(variable = 'NX_SECRETS') {
+    this.#variable = variable;
+  }
+
+  fetch(ref: string): Promise<Readonly<Record<string, string>>> {
+    const raw = process.env[this.#variable];
+    if (!raw) {
+      throw new NxError('NX-5001', { detail: `${this.#variable} is not set` });
+    }
+
+    let parsed: Record<string, Record<string, string>>;
+    try {
+      parsed = JSON.parse(raw) as Record<string, Record<string, string>>;
+    } catch {
+      // The message names the variable and never its contents.
+      throw new NxError('NX-5001', { detail: `${this.#variable} is not valid JSON` });
+    }
+
+    const material = parsed[ref];
+    if (!material) {
+      throw new NxError('NX-5001', { detail: `no secret stored for reference ${ref}` });
+    }
+    return Promise.resolve(material);
+  }
+}
