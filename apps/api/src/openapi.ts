@@ -86,6 +86,25 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
     },
     security: [{ bearerAuth: [] }],
     paths: {
+      '/health': {
+        get: {
+          summary: 'Liveness',
+          description:
+            'Answers as long as the process is running. It checks nothing else on purpose: restarting the API does not fix a database that is down.',
+          responses: { '200': { description: 'Alive' } },
+        },
+      },
+      '/ready': {
+        get: {
+          summary: 'Readiness',
+          description:
+            'Checks that this instance can reach the database and the key service. Answers 503 when it cannot, so it is not sent traffic.',
+          responses: {
+            '200': { description: 'Ready' },
+            '503': { description: 'Not ready' },
+          },
+        },
+      },
       '/v1/products': {
         get: {
           summary: 'List the products available to this account, with their input schemas',

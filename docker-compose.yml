@@ -1,0 +1,64 @@
+# A whole platform on one machine, for a demonstration or a first deployment.
+#
+# The three roles are three connection strings, not three databases: rule 12 wants the
+# owner and the application to be different roles, so the compose file passes different
+# users of the same database rather than pretending one user is enough.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${NX_POSTGRES_PASSWORD:?set NX_POSTGRES_PASSWORD}
+      POSTGRES_DB: nx_verify
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d nx_verify']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    command: ['pnpm', '--filter', '@nx-verify/db', 'run', 'migrate', 'up']
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: .
+    command: ['pnpm', '--filter', '@nx-verify/api', 'run', 'start']
+    env_file: .env
+    ports:
+      - '3000:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # Readiness, not liveness: an instance that cannot reach the database must not be
+      # sent traffic, and restarting it would not help.
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/ready']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  console:
+    build: .
+    command: ['pnpm', '--filter', '@nx-verify/console', 'run', 'start']
+    env_file: .env
+    ports:
+      - '3001:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build: .
+    command: ['pnpm', '--filter', '@nx-verify/worker', 'run', 'start']
+    env_file: .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  db:

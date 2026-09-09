@@ -37,7 +37,43 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   registerErrorHandler(app, options.context.registry);
 
+  /**
+   * Liveness: the process is running and answering.
+   *
+   * It deliberately checks nothing else. An orchestrator restarts a container that fails
+   * this, and restarting the API does not fix a database that is down: it only removes
+   * the instance that could have told anyone what was wrong.
+   */
   app.get('/health', async () => ({ status: 'ok' }));
+
+  /**
+   * Readiness: this instance can actually serve a request.
+   *
+   * A health check that always says ok is a health check that lies, and the two ways this
+   * process is up but useless are a database it cannot reach and a key service it cannot
+   * ask. Both are checked, and neither answer carries a reason a stranger could use: the
+   * body names which check failed and never why.
+   */
+  app.get('/ready', async (_request, reply) => {
+    const checks: Record<string, boolean> = { database: false, keys: false };
+
+    try {
+      await options.context.withoutTenant((tx) => tx.query('SELECT 1'));
+      checks['database'] = true;
+    } catch {
+      checks['database'] = false;
+    }
+
+    try {
+      await options.context.keys.currentVersion();
+      checks['keys'] = true;
+    } catch {
+      checks['keys'] = false;
+    }
+
+    const ready = Object.values(checks).every(Boolean);
+    return reply.status(ready ? 200 : 503).send({ status: ready ? 'ready' : 'not_ready', checks });
+  });
   app.get('/openapi.json', async () => buildOpenApiDocument());
 
   registerProductRoutes(app, options.context);

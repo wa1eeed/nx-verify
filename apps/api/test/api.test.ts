@@ -316,6 +316,39 @@ describe('the public API', () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it('answers liveness without checking anything, and readiness by checking', async () => {
+    const live = await call('GET', '/health', { key: null });
+    expect(live.statusCode).toBe(200);
+    expect(live.json().status).toBe('ok');
+
+    // Readiness is the one that can say no: an instance that cannot reach the database or
+    // the key service is up and useless, and must not be sent traffic.
+    const ready = await call('GET', '/ready', { key: null });
+    expect(ready.statusCode).toBe(200);
+    expect(ready.json()).toEqual({ status: 'ready', checks: { database: true, keys: true } });
+  });
+
+  it('reports not ready when it cannot reach the database, and says only that', async () => {
+    const broken = buildContext({
+      connectionString: 'postgres://nx_app@127.0.0.1:1/nowhere',
+      masterKey: Buffer.alloc(32, 7).toString('base64'),
+      registry: new ProviderRegistry().register(new StubProvider({ name: PROVIDER_NAME })),
+      secrets: new InMemorySecretStore({ [SECRET_REF]: { apiKey: 'test-key' } }),
+    });
+    const brokenApp = await buildApp({ context: broken });
+
+    const response = await brokenApp.inject({ method: 'GET', url: '/ready' });
+    expect(response.statusCode).toBe(503);
+    expect(response.json().checks.database).toBe(false);
+    // The body names which check failed and never why. A connection error carries a host,
+    // a port and sometimes a user name.
+    expect(response.body).not.toContain('nowhere');
+    expect(response.body).not.toContain('127.0.0.1');
+
+    await brokenApp.close();
+    await broken.pool.end();
+  });
+
   it('serves an OpenAPI document generated from the routes', async () => {
     const response = await call('GET', '/openapi.json', { key: null });
     expect(response.statusCode).toBe(200);
