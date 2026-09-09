@@ -408,3 +408,15 @@ export { renderEvidenceHtml } from './evidence/render.js';
 export type { RenderOptions } from './evidence/render.js';
 export { FilesystemEvidenceStore, InMemoryEvidenceStore } from './evidence/store.js';
 export type { EvidenceStore } from './evidence/store.js';
+export { addSsoDomain, beginSso, completeSso, configureIdp, verifyIdToken } from './auth/sso.js';
+export type {
+  BeginSsoInput,
+  CompleteSsoInput,
+  ConfigureIdpInput,
+  IdTokenClaims,
+  IdpConfig,
+  SsoFetcher,
+  SsoLoginSuccess,
+  SsoRedirect,
+  VerifyIdTokenOptions,
+} from './auth/sso.js';
