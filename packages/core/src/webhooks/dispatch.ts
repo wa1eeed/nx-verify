@@ -1,6 +1,7 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { nextRetryAt } from './signing.js';
+import { queueNotifications } from '../notifications/notifications.js';
 
 /**
  * Queueing webhook deliveries.
@@ -54,7 +55,17 @@ export interface QueueEventInput {
   payload: Record<string, unknown>;
 }
 
+/**
+ * Announces an event on every channel the subscriber has.
+ *
+ * Both fan outs happen here rather than at the call site, so an event added later reaches
+ * the customer's systems and the customer's people without whoever adds it remembering
+ * that there are two kinds of recipient. The payload goes to the endpoints, which are the
+ * customer's own machines; the people get a message that carries none of it.
+ */
 export async function queueEvent(tx: TenantTransaction, input: QueueEventInput): Promise<string[]> {
+  await queueNotifications(tx, { eventType: input.eventType });
+
   const endpoints = await listEndpoints(tx, input.eventType);
   const ids: string[] = [];
 

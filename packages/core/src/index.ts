@@ -421,3 +421,23 @@ export type {
   SsoRedirect,
   VerifyIdTokenOptions,
 } from './auth/sso.js';
+export {
+  addChannel,
+  claimPendingNotifications,
+  listChannels,
+  queueNotifications,
+  recordNotificationResult,
+  renderMessage,
+  subscribe,
+  unsubscribe,
+  verifyChannel,
+} from './notifications/notifications.js';
+export type {
+  AddChannelInput,
+  Message,
+  NotificationChannel,
+  NotificationSeverity,
+  PendingNotification,
+  QueueNotificationsInput,
+  SubscribeInput,
+} from './notifications/notifications.js';

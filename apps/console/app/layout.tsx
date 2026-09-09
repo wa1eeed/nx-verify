@@ -31,6 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
             <a href="/portfolios">المحافظ</a>
             <a href="/settings/freshness">مدد الصلاحية</a>
             <a href="/settings/rules">قواعد القرار</a>
+            <a href="/settings/notifications">التنبيهات</a>
             <form action="/logout" method="post" className="inline">
               <button type="submit" className="link" data-role="sign-out">
                 خروج

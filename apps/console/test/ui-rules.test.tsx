@@ -13,6 +13,7 @@ import { ReviewQueue, reasonLabel } from '../components/review-queue';
 import { Dashboard } from '../components/dashboard';
 import { Portfolios } from '../components/portfolios';
 import { RulesStudio, describeCondition } from '../components/rules-studio';
+import { NotificationSettings, eventLabel } from '../components/notification-settings';
 import type { ProfileFieldView } from '../components/field-card';
 
 /**
@@ -458,5 +459,57 @@ describe('the rules studio', () => {
     expect(describeCondition({ op: 'always' })).toBe('في كل الحالات الأخرى');
     expect(describeCondition({ op: 'stale', field: 'cr.status' })).toContain('قديم');
     expect(describeCondition({ op: 'linked_gte', relation: 'MANAGES', value: 3 })).toContain('3');
+  });
+});
+
+/**
+ * The notifications screen states what a message carries, because the person choosing
+ * recipients is deciding who gets mail from us.
+ */
+describe('the notifications screen', () => {
+  const html = renderToStaticMarkup(
+    <NotificationSettings
+      channels={[
+        {
+          id: 'c1',
+          address: 'compliance@client.example.sa',
+          displayName: 'الامتثال',
+          verified: true,
+          status: 'active',
+          events: [
+            { ruleId: 'r1', eventType: 'entity.changed', minSeverity: 'WARNING' },
+          ],
+        },
+        {
+          id: 'c2',
+          address: 'stranger@example.com',
+          displayName: null,
+          verified: false,
+          status: 'active',
+          events: [],
+        },
+      ]}
+    />,
+  );
+
+  it('says plainly that a message carries nothing about the subject', () => {
+    expect(html).toContain('data-role="content-notice"');
+    expect(html).toContain('لا تحمل أي معرّف');
+  });
+
+  it('marks an address nobody proved, and says nothing is sent to it', () => {
+    expect(html).toContain('data-role="unverified"');
+    expect(html).toContain('ولا يُرسَل إليه');
+    expect(html).toContain('data-role="verified"');
+  });
+
+  it('keeps the address in a left to right run inside the right to left page', () => {
+    expect(html).toContain('<bdi dir="ltr" class="mono">compliance@client.example.sa</bdi>');
+  });
+
+  it('names the events in Arabic rather than showing the event key', () => {
+    expect(eventLabel('entity.changed')).toBe('تغيّر مرصود');
+    expect(html).toContain('تغيّر مرصود');
+    expect(html).not.toContain('entity.changed');
   });
 });
