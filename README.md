@@ -49,7 +49,10 @@ pnpm run lint && pnpm run typecheck && pnpm run style
 ```bash
 pnpm --filter @nx-verify/api run dev       # الـAPI
 pnpm --filter @nx-verify/console run dev   # الكونسول
+pnpm --filter @nx-verify/worker run start  # العامل: المراقبة والدفعات والتسليم والاحتفاظ
 ```
+
+العامل يحتاج اتصالين: `NX_APP_DATABASE_URL` للعمل، و`NX_OPERATOR_DATABASE_URL` لقراءة قائمة المساحات وحدها.
 
 الدخول إلى الكونسول على `/login`: كلمة مرور بمعرّف مساحة العمل، أو بريد العمل إن كانت الشركة مرتبطة بدليل موحّد. وسر عميل الدليل يُقرأ من مخزن الأسرار:
 

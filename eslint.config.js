@@ -37,6 +37,7 @@ export default tseslint.config(
       'test/global-setup.ts',
       'apps/api/src/server.ts',
       'apps/mcp/src/server.ts',
+      'apps/worker/src/main.ts',
     ],
     rules: {
       'no-console': 'off',

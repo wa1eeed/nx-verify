@@ -21,3 +21,6 @@ export type {
   NotificationSummary,
   OutgoingMail,
 } from './jobs/notifications.js';
+export { Scheduler } from './schedule.js';
+export type { JobContext, JobDefinition, JobRun, JobScope, SchedulerOptions } from './schedule.js';
+export { activeTenantIds } from './tenants.js';
