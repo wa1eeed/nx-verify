@@ -441,3 +441,5 @@ export type {
   QueueNotificationsInput,
   SubscribeInput,
 } from './notifications/notifications.js';
+export { HttpKmsClient, KmsMasterKeySource, masterKeySourceFromEnv } from './crypto/kms.js';
+export type { Fetcher, HttpKmsOptions, KmsClient, KmsDecryptRequest } from './crypto/kms.js';

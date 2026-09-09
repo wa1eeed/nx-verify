@@ -116,8 +116,8 @@ export async function finishSso(
 
 /** Rule 10: the row holds a reference, and the material comes from the store. */
 async function defaultClientSecret(ref: string): Promise<string> {
-  const { EnvSecretStore } = await import('@nx-verify/providers');
-  const material = await new EnvSecretStore().fetch(ref);
+  const { secretStoreFromEnv } = await import('@nx-verify/providers');
+  const material = await secretStoreFromEnv().fetch(ref);
   const secret = material['clientSecret'] ?? material['client_secret'];
   if (!secret) {
     throw new Error('the stored material carries no client secret');

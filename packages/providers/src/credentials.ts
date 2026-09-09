@@ -142,3 +142,112 @@ export class EnvSecretStore implements SecretStore {
     return Promise.resolve(material);
   }
 }
+
+export type SecretFetcher = (
+  url: string,
+  init: { method: string; headers: Record<string, string> },
+) => Promise<{ status: number; json: () => Promise<unknown> }>;
+
+/**
+ * Provider credentials from a secret manager, over HTTP.
+ *
+ * The same shape as the KMS key source and for the same reason: a vendor SDK here would
+ * put a cloud account into the dependency graph of every test in the repository, and
+ * every managed secret manager offers one request that turns a reference into material.
+ *
+ * A reference is safe to name in an error. The material never is, so a failure carries
+ * the status and the reference and nothing from the response body.
+ */
+export class HttpSecretStore implements SecretStore {
+  readonly #endpoint: string;
+  readonly #token: string;
+  readonly #fetch: SecretFetcher;
+  readonly #cacheMs: number;
+  readonly #cache = new Map<string, { material: Readonly<Record<string, string>>; expiresAt: number }>();
+  readonly #now: () => number;
+
+  constructor(options: {
+    endpoint: string;
+    token: string;
+    cacheSeconds?: number;
+    fetcher?: SecretFetcher;
+    now?: () => number;
+  }) {
+    this.#endpoint = options.endpoint.replace(/\/$/, '');
+    this.#token = options.token;
+    this.#cacheMs = (options.cacheSeconds ?? 60) * 1000;
+    this.#now = options.now ?? Date.now;
+    this.#fetch =
+      options.fetcher ??
+      ((url, init) => fetch(url, init) as unknown as ReturnType<SecretFetcher>);
+  }
+
+  static fromEnv(env: Readonly<Record<string, string | undefined>> = process.env): HttpSecretStore {
+    const endpoint = env['NX_SECRETS_ENDPOINT'];
+    const token = env['NX_SECRETS_TOKEN'];
+    if (!endpoint || !token) {
+      throw new Error('NX_SECRETS_ENDPOINT and NX_SECRETS_TOKEN are required');
+    }
+    return new HttpSecretStore({ endpoint, token });
+  }
+
+  async fetch(ref: string): Promise<Readonly<Record<string, string>>> {
+    const cached = this.#cache.get(ref);
+    if (cached && cached.expiresAt > this.#now()) {
+      return cached.material;
+    }
+
+    const response = await this.#fetch(`${this.#endpoint}/${encodeURIComponent(ref)}`, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${this.#token}`, accept: 'application/json' },
+    });
+
+    if (response.status >= 400) {
+      throw new NxError('NX-5002', {
+        detail: `the secret manager answered ${response.status} for reference ${ref}`,
+      });
+    }
+
+    const body = (await response.json()) as { material?: unknown };
+    const material = body.material;
+    if (!material || typeof material !== 'object') {
+      throw new NxError('NX-5001', { detail: `no material behind reference ${ref}` });
+    }
+
+    const entries = Object.fromEntries(
+      Object.entries(material as Record<string, unknown>).map(([key, value]) => [
+        key,
+        String(value),
+      ]),
+    );
+    // Held briefly. A call per verification would make the secret manager the slowest
+    // thing in a run, and holding it forever would outlive a rotation.
+    this.#cache.set(ref, { material: entries, expiresAt: this.#now() + this.#cacheMs });
+    return entries;
+  }
+
+  forget(ref?: string): void {
+    if (ref === undefined) {
+      this.#cache.clear();
+      return;
+    }
+    this.#cache.delete(ref);
+  }
+}
+
+/**
+ * The store a deployment actually gets: a secret manager if one is configured, and the
+ * environment otherwise, refusing the environment in production for the same reason the
+ * key source does.
+ */
+export function secretStoreFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): SecretStore {
+  if (env['NX_SECRETS_ENDPOINT']) {
+    return HttpSecretStore.fromEnv(env);
+  }
+  if (env['NODE_ENV'] === 'production') {
+    throw new Error('NX_SECRETS_ENDPOINT is required in production');
+  }
+  return new EnvSecretStore();
+}

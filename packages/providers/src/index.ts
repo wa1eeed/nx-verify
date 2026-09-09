@@ -13,11 +13,13 @@ export type {
 export { ProviderRegistry } from './registry.js';
 export {
   EnvSecretStore,
+  HttpSecretStore,
   InMemorySecretStore,
   getProviderBinding,
   resolveCredential,
+  secretStoreFromEnv,
 } from './credentials.js';
-export type { ProviderBinding, SecretStore } from './credentials.js';
+export type { ProviderBinding, SecretFetcher, SecretStore } from './credentials.js';
 
 export { StubProvider } from './stub/stub-provider.js';
 export type { StubProviderOptions } from './stub/stub-provider.js';

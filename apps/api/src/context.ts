@@ -2,6 +2,7 @@ import { createPool, withTenant, withoutTenant, type TenantTransaction } from '@
 import {
   DerivedTenantKeyProvider,
   EnvMasterKeySource,
+  masterKeySourceFromEnv,
   InMemoryEvidenceStore,
   type EvidenceStore,
   type TenantKeyProvider,
@@ -58,10 +59,12 @@ export function buildContext(options: BuildContextOptions = {}): AppContext {
   }
 
   const pool = createPool(connectionString);
+  // A key given directly is a test's key. Everything else takes the deployment's choice:
+  // a key service where one is configured, and the environment only outside production.
   const keys = new DerivedTenantKeyProvider(
-    new EnvMasterKeySource(
-      options.masterKey === undefined ? process.env : { NX_MASTER_KEY: options.masterKey },
-    ),
+    options.masterKey === undefined
+      ? masterKeySourceFromEnv()
+      : new EnvMasterKeySource({ NX_MASTER_KEY: options.masterKey }),
   );
   const registry = options.registry ?? createProviderRegistry(providerConfigFromEnv());
   const secrets = options.secrets ?? new InMemorySecretStore();

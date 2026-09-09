@@ -67,6 +67,16 @@ NX_SECRETS={"kms://tenants/acme/idp":{"clientSecret":"..."}}
 NX_PROVIDERS=wathq:https://api.example.com
 ```
 
+**خدمة المفاتيح والأسرار** في الإنتاج، ولا تُقبل البيئة بديلاً عنها هناك:
+
+```
+NX_KMS_ENDPOINT=https://kms.example.sa/decrypt
+NX_KMS_TOKEN=...
+NX_KMS_KEYS=1:<ciphertext>,2:<ciphertext>
+NX_SECRETS_ENDPOINT=https://secrets.example.sa/v1
+NX_SECRETS_TOKEN=...
+```
+
 **خادم MCP** يتيح لمساعد ذكي استخدام المنصة بمفتاح مشترك واحد. العملية الواحدة لمشترك واحد، لأن المفتاح يثبّت المستأجر ولا أداة تقبل معرّف مستأجر.
 
 ```bash

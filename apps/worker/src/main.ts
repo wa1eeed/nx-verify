@@ -1,15 +1,15 @@
 import { createPool, withTenant } from '@nx-verify/db';
 import {
   DerivedTenantKeyProvider,
-  EnvMasterKeySource,
+  masterKeySourceFromEnv,
   type TenantKeyProvider,
 } from '@nx-verify/core';
 import {
-  EnvSecretStore,
   createProviderRegistry,
   createProviderStepRunner,
   providerConfigFromEnv,
   resolveCredential,
+  secretStoreFromEnv,
 } from '@nx-verify/providers';
 import { resolveProviders } from '@nx-verify/core';
 import { Scheduler, type JobDefinition } from './schedule.js';
@@ -39,9 +39,9 @@ async function main(): Promise<void> {
   const appPool = createPool(appUrl);
   const operatorPool = createPool(operatorUrl);
 
-  const secrets = new EnvSecretStore();
+  const secrets = secretStoreFromEnv();
   const registry = createProviderRegistry(providerConfigFromEnv(process.env));
-  const keys: TenantKeyProvider = new DerivedTenantKeyProvider(new EnvMasterKeySource());
+  const keys: TenantKeyProvider = new DerivedTenantKeyProvider(masterKeySourceFromEnv());
   const mail: MailTransport | null = process.env['NX_MAIL_ENDPOINT']
     ? HttpMailTransport.fromEnv()
     : null;
