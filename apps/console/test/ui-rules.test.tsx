@@ -10,6 +10,7 @@ import { SharedProfile } from '../components/shared-profile';
 import { UserAdmin } from '../components/user-admin';
 import { PendingTopUps, TopUpPanel } from '../components/topup';
 import { OperatorReadiness } from '../components/operator-readiness';
+import { VerificationHistory } from '../components/verification-history';
 import { FreshnessSettings } from '../components/freshness-settings';
 import { Timeline } from '../components/timeline';
 import RootLayout from '../app/layout';
@@ -754,7 +755,7 @@ describe('the entity file groups what it knows', () => {
     const html = render();
     expect(html).toContain('data-role="indicators"');
     expect(html).toContain('درجة الثقة');
-    expect(html).toContain('حقائق موثقة');
+    expect(html).toContain('حقول موثّقة');
     expect(html).toContain('آخر تحقق');
     // The tab links carry no script: they work behind a locked down browser and survive
     // a refresh.
@@ -1049,6 +1050,100 @@ describe('deployment readiness on screen', () => {
     );
     expect(html).toContain('NX_KMS_ENDPOINT');
     expect(html).toContain('NX_MAIL_ENDPOINT');
+  });
+});
+
+describe('the customer file over time', () => {
+  it('keeps the values a field had before, with the day each was read', () => {
+    const html = renderToStaticMarkup(
+      <FieldCard
+        field={{
+          fieldPath: 'cr.status',
+          value: 'SUSPENDED',
+          authority: 'Commercial Registry',
+          observedAt: new Date('2026-09-12T00:00:00Z'),
+          effectiveUntil: new Date('2026-12-11T00:00:00Z'),
+          freshness: 'fresh',
+          confidence: 1,
+          history: [
+            {
+              value: 'ACTIVE',
+              authority: 'Commercial Registry',
+              observedAt: new Date('2026-06-01T00:00:00Z'),
+              changed: true,
+            },
+          ],
+        }}
+        now={new Date('2026-09-12T00:00:00Z')}
+      />,
+    );
+
+    // The new verification did not erase the old value, and the screen proves it.
+    expect(html).toContain('data-role="field-history"');
+    expect(html).toContain('ACTIVE');
+    expect(html).toContain('2026-06-01');
+    expect(html).toContain('data-role="history-changed"');
+  });
+
+  it('shows no history drawer on a field verified once', () => {
+    const html = renderToStaticMarkup(
+      <FieldCard
+        field={{
+          fieldPath: 'cr.capital',
+          value: 500000,
+          authority: 'Commercial Registry',
+          observedAt: new Date('2026-09-12T00:00:00Z'),
+          effectiveUntil: null,
+          freshness: 'permanent',
+          confidence: 1,
+          history: [],
+        }}
+      />,
+    );
+    // An empty drawer promises a history that does not exist.
+    expect(html).not.toContain('data-role="field-history"');
+  });
+
+  it('groups the timeline by verification and names what each one did', () => {
+    const html = renderToStaticMarkup(
+      <VerificationHistory
+        entries={[
+          {
+            runId: 'r2',
+            reference: 'VRF-2026-000002',
+            productNameAr: 'التحقق الشامل للمنشأة',
+            at: new Date('2026-09-12T00:00:00Z'),
+            decision: 'REVIEW',
+            triggeredBy: 'MONITOR',
+            fields: [
+              { fieldPath: 'cr.status', value: 'SUSPENDED', kind: 'changed' },
+              { fieldPath: 'cr.capital', value: 500000, kind: 'confirmed' },
+            ],
+          },
+          {
+            runId: 'r1',
+            reference: 'VRF-2026-000001',
+            productNameAr: 'التحقق الشامل للمنشأة',
+            at: new Date('2026-06-01T00:00:00Z'),
+            decision: 'PASS',
+            triggeredBy: 'API',
+            fields: [{ fieldPath: 'cr.status', value: 'ACTIVE', kind: 'new' }],
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('VRF-2026-000002');
+    expect(html).toContain('1 حقلاً تغيّر');
+    // A monitor sweep and a person pressing a button are not the same event.
+    expect(html).toContain('مراقبة دورية');
+    // A field read again and found identical is shown, not hidden: a clean
+    // re-verification must not look like nothing happened.
+    expect(html).toContain('مؤكَّد');
+    expect(html).toContain('تغيّر');
+    expect(html).toContain('جديد');
+    // Newest first, the way a person reads a file.
+    expect(html.indexOf('VRF-2026-000002')).toBeLessThan(html.indexOf('VRF-2026-000001'));
   });
 });
 

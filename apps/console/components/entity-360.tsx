@@ -8,13 +8,15 @@ import {
 import { FieldCard, type ProfileFieldView } from './field-card';
 import { ChangeBadge, FreshnessBadge, type FreshnessState } from './freshness';
 import { Identifier } from './identifier';
-import { Timeline, type TimelineEntryView } from './timeline';
+import type { TimelineEntryView } from './timeline';
 import { Panel } from './page-header';
 import { CoverageBar, TrustDial, type CoverageCounts } from './trust-dial';
 
 /**
  * The file of one verified entity, laid out top to bottom as docs/01-blueprint.md
- * section 5.1 specifies: header, alert, facts, timeline, action.
+ * section 5.1 specifies: header, alert, facts, action. The history lives in two places
+ * that answer two different questions: each field carries the values it held before, and
+ * the verification log below groups those facts by the check that produced them.
  *
  * The facts are grouped into tabs, and the grouping is by what a reader is looking for
  * rather than by which product produced them: somebody checking banking arrangements
@@ -76,7 +78,15 @@ export interface Entity360Props {
   header: EntityHeaderView;
   fields: ProfileFieldView[];
   changes: DetectedChange[];
-  timeline: TimelineEntryView[];
+  /**
+   * Kept for callers that still pass it, and no longer drawn here.
+   *
+   * A flat list of every fact ever recorded sat under a grouped list of the same facts,
+   * and the page had two timelines saying the same thing in two shapes. The grouped one
+   * answers the question people actually open a file with, and each field carries its own
+   * previous values, so the flat one was the copy that had to go.
+   */
+  timeline?: TimelineEntryView[];
   relations?: RelationView[];
   /** Which group of facts is open. Absent means the first group that has any. */
   tab?: string | undefined;
@@ -132,7 +142,6 @@ export function Entity360({
   header,
   fields,
   changes,
-  timeline,
   relations = [],
   tab,
   now,
@@ -201,13 +210,13 @@ export function Entity360({
 
         <div className="grid" data-role="indicators" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
           <div className="stat">
-            <span className="stat-label">حقائق موثقة</span>
+            <span className="stat-label">حقول موثّقة</span>
             <strong className="stat-value">
               <bdi dir="ltr" className="mono">
                 {fields.length}
               </bdi>
             </strong>
-            <span className="stat-hint">في {groups.length} مجموعة</span>
+            <span className="stat-hint">في {groups.length} فئة</span>
           </div>
           <div className="stat" {...(expired.length > 0 ? { 'data-tone': 'expired' } : {})}>
             <span className="stat-label">منتهية الصلاحية</span>
@@ -216,7 +225,7 @@ export function Entity360({
                 {expired.length}
               </bdi>
             </strong>
-            <span className="stat-hint">معرفة قديمة، لا مشكلة</span>
+            <span className="stat-hint">تحتاج إعادة تحقق</span>
           </div>
           <div className="stat" {...(changes.length > 0 ? { 'data-tone': 'changed' } : {})}>
             <span className="stat-label">تغيّرات مرصودة</span>
@@ -225,7 +234,7 @@ export function Entity360({
                 {changes.length}
               </bdi>
             </strong>
-            <span className="stat-hint">تحققنا ووجدنا اختلافاً</span>
+            <span className="stat-hint">تغيّرت منذ آخر تحقق</span>
           </div>
           <div className="stat">
             <span className="stat-label">آخر تحقق</span>
@@ -424,12 +433,6 @@ export function Entity360({
           </p>
         </Panel>
       ) : null}
-
-      <Panel title="الخط الزمني" aside="كل ما عرفناه، بترتيب رصده" role="timeline">
-        <div className="panel-body">
-          <Timeline entries={timeline} />
-        </div>
-      </Panel>
 
       <section className="row" data-role="actions">
         {/* The single primary action on this screen. */}

@@ -5,13 +5,20 @@ import {
   getAttestationTimeline,
   getEntity,
   getEntityProfile,
+  getFieldHistory,
   getRelations,
+  getVerificationHistory,
   listIdentifiers,
+  listProducts,
 } from '@nx-verify/core';
 import { fieldGroup, listShares, type FieldGroup } from '@nx-verify/core';
 import { getKeys } from '../../../../lib/keys';
 import { Entity360 } from '../../../../components/entity-360';
 import { SharePanel, type ShareRowView } from '../../../../components/share-panel';
+import {
+  VerificationHistory,
+  type VerificationHistoryEntry,
+} from '../../../../components/verification-history';
 import { createShareAction, revokeShareAction } from './share-actions';
 import { query } from '../../../../lib/context';
 
@@ -68,6 +75,16 @@ export default async function EntityPage({
     const edges = await getRelations(tx, id);
     const shares = await listShares(tx, id);
 
+    // The file over time, and the file field by field. Both are the same immutable rows
+    // read two ways: by verification for the timeline, and by field for each card.
+    const verifications = await getVerificationHistory(tx, id);
+    const products = await listProducts(tx);
+
+    const history = new Map<string, Awaited<ReturnType<typeof getFieldHistory>>>();
+    for (const field of profile) {
+      history.set(field.fieldPath, await getFieldHistory(tx, id, field.fieldPath));
+    }
+
     // Names and link counts for the other side of each relation. The count is what turns
     // a list of relationships into a signal: one person signing for several companies.
     const otherIds = edges.map((edge) =>
@@ -88,7 +105,20 @@ export default async function EntityPage({
       [tx.tenantId, otherIds],
     );
 
-    return { entity, profile, identifiers, timeline, triggers, score, edges, others, shares };
+    return {
+      entity,
+      profile,
+      identifiers,
+      timeline,
+      triggers,
+      score,
+      edges,
+      others,
+      shares,
+      verifications,
+      products,
+      history,
+    };
   });
 
   if (!data) {
@@ -107,6 +137,27 @@ export default async function EntityPage({
     effectiveUntil: field.effectiveUntil,
     freshness: field.freshness,
     confidence: field.confidence,
+    // Everything the field held before the value in force, so the card can show that a
+    // new verification added to the record rather than replacing it.
+    history: (data.history.get(field.fieldPath) ?? [])
+      .filter((entry) => !entry.current)
+      .map((entry) => ({
+        value: entry.value,
+        authority: entry.authority,
+        observedAt: entry.observedAt,
+        changed: entry.changed,
+      })),
+  }));
+
+  const productNames = new Map(data.products.map((product) => [product.code, product.nameAr]));
+  const verifications: VerificationHistoryEntry[] = data.verifications.map((run) => ({
+    runId: run.runId,
+    reference: run.reference,
+    productNameAr: productNames.get(run.productCode) ?? run.productCode,
+    at: run.at,
+    decision: run.decision,
+    triggeredBy: run.triggeredBy,
+    fields: run.fields,
   }));
 
   const entries: TimelineEntryView[] = data.timeline.map((entry) => ({
@@ -187,6 +238,7 @@ export default async function EntityPage({
       timeline={entries}
       relations={relations}
     />
+    <VerificationHistory entries={verifications} />
     <SharePanel
       entityId={id}
       availableGroups={availableGroups}

@@ -75,14 +75,16 @@ describe('the console renders real data', () => {
   const render = async (element: Promise<ReactElement>): Promise<string> =>
     renderToStaticMarkup(await element);
 
-  it('shows entity 360 with fields, provenance and a timeline', async () => {
+  it('shows the customer file with its fields, their source and its history', async () => {
     const { default: EntityPage } = await import('../app/(app)/entities/[id]/page.js');
     const html = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('شركة المثال للتجارة');
     expect(html).toContain('data-field="cr.status"');
     expect(html).toContain('Commercial Registry');
-    expect(html).toContain('data-role="timeline"');
+    // The history the customer asked for: grouped by the verification that produced it,
+    // rather than a flat list of every fact ever recorded.
+    expect(html).toContain('data-role="verification-history"');
     // Triggered from the console, and the timeline says so.
     expect(html).toContain('يدوي من الكونسول');
   });

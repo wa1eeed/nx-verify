@@ -49,8 +49,14 @@ export type {
 
 export {
   getAttestationTimeline,
+  getFieldHistory,
+  getVerificationHistory,
   hashValue,
   recordAttestation,
+} from './repositories/attestations.js';
+export type {
+  FieldHistoryEntry,
+  VerificationInHistory,
 } from './repositories/attestations.js';
 export type {
   AttestationTimelineEntry,

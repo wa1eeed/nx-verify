@@ -21,6 +21,22 @@ export interface ProfileFieldView {
   effectiveUntil: Date | null;
   freshness: FreshnessState;
   confidence: number;
+  /**
+   * Everything this field held before, newest first, without the value in force.
+   *
+   * Present only where the caller loaded it. A field with no history behind it is a field
+   * verified once, which is different from a field whose history we did not fetch, and
+   * the card says which by showing the row count rather than an empty drawer.
+   */
+  history?: FieldHistoryView[];
+}
+
+export interface FieldHistoryView {
+  value: unknown;
+  authority: string | null;
+  observedAt: Date;
+  /** True when this value differed from the one before it. */
+  changed: boolean;
 }
 
 
@@ -100,6 +116,52 @@ export function FieldCard({ field, now }: { field: ProfileFieldView; now?: Date 
           <span data-role="confidence">درجة الثقة في المطابقة: {field.confidence}</span>
         ) : null}
       </div>
+
+      {/*
+        What this field said before.
+        
+        A verification never overwrites the previous one: it adds a fact and marks the old
+        one replaced. That has always been true in the database and was visible nowhere,
+        so a customer reading a profile had no way to tell a value that has held for a
+        year from one that changed last week.
+        
+        A details element rather than a script, so it prints, survives a refresh, and
+        works with the keyboard alone.
+      */}
+      {field.history && field.history.length > 0 ? (
+        <details data-role="field-history">
+          <summary className="muted">
+            القيم السابقة (
+            <bdi dir="ltr" className="mono">
+              {field.history.length}
+            </bdi>
+            )
+          </summary>
+          <ul className="stack" style={{ gap: 'var(--s-2)', margin: 0, paddingInlineStart: 0 }}>
+            {field.history.map((entry, index) => {
+              const previous = formatValue(entry.value);
+              return (
+                <li
+                  key={`${entry.observedAt.toISOString()}-${index}`}
+                  className="row"
+                  data-changed={entry.changed ? 'yes' : 'no'}
+                  style={{ gap: 'var(--s-3)', listStyle: 'none' }}
+                >
+                  <bdi dir="ltr" className="mono">
+                    {entry.observedAt.toISOString().slice(0, 10)}
+                  </bdi>
+                  <span>{previous.text}</span>
+                  {entry.changed ? (
+                    <span className="badge" data-kind="changed" data-role="history-changed">
+                      تغيّر هنا
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      ) : null}
     </article>
   );
 }
