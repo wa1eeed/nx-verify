@@ -87,7 +87,8 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
 
   // Before anything else, including the idempotency claim: a product the subscriber's
   // package does not include never becomes a run, never reserves, and never charges.
-  assertEntitled(await resolveEntitlement(tx, product.code));
+  const entitlement = await resolveEntitlement(tx, product.code);
+  assertEntitled(entitlement);
 
   // Validate before anything is reserved or claimed. A 422 must cost nothing.
   assertValidSubject(product.code, product.inputSchema, input.subject);
@@ -112,9 +113,23 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
   }
 
   const runId = opened.runId;
-  const listPrice = await resolvePrice(tx, product.code, {
+  const bookPrice = await resolvePrice(tx, product.code, {
     contractId: input.contractId ?? null,
   });
+
+  /**
+   * Which price applies, by the same rule the entitlement follows: the narrowest one that
+   * mentions this product wins. An exception written for this subscriber, then the plan,
+   * then the price book.
+   *
+   * Without this the negotiated figures in a plan or an exception would be numbers that
+   * are stored, shown on an operator screen, and never charged, which is worse than not
+   * having them.
+   */
+  const listPrice =
+    entitlement.unitPriceHalalas === null
+      ? bookPrice
+      : { ...bookPrice, unitPrice: entitlement.unitPriceHalalas };
 
   // Practice four in the blueprint's competitive list: re-verifying the same entity with
   // the same product inside the plan's window costs nothing. It is priced at zero rather

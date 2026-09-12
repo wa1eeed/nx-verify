@@ -1198,6 +1198,7 @@ describe('the operator packages screen', () => {
               productNameAr: 'التحقق الشامل',
               enabled: true,
               monthlyQuota: null,
+              unitPriceHalalas: 4400,
             },
           ],
         },
@@ -1259,6 +1260,14 @@ describe('the operator packages screen', () => {
   it('marks a sandbox workspace so nobody sells to it by mistake', () => {
     expect(html).toContain('data-sandbox="true"');
     expect(html).toContain('data-role="sandbox-tag"');
+  });
+
+  it('lets a price be set where it will actually be charged', () => {
+    // The narrowest price that mentions a product wins, and it is charged: a figure that
+    // is stored and shown but never billed is worse than no figure.
+    expect(html).toContain('data-role="unit-price"');
+    expect(html).toContain('44.00');
+    expect(html).toContain('من قائمة الأسعار');
   });
 
   it('names the billing model in words rather than a code', () => {

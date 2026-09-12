@@ -67,12 +67,12 @@ describe('packages and entitlement', () => {
     return subject;
   };
 
-  const run = (tenantId: string, productCode: string, reference: string) =>
+  const run = (tenantId: string, productCode: string, reference: string, unn = subject.unn) =>
     withTenant(db.appPool, tenantId, (tx) =>
       verify(tx, {
         productCode,
-        subject: subjectFor(productCode),
-        subjectIdentifiers: [{ idType: 'UNN', value: subject.unn }],
+        subject: { ...subjectFor(productCode), ...(productCode === 'ADDRESS_ONLY' ? { unn } : {}) },
+        subjectIdentifiers: [{ idType: 'UNN', value: unn }],
         idempotencyKey: reference,
         triggeredBy: 'API',
         modeAtExecution: 'BYOC',
@@ -305,6 +305,33 @@ describe('packages and entitlement', () => {
         ]),
       ),
     ).rejects.toThrow(/permission denied/);
+  });
+
+  it('charges the negotiated price rather than the price book', async () => {
+    // A price written for this one subscriber. Storing it and charging something else
+    // would be worse than not having it.
+    await db.operatorPool.query(
+      `INSERT INTO tenant_product_overrides (tenant_id, product_code, enabled, unit_price_halalas)
+       VALUES ($1, 'ADDRESS_ONLY', true, 250)
+       ON CONFLICT (tenant_id, product_code) DO UPDATE SET unit_price_halalas = 250,
+                                                           enabled = true`,
+      [enterprise.tenantId],
+    );
+
+    const entitlement = await withTenant(db.appPool, enterprise.tenantId, (tx) =>
+      resolveEntitlement(tx, 'ADDRESS_ONLY'),
+    );
+    expect(entitlement.unitPriceHalalas).toBe(250);
+
+    // A subject this workspace has not seen, so the free re-verification window does not
+    // make this test about something else.
+    const result = await run(enterprise.tenantId, 'ADDRESS_ONLY', 'ent-negotiated', '7001299001');
+    expect(result.billing.amount).toBe(250);
+
+    await db.operatorPool.query(
+      `DELETE FROM tenant_product_overrides WHERE tenant_id = $1 AND product_code = 'ADDRESS_ONLY'`,
+      [enterprise.tenantId],
+    );
   });
 
   it('keeps one subscriber package out of another subscriber scope', async () => {

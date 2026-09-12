@@ -14,6 +14,13 @@ import { operatorQuery, requireOperator } from '../../../../lib/operator';
 
 export async function setProductAction(formData: FormData): Promise<void> {
   const operatorId = await requireOperator();
+
+  // Riyals on the screen, halalas in the database, integers throughout (ADR-021). An
+  // empty field means this plan names no price and the subscriber's price book decides.
+  const rawPrice = String(formData.get('unit_price') ?? '').trim();
+  const unitPriceHalalas =
+    rawPrice === '' ? null : Math.round(Number.parseFloat(rawPrice) * 100);
+
   await operatorQuery((db) =>
     setPackageProduct(
       db,
@@ -21,6 +28,9 @@ export async function setProductAction(formData: FormData): Promise<void> {
         packageCode: String(formData.get('package_code') ?? ''),
         productCode: String(formData.get('product_code') ?? ''),
         enabled: String(formData.get('enabled') ?? 'false') === 'true',
+        ...(unitPriceHalalas === null || Number.isNaN(unitPriceHalalas)
+          ? {}
+          : { unitPriceHalalas }),
       },
       operatorId,
     ),

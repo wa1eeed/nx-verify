@@ -19,6 +19,8 @@ export interface PackageProductView {
   productNameAr: string;
   enabled: boolean;
   monthlyQuota: number | null;
+  /** The plan's own price for this module. Null defers to the subscriber's price book. */
+  unitPriceHalalas: number | null;
 }
 
 export interface PackageView {
@@ -119,6 +121,7 @@ export function OperatorPackages({
                   <th>الوحدة</th>
                   <th>مشمولة</th>
                   <th>الحصة الشهرية</th>
+                  <th>سعر الوحدة</th>
                   <th />
                 </tr>
               </thead>
@@ -148,6 +151,31 @@ export function OperatorPackages({
                         <bdi dir="ltr" className="mono">
                           {included?.monthlyQuota ?? 'بلا حد'}
                         </bdi>
+                      </td>
+                      <td>
+                        <form action={setProductAction} method="post" className="row">
+                          <input type="hidden" name="package_code" value={plan.code} />
+                          <input type="hidden" name="product_code" value={product.code} />
+                          <input type="hidden" name="enabled" value={String(enabled)} />
+                          <input
+                            name="unit_price"
+                            defaultValue={
+                              included?.unitPriceHalalas === null ||
+                              included?.unitPriceHalalas === undefined
+                                ? ''
+                                : (included.unitPriceHalalas / 100).toFixed(2)
+                            }
+                            placeholder="من قائمة الأسعار"
+                            dir="ltr"
+                            className="mono"
+                            style={{ width: '7rem' }}
+                            aria-label="سعر الوحدة بالريال"
+                            data-role="unit-price"
+                          />
+                          <button type="submit" className="link" data-role="save-price">
+                            حفظ
+                          </button>
+                        </form>
                       </td>
                       <td>
                         <form action={setProductAction} method="post" className="inline">

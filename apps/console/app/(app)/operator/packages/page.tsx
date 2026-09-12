@@ -39,6 +39,7 @@ export default async function OperatorPackagesPage(): Promise<ReactElement> {
       productNameAr: nameOf.get(product.productCode) ?? product.productCode,
       enabled: product.enabled,
       monthlyQuota: product.monthlyQuota,
+      unitPriceHalalas: product.unitPriceHalalas,
     })),
   }));
 
