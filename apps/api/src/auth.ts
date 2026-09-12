@@ -24,8 +24,12 @@ export function requireAuth(context: AppContext, scope: string) {
     }
 
     const caller = await context.withoutTenant((tx) => authenticate(tx, header.slice(7)));
-    assertScope(caller, scope);
+    // Attached before the scope is checked, not after. The key authenticated; it simply
+    // may not do this. A refusal that cannot be attributed to the workspace that made it
+    // is a refusal missing from that workspace's own request log, and a scope refusal is
+    // the call a customer asks about most.
     request.caller = caller;
+    assertScope(caller, scope);
   };
 }
 

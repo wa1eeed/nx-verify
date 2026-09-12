@@ -17,7 +17,7 @@ import { activeTenantIds } from './tenants.js';
 import { runDueMonitors } from './jobs/monitors.js';
 import { deliverWebhooks } from './jobs/webhooks.js';
 import { deliverNotifications, HttpMailTransport, type MailTransport } from './jobs/notifications.js';
-import { enforceRetention, ensureAuditPartitions } from './jobs/retention.js';
+import { enforceRetention, ensureAuditPartitions, pruneRequestLogs } from './jobs/retention.js';
 import { runBatchItems } from './jobs/batches.js';
 import { checkProviderHealth } from './jobs/provider-health.js';
 
@@ -98,6 +98,8 @@ async function main(): Promise<void> {
       scope: 'tenant',
       run: async ({ tx }) => {
         await enforceRetention(tx);
+        // The request log is cleared on the same sweep but by its own rule.
+        await pruneRequestLogs(tx);
       },
     },
     {

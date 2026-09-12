@@ -22,6 +22,7 @@ import { OnboardingList } from '../components/onboarding';
 import { OperatorMargin } from '../components/operator-margin';
 import { Developer } from '../components/developer';
 import { OperatorPackages, billingLabel } from '../components/operator-packages';
+import { ApiLog } from '../components/api-log';
 import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
 import { Statement } from '../components/statement';
@@ -1209,5 +1210,61 @@ describe('the operator packages screen', () => {
     expect(billingLabel('ANNUAL')).toBe('التزام سنوي');
     expect(billingLabel('PAYG')).toBe('دفع لكل عملية');
     expect(html).toContain('التزام سنوي');
+  });
+});
+
+/**
+ * The log a customer's engineer opens when an integration misbehaves.
+ */
+describe('the request log', () => {
+  const rows = [
+    {
+      id: '2',
+      requestId: 'req_abc123',
+      method: 'POST',
+      route: '/v1/verifications',
+      status: 403,
+      latencyMs: 9,
+      errorCode: 'NX-4031',
+      environment: 'live',
+      at: new Date('2026-09-12T10:00:00Z'),
+    },
+    {
+      id: '1',
+      requestId: 'req_def456',
+      method: 'GET',
+      route: '/v1/verifications/:id',
+      status: 200,
+      latencyMs: 4,
+      errorCode: null,
+      environment: 'sandbox',
+      at: new Date('2026-09-12T09:59:00Z'),
+    },
+  ];
+
+  const html = renderToStaticMarkup(<ApiLog rows={rows} failuresOnly={false} />);
+
+  it('leads with the request id, because that is what support asks for', () => {
+    expect(html).toContain('req_abc123');
+    expect(html).toContain('NX-4031');
+    expect(html).toContain('data-failed="true"');
+  });
+
+  it('shows the route and not the address, which is also what is stored', () => {
+    expect(html).toContain('/v1/verifications/:id');
+    // A path carries values, and values are the one thing rule 4 keeps out of a log.
+    expect(html).not.toMatch(/\/v1\/verifications\/[0-9a-f]{8}-/);
+  });
+
+  it('puts the failures one click away, and says so when there are none', () => {
+    expect(html).toContain('data-role="failures-filter"');
+    const empty = renderToStaticMarkup(<ApiLog rows={[]} failuresOnly />);
+    expect(empty).toContain('هذه أخبار جيدة');
+  });
+
+  it('says which world each call was made in', () => {
+    expect(html).toContain('data-role="log-environment"');
+    expect(html).toContain('إنتاج');
+    expect(html).toContain('اختبار');
   });
 });

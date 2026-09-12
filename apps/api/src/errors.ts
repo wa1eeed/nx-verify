@@ -33,6 +33,9 @@ export function registerErrorHandler(app: FastifyInstance, registry: ProviderReg
       assertNoProviderLeak(body, registry.names());
       // The detail carried on the message is internal and stays in the log.
       request.log.warn({ code: error.code, detail: error.message }, 'request failed');
+      // Named on the response so the request log can record which of our codes it was,
+      // without the log having to parse a body it is not allowed to keep.
+      void reply.header('x-nx-error-code', error.code);
       return reply.status(error.status).send(body);
     }
 

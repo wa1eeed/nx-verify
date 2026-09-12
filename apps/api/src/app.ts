@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { recordApiRequest } from '@nx-verify/core';
 import { registerErrorHandler } from './errors.js';
 import { registerEvidenceRoutes, registerVerificationRoutes } from './routes/verifications.js';
 import { registerProductRoutes } from './routes/products.js';
@@ -33,6 +34,42 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       // consume each other's allowance.
       return header ? header.slice(-16) : request.ip;
     },
+  });
+
+  /**
+   * Every call is written down, after the reply has gone.
+   *
+   * onResponse runs once the client already has its answer, so the write cannot slow a
+   * request down, and a failure to log must never fail a call that already succeeded: the
+   * customer's work matters more than our record of it.
+   *
+   * The route is recorded rather than the address. A path carries values, and values are
+   * the one thing rule 4 keeps out of logs.
+   */
+  app.addHook('onResponse', async (request, reply) => {
+    const caller = request.caller;
+    if (!caller) {
+      // Nothing authenticated, so there is no workspace to write it against. A rejected
+      // key is still counted, in the rate limiter and in the error it received.
+      return;
+    }
+
+    try {
+      await options.context.withTenant(caller.tenantId, (tx) =>
+        recordApiRequest(tx, {
+          apiKeyId: caller.apiKeyId,
+          requestId: String(request.id),
+          method: request.method,
+          route: request.routeOptions.url ?? request.url.split('?')[0] ?? '/',
+          status: reply.statusCode,
+          latencyMs: reply.elapsedTime,
+          errorCode: reply.getHeader('x-nx-error-code')?.toString() ?? null,
+          environment: caller.environment,
+        }),
+      );
+    } catch {
+      // Deliberately swallowed. See above.
+    }
   });
 
   registerErrorHandler(app, options.context.registry);

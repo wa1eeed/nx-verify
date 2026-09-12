@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { withTenant } from '../../../packages/db/src/client.js';
 import { issueApiKey } from '../../../packages/core/src/auth/api-keys.js';
 import { readAudit } from '../../../packages/core/src/auth/audit.js';
+import { listApiRequests } from '../../../packages/core/src/observability/api-log.js';
 import { registerEndpoint } from '../../../packages/core/src/webhooks/dispatch.js';
 import {
   createTestDatabase,
@@ -26,6 +27,16 @@ import type { FastifyInstance } from 'fastify';
  */
 
 const PROVIDER_NAME = 'wathq-example-connector';
+
+/** Polls briefly for something written after a reply was already sent. */
+async function waitFor<T>(read: () => Promise<T>, ready: (value: T) => boolean): Promise<T> {
+  let value = await read();
+  for (let attempt = 0; attempt < 40 && !ready(value); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    value = await read();
+  }
+  return value;
+}
 
 describe('the public API', () => {
   let db: TestDatabase;
@@ -371,6 +382,40 @@ describe('the public API', () => {
     // every result from this platform meaningless.
     expect(forced.statusCode).toBe(201);
     expect(forced.json().status).not.toBe('NOT_FOUND');
+  });
+
+  it('writes every authenticated call down, with the route and never the address', async () => {
+    const created = await call('POST', '/v1/verifications', {
+      body: { product: 'ADDRESS_ONLY', subject: { unn: '7001272184' } },
+    });
+    expect(created.statusCode).toBe(201);
+
+    await call('GET', `/v1/verifications/${created.json().verification_id}`);
+    // A refusal is a call too, and the one a customer asks about most.
+    const refused = await call('POST', '/v1/verifications', {
+      key: readOnlyKey,
+      body: { product: 'ADDRESS_ONLY', subject: { unn: '7001272184' } },
+    });
+    expect(refused.statusCode).toBe(403);
+
+    // The log is written after the reply has gone, which is what keeps it off the
+    // request's own clock, so a test that reads it immediately is racing the write.
+    const logged = await waitFor(
+      () => withTenant(db.appPool, tenant.tenantId, (tx) => listApiRequests(tx, { limit: 20 })),
+      (rows) => rows.some((row) => row.status === 403),
+    );
+
+    expect(logged.length).toBeGreaterThanOrEqual(3);
+    const failure = logged.find((row) => row.status === 403);
+    expect(failure?.errorCode).toBe('NX-4031');
+    expect(failure?.requestId).toMatch(/^req_/);
+
+    const read = logged.find((row) => row.method === 'GET' && row.route.includes('verifications'));
+    // The route pattern and not the address: a path carries values, and values are the one
+    // thing rule 4 keeps out of a log.
+    expect(read?.route).toContain(':id');
+    expect(JSON.stringify(logged)).not.toContain(created.json().verification_id);
+    expect(JSON.stringify(logged)).not.toContain('7001272184');
   });
 
   it('serves an OpenAPI document generated from the routes', async () => {

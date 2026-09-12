@@ -523,3 +523,5 @@ export type {
   SetPackageProductInput,
   SubscriberRow,
 } from './billing/package-admin.js';
+export { listApiRequests, pruneApiRequests, recordApiRequest } from './observability/api-log.js';
+export type { ApiLogFilter, ApiRequestRecord, ApiRequestRow } from './observability/api-log.js';

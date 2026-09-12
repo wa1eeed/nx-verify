@@ -50,6 +50,7 @@ export const NAV: NavGroup[] = [
     label: 'الإعدادات',
     items: [
       { href: '/developer', label: 'بيئة المطوّر' },
+      { href: '/logs', label: 'سجل النداءات' },
       { href: '/settings/api-keys', label: 'مفاتيح الـAPI' },
       { href: '/settings/freshness', label: 'مدد الصلاحية' },
       { href: '/settings/rules', label: 'قواعد القرار' },

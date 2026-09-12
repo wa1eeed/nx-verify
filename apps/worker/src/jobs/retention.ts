@@ -1,4 +1,4 @@
-import { audit } from '@nx-verify/core';
+import { audit, pruneApiRequests } from '@nx-verify/core';
 import type { TenantTransaction } from '@nx-verify/db';
 
 /**
@@ -110,6 +110,21 @@ export async function enforceRetention(
 }
 
 /** Keeps the audit log partitioned ahead of time. */
+/**
+ * Clears old request logs.
+ *
+ * Separate from the retention policy for attestations, and deliberately so: that one
+ * answers a legal question about how long a customer's knowledge is kept, and this one
+ * answers an operational question about a table that grows faster than any other and is
+ * worth little after a month.
+ */
+export async function pruneRequestLogs(
+  tx: TenantTransaction,
+  olderThanDays = 30,
+): Promise<number> {
+  return pruneApiRequests(tx, olderThanDays);
+}
+
 export async function ensureAuditPartitions(
   tx: TenantTransaction,
   monthsAhead = 2,
