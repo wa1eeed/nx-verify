@@ -98,7 +98,7 @@ export function RulesStudio({
             <bdi dir="ltr" className="mono">
               {simulation.entitiesEvaluated}
             </bdi>{' '}
-            كياناً: مقبول{' '}
+            سجلاً: مقبول{' '}
             <bdi dir="ltr" className="mono">
               {simulation.outcomes.PASS}
             </bdi>
@@ -117,7 +117,7 @@ export function RulesStudio({
             <bdi dir="ltr" className="mono">
               {simulation.changed}
             </bdi>{' '}
-            كياناً عمّا هو مسجّل الآن.
+            سجلاً عمّا هو مسجّل الآن.
           </p>
         </section>
       ) : null}

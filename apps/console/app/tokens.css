@@ -66,6 +66,40 @@
 
   --sidebar: 248px;
   --measure: 1180px;
+
+  /*
+   * Motion, in one place and deliberately small.
+   *
+   * A compliance screen is read, not watched. What movement is for here is confirming
+   * that something responded to the person: a border that takes on colour, a row that
+   * lifts a hair under the pointer. Anything long enough to notice as an animation is
+   * long enough to wait for, and this screen is used all day.
+   */
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --fast: 120ms;
+  --slow: 200ms;
+}
+
+/*
+ * Honoured, not offered as a preference we might ignore.
+ *
+ * Someone who has asked their system for less motion has usually asked for a reason that
+ * matters more than our transitions do.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --fast: 0ms;
+    --slow: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 * {
@@ -97,7 +131,8 @@ h3 {
 }
 
 h1 {
-  font-size: 24px;
+  font-size: 27px;
+  letter-spacing: -0.02em;
 }
 h2 {
   font-size: 18px;
@@ -114,6 +149,7 @@ a {
   color: var(--teal-d);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+  transition: color var(--fast) var(--ease);
 }
 
 a:hover {
@@ -201,6 +237,7 @@ a:hover {
 }
 
 .nav-link {
+  position: relative;
   display: block;
   padding: var(--s-2) var(--s-3);
   border-radius: var(--radius);
@@ -208,6 +245,10 @@ a:hover {
   text-decoration: none;
   font-size: 14px;
   border: 1px solid transparent;
+  transition:
+    background var(--fast) var(--ease),
+    color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease);
 }
 
 .nav-link:hover {
@@ -220,6 +261,23 @@ a:hover {
   background: #12203a;
   border-color: var(--teal-d);
   color: var(--teal);
+  font-weight: 600;
+}
+
+/* A solid marker on the start edge, so the current item is findable at a glance down a
+   column of fifteen without reading any of them. */
+.nav-link[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: -1px;
+  inset-block: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--teal);
+}
+
+.nav-label {
+  text-transform: none;
 }
 
 .topbar {
@@ -316,6 +374,13 @@ a:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   padding: var(--s-5);
+  transition: border-color var(--fast) var(--ease);
+}
+
+/* A card that goes somewhere says so under the pointer. One that does not stays still:
+   movement that leads nowhere is a promise the screen does not keep. */
+a.card:hover {
+  border-color: var(--line-strong);
 }
 
 .panel {
@@ -326,6 +391,9 @@ a:hover {
 }
 
 .inbox-bell {
+  transition:
+    border-color var(--fast) var(--ease),
+    color var(--fast) var(--ease);
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
@@ -413,6 +481,7 @@ a:hover {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
+  transition: border-color var(--fast) var(--ease);
 }
 
 .stat-value {
@@ -424,7 +493,9 @@ a:hover {
 
 .stat-label {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .stat-hint {
@@ -458,6 +529,14 @@ a:hover {
 /* ---------- controls ---------- */
 
 /* One primary button per screen. Everything else is secondary. */
+.btn-primary,
+.btn-secondary {
+  transition:
+    background var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    color var(--fast) var(--ease);
+}
+
 .btn-primary {
   background: var(--teal-d);
   color: var(--paper);
@@ -576,10 +655,11 @@ table {
 thead th {
   text-align: start;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
   color: var(--ink-soft);
   padding: var(--s-3) var(--s-5);
-  border-block-end: 1px solid var(--line);
+  border-block-end: 1px solid var(--line-strong);
   background: var(--paper-soft);
   position: sticky;
   top: 0;
@@ -593,6 +673,10 @@ tbody td {
 
 tbody tr:last-child td {
   border-block-end: none;
+}
+
+tbody tr td {
+  transition: background var(--fast) var(--ease);
 }
 
 tbody tr:hover td {

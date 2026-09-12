@@ -57,7 +57,7 @@ export function SharedProfile({ view }: { view: SharedProfileView }): ReactEleme
     <div className="stack" data-role="shared-profile" style={{ gap: 'var(--s-5)' }}>
       <section className="card stack" data-role="shared-header" style={{ gap: 'var(--s-4)' }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <h1 style={{ margin: 0 }}>{view.displayName ?? 'كيان بلا اسم'}</h1>
+          <h1 style={{ margin: 0 }}>{view.displayName ?? 'بلا اسم'}</h1>
           <span
             className="badge"
             style={{ borderColor: 'var(--line-strong)', color: 'var(--ink-soft)' }}

@@ -72,7 +72,7 @@ export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
         <table>
           <thead>
             <tr>
-              <th>الكيان</th>
+              <th>الاسم</th>
               <th>السبب</th>
               <th>الحالة</th>
               <th>العمر</th>

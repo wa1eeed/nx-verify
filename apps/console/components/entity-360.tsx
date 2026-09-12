@@ -161,7 +161,7 @@ export function Entity360({
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <section className="card stack" data-role="header" style={{ gap: 'var(--s-4)' }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <h1 style={{ margin: 0 }}>{header.displayName ?? 'كيان بلا اسم'}</h1>
+          <h1 style={{ margin: 0 }}>{header.displayName ?? 'بلا اسم'}</h1>
           <span className="badge" style={{ borderColor: 'var(--line-strong)', color: 'var(--ink-soft)' }}>
             {header.entityType}
           </span>
@@ -203,7 +203,7 @@ export function Entity360({
               <bdi dir="ltr" className="mono">
                 {header.completeness}%
               </bdi>{' '}
-              من الحقول التي يطلبها هذا النوع من الكيانات
+              من الحقول المطلوبة لهذا النوع
             </span>
           </div>
         </div>

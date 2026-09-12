@@ -173,7 +173,7 @@ describe('the console renders real data', () => {
     );
 
     expect(html).toContain('data-role="impact-preview"');
-    expect(html).toContain('كياناً إلى حالة منتهي الصلاحية');
+    expect(html).toContain('سجلاً إلى حالة منتهي الصلاحية');
   });
 
   it('marks a tenant override in the settings table', async () => {
@@ -260,6 +260,6 @@ describe('the console renders real data', () => {
 
     // People carry none of the business fields, so the gap section has something to say.
     expect(html).toContain('data-role="completeness"');
-    expect(html).toContain('كياناً بلا');
+    expect(html).toContain('بلا حالة السجل التجاري');
   });
 });

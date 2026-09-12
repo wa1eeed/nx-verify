@@ -14,21 +14,50 @@ import type { TenantTransaction } from '@nx-verify/db';
 export interface SavedView {
   key: string;
   labelAr: string;
+  /** The singular this view counts in, so no screen says "entity" to a customer. */
+  unitAr: string;
   entityType: string;
   alertOnEnter: boolean;
 }
 
 export const SAVED_VIEWS: readonly SavedView[] = [
-  { key: 'businesses', labelAr: 'قائمة العملاء', entityType: 'BUSINESS', alertOnEnter: false },
+  // Each view counts in the word that fits what it holds. "Entity" is the schema's word
+  // for a row, and a person looking at a list of companies should not have to learn it.
+  {
+    key: 'businesses',
+    labelAr: 'المنشآت',
+    unitAr: 'منشأة',
+    entityType: 'BUSINESS',
+    alertOnEnter: false,
+  },
   {
     key: 'freelancers',
     labelAr: 'شهادات العمل الحر',
+    unitAr: 'شهادة',
     entityType: 'FREELANCER',
     alertOnEnter: true,
   },
-  { key: 'ibans', labelAr: 'الآيبانات', entityType: 'BANK_ACCOUNT', alertOnEnter: true },
-  { key: 'properties', labelAr: 'العقارات', entityType: 'PROPERTY', alertOnEnter: false },
-  { key: 'people', labelAr: 'الأشخاص', entityType: 'PERSON', alertOnEnter: false },
+  {
+    key: 'ibans',
+    labelAr: 'الآيبانات',
+    unitAr: 'حساباً',
+    entityType: 'BANK_ACCOUNT',
+    alertOnEnter: true,
+  },
+  {
+    key: 'properties',
+    labelAr: 'العقارات',
+    unitAr: 'عقاراً',
+    entityType: 'PROPERTY',
+    alertOnEnter: false,
+  },
+  {
+    key: 'people',
+    labelAr: 'الأشخاص',
+    unitAr: 'شخصاً',
+    entityType: 'PERSON',
+    alertOnEnter: false,
+  },
 ];
 
 export function findView(key: string | undefined): SavedView {

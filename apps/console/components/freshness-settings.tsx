@@ -60,7 +60,7 @@ export function FreshnessSettings({
             <bdi dir="ltr" className="mono">
               {preview.newlyExpired}
             </bdi>{' '}
-            كياناً إلى حالة منتهي الصلاحية.
+            سجلاً إلى حالة منتهي الصلاحية.
           </p>
         </section>
       ) : null}

@@ -41,7 +41,7 @@ export default async function RegistryPage({
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="العملاء"
-        subtitle={`${view.labelAr}. اضغط أي عميل لفتح ملفه الكامل.`}
+        subtitle={`${view.labelAr}. اضغط أي صف لفتح الملف الكامل.`}
       />
 
       {/* The saved views are a strip that scrolls, not a wall of buttons that wraps. They
@@ -64,19 +64,19 @@ export default async function RegistryPage({
           <ul className="panel-body stack" style={{ gap: 'var(--s-2)', margin: 0 }}>
             {gaps.map((gap) => (
               <li key={gap.fieldPath}>
-                {gap.missingEntities} كياناً بلا {fieldLabel(gap.fieldPath)}
+                {gap.missingEntities} {view.unitAr} بلا {fieldLabel(gap.fieldPath)}
               </li>
             ))}
           </ul>
         </Panel>
       ) : null}
 
-      <Panel title="الكيانات" aside={`${rows.length} كياناً`}>
+      <Panel title={view.labelAr} aside={`${rows.length} ${view.unitAr}`}>
         <div className="table-scroll">
         <table>
           <thead>
             <tr>
-              <th>الكيان</th>
+              <th>الاسم</th>
               <th>الحقول</th>
               <th>درجة الثقة</th>
               <th>الحالة</th>
@@ -108,7 +108,7 @@ export default async function RegistryPage({
         </div>
         {rows.length === 0 ? (
           <div className="panel-body">
-            <EmptyState>لا كيانات في هذا العرض بعد. أول تحقق يضع كياناً هنا.</EmptyState>
+            <EmptyState>لا شيء في هذا العرض بعد. أول تحقق يضع صفاً هنا.</EmptyState>
           </div>
         ) : null}
       </Panel>

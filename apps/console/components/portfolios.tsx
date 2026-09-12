@@ -45,7 +45,7 @@ export function Portfolios({ rows }: { rows: PortfolioRowView[] }): ReactElement
           <thead>
             <tr>
               <th>المحفظة</th>
-              <th>الكيانات</th>
+              <th>السجلات</th>
               <th>منتهية الصلاحية</th>
               <th>حالات مفتوحة</th>
               <th>المراقبة</th>
