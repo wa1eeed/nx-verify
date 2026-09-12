@@ -24,6 +24,8 @@ import { Developer } from '../components/developer';
 import { OperatorPackages, billingLabel } from '../components/operator-packages';
 import { ApiLog } from '../components/api-log';
 import { OperatorHealth } from '../components/operator-health';
+import { Docs } from '../components/docs';
+import { Support, supportTierLabel } from '../components/support';
 import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
 import { Statement } from '../components/statement';
@@ -1376,5 +1378,75 @@ describe('the operator health screen', () => {
   it('says plainly that it carries nothing about whom anybody verified', () => {
     expect(html).toContain('لا شيء هنا عمّن تحقّق منه أحد');
     expect(html).not.toContain('entity');
+  });
+});
+
+/**
+ * The reference and the support screen: the last two things a customer needs that are not
+ * a verification.
+ */
+describe('the reference and the support screen', () => {
+  const docs = renderToStaticMarkup(
+    <Docs
+      view={{
+        apiBaseUrl: 'https://api.nx.sa',
+        products: [
+          {
+            code: 'ADDRESS_ONLY',
+            nameAr: 'التحقق من العنوان الوطني',
+            subjectType: 'BUSINESS',
+            inputSchema: { type: 'object', required: ['unn'], properties: { unn: { type: 'string' } } },
+            allowed: true,
+            refusalAr: null,
+          },
+          {
+            code: 'INCOME_VERIFICATION',
+            nameAr: 'إثبات الدخل',
+            subjectType: 'BANK_ACCOUNT',
+            inputSchema: { type: 'object', required: ['account_reference'] },
+            allowed: false,
+            refusalAr: 'هذه الوحدة غير مشمولة في باقتك.',
+          },
+        ],
+      }}
+    />,
+  );
+
+  it('prints the schema the platform actually validates against', () => {
+    // Documentation written beside a catalogue that changes is documentation that lies,
+    // and the customer finds out through a 422 the page said was impossible.
+    expect(docs).toContain('data-role="schema"');
+    expect(docs).toContain('account_reference');
+    expect(docs).toContain('الحقول المطلوبة: unn');
+  });
+
+  it('shows a module the package excludes, and says so rather than hiding it', () => {
+    expect(docs).toContain('غير مشمولة في باقتك');
+    expect(docs).toContain('data-role="doc-refusal"');
+  });
+
+  it('says the response names the authority and never the provider', () => {
+    expect(docs).toContain('data-role="authority-note"');
+    expect(docs).toContain('ولا تحمل الاستجابة اسم أي مزوّد');
+  });
+
+  it('asks support questions to bring the request id, and never an identifier', () => {
+    const support = renderToStaticMarkup(
+      <Support
+        view={{
+          supportTier: 'PRIORITY',
+          packageNameAr: 'النمو',
+          email: 'support@nx.sa',
+          responseHours: 4,
+        }}
+      />,
+    );
+
+    expect(support).toContain('data-role="bring-request-id"');
+    expect(support).toContain('request_id');
+    // The one instruction that protects the customer from us as much as from themselves.
+    expect(support).toContain('data-role="never-send"');
+    expect(support).toContain('لا ترسل رقم هوية');
+    expect(supportTierLabel('DEDICATED')).toBe('دعم مخصّص');
   });
 });
