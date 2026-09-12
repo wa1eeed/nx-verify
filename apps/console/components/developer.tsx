@@ -22,6 +22,15 @@ export interface TestCaseView {
   expectedAr: string;
 }
 
+export interface PlaygroundResult {
+  reference: string | null;
+  status: string;
+  decision: string | null;
+  /** The response envelope, shaped exactly as the API returns it. */
+  response: unknown;
+  latencyMs: number | null;
+}
+
 export interface DeveloperView {
   isSandbox: boolean;
   apiBaseUrl: string;
@@ -29,6 +38,11 @@ export interface DeveloperView {
   keyPrefix: string | null;
   testCases: TestCaseView[];
   scenarioNames: string[];
+  products: { code: string; nameAr: string }[];
+  /** The run the address named, when the playground has just been used. */
+  lastRun?: PlaygroundResult | null;
+  /** Set when the last attempt was refused, and why. */
+  error?: 'live' | 'input' | null;
 }
 
 function curlFor(baseUrl: string, product: string, input: string, sandbox: boolean): string {
@@ -41,7 +55,13 @@ function curlFor(baseUrl: string, product: string, input: string, sandbox: boole
   ].join('\n');
 }
 
-export function Developer({ view }: { view: DeveloperView }): ReactElement {
+export function Developer({
+  view,
+  runAction,
+}: {
+  view: DeveloperView;
+  runAction?: string | ((formData: FormData) => void | Promise<void>);
+}): ReactElement {
   const sample = view.testCases[0];
 
   return (
@@ -97,6 +117,68 @@ export function Developer({ view }: { view: DeveloperView }): ReactElement {
           <pre className="panel-body mono" data-role="curl" dir="ltr" style={{ overflowX: 'auto', margin: 0 }}>
             {curlFor(view.apiBaseUrl, sample.productCode, sample.input, view.isSandbox)}
           </pre>
+        </Panel>
+      ) : null}
+
+      {runAction ? (
+        <Panel title="جرّب الآن" aside="في بيئة الاختبار وحدها" role="playground">
+          <div className="panel-body stack">
+            {view.error === 'live' ? (
+              <p className="sign-in-error" data-role="playground-refusal" role="alert">
+                التشغيل من هذه الصفحة متاح في بيئة الاختبار وحدها. زر يستطيع إنفاق مال
+                العميل بنقرة فضول ليس ميزة.
+              </p>
+            ) : null}
+
+            <form action={runAction} method="post" className="row" style={{ gap: 'var(--s-3)' }}>
+              <select name="product" aria-label="الوحدة" style={{ width: 'auto' }}>
+                {view.products.map((product) => (
+                  <option key={product.code} value={product.code}>
+                    {product.nameAr}
+                  </option>
+                ))}
+              </select>
+              <input
+                name="input"
+                placeholder="7001272184"
+                dir="ltr"
+                className="mono"
+                style={{ width: 'auto' }}
+                aria-label="المُدخل"
+                required
+              />
+              <select name="scenario" aria-label="حالة مفروضة" style={{ width: 'auto' }}>
+                <option value="">بلا فرض</option>
+                {view.scenarioNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="btn-secondary" data-role="run-playground">
+                شغّل
+              </button>
+            </form>
+
+            {view.lastRun ? (
+              <div className="stack" data-role="playground-result">
+                <div className="row">
+                  <span className="badge" data-role="playground-status">
+                    {view.lastRun.status}
+                  </span>
+                  {view.lastRun.reference ? (
+                    <bdi dir="ltr" className="mono">
+                      {view.lastRun.reference}
+                    </bdi>
+                  ) : null}
+                </div>
+                {/* The envelope the integration will receive, not an illustration of it. */}
+                <pre className="mono" dir="ltr" style={{ overflowX: 'auto', margin: 0 }}>
+                  {JSON.stringify(view.lastRun.response, null, 2)}
+                </pre>
+              </div>
+            ) : null}
+          </div>
         </Panel>
       ) : null}
 

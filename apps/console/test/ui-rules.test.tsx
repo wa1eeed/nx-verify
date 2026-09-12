@@ -1085,7 +1085,9 @@ describe('the developer screen', () => {
             },
           ],
           scenarioNames: ['success', 'expired_cr', 'not_found'],
+          products: [{ code: 'KYB_COMPLETE', nameAr: 'التحقق الشامل' }],
         }}
+        runAction="/run"
       />,
     );
 
@@ -1112,6 +1114,56 @@ describe('the developer screen', () => {
     // The sentence that makes the feature safe rather than clever.
     expect(html).toContain('data-role="live-refusal"');
     expect(html).toContain('لفقدت كل نتيجة من المنصة معناها');
+  });
+
+  it('offers a run button, and refuses in production with the reason', () => {
+    const html = render(true);
+    expect(html).toContain('data-role="run-playground"');
+    // The refusal is the feature: a button that can spend a customer's money on a
+    // curious click is a trap.
+    const refused = renderToStaticMarkup(
+      <Developer
+        view={{
+          isSandbox: false,
+          apiBaseUrl: 'https://api.nx.sa',
+          keyPrefix: null,
+          testCases: [],
+          scenarioNames: [],
+          products: [{ code: 'KYB_COMPLETE', nameAr: 'التحقق الشامل' }],
+          error: 'live',
+        }}
+        runAction="/run"
+      />,
+    );
+    expect(refused).toContain('data-role="playground-refusal"');
+    expect(refused).toContain('ليس ميزة');
+  });
+
+  it('shows the envelope an integration will receive, not an illustration of it', () => {
+    const withRun = renderToStaticMarkup(
+      <Developer
+        view={{
+          isSandbox: true,
+          apiBaseUrl: 'https://api.nx.sa',
+          keyPrefix: 'nx_test_ab12',
+          testCases: [],
+          scenarioNames: [],
+          products: [{ code: 'KYB_COMPLETE', nameAr: 'التحقق الشامل' }],
+          lastRun: {
+            reference: 'VRF-2026-000019',
+            status: 'OK',
+            decision: 'PASS',
+            response: { environment: 'sandbox', status: 'OK', reference: 'VRF-2026-000019' },
+            latencyMs: 21,
+          },
+        }}
+        runAction="/run"
+      />,
+    );
+
+    expect(withRun).toContain('data-role="playground-result"');
+    expect(withRun).toContain('VRF-2026-000019');
+    expect(withRun).toContain('&quot;environment&quot;: &quot;sandbox&quot;');
   });
 
   it('tells a person in production that they are, without hiding the test data', () => {
