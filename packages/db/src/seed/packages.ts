@@ -56,6 +56,52 @@ export interface SeedPackage {
 export const SEED_PACKAGES: readonly SeedPackage[] = [
   {
     /**
+     * The plan a sandbox workspace runs on.
+     *
+     * Every module on, no capacity, and play money in the wallet. The prices are real,
+     * because a buyer testing the integration should see what each call would have cost,
+     * and because a billing path that is skipped in the sandbox is a billing path nobody
+     * tested before the first invoice.
+     */
+    code: 'SANDBOX',
+    nameAr: 'بيئة الاختبار',
+    nameEn: 'Sandbox',
+    descriptionAr: 'كل الوحدات مفعّلة، بمزوّد وهمي ورصيد تجريبي. لا يُحاسب عليها أحد.',
+    billingModel: 'PAYG',
+    includedTransactions: null,
+    termMonths: 12,
+    commitmentCreditsHalalas: 0,
+    setupFeeHalalas: 0,
+    setupWaivedFromMonths: null,
+    creditRolloverDays: 0,
+    includedSeats: 25,
+    extraSeatHalalas: 0,
+    includedPortfolios: 25,
+    extraPortfolioHalalas: 0,
+    // Nothing is free in a sandbox either, so that the figures on screen are the figures
+    // a customer will see in production.
+    freeReverifyDays: 0,
+    overageAllowed: true,
+    maxUsers: null,
+    maxApiKeys: 5,
+    maxMonitors: 25,
+    rateLimitRpm: 120,
+    supportTier: 'STANDARD',
+    sortOrder: 1,
+    products: [
+      { code: 'ADDRESS_ONLY' },
+      { code: 'KYB_COMPLETE' },
+      { code: 'AOA_ONLY' },
+      { code: 'MANAGER_PERMISSIONS' },
+      { code: 'FREELANCER_CERTIFICATE' },
+      { code: 'IBAN_OWNERSHIP' },
+      { code: 'NAME_MATCH' },
+      { code: 'BANK_ACCOUNT_OWNERSHIP' },
+      { code: 'INCOME_VERIFICATION' },
+    ],
+  },
+  {
+    /**
      * No commitment, highest unit price.
      *
      * It exists to be compared against. A buyer who sees only a commitment cannot tell

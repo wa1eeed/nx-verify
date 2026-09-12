@@ -460,3 +460,5 @@ export type {
   EntitlementRefusal,
   TermExtras,
 } from './billing/entitlements.js';
+export { findSandboxOf, isSandbox, sandboxLink } from './tenants/sandbox.js';
+export type { SandboxLink } from './tenants/sandbox.js';

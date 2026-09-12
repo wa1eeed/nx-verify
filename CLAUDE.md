@@ -83,6 +83,7 @@ test/guards/
   06-no-provider-leak            لا اسم مزوّد في أي استجابة عامة
   07-ttl-change-is-inert         تعديل مدة الصلاحية لا يمس أي إفادة
   08-partial-success             فشل خطوة غير إلزامية يُرجع PARTIAL لا ERROR
+  09-sandbox-isolation           تشغيل في بيئة الاختبار لا يمس المساحة الحقيقية، والمستند التجريبي موسوم
 ```
 
 ---

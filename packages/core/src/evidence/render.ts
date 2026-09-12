@@ -52,6 +52,20 @@ export async function renderEvidenceHtml(
     line-height: 1.7;
   }
   .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  /*
+   * A sandbox document announces itself at the top and in the margin of every printed
+   * page. Someone handed this on paper has no other way to know, and a test document that
+   * reads as a real one is the single worst thing this platform could produce.
+   */
+  .sandbox {
+    border: 2px solid #8a1c1c;
+    background: #fdecec;
+    color: #8a1c1c;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
   header { border-bottom: 2px solid var(--navy); padding-bottom: 12px; margin-bottom: 18px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   .muted { color: var(--ink-soft); font-size: 12px; }
@@ -74,6 +88,11 @@ export async function renderEvidenceHtml(
 </style>
 </head>
 <body>
+${
+  document.header.sandbox
+    ? `<div class="sandbox" data-role="sandbox-notice">مستند تجريبي من بيئة الاختبار. لا يثبت شيئاً عن أي جهة ولا يصلح للاعتماد عليه.</div>`
+    : ''
+}
 <header>
   <h1>ملف الدليل</h1>
   <div class="muted">${escape(document.header.tenantName)}</div>

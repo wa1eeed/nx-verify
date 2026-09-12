@@ -249,6 +249,14 @@ export function registerEvidenceRoutes(app: FastifyInstance, context: AppContext
       content_hash: evidence.contentHash,
       sealed_at: evidence.signedAt.toISOString(),
       expires_at: evidence.expiresAt?.toISOString() ?? null,
+      // First, because it changes what everything below it means.
+      sandbox: evidence.sandbox,
+      ...(evidence.sandbox
+        ? {
+            sandbox_note_ar: 'هذا ختم من بيئة الاختبار ولا يثبت شيئاً عن أي جهة.',
+            sandbox_note_en: 'This seal was made in a sandbox and proves nothing about anybody.',
+          }
+        : {}),
       // Said plainly on the page, so nobody expects to find the subject here.
       note_ar: 'هذه الصفحة تثبت ختم المستند ووقته فقط، ولا تعرض أي بيانات شخصية.',
       note_en: 'This page confirms the document seal and its time only. It shows no personal data.',

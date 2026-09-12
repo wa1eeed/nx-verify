@@ -27,6 +27,7 @@ import { setTenantBinding } from '../packages/core/src/routing/provider-routing.
  *   pnpm provision price:set --tenant <id> --product KYB_COMPLETE --amount 44.00
  *   pnpm provision wallet:topup --tenant <id> --amount 1000 --invoice INV-1
  *   pnpm provision provider:bind --tenant <id> --provider stub --ref kms://... [--mode BYOC]
+ *   pnpm provision sandbox:create --tenant <id>
  */
 
 const DEFAULT_SCOPES = [
@@ -200,9 +201,80 @@ async function main(): Promise<void> {
         return;
       }
 
+      case 'sandbox:create': {
+        // A sandbox is a workspace of its own (ADR-068), so creating one is provisioning
+        // a second workspace and linking it, not setting a flag.
+        const parent = required(flags, 'tenant');
+        const operatorUrl = process.env['NX_OPERATOR_DATABASE_URL'];
+        if (!operatorUrl) {
+          throw new Error('NX_OPERATOR_DATABASE_URL is not set');
+        }
+
+        const sandboxId = randomUUID();
+        const operator = createPool(operatorUrl);
+        try {
+          const { rows } = await operator.query<{ legal_name: string; slug: string }>(
+            'SELECT legal_name, slug FROM tenants WHERE id = $1 AND sandbox_of IS NULL',
+            [parent],
+          );
+          const owner = rows[0];
+          if (!owner) {
+            throw new Error('no such workspace, or it is already a sandbox');
+          }
+
+          await withTenant(pool, sandboxId, (tx) =>
+            tx.query(
+              `INSERT INTO tenants (id, legal_name, slug) VALUES ($1, $2, $3)`,
+              [sandboxId, `${owner.legal_name} (Sandbox)`, `${owner.slug}-sandbox`],
+            ),
+          );
+          // The link and the plan are written by the operator: a workspace must not be
+          // able to declare itself a sandbox, nor to choose the plan it runs on.
+          await operator.query('UPDATE tenants SET sandbox_of = $2 WHERE id = $1', [
+            sandboxId,
+            parent,
+          ]);
+          await operator.query(
+            `INSERT INTO tenant_commitments (tenant_id, package_code, term_months,
+                                             credits_granted_halalas, setup_fee_halalas)
+             VALUES ($1, 'SANDBOX', 12, 0, 0)
+             ON CONFLICT (tenant_id) DO UPDATE SET package_code = 'SANDBOX'`,
+            [sandboxId],
+          );
+          await setTenantBinding(
+            operator,
+            {
+              tenantId: sandboxId,
+              provider: flags['provider'] ?? 'stub',
+              mode: 'BYOC',
+              credentialRef: flags['ref'] ?? 'kms://sandbox/stub',
+              activate: true,
+            },
+            process.env['NX_OPERATOR_ID'] ?? 'nx-staff:provision',
+          );
+        } finally {
+          await operator.end();
+        }
+
+        // Play money and real prices, so a buyer sees what each call would have cost.
+        await withTenant(pool, sandboxId, async (tx) => {
+          await topUp(tx, { amount: 1_000_000_00, vatInvoiceId: 'SANDBOX' });
+          for (const productCode of (flags['products'] ?? 'ADDRESS_ONLY,KYB_COMPLETE').split(',')) {
+            await openPriceVersion(tx, {
+              productCode: productCode.trim(),
+              unitPriceHalalas: Number.parseInt(flags['price'] ?? '4400', 10),
+            });
+          }
+        });
+
+        console.log(`sandbox: ${sandboxId}`);
+        console.log('issue its key with: pnpm provision key:issue --tenant ' + sandboxId + ' --name sandbox');
+        return;
+      }
+
       default:
         throw new Error(
-          'unknown command. Use products:seed, tenant:create, key:issue, price:set, wallet:topup or provider:bind.',
+          'unknown command. Use products:seed, tenant:create, key:issue, price:set, wallet:topup, provider:bind or sandbox:create.',
         );
     }
   } finally {

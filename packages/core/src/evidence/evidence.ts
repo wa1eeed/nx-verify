@@ -113,6 +113,8 @@ export async function sealEvidence(
 }
 
 export interface PublicEvidence {
+  /** True when the seal was made in a sandbox and proves nothing about anybody. */
+  sandbox: boolean;
   contentHash: string;
   signedAt: Date;
   expiresAt: Date | null;
@@ -133,7 +135,10 @@ export async function resolvePublicEvidence(
     content_hash: Buffer;
     signed_at: Date;
     expires_at: Date | null;
-  }>('SELECT content_hash, signed_at, expires_at FROM app.resolve_evidence_token($1)', [token]);
+    sandbox: boolean;
+  }>('SELECT content_hash, signed_at, expires_at, sandbox FROM app.resolve_evidence_token($1)', [
+    token,
+  ]);
 
   const row = rows[0];
   if (!row) {
@@ -143,6 +148,9 @@ export async function resolvePublicEvidence(
     contentHash: row.content_hash.toString('hex'),
     signedAt: row.signed_at,
     expiresAt: row.expires_at,
+    // Said out loud. Whoever holds a printed document has no account here and no other
+    // way to learn that what they are looking at was a test.
+    sandbox: row.sandbox,
   };
 }
 

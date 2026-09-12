@@ -31,6 +31,8 @@ export interface DocumentHeader {
   status: string;
   decision: string | null;
   decisionReasons: { code: string; messageAr: string }[];
+  /** A document sealed in a sandbox says so on its face. */
+  sandbox: boolean;
 }
 
 export interface DocumentField {
@@ -95,8 +97,10 @@ export async function buildEvidenceDocument(
     name_ar: string;
     display_name: string | null;
     decision_reasons: { code: string; message_ar: string }[] | null;
+    sandbox: boolean;
   }>(
-    `SELECT t.legal_name, p.name_ar, e.display_name, r.decision_reasons
+    `SELECT t.legal_name, p.name_ar, e.display_name, r.decision_reasons,
+            (t.sandbox_of IS NOT NULL) AS sandbox
      FROM verification_runs r
      JOIN tenants t ON t.id = r.tenant_id
      JOIN products p ON p.code = r.product_code
@@ -122,6 +126,7 @@ export async function buildEvidenceDocument(
         code: reason.code,
         messageAr: reason.message_ar,
       })),
+      sandbox: row.sandbox,
     },
     // Rule 6 in the shape of a document: a line exists only if it has an authority and a
     // time. There is no branch here that prints a value without them.

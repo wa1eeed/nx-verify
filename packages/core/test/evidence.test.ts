@@ -132,7 +132,16 @@ describe('sealed evidence', () => {
     expect(serialised).not.toContain(tenant.tenantId);
     expect(serialised).not.toContain(runId);
     expect(serialised).not.toContain('7001272184');
-    expect(Object.keys(publicView ?? {}).sort()).toEqual(['contentHash', 'expiresAt', 'signedAt']);
+    // Four values and no more. The fourth says whether the seal was a test, which is not
+    // about any subject and is the one thing the holder of a printed document cannot
+    // otherwise find out (ADR-068).
+    expect(Object.keys(publicView ?? {}).sort()).toEqual([
+      'contentHash',
+      'expiresAt',
+      'sandbox',
+      'signedAt',
+    ]);
+    expect(publicView?.sandbox).toBe(false);
     expect(hashContent(content).toString('hex')).toBe(publicView?.contentHash);
   });
 
