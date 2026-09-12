@@ -16,6 +16,8 @@ import { query } from '../../../../lib/context';
 const DEFAULT_SCOPES = [
   'verifications:write',
   'verifications:read',
+  'onboarding:write',
+  'onboarding:read',
   'products:read',
   'entities:read',
   'wallet:read',

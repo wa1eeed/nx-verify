@@ -301,7 +301,13 @@ function headerValue(value: string | string[] | undefined): string | null {
  * else. Guessing more widely would resolve the wrong entity, and a wrong merge is far
  * harder to undo than a 400.
  */
-function inferIdentifiers(subject: Record<string, unknown>): IdentifierInput[] {
+/**
+ * Reads whatever identifiers the subject happens to carry.
+ *
+ * Shared with the onboarding routes, which take the same applicant record: one reading of
+ * a subject rather than two that could disagree about what counts as an identifier.
+ */
+export function inferIdentifiers(subject: Record<string, unknown>): IdentifierInput[] {
   const identifiers: IdentifierInput[] = [];
   const add = (idType: IdentifierInput['idType'], value: unknown): void => {
     if (typeof value === 'string' && value.length > 0) {

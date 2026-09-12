@@ -197,6 +197,56 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
           },
         },
       },
+      '/v1/onboarding/cases': {
+        post: {
+          summary: 'Onboard an applicant',
+          description:
+            'Opens a file for a journey and runs every check it requires, applies the workspace decision rules, and returns the outcome with what is still outstanding. One call rather than two, because a customer onboarding a merchant wants an answer and not a handle.',
+          responses: {
+            '201': { description: 'The file and its outcome' },
+            '403': { description: 'A module in this journey is not in your package', content: jsonError(errorSchema) },
+          },
+        },
+        get: {
+          summary: 'List onboarding files',
+          responses: { '200': { description: 'The files' } },
+        },
+      },
+      '/v1/onboarding/cases/{id}': {
+        get: {
+          summary: 'Read an onboarding file',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'The file' },
+            '404': { description: 'Not found', content: jsonError(errorSchema) },
+          },
+        },
+      },
+      '/v1/onboarding/cases/{id}/advance': {
+        post: {
+          summary: 'Run whatever the file still needs',
+          description:
+            'The applicant details are sent again rather than remembered: identifiers are never stored in the clear, so no file holds them.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'The file and its outcome' } },
+        },
+      },
+      '/v1/onboarding/cases/{id}/waive': {
+        post: {
+          summary: 'Waive a check',
+          description:
+            'The reason comes from a closed set, so that how often a check is waived, and why, is a question the platform can answer.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'The file' } },
+        },
+      },
+      '/v1/onboarding/journeys': {
+        get: {
+          summary: 'List onboarding journeys',
+          description: 'Journeys are rows, so one added in the console appears here at once.',
+          responses: { '200': { description: 'The journeys' } },
+        },
+      },
       '/v1/entities/{id}': {
         get: {
           summary: 'Read the live profile of an entity',

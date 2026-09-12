@@ -1,12 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { createPool, withTenant, withoutTenant } from '../packages/db/src/index.js';
 import { applyProductSeed } from '../packages/db/src/seed/products.js';
+import { applyPackageSeed } from '../packages/db/src/seed/packages.js';
+import { setTenantPackage } from '../packages/core/src/billing/package-admin.js';
 import { issueApiKey } from '../packages/core/src/auth/api-keys.js';
 import { createUser } from '../packages/core/src/auth/users.js';
 import { setPassword } from '../packages/core/src/auth/passwords.js';
 import { openPriceVersion } from '../packages/core/src/billing/price-book.js';
 import { topUp } from '../packages/core/src/billing/wallet.js';
 import { setTenantBinding } from '../packages/core/src/routing/provider-routing.js';
+import { defineJourney } from '../packages/core/src/onboarding/cases.js';
 
 /**
  * Provisioning, from a terminal.
@@ -22,17 +25,21 @@ import { setTenantBinding } from '../packages/core/src/routing/provider-routing.
  *
  * Usage:
  *   pnpm provision products:seed [--provider stub]
+ *   pnpm provision package:assign --tenant <id> --package ENTERPRISE
  *   pnpm provision tenant:create --name "شركة" --slug acme --admin-email a@b.sa
  *   pnpm provision key:issue --tenant <id> --name integration [--scopes a,b]
  *   pnpm provision price:set --tenant <id> --product KYB_COMPLETE --amount 44.00
  *   pnpm provision wallet:topup --tenant <id> --amount 1000 --invoice INV-1
  *   pnpm provision provider:bind --tenant <id> --provider stub --ref kms://... [--mode BYOC]
  *   pnpm provision sandbox:create --tenant <id>
+ *   pnpm provision journey:create --tenant <id> [--code MERCHANT] [--products A,B]
  */
 
 const DEFAULT_SCOPES = [
   'verifications:write',
   'verifications:read',
+  'onboarding:write',
+  'onboarding:read',
   'products:read',
   'entities:read',
   'wallet:read',
@@ -98,10 +105,46 @@ async function main(): Promise<void> {
     switch (command) {
       case 'products:seed': {
         // The catalogue is rows, not code (rule 8), so a deployment has to be given them
-        // once before anything can be verified.
+        // once before anything can be verified. The plans come with it: since entitlement
+        // is checked before every run, a workspace on no plan can run nothing, and a
+        // deployment with products and no plans is a deployment that refuses everything.
         const provider = flags['provider'] ?? 'stub';
         await withoutTenant(pool, (tx) => applyProductSeed(tx, undefined, { providerName: provider }));
-        console.log(`products seeded, steps pointing at provider ${provider}`);
+
+        const operatorUrl = process.env['NX_OPERATOR_DATABASE_URL'];
+        if (!operatorUrl) {
+          throw new Error('NX_OPERATOR_DATABASE_URL is not set');
+        }
+        const operator = createPool(operatorUrl);
+        try {
+          await applyPackageSeed(operator);
+        } finally {
+          await operator.end();
+        }
+
+        console.log(`products and packages seeded, steps pointing at provider ${provider}`);
+        return;
+      }
+
+      case 'package:assign': {
+        const operatorUrl = process.env['NX_OPERATOR_DATABASE_URL'];
+        if (!operatorUrl) {
+          throw new Error('NX_OPERATOR_DATABASE_URL is not set');
+        }
+        const operator = createPool(operatorUrl);
+        try {
+          await setTenantPackage(
+            operator,
+            {
+              tenantId: required(flags, 'tenant'),
+              packageCode: required(flags, 'package'),
+            },
+            process.env['NX_OPERATOR_ID'] ?? 'nx-staff:provision',
+          );
+        } finally {
+          await operator.end();
+        }
+        console.log(`package ${flags['package']} assigned`);
         return;
       }
 
@@ -201,6 +244,33 @@ async function main(): Promise<void> {
         return;
       }
 
+      case 'journey:create': {
+        // An onboarding journey is rows (rule 8), and a first deployment needs one before
+        // a case can be opened. The default is the shape most customers start with.
+        const tenantId = required(flags, 'tenant');
+        const code = flags['code'] ?? 'MERCHANT';
+        const products = (flags['products'] ?? 'KYB_COMPLETE,ADDRESS_ONLY').split(',');
+
+        await withTenant(pool, tenantId, (tx) =>
+          defineJourney(tx, {
+            code,
+            nameAr: flags['name'] ?? 'تأهيل تاجر',
+            slaHours: Number.parseInt(flags['sla'] ?? '48', 10),
+            steps: products.map((productCode, index) => ({
+              stepKey: productCode.trim().toLowerCase(),
+              productCode: productCode.trim(),
+              seq: index + 1,
+              // Each check is handed the part of the applicant record its product asked
+              // for, which for these two is the unified number.
+              subjectMap: { unn: 'unn' },
+            })),
+          }),
+        );
+
+        console.log(`journey: ${code}`);
+        return;
+      }
+
       case 'sandbox:create': {
         // A sandbox is a workspace of its own (ADR-068), so creating one is provisioning
         // a second workspace and linking it, not setting a flag.
@@ -274,7 +344,7 @@ async function main(): Promise<void> {
 
       default:
         throw new Error(
-          'unknown command. Use products:seed, tenant:create, key:issue, price:set, wallet:topup, provider:bind or sandbox:create.',
+          'unknown command. Use products:seed, package:assign, tenant:create, key:issue, price:set, wallet:topup, provider:bind, sandbox:create or journey:create.',
         );
     }
   } finally {

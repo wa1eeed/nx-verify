@@ -49,8 +49,15 @@ TENANT=$($COMPOSE run --rm --no-deps api pnpm provision tenant:create \
   --name "شركة الفحص" --slug "smoke-$(date +%s)" | grep '^tenant:' | awk '{print $2}' | tr -d '\r')
 [ -n "$TENANT" ] || fail "no tenant was created"
 
-$COMPOSE run --rm --no-deps api pnpm provision price:set \
-  --tenant "$TENANT" --product KYB_COMPLETE --amount 44.00 >/dev/null
+# Entitlement is checked before every run, so a workspace on no plan can run nothing.
+$COMPOSE run --rm --no-deps api pnpm provision package:assign \
+  --tenant "$TENANT" --package ENTERPRISE >/dev/null
+
+# A product with no price refuses, which is correct and is why both are priced here.
+for priced in KYB_COMPLETE:44.00 ADDRESS_ONLY:8.00; do
+  $COMPOSE run --rm --no-deps api pnpm provision price:set \
+    --tenant "$TENANT" --product "${priced%%:*}" --amount "${priced##*:}" >/dev/null
+done
 $COMPOSE run --rm --no-deps api pnpm provision wallet:topup \
   --tenant "$TENANT" --amount 1000 --invoice INV-SMOKE-1 >/dev/null
 $COMPOSE run --rm --no-deps api pnpm provision provider:bind \
@@ -84,6 +91,66 @@ DOC=$(curl -fsS "$API/v1/verifications/$RUN_ID/document" -H "authorization: Bear
 echo "$DOC" | grep -q '<html lang="ar" dir="rtl">' || fail "the document is not the Arabic document"
 echo "$DOC" | grep -q "$SUBJECT_ID" && fail "the document carries an identifier"
 echo "$DOC" | grep -qi 'provider' && fail "the document names a provider"
+
+step "the sandbox answers, and says it is the sandbox"
+SANDBOX=$($COMPOSE run --rm --no-deps api pnpm provision sandbox:create --tenant "$TENANT" \
+  | grep '^sandbox:' | awk '{print $2}' | tr -d '\r')
+[ -n "$SANDBOX" ] || fail "no sandbox workspace was created"
+
+TEST_KEY=$($COMPOSE run --rm --no-deps api pnpm provision key:issue \
+  --tenant "$SANDBOX" --name smoke-sandbox | grep '^api key:' | awk '{print $3}' | tr -d '\r')
+case "$TEST_KEY" in
+  nx_test_*) : ;;
+  *) fail "a sandbox workspace issued a key that is not a test key: $TEST_KEY" ;;
+esac
+
+# Reported with its body when it fails: a bare status code sends whoever runs this
+# looking through container logs for a sentence the response already carried.
+SANDBOX_STATUS=$(curl -sS -o /tmp/nx-smoke-sandbox -w '%{http_code}' -X POST "$API/v1/verifications" \
+  -H "authorization: Bearer $TEST_KEY" \
+  -H 'content-type: application/json' \
+  -H "idempotency-key: smoke-sandbox-$SANDBOX" \
+  -H 'x-nx-test-scenario: expired_cr' \
+  -d '{"product":"ADDRESS_ONLY","subject":{"unn":"7001272184"}}')
+case "$SANDBOX_STATUS" in
+  2*) : ;;
+  *) fail "the sandbox answered $SANDBOX_STATUS: $(cat /tmp/nx-smoke-sandbox)" ;;
+esac
+SANDBOX_RUN=$(cat /tmp/nx-smoke-sandbox)
+
+echo "$SANDBOX_RUN" | grep -q '"environment":"sandbox"' \
+  || fail "the sandbox did not say it was the sandbox: $SANDBOX_RUN"
+
+# The live key must ignore the same header, or a caller could choose its own result.
+LIVE_FORCED=$(curl -fsS -X POST "$API/v1/verifications" \
+  -H "authorization: Bearer $KEY" \
+  -H 'content-type: application/json' \
+  -H "idempotency-key: smoke-forced-$TENANT" \
+  -H 'x-nx-test-scenario: not_found' \
+  -d '{"product":"ADDRESS_ONLY","subject":{"unn":"7001272184"}}')
+echo "$LIVE_FORCED" | grep -q '"environment":"live"' || fail "a live key answered as sandbox"
+echo "$LIVE_FORCED" | grep -q '"status":"NOT_FOUND"' && fail "a live key chose its own answer"
+
+step "onboarding a merchant end to end"
+$COMPOSE run --rm --no-deps api pnpm provision journey:create --tenant "$TENANT" >/dev/null
+
+ONBOARD_STATUS=$(curl -sS -o /tmp/nx-smoke-onboard -w '%{http_code}' -X POST "$API/v1/onboarding/cases" \
+  -H "authorization: Bearer $KEY" \
+  -H 'content-type: application/json' \
+  -d '{"journey":"MERCHANT","subject":{"unn":"7001272184"},"reference":"SMOKE-ONB"}')
+case "$ONBOARD_STATUS" in
+  2*) : ;;
+  *) fail "onboarding answered $ONBOARD_STATUS: $(cat /tmp/nx-smoke-onboard)" ;;
+esac
+
+ONBOARD=$(cat /tmp/nx-smoke-onboard)
+echo "$ONBOARD" | grep -q '"reference":"ONB-' || fail "the file has no reference: $ONBOARD"
+# An answer, not a handle: the file ran its checks and concluded in the one call.
+echo "$ONBOARD" | grep -qE '"status":"(APPROVED|REJECTED|IN_REVIEW)"' \
+  || fail "the file did not conclude: $ONBOARD"
+echo "$ONBOARD" | grep -q '"status":"PENDING"' && fail "a check was left pending"
+echo "$ONBOARD" | grep -qi 'stub' && fail "a provider name reached the onboarding response"
+echo "$ONBOARD" | grep -q "$SUBJECT_ID" && fail "an identifier reached the onboarding response"
 
 step "replaying the same request"
 AGAIN=$(curl -fsS -X POST "$API/v1/verifications" \

@@ -5,6 +5,7 @@ import { registerErrorHandler } from './errors.js';
 import { registerEvidenceRoutes, registerVerificationRoutes } from './routes/verifications.js';
 import { registerProductRoutes } from './routes/products.js';
 import { registerOperationsRoutes } from './routes/operations.js';
+import { registerOnboardingRoutes } from './routes/onboarding.js';
 import { buildOpenApiDocument } from './openapi.js';
 import type { AppContext } from './context.js';
 
@@ -117,6 +118,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   registerVerificationRoutes(app, options.context);
   registerEvidenceRoutes(app, options.context);
   registerOperationsRoutes(app, options.context);
+  registerOnboardingRoutes(app, options.context);
 
   return app;
 }
