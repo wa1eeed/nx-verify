@@ -132,6 +132,158 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
     ],
   },
   {
+    /**
+     * Account ownership confirmed with the bank rather than with a registry.
+     *
+     * The registry product answers whether an IBAN belongs to a holder on record. This
+     * one asks the account's own bank, which is what a payout desk actually needs before
+     * releasing money, and it returns a match score rather than a yes or no.
+     */
+    code: 'BANK_ACCOUNT_OWNERSHIP',
+    nameAr: 'تأكيد ملكية الحساب البنكي',
+    nameEn: 'Bank account ownership confirmation',
+    subjectType: 'BANK_ACCOUNT',
+    inputSchema: {
+      type: 'object',
+      required: ['iban', 'holder'],
+      additionalProperties: false,
+      properties: {
+        iban: { type: 'string', pattern: '^SA[0-9]{22}$' },
+        holder: {
+          type: 'object',
+          required: ['type', 'name'],
+          additionalProperties: false,
+          properties: {
+            type: { enum: ['BUSINESS', 'PERSON'] },
+            name: { type: 'string', minLength: 2 },
+            registration_id: { type: 'string' },
+            national_id: { type: 'string' },
+          },
+        },
+      },
+    },
+    steps: [
+      {
+        stepKey: 'ownership',
+        seq: 1,
+        provider: 'stub',
+        endpoint: 'bank_account_ownership',
+        inputBinding: {
+          iban: '$.subject.iban',
+          subject_type: '$.subject.holder.type',
+          full_name: '$.subject.holder.name',
+          registration_id: '$.subject.holder.registration_id',
+          national_id: '$.subject.holder.national_id',
+          country_code: 'literal:SA',
+        },
+        required: true,
+        // An account can be closed or reassigned between one payout and the next, so a
+        // cached answer is the wrong answer.
+        cacheTtlDays: 0,
+      },
+    ],
+    fieldMap: [
+      { stepKey: 'ownership', sourcePath: '$.match_result', fieldPath: 'account.ownership' },
+      { stepKey: 'ownership', sourcePath: '$.account_status', fieldPath: 'account.status' },
+      { stepKey: 'ownership', sourcePath: '$.match_score', fieldPath: 'account.match_score' },
+      {
+        // The name the bank holds, recorded as a fact about the account and not as a new
+        // entity. The bank returns a name and no identifier, and inventing the holder
+        // from the identifier we asked about would assert a link nobody confirmed.
+        stepKey: 'ownership',
+        sourcePath: '$.account_holder_name',
+        fieldPath: 'holder.name',
+      },
+    ],
+  },
+  {
+    /**
+     * Does the name on the account match the name we were given.
+     *
+     * A weaker check than ownership and a cheaper one, and it exists because the answer a
+     * customer needs before a first payment is often only this.
+     */
+    code: 'NAME_MATCH',
+    nameAr: 'مطابقة الاسم مع حساب بنكي',
+    nameEn: 'Bank account name match',
+    subjectType: 'BANK_ACCOUNT',
+    inputSchema: {
+      type: 'object',
+      required: ['account_reference', 'full_name'],
+      additionalProperties: false,
+      properties: {
+        account_reference: { type: 'string', minLength: 8 },
+        full_name: { type: 'string', minLength: 2 },
+      },
+    },
+    steps: [
+      {
+        stepKey: 'name',
+        seq: 1,
+        provider: 'stub',
+        endpoint: 'name_match',
+        inputBinding: {
+          entity_id: '$.subject.account_reference',
+          full_name: '$.subject.full_name',
+        },
+        required: true,
+        cacheTtlDays: 7,
+      },
+    ],
+    fieldMap: [
+      { stepKey: 'name', sourcePath: '$.match_result', fieldPath: 'holder.name_match' },
+      { stepKey: 'name', sourcePath: '$.match_confidence', fieldPath: 'holder.name_confidence' },
+    ],
+  },
+  {
+    /**
+     * Income, from the account rather than from a payslip.
+     *
+     * The subject here is a linked account, not a company, and the product exists for the
+     * customers who lend: an average and a payment count carry more than a document that
+     * can be edited in a word processor.
+     */
+    code: 'INCOME_VERIFICATION',
+    nameAr: 'إثبات الدخل من الحساب البنكي',
+    nameEn: 'Bank based income verification',
+    subjectType: 'BANK_ACCOUNT',
+    inputSchema: {
+      type: 'object',
+      required: ['account_reference'],
+      additionalProperties: false,
+      properties: {
+        account_reference: { type: 'string', minLength: 8 },
+        start_date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+        income_type: { enum: ['SALARY', 'NON_SALARY', 'ALL'] },
+      },
+    },
+    steps: [
+      {
+        stepKey: 'income',
+        seq: 1,
+        provider: 'stub',
+        endpoint: 'income_verification',
+        inputBinding: {
+          entity_id: '$.subject.account_reference',
+          start_date: '$.subject.start_date',
+          income_type: '$.subject.income_type',
+        },
+        required: true,
+        cacheTtlDays: 7,
+      },
+    ],
+    fieldMap: [
+      {
+        stepKey: 'income',
+        sourcePath: '$.average_monthly_income',
+        fieldPath: 'income.monthly_average',
+      },
+      { stepKey: 'income', sourcePath: '$.income_currency', fieldPath: 'income.currency' },
+      { stepKey: 'income', sourcePath: '$.income_payment_count', fieldPath: 'income.payments' },
+      { stepKey: 'income', sourcePath: '$.last_income_at', fieldPath: 'income.last_seen' },
+    ],
+  },
+  {
     code: 'KYB_COMPLETE',
     nameAr: 'التحقق الشامل للمنشأة',
     nameEn: 'Complete business verification',

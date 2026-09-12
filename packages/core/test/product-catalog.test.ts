@@ -76,8 +76,11 @@ describe('the product catalog drives execution', () => {
     const products = await withTenant(db.appPool, tenant.tenantId, (tx) => listProducts(tx));
     expect(products.map((product) => product.code).sort()).toEqual([
       'ADDRESS_ONLY',
+      'BANK_ACCOUNT_OWNERSHIP',
       'IBAN_OWNERSHIP',
+      'INCOME_VERIFICATION',
       'KYB_COMPLETE',
+      'NAME_MATCH',
     ]);
     // The schema travels with the product, which is why adding one needs no change on
     // the customer's side either.

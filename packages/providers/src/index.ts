@@ -38,3 +38,7 @@ export type { NormalisedFailure } from './http/errors.js';
 
 export { createProviderRegistry, providerConfigFromEnv } from './factory.js';
 export type { ProviderConfig } from './factory.js';
+export { LeanProvider, LEAN_ENDPOINTS } from './lean/lean-provider.js';
+export type { LeanEndpointMapping, LeanProviderOptions } from './lean/lean-provider.js';
+export { TokenCache } from './lean/token.js';
+export type { TokenRequest } from './lean/token.js';
