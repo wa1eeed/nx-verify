@@ -13,6 +13,10 @@ import { queueNotifications } from '../notifications/notifications.js';
 
 export type WebhookEventType =
   | 'verification.completed'
+  // The provider took the request and answers on its own schedule. Said out loud rather
+  // than left to be discovered by polling: a run that goes quiet and then completes looks
+  // like a fault while it is quiet.
+  | 'verification.awaiting'
   | 'entity.changed'
   | 'attestation.expired'
   | 'wallet.low'

@@ -63,6 +63,17 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
       'هذه الرسالة لا تحتوي على أي بيانات عن موضوع التحقق. افتح الكونسول للاطلاع.',
     ].join('\n'),
   }),
+  'verification.awaiting': (url) => ({
+    severity: 'INFO',
+    subject: 'تحقق بانتظار جواب الجهة',
+    body: [
+      'بدأ تحقق في مساحة عملك، والجهة تجيب على جدولها لا على جدولنا.',
+      '',
+      `حالته في السجل: ${url}/registry`,
+      '',
+      'لا حاجة لإعادة الطلب. سنرسل إشعاراً آخر حين يكتمل.',
+    ].join('\n'),
+  }),
   'entity.changed': (url) => ({
     severity: 'WARNING',
     subject: 'تغيّر مرصود على كيان مراقَب',

@@ -110,6 +110,10 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
             registry,
           }),
           keys: context.keys,
+          // Which world this run belongs to, so that a callback can only ever finish a
+          // run from its own environment. A sandbox delivery must never complete a real
+          // verification.
+          environment: caller.environment,
         });
 
         await audit(tx, {
@@ -126,7 +130,9 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
         // that has to be generated later can be generated differently later, and the
         // whole point of this record is that it cannot.
         let evidenceToken: string | null = null;
-        if (!outcome.replayed && outcome.status !== 'ERROR') {
+        // A run still in flight has nothing to seal yet: the document is sealed when the
+        // answer arrives, not against an answer we do not have.
+        if (!outcome.replayed && outcome.status !== 'ERROR' && outcome.status !== 'AWAITING') {
           const content = await buildEvidenceContent(tx, outcome.runId);
           const keyVersion = await context.keys.currentVersion();
           const sealed = await sealEvidence(tx, {
@@ -187,7 +193,11 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
 
       // Rule 5, checked on the way out rather than trusted.
       assertNoProviderLeak(response, context.registry.names());
-      return reply.status(result.replayed ? 200 : 201).send(response);
+      // 202 for a run the provider will answer later: accepted, not finished. A 201 would
+      // tell the caller their verification is complete when it is not.
+      return reply
+        .status(result.replayed ? 200 : result.status === 'AWAITING' ? 202 : 201)
+        .send(response);
     },
   );
 

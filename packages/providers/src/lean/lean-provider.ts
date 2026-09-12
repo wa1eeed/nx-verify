@@ -30,7 +30,16 @@ export interface LeanEndpointMapping {
   /** Turns the upstream payload into the flat bag normalisation expects. */
   map: (payload: Record<string, unknown>) => Record<string, unknown>;
   /** Reads the upstream's own status vocabulary. */
-  outcome?: (payload: Record<string, unknown>) => 'OK' | 'NOT_FOUND' | 'ERROR';
+  outcome?: (payload: Record<string, unknown>) => 'OK' | 'NOT_FOUND' | 'ERROR' | 'AWAITING';
+  /**
+   * What the provider will name when it calls back, read from the payload it answered
+   * with. Required for an endpoint whose outcome can be AWAITING: without it there is
+   * nothing to recognise the callback by and the run would wait for ever.
+   */
+  correlation?: (
+    payload: Record<string, unknown>,
+    input: Readonly<Record<string, unknown>>,
+  ) => string | null;
 }
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -128,8 +137,43 @@ export const LEAN_ENDPOINTS: Readonly<Record<string, LeanEndpointMapping>> = {
         last_income_at: total['last_date_time'] ?? null,
       };
     },
+    /**
+     * Income is read from data the provider refreshes on its own schedule. When the data
+     * is not current it accepts the request, refreshes, and calls back, so this is the
+     * one endpoint whose answer can arrive later.
+     *
+     * The exact word the upstream uses for "not ready" is the one thing here that has not
+     * been seen against a live account, so it is a set rather than a single value and it
+     * is in one place. Anything else is treated as an answer, which is the safe direction:
+     * a wrongly awaited run closes itself at its deadline, while a wrongly completed one
+     * is billed for an answer nobody has.
+     */
+    outcome: (payload) => {
+      const status = String(payload['status'] ?? 'OK').toUpperCase();
+      if (['PENDING', 'IN_PROGRESS', 'PROCESSING', 'REFRESHING', 'ACCEPTED'].includes(status)) {
+        return 'AWAITING';
+      }
+      return status === 'OK' ? 'OK' : 'NOT_FOUND';
+    },
+    // Their handle for the entity, which is what the callback names too.
+    correlation: (payload, input) =>
+      firstString(payload, ['entity_id', 'entityId']) ??
+      firstString(input, ['entity_id', 'entityId']),
   },
 };
+
+function firstString(
+  source: Readonly<Record<string, unknown>>,
+  keys: readonly string[],
+): string | null {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+  return null;
+}
 
 export interface LeanProviderOptions {
   name: string;
@@ -188,10 +232,10 @@ export class LeanProvider implements VerificationProvider {
         // fresh one, and then it is an authentication failure rather than a transient.
         this.#tokens.forget(request.credential.ref);
         const retry = await this.#post(mapping, request, await this.#tokenFor(request.credential));
-        return this.#result(mapping, retry, started);
+        return this.#result(mapping, retry, started, request.input);
       }
 
-      return this.#result(mapping, response, started);
+      return this.#result(mapping, response, started, request.input);
     } catch (error) {
       const timedOut = error instanceof Error && error.name === 'AbortError';
       return {
@@ -260,6 +304,9 @@ export class LeanProvider implements VerificationProvider {
     mapping: LeanEndpointMapping,
     response: Response,
     started: number,
+    // The request's own input, because an endpoint that answers later may name what it is
+    // working on in the request rather than in the reply.
+    input: Readonly<Record<string, unknown>> = {},
   ): Promise<ProviderResult> {
     const latencyMs = Date.now() - started;
 
@@ -288,6 +335,22 @@ export class LeanProvider implements VerificationProvider {
     }
 
     const outcome = mapping.outcome?.(payload) ?? 'OK';
+    if (outcome === 'AWAITING') {
+      const correlation = mapping.correlation?.(payload, input) ?? null;
+      if (!correlation) {
+        // Waiting with nothing to wait on is a run that never closes. Better an error
+        // that says so than a case left open against an answer nobody can match.
+        return {
+          outcome: 'ERROR',
+          authority: null,
+          data: null,
+          latencyMs,
+          errorCode: 'MALFORMED',
+          retryable: false,
+        };
+      }
+      return { outcome, authority: mapping.authority, data: null, latencyMs, correlation };
+    }
     if (outcome !== 'OK') {
       return { outcome, authority: mapping.authority, data: null, latencyMs };
     }

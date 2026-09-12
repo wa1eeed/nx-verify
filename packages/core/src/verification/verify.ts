@@ -29,6 +29,7 @@ import {
 import { hold, releaseHold, settle } from '../billing/wallet.js';
 import { toPublicResults, type PublicResults } from '../public-view.js';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
+import { loadWait, markResumed, openWaits } from './waits.js';
 
 /**
  * One verification, from request to settled charge.
@@ -65,6 +66,16 @@ export interface VerifyInput {
   runStep: StepRunner;
   keys: TenantKeyProvider;
   contractId?: string | null;
+  /**
+   * Which environment this run belongs to, so a callback can be matched back to it.
+   *
+   * Only consulted when a step reports that it is waiting. A sandbox delivery must never
+   * resume a production run, and the pair of provider and environment is what keeps them
+   * apart.
+   */
+  environment?: 'sandbox' | 'live';
+  /** How long a provider is given to call back before the run is closed unanswered. */
+  awaitTtlSeconds?: number;
 }
 
 export interface VerifyResult {
@@ -183,6 +194,100 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     throw error;
   }
 
+  if (outcome.status === 'AWAITING') {
+    /**
+     * The provider took the request and will answer later.
+     *
+     * Nothing settles here, and that is the whole guarantee: the hold is released, no
+     * charge is written, no usage is counted. A customer must not pay twice because the
+     * answer arrived in two parts, and settling once at the end is how that is ensured
+     * rather than promised.
+     */
+    await releaseHold(tx, runId, reserved);
+    const reference = await closeRun(tx, {
+      runId,
+      status: 'AWAITING',
+      latencyMs: outcome.latencyMs,
+      steps: outcome.steps,
+    });
+
+    await openWaits(tx, {
+      keys: input.keys,
+      runId,
+      provider: outcome.steps.find((step) => step.status === 'AWAITING')?.provider ?? 'unknown',
+      environment: input.environment ?? 'live',
+      subject: input.subject,
+      awaiting: outcome.awaiting ?? [],
+      ttlSeconds: input.awaitTtlSeconds ?? DEFAULT_AWAIT_TTL_SECONDS,
+    });
+
+    // Said out loud rather than left for the customer to discover by polling. A run that
+    // goes quiet for an hour and then completes looks like a fault while it is quiet.
+    await queueEvent(tx, {
+      eventType: 'verification.awaiting',
+      payload: {
+        verification_id: runId,
+        product: product.code,
+        entity_id: subject.entityId,
+        client_ref: input.clientRef ?? null,
+      },
+    });
+
+    return {
+      runId,
+      reference,
+      status: 'AWAITING',
+      entityId: subject.entityId,
+      results: toPublicResults(outcome.steps),
+      decision: null,
+      billing: { amount: 0, currency: 'SAR' },
+      normalised: null,
+      breakdown: null,
+      replayed: false,
+    };
+  }
+
+  return concludeRun(tx, {
+    runId,
+    product,
+    subject: subject.entityId,
+    outcome,
+    price,
+    chargeSource,
+    reserved,
+    keys: input.keys,
+    clientRef: input.clientRef ?? null,
+    triggeredBy: input.triggeredBy,
+  });
+}
+
+/** A provider gets a day to answer before the run is closed as unanswered. */
+export const DEFAULT_AWAIT_TTL_SECONDS = 24 * 60 * 60;
+
+interface ConcludeInput {
+  runId: string;
+  product: Awaited<ReturnType<typeof requireProduct>>;
+  /** The subject entity, already resolved. */
+  subject: string;
+  outcome: Awaited<ReturnType<typeof executeProduct>>;
+  price: Awaited<ReturnType<typeof resolvePrice>>;
+  chargeSource: 'PACKAGE' | 'WALLET' | 'FREE';
+  reserved: number;
+  keys: TenantKeyProvider;
+  clientRef: string | null;
+  triggeredBy: TriggeredBy;
+}
+
+/**
+ * Everything after the provider has answered: bill, record, decide, settle, announce.
+ *
+ * Split out so that a run resumed by a callback goes through exactly this code and not a
+ * second copy of it. A second copy is how a resumed run ends up billed by a different
+ * rule from a direct one, and nobody notices until a customer compares two invoices.
+ */
+async function concludeRun(tx: TenantTransaction, input: ConcludeInput): Promise<VerifyResult> {
+  const { runId, product, outcome, price, chargeSource, reserved } = input;
+
   const breakdown = computeBilling(outcome.steps, price);
   const charges = new Map(breakdown.steps.map((step) => [step.stepKey, step.amount]));
 
@@ -198,7 +303,7 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
 
   const normalised = await normaliseRun(tx, input.keys, {
     productCode: product.code,
-    subjectEntityId: subject.entityId,
+    subjectEntityId: input.subject,
     runId,
     steps: outcome.steps,
   });
@@ -215,8 +320,8 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
         // another when paying out to a beneficiary.
         await decide(
           tx,
-          subject.entityId,
-          await resolveRuleset(tx, subject.entityId, product.decisionRuleset),
+          input.subject,
+          await resolveRuleset(tx, input.subject, product.decisionRuleset),
         );
   if (decision) {
     await storeDecision(tx, runId, decision);
@@ -225,7 +330,7 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     // outcome a piece of work rather than a label on a response.
     if (decision.outcome === 'REVIEW') {
       await openCase(tx, {
-        entityId: subject.entityId,
+        entityId: input.subject,
         runId,
         reasonCodes: decision.reasons.map((reason) => reason.code),
       });
@@ -266,8 +371,8 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
       product: product.code,
       status: outcome.status,
       decision: decision?.outcome ?? null,
-      entity_id: subject.entityId,
-      client_ref: input.clientRef ?? null,
+      entity_id: input.subject,
+      client_ref: input.clientRef,
       triggered_by: input.triggeredBy,
     },
   });
@@ -276,7 +381,7 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     runId,
     reference,
     status: outcome.status,
-    entityId: subject.entityId,
+    entityId: input.subject,
     results: toPublicResults(outcome.steps),
     decision,
     billing: { amount: breakdown.total, currency: 'SAR' },
@@ -284,6 +389,127 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     breakdown,
     replayed: false,
   };
+}
+
+export interface ResumeInput {
+  waitId: string;
+  runStep: StepRunner;
+  keys: TenantKeyProvider;
+  contractId?: string | null;
+}
+
+/**
+ * Runs an awaiting verification to its end, now that the provider has answered.
+ *
+ * The whole product is executed again rather than only the step that was waiting. Two
+ * reasons, and the second is the one that matters. Step level caching already prevents a
+ * re-run from calling anything twice inside its window, so the cost is small. And the
+ * run has not settled, so billing, normalisation, the decision and the event all happen
+ * once, here, through the same code a direct run goes through. Resuming into a half
+ * settled run is how a customer ends up charged twice for one verification.
+ */
+export async function resumeRun(
+  tx: TenantTransaction,
+  input: ResumeInput,
+): Promise<VerifyResult | null> {
+  const wait = await loadWait(tx, input.keys, input.waitId);
+
+  const stored = await getRun(tx, wait.runId);
+  if (!stored) {
+    throw new NxError('NX-4041', { detail: 'the run this callback belongs to is gone' });
+  }
+  if (stored.status !== 'AWAITING') {
+    // Already concluded, by an earlier delivery or by expiry. Nothing to do, and doing
+    // it anyway would charge a settled run a second time.
+    await markResumed(tx, wait.waitId);
+    return null;
+  }
+
+  const product = await requireProduct(tx, stored.productCode);
+  const entitlement = await resolveEntitlement(tx, product.code);
+  assertEntitled(entitlement);
+
+  const bookPrice = await resolvePrice(tx, product.code, { contractId: input.contractId ?? null });
+  const price =
+    entitlement.unitPriceHalalas === null
+      ? bookPrice
+      : { ...bookPrice, unitPrice: entitlement.unitPriceHalalas };
+
+  const commitment = await getCommitment(tx);
+  const withinCapacity =
+    commitment !== null &&
+    commitment.includedTransactions !== null &&
+    commitment.transactionsUsed < commitment.includedTransactions;
+  const chargeSource: 'PACKAGE' | 'WALLET' = withinCapacity ? 'PACKAGE' : 'WALLET';
+
+  const reserved = chargeSource === 'WALLET' ? maximumCharge(price) : 0;
+  await hold(tx, reserved);
+
+  let outcome;
+  try {
+    outcome = await executeProduct({
+      product,
+      subject: wait.subject,
+      runStep: input.runStep,
+    });
+  } catch (error) {
+    await releaseHold(tx, wait.runId, reserved);
+    await closeRun(tx, { runId: wait.runId, status: 'ERROR', latencyMs: 0, steps: [] });
+    await markResumed(tx, wait.waitId);
+    throw error;
+  }
+
+  if (outcome.status === 'AWAITING') {
+    // Still not ready. The provider sent something, and it was not the answer. The wait
+    // is left to its original deadline rather than extended, so a provider that keeps
+    // sending nothing useful cannot keep a run open for ever.
+    await releaseHold(tx, wait.runId, reserved);
+    await tx.query(`UPDATE run_waits SET status = 'WAITING', resolved_at = NULL WHERE id = $1`, [
+      wait.waitId,
+    ]);
+    return null;
+  }
+
+  await markResumed(tx, wait.waitId);
+
+  return concludeRun(tx, {
+    runId: wait.runId,
+    product,
+    subject: stored.entityId ?? '',
+    outcome,
+    price,
+    chargeSource,
+    reserved,
+    keys: input.keys,
+    clientRef: stored.clientRef ?? null,
+    triggeredBy: stored.triggeredBy,
+  });
+}
+
+/**
+ * Closes a run whose provider never answered.
+ *
+ * An error, and never billed. A run left open for ever is worse than one that failed: the
+ * customer is told nothing and keeps a case open against an answer that is not coming.
+ */
+export async function abandonRun(tx: TenantTransaction, runId: string): Promise<void> {
+  const stored = await getRun(tx, runId);
+  if (!stored || stored.status !== 'AWAITING') {
+    return;
+  }
+  await closeRun(tx, { runId, status: 'ERROR', latencyMs: 0, steps: [] });
+  await queueEvent(tx, {
+    eventType: 'verification.completed',
+    payload: {
+      verification_id: runId,
+      product: stored.productCode,
+      status: 'ERROR',
+      decision: null,
+      entity_id: stored.entityId,
+      client_ref: stored.clientRef ?? null,
+      triggered_by: stored.triggeredBy,
+    },
+  });
 }
 
 function replayed(run: StoredRun): VerifyResult {

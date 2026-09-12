@@ -20,7 +20,7 @@ import type { PublicStepStatus } from '../public-view.js';
  * means we never got an answer, and it is never billed.
  */
 
-export type RunStatus = 'OK' | 'PARTIAL' | 'NOT_FOUND' | 'ERROR';
+export type RunStatus = 'OK' | 'PARTIAL' | 'NOT_FOUND' | 'ERROR' | 'AWAITING';
 
 export interface StepOutcome {
   stepKey: string;
@@ -43,6 +43,13 @@ export interface ExecutionOutcome {
   status: RunStatus;
   steps: StepOutcome[];
   latencyMs: number;
+  /**
+   * What the provider was asked about, for each step that has not answered yet.
+   *
+   * The caller turns these into waits. They are the provider's own handle for the thing
+   * in flight, and they leave this module immediately: nothing stores them as written.
+   */
+  awaiting?: { stepKey: string; correlation: string }[];
 }
 
 /**
@@ -53,7 +60,7 @@ export type StepRunner = (
   step: ProductStepDefinition,
   request: Readonly<Record<string, unknown>>,
 ) => Promise<{
-  outcome: 'OK' | 'NOT_FOUND' | 'ERROR';
+  outcome: 'OK' | 'NOT_FOUND' | 'ERROR' | 'AWAITING';
   authority: string | null;
   data: Readonly<Record<string, unknown>> | null;
   latencyMs: number;
@@ -61,6 +68,8 @@ export type StepRunner = (
   providerCost?: number | undefined;
   servedFromCache?: boolean | undefined;
   providerUsed?: string | undefined;
+  /** Required when the outcome is AWAITING: the provider's handle for what is in flight. */
+  correlation?: string | undefined;
 }>;
 
 export interface ExecuteProductInput {
@@ -84,14 +93,26 @@ export async function executeProduct(input: ExecuteProductInput): Promise<Execut
   const outputs: Record<string, Readonly<Record<string, unknown>> | null> = {};
   const results = new Map<string, StepOutcome>();
   const skipped = new Map<string, string>();
+  const awaiting: { stepKey: string; correlation: string }[] = [];
+  // Behind a step that has not answered. Distinguished from skipped because these will
+  // run: charging for them now would be charging for work still to be done, and calling
+  // them skipped would tell the customer they never will be.
+  const pendingBehind = new Set<string>();
 
   for (const wave of plan.waves) {
-    const pending = wave.filter((step) => !skipped.has(step.stepKey));
+    const pending = wave.filter(
+      (step) => !skipped.has(step.stepKey) && !pendingBehind.has(step.stepKey),
+    );
 
     for (const step of wave) {
       const reason = skipped.get(step.stepKey);
       if (reason !== undefined) {
         results.set(step.stepKey, skippedOutcome(step, reason));
+        outputs[step.stepKey] = null;
+        continue;
+      }
+      if (pendingBehind.has(step.stepKey)) {
+        results.set(step.stepKey, pendingOutcome(step, `awaiting:${step.stepKey}`));
         outputs[step.stepKey] = null;
       }
     }
@@ -113,6 +134,22 @@ export async function executeProduct(input: ExecuteProductInput): Promise<Execut
       const status: PublicStepStatus =
         result.outcome === 'OK' && result.servedFromCache === true ? 'CACHED' : result.outcome;
 
+      if (result.outcome === 'AWAITING') {
+        if (!result.correlation) {
+          // Without a handle there is nothing to match the callback against, so the step
+          // would wait for ever. Better to fail now and say why.
+          throw new NxError('NX-5001', {
+            detail: 'a step reported AWAITING without anything to wait on',
+          });
+        }
+        awaiting.push({ stepKey: step.stepKey, correlation: result.correlation });
+        for (const dependant of collectDependants(plan.dependants, step.stepKey)) {
+          if (!results.has(dependant)) {
+            pendingBehind.add(dependant);
+          }
+        }
+      }
+
       results.set(step.stepKey, {
         stepKey: step.stepKey,
         status,
@@ -123,8 +160,9 @@ export async function executeProduct(input: ExecuteProductInput): Promise<Execut
         latencyMs: result.latencyMs,
         errorCode: result.errorCode,
         servedFromCache: result.servedFromCache ?? false,
-        // NOT_FOUND is an answer and is billed at negative_pct. ERROR never is.
-        billable: result.outcome !== 'ERROR',
+        // NOT_FOUND is an answer and is billed at negative_pct. ERROR never is, and
+        // neither is a step still in flight.
+        billable: result.outcome !== 'ERROR' && result.outcome !== 'AWAITING',
         providerCost: result.providerCost,
         stepWeight: step.stepWeight,
         required: step.required,
@@ -145,9 +183,12 @@ export async function executeProduct(input: ExecuteProductInput): Promise<Execut
   }
 
   return {
-    status: aggregate([...results.values()], product),
+    // One unanswered step makes the whole run unanswered. It has not failed and it has
+    // not succeeded, and calling it either would settle a run that is still in flight.
+    status: awaiting.length > 0 ? 'AWAITING' : aggregate([...results.values()], product),
     steps: orderedSteps(product, results),
     latencyMs: Date.now() - startedAt,
+    ...(awaiting.length > 0 ? { awaiting } : {}),
   };
 }
 
@@ -179,6 +220,24 @@ function skippedOutcome(step: ProductStepDefinition, reason: string): StepOutcom
     skippedBecause: reason,
     servedFromCache: false,
     // Guard 04. A step that never ran is never billed.
+    billable: false,
+    stepWeight: step.stepWeight,
+    required: step.required,
+  };
+}
+
+function pendingOutcome(step: ProductStepDefinition, reason: string): StepOutcome {
+  return {
+    stepKey: step.stepKey,
+    status: 'PENDING',
+    provider: step.provider,
+    endpoint: step.endpoint,
+    authority: null,
+    data: null,
+    latencyMs: 0,
+    skippedBecause: reason,
+    servedFromCache: false,
+    // It has not run yet, so it is not billed yet. The database says the same thing.
     billable: false,
     stepWeight: step.stepWeight,
     required: step.required,

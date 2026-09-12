@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Queryable } from '@nx-verify/db';
 import { NxError } from '../errors.js';
+import { correlationDigest } from '../verification/waits.js';
 
 /**
  * Calls that arrive from a provider rather than going to one.
@@ -134,12 +135,30 @@ export async function recordInboundEvent(
   const externalId = firstString(envelope, ['id', 'event_id', 'eventId', 'message_id']) ?? digest;
   const eventType = firstString(envelope, ['type', 'event_type', 'eventType', 'event']) ?? 'unknown';
 
+  // What the event is about, which is what a waiting run recognises it by. Stored as a
+  // digest: the provider's handle for an entity belongs to them and to the customer, and
+  // a column holding it in the clear would be readable by anyone answering a support
+  // ticket. Both sides hash it the same way and compare hashes.
+  const correlation = correlationOf(envelope);
+  const digestOfCorrelation =
+    correlation === null
+      ? null
+      : correlationDigest(input.target.provider, input.target.environment, correlation);
+
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO inbound_events (provider, environment, event_type, external_id, body_digest)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO inbound_events (provider, environment, event_type, external_id, body_digest,
+                                 correlation_digest)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (provider, environment, external_id) DO NOTHING
      RETURNING id`,
-    [input.target.provider, input.target.environment, eventType, externalId, digest],
+    [
+      input.target.provider,
+      input.target.environment,
+      eventType,
+      externalId,
+      digest,
+      digestOfCorrelation,
+    ],
   );
 
   const inserted = rows[0];
@@ -248,6 +267,26 @@ export async function listInboundEvents(db: Queryable, limit = 50): Promise<Inbo
     status: row.status,
     receivedAt: row.received_at,
   }));
+}
+
+/**
+ * The handle the event is about, wherever the provider chose to put it.
+ *
+ * Providers disagree about nesting, so the top level and the two usual wrappers are all
+ * looked at. A provider whose shape is none of these gets a row with no correlation,
+ * which is visible on the operator screen rather than silently dropped.
+ */
+const CORRELATION_KEYS = ['entity_id', 'entityId', 'customer_id', 'customerId', 'reference'];
+
+function correlationOf(envelope: Record<string, unknown>): string | null {
+  const candidates = [envelope, asRecord(envelope['payload']), asRecord(envelope['data'])];
+  for (const candidate of candidates) {
+    const found = firstString(candidate, CORRELATION_KEYS);
+    if (found !== null) {
+      return found;
+    }
+  }
+  return null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

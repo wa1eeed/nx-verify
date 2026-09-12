@@ -11,8 +11,15 @@
  * through step_field_map, so our response resembles no provider's response.
  */
 
-/** Normalised outcome. A provider's own status codes never travel further than here. */
-export type ProviderOutcome = 'OK' | 'NOT_FOUND' | 'ERROR';
+/**
+ * Normalised outcome. A provider's own status codes never travel further than here.
+ *
+ * AWAITING says the provider took the request and answers on its own schedule. It is
+ * neither a success nor a failure, and collapsing it into either would be wrong in a way
+ * that costs money: ERROR bills nobody for work that is still coming, and OK settles a
+ * run that has no answer in it.
+ */
+export type ProviderOutcome = 'OK' | 'NOT_FOUND' | 'ERROR' | 'AWAITING';
 
 /**
  * Normalised failure reasons. Deliberately small: the domain layer decides what to do
@@ -65,6 +72,13 @@ export interface ProviderResult {
   retryable?: boolean | undefined;
   /** What the provider actually charged us, when it tells us. */
   providerCost?: number | undefined;
+  /**
+   * Required with AWAITING: the provider's own handle for what is in flight.
+   *
+   * It is what the callback will be recognised by, and it never reaches a column as
+   * written: both sides hash it and compare hashes.
+   */
+  correlation?: string | undefined;
 }
 
 export type ProviderHealthStatus = 'healthy' | 'degraded' | 'down';

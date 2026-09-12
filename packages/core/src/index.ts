@@ -166,8 +166,15 @@ export {
 } from './billing/wallet.js';
 export type { LedgerEntry, SettleInput, TopUpInput, WalletState } from './billing/wallet.js';
 
-export { assertBillingIsSane, getVerification, verify } from './verification/verify.js';
-export type { VerifyInput, VerifyResult } from './verification/verify.js';
+export {
+  DEFAULT_AWAIT_TTL_SECONDS,
+  abandonRun,
+  assertBillingIsSane,
+  getVerification,
+  resumeRun,
+  verify,
+} from './verification/verify.js';
+export type { ResumeInput, VerifyInput, VerifyResult } from './verification/verify.js';
 
 export {
   assertScope,
@@ -206,6 +213,16 @@ export type {
   RecordInboundResult,
   SetCallbackInput,
 } from './webhooks/inbound.js';
+export {
+  correlationDigest,
+  expireWaits,
+  listOpenWaits,
+  loadWait,
+  markResumed,
+  matchWaits,
+  openWaits,
+} from './verification/waits.js';
+export type { MatchedWait, OpenWait, StoredWait } from './verification/waits.js';
 export {
   claimPendingDeliveries,
   listEndpoints,

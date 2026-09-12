@@ -29,7 +29,7 @@ export interface StepDescriptor {
 }
 
 export interface StepRunResult {
-  outcome: 'OK' | 'NOT_FOUND' | 'ERROR';
+  outcome: 'OK' | 'NOT_FOUND' | 'ERROR' | 'AWAITING';
   authority: string | null;
   data: Readonly<Record<string, unknown>> | null;
   latencyMs: number;
@@ -37,6 +37,8 @@ export interface StepRunResult {
   providerCost?: number | undefined;
   servedFromCache?: boolean | undefined;
   providerUsed?: string | undefined;
+  /** Present with AWAITING: what the provider will name when it calls back. */
+  correlation?: string | undefined;
 }
 
 export interface StepRunnerOptions {
@@ -119,6 +121,7 @@ export function createProviderStepRunner(options: StepRunnerOptions) {
       errorCode: result.errorCode,
       providerCost: result.providerCost,
       providerUsed: candidate.provider,
+      correlation: result.correlation,
     };
   };
 

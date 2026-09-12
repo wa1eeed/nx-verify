@@ -136,14 +136,27 @@ export async function allocateReference(tx: TenantTransaction, at = new Date()):
 
 export async function closeRun(tx: TenantTransaction, input: CloseRunInput): Promise<string> {
   const billed = input.billedAmount ?? 0;
-  const reference = await allocateReference(tx);
+
+  /**
+   * A run keeps the number it was first given.
+   *
+   * This is called twice for a run that waited on a provider: once when it goes AWAITING
+   * and once when the callback finishes it. Allocating unconditionally would hand the
+   * customer a different number for the same verification and would burn a value from the
+   * sequence, and a gap in a sequence a customer can see is a question we have to answer.
+   */
+  const { rows: current } = await tx.query<{ reference: string | null }>(
+    `SELECT reference FROM verification_runs WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
+    [tx.tenantId, input.runId],
+  );
+  const reference = current[0]?.reference ?? (await allocateReference(tx));
 
   await tx.query(
     `UPDATE verification_runs
      SET status = $3, latency_ms = $4, provider_used = $5, decision = $6,
          decision_reasons = $7::jsonb, billed_amount = $8::numeric,
          provider_cost = $9::numeric, billable = $10,
-         charge_source = $11, reference = coalesce(reference, $12)
+         charge_source = $11, reference = $12
      WHERE tenant_id = $1 AND id = $2`,
     [
       tx.tenantId,
@@ -168,7 +181,18 @@ export async function closeRun(tx: TenantTransaction, input: CloseRunInput): Pro
          (tenant_id, run_id, step_key, provider, endpoint, status, served_from_cache,
           latency_ms, billable, billed_amount, provider_cost, error_code, skipped_because)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::numeric, $11::numeric, $12, $13)
-       ON CONFLICT (tenant_id, run_id, step_key) DO NOTHING`,
+       -- Updated rather than ignored, because a step recorded as AWAITING has to become
+       -- its real outcome once the provider answers. Leaving the first row would show a
+       -- finished run with a step still in flight.
+       ON CONFLICT (tenant_id, run_id, step_key) DO UPDATE SET
+         status = EXCLUDED.status,
+         served_from_cache = EXCLUDED.served_from_cache,
+         latency_ms = EXCLUDED.latency_ms,
+         billable = EXCLUDED.billable,
+         billed_amount = EXCLUDED.billed_amount,
+         provider_cost = EXCLUDED.provider_cost,
+         error_code = EXCLUDED.error_code,
+         skipped_because = EXCLUDED.skipped_because`,
       [
         tx.tenantId,
         input.runId,
@@ -261,6 +285,8 @@ export interface StoredRun {
   decisionReasons: { code: string; message_ar: string; message_en: string }[];
   clientRef: string | null;
   idempotencyKey: string | null;
+  /** What started it. A resumed run keeps the attribution of the request that opened it. */
+  triggeredBy: TriggeredBy;
   createdAt: Date;
   steps: StoredRunStep[];
 }
@@ -277,10 +303,11 @@ export async function getRun(tx: TenantTransaction, runId: string): Promise<Stor
     decision_reasons: { code: string; message_ar: string; message_en: string }[] | null;
     client_ref: string | null;
     idempotency_key: string | null;
+    triggered_by: TriggeredBy;
     created_at: Date;
   }>(
     `SELECT id, reference, charge_source, product_code, entity_id, status, decision, decision_reasons,
-            client_ref, idempotency_key, created_at
+            client_ref, idempotency_key, triggered_by, created_at
      FROM verification_runs
      WHERE tenant_id = $1 AND id = $2`,
     [tx.tenantId, runId],
@@ -320,6 +347,7 @@ export async function getRun(tx: TenantTransaction, runId: string): Promise<Stor
     decisionReasons: run.decision_reasons ?? [],
     clientRef: run.client_ref,
     idempotencyKey: run.idempotency_key,
+    triggeredBy: run.triggered_by,
     createdAt: run.created_at,
     steps: steps.map((step) => ({
       stepKey: step.step_key,

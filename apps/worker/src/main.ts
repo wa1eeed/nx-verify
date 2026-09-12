@@ -15,6 +15,7 @@ import { resolveProviders } from '@nx-verify/core';
 import { Scheduler, type JobDefinition } from './schedule.js';
 import { activeTenantIds } from './tenants.js';
 import { runDueMonitors } from './jobs/monitors.js';
+import { resumeAwaitingRuns } from './jobs/resume.js';
 import { deliverWebhooks } from './jobs/webhooks.js';
 import { deliverNotifications, HttpMailTransport, type MailTransport } from './jobs/notifications.js';
 import { enforceRetention, ensureAuditPartitions, pruneRequestLogs } from './jobs/retention.js';
@@ -68,6 +69,16 @@ async function main(): Promise<void> {
       scope: 'tenant',
       run: async ({ tx }) => {
         await runDueMonitors(tx, { keys, runStep: stepRunnerFor(tx) });
+      },
+    },
+    {
+      // Often, and cheaply: a run that is waiting is a customer waiting, and the query
+      // touches only that tenant's open waits.
+      name: 'resume',
+      everySeconds: 30,
+      scope: 'tenant',
+      run: async ({ tx }) => {
+        await resumeAwaitingRuns(tx, { keys, runStep: stepRunnerFor(tx) });
       },
     },
     {

@@ -13,7 +13,17 @@ import { stripProviderNames } from './logging/redact.js';
  * the result.
  */
 
-export type PublicStepStatus = 'OK' | 'NOT_FOUND' | 'ERROR' | 'SKIPPED' | 'CACHED';
+export type PublicStepStatus =
+  | 'OK'
+  | 'NOT_FOUND'
+  | 'ERROR'
+  | 'SKIPPED'
+  | 'CACHED'
+  // Asked, and the provider answers on its own schedule. Distinct from SKIPPED, which
+  // means the step never ran, and from ERROR, which means it ran and failed.
+  | 'AWAITING'
+  // Behind a step that is still awaiting. It has not run and will, so it is not SKIPPED.
+  | 'PENDING';
 
 /** What the system knows about a step. Carries the provider, and never leaves the domain. */
 export interface InternalStepRecord {
