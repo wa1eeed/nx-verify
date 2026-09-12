@@ -507,3 +507,5 @@ export type {
   DefineActionInput,
   DispatchedAction,
 } from './onboarding/actions.js';
+export { marginReport, recordMargin } from './billing/margin.js';
+export type { MarginQuery, MarginRow, RecordMarginInput } from './billing/margin.js';

@@ -239,6 +239,10 @@ describe('guard 02: tenant isolation', () => {
               'audit_log',
               'tenant_commitments',
               'tenant_product_overrides',
+              // A count and two sums per subscriber, month and product. It answers what we
+              // earned on a service and cannot answer anything about whom that subscriber
+              // verified, which is the whole reason it exists in that shape (ADR-080).
+              'margin_counters',
             ],
             `${table}: nx_operator must not reach subscriber data`,
           ).toContain(table);

@@ -18,6 +18,7 @@ import { resolveRuleset } from '../portfolios/portfolios.js';
 import { resolveEntity, type IdentifierInput } from '../repositories/entities.js';
 import { computeBilling, maximumCharge, type BillingBreakdown } from '../billing/compute.js';
 import { resolvePrice } from '../billing/price-book.js';
+import { recordMargin } from '../billing/margin.js';
 import {
   assertEntitled,
   getCommitment,
@@ -227,6 +228,18 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
   // Counted once the run is real. A replay returned above never reaches this line, which
   // is rule 7 expressed in the other currency a package is measured in.
   await recordUsage(tx, product.code);
+
+  // And counted again in the one shape an internal role may read: a month, a product, a
+  // count and two sums, with nothing in it about whom this was.
+  await recordMargin(tx, {
+    productCode: product.code,
+    billedHalalas: chargeSource === 'WALLET' ? breakdown.total : 0,
+    providerCostHalalas: outcome.steps.reduce(
+      (total, step) => total + Math.round((step.providerCost ?? 0) * 100),
+      0,
+    ),
+    coveredByPackage: chargeSource === 'PACKAGE',
+  });
 
   // Announced here rather than by the caller, so that a run started by a monitor, a
   // batch or the console emits the same event as one started through the API. An event

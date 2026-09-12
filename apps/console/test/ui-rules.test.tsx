@@ -19,6 +19,7 @@ import { ChangePassword } from '../components/change-password';
 import { ApiKeys } from '../components/api-keys';
 import { Shell } from '../components/shell';
 import { OnboardingList } from '../components/onboarding';
+import { OperatorMargin } from '../components/operator-margin';
 import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
 import { Statement } from '../components/statement';
@@ -1006,5 +1007,56 @@ describe('the onboarding screens', () => {
 
     expect(quiet).toContain('data-role="no-actions"');
     expect(quiet).toContain('هذا ليس عطلاً');
+  });
+});
+
+/**
+ * The one screen that crosses subscribers, and the two figures it must not round away.
+ */
+describe('the operator margin screen', () => {
+  const html = renderToStaticMarkup(
+    <OperatorMargin
+      rows={[
+        {
+          tenantName: 'Customer One',
+          productNameAr: 'التحقق من العنوان الوطني',
+          periodStart: new Date('2026-09-01T00:00:00Z'),
+          runs: 10,
+          packageRuns: 0,
+          billedHalalas: 8000,
+          providerCostHalalas: 3000,
+          grossHalalas: 5000,
+          marginPct: 63,
+        },
+        {
+          tenantName: 'Customer Two',
+          productNameAr: 'التحقق الشامل من المنشأة',
+          periodStart: new Date('2026-09-01T00:00:00Z'),
+          runs: 4,
+          packageRuns: 4,
+          billedHalalas: 0,
+          providerCostHalalas: 2400,
+          grossHalalas: -2400,
+          marginPct: null,
+        },
+      ]}
+    />,
+  );
+
+  it('shows work the package covered rather than folding it into revenue', () => {
+    expect(html).toContain('data-role="margin-tiles"');
+    expect(html).toContain('غطّتها الباقات');
+    expect(html).toContain('data-role="margin-row"');
+  });
+
+  it('says a margin on no revenue is undefined rather than printing zero', () => {
+    expect(html).toContain('data-role="margin-cell"');
+    expect(html).toContain('لا إيراد');
+    expect(html).toContain('63%');
+  });
+
+  it('names no entity and no decision, because it reads counters and not runs', () => {
+    expect(html).not.toContain('entity');
+    expect(html).not.toContain('decision');
   });
 });
