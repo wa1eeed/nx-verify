@@ -84,6 +84,7 @@ describe('the product catalog drives execution', () => {
       'KYB_COMPLETE',
       'MANAGER_PERMISSIONS',
       'NAME_MATCH',
+      'PROPERTY_DEED',
     ]);
     // The schema travels with the product, which is why adding one needs no change on
     // the customer's side either.

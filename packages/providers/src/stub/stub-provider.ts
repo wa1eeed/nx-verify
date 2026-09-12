@@ -30,6 +30,7 @@ const AUTHORITIES: Readonly<Record<string, string>> = {
   ultimate_beneficial_owner: 'Commercial Registry',
   iban_ownership: 'Saudi Central Bank',
   freelancer_certificate: 'Ministry of Human Resources',
+  property_deed: 'Ministry of Justice',
   // The open banking endpoints. The authority is who confirmed the fact, never who
   // carried the question (rule 5).
   bank_account_ownership: 'Confirmation of Payee',

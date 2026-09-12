@@ -663,6 +663,90 @@ describe('the stylesheet holds the layout rules that are easy to break', () => {
  * The portal a subscriber lives in between verifications: what they hold, what they have
  * left, and what it cost.
  */
+/**
+ * The entity file: what a compliance officer reads before deciding.
+ */
+describe('the entity file groups what it knows', () => {
+  const field = (fieldPath: string, freshness: 'fresh' | 'expired' = 'fresh'): ProfileFieldView => ({
+    fieldPath,
+    value: 'قيمة',
+    authority: 'وزارة التجارة',
+    observedAt: new Date('2026-08-01T10:00:00Z'),
+    effectiveUntil: new Date('2026-12-01T10:00:00Z'),
+    freshness,
+    confidence: 1,
+  });
+
+  const render = (tab?: string) =>
+    renderToStaticMarkup(
+      <Entity360
+        header={{
+          entityId: 'e1',
+          displayName: 'مؤسسة نماء',
+          entityType: 'BUSINESS',
+          identifiers: [{ idType: 'UNN', masked: '7001•••184' }],
+          score: 72,
+          scoreBreakdown: [],
+          completeness: 80,
+        }}
+        fields={[
+          field('cr.status'),
+          field('cr.core.name'),
+          field('account.ownership'),
+          field('property.deed', 'expired'),
+        ]}
+        changes={[
+          { fieldPath: 'account.ownership', severity: 'WARNING', detectedAt: new Date('2026-09-01') },
+        ]}
+        timeline={[]}
+        {...(tab ? { tab } : {})}
+        now={new Date('2026-09-08')}
+      />,
+    );
+
+  it('makes a tab per group of facts, and none for a group with nothing in it', () => {
+    const html = render();
+    expect(html).toContain('data-role="profile-tabs"');
+    expect(html).toContain('data-group="REGISTRY"');
+    expect(html).toContain('data-group="BANKING"');
+    expect(html).toContain('data-group="PROPERTY"');
+    // Nothing was verified about the address, so there is no address tab to disappoint
+    // anybody who opens it.
+    expect(html).not.toContain('data-group="ADDRESS"');
+  });
+
+  it('marks the tabs a reader must not skip, and keeps the two states apart', () => {
+    const html = render();
+    // A detected change is a warning; an expired field is not. Same rule as everywhere.
+    expect(html).toContain('data-role="tab-changed"');
+    expect(html).toContain('data-role="tab-expired"');
+    expect(html).toContain("data-kind='changed'".replace(/'/g, '"'));
+    expect(html).toContain("data-kind='expired'".replace(/'/g, '"'));
+  });
+
+  it('opens the first group by default and the asked for one when named', () => {
+    const first = render();
+    // Registry comes first in the order, so its fields are the ones on screen.
+    expect(first).toContain('حالة السجل التجاري');
+    expect(first).not.toContain('الصك العقاري');
+
+    const property = render('PROPERTY');
+    expect(property).toContain('الصك العقاري');
+    expect(property).not.toContain('حالة السجل التجاري');
+  });
+
+  it('leads with the figures a reader checks before reading anything', () => {
+    const html = render();
+    expect(html).toContain('data-role="indicators"');
+    expect(html).toContain('درجة الثقة');
+    expect(html).toContain('حقائق موثقة');
+    expect(html).toContain('آخر تحقق');
+    // The tab links carry no script: they work behind a locked down browser and survive
+    // a refresh.
+    expect(html).toContain('href="/entities/e1?tab=BANKING"');
+  });
+});
+
 describe('the subscriber portal', () => {
   const keys = [
     {

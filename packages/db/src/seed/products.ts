@@ -418,6 +418,63 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
     ],
   },
   {
+    /**
+     * A title deed.
+     *
+     * The subject is the property, not its owner, which is what makes this its own entity
+     * type: the same deed outlives several owners, and a lender asking about it wants the
+     * property's history rather than a person's. The owner is resolved as a separate
+     * entity and linked, so "what else does this company own" is answerable later without
+     * storing anything extra.
+     */
+    code: 'PROPERTY_DEED',
+    nameAr: 'التحقق من الصك العقاري',
+    nameEn: 'Property deed verification',
+    subjectType: 'PROPERTY',
+    inputSchema: {
+      type: 'object',
+      required: ['deed_number'],
+      additionalProperties: false,
+      properties: {
+        deed_number: { type: 'string', minLength: 6 },
+        owner_identifier: { type: 'string' },
+      },
+    },
+    steps: [
+      {
+        stepKey: 'deed',
+        seq: 1,
+        provider: 'stub',
+        endpoint: 'property_deed',
+        inputBinding: {
+          deed_number: '$.subject.deed_number',
+          owner_identifier: '$.subject.owner_identifier',
+        },
+        required: true,
+        // Ownership and encumbrances change on a registrar's timetable, not ours, and a
+        // stale answer about a mortgage is the expensive kind.
+        cacheTtlDays: 0,
+      },
+    ],
+    fieldMap: [
+      { stepKey: 'deed', sourcePath: '$.deed_status', fieldPath: 'property.deed' },
+      { stepKey: 'deed', sourcePath: '$.property_type', fieldPath: 'property.type' },
+      { stepKey: 'deed', sourcePath: '$.city', fieldPath: 'property.city' },
+      { stepKey: 'deed', sourcePath: '$.district', fieldPath: 'property.district' },
+      { stepKey: 'deed', sourcePath: '$.area_sqm', fieldPath: 'property.area_sqm' },
+      {
+        stepKey: 'deed',
+        sourcePath: '$.owner_name',
+        fieldPath: 'property.owner',
+        entityRole: 'OWNER',
+        entityType: 'BUSINESS',
+        identifierPath: '$.owner_identifier',
+        identifierTypeSource: 'literal:CR',
+        relationType: 'OWNS',
+      },
+    ],
+  },
+  {
     code: 'KYB_COMPLETE',
     nameAr: 'التحقق الشامل للمنشأة',
     nameEn: 'Complete business verification',

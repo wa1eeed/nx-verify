@@ -77,7 +77,7 @@ describe('the console renders real data', () => {
 
   it('shows entity 360 with fields, provenance and a timeline', async () => {
     const { default: EntityPage } = await import('../app/(app)/entities/[id]/page.js');
-    const html = await render(EntityPage({ params: Promise.resolve({ id: entityId }) }));
+    const html = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('شركة المثال للتجارة');
     expect(html).toContain('data-field="cr.status"');
@@ -89,7 +89,7 @@ describe('the console renders real data', () => {
 
   it('masks every identifier it shows', async () => {
     const { default: EntityPage } = await import('../app/(app)/entities/[id]/page.js');
-    const html = await render(EntityPage({ params: Promise.resolve({ id: entityId }) }));
+    const html = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
 
     // Rule 4. The full value never reaches a screen.
     expect(html).not.toContain('7001272184');
@@ -102,7 +102,7 @@ describe('the console renders real data', () => {
     const { default: EntityPage } = await import('../app/(app)/entities/[id]/page.js');
     const { default: RegistryPage } = await import('../app/(app)/registry/page.js');
 
-    const entity = await render(EntityPage({ params: Promise.resolve({ id: entityId }) }));
+    const entity = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
     const registry = await render(RegistryPage({ searchParams: Promise.resolve({}) }));
 
     for (const html of [entity, registry]) {

@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
 import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
+import { fieldLabelAr } from '../profile/field-catalogue.js';
 import type { EvidenceContent } from './evidence.js';
 
 /**
@@ -50,22 +51,6 @@ export interface EvidenceDocument {
   verifyUrl: string;
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  'cr.status': 'حالة السجل التجاري',
-  'cr.core.name': 'اسم المنشأة',
-  'cr.core.capital': 'رأس المال',
-  'address.national.city': 'المدينة',
-  'address.national.district': 'الحي',
-  'address.national.building_number': 'رقم المبنى',
-  'manager.signing_authority': 'صلاحية التوقيع',
-  'manager.signing_authority.verified': 'إثبات صلاحية التوقيع',
-  'iban.ownership': 'ملكية الآيبان',
-  'iban.bank': 'البنك',
-  'holder.name': 'اسم صاحب الحساب',
-  'owner.percentage': 'نسبة الملكية',
-  'freelance.document': 'وثيقة العمل الحر',
-  'property.deed': 'الصك العقاري',
-};
 
 const STATUS_LABELS: Record<string, string> = {
   OK: 'مكتمل',
@@ -133,7 +118,7 @@ export async function buildEvidenceDocument(
     fields: input.content.fields
       .filter((field) => field.authority !== null)
       .map((field) => ({
-        labelAr: FIELD_LABELS[field.fieldPath] ?? field.fieldPath,
+        labelAr: fieldLabelAr(field.fieldPath),
         authority: field.authority ?? '',
         observedAt: field.observedAt.slice(0, 10),
       })),

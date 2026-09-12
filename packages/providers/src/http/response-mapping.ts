@@ -68,6 +68,22 @@ export const DEFAULT_ENDPOINTS: Readonly<Record<string, EndpointMapping>> = {
     dataPath: 'data',
     fields: { unifiedNumber: 'unified_number' },
   },
+  property_deed: {
+    path: '/v1/deeds/{deed_number}',
+    method: 'GET',
+    authority: 'Ministry of Justice',
+    dataPath: 'data',
+    fields: {
+      deedNumber: 'deed_number',
+      status: 'deed_status',
+      ownerName: 'owner_name',
+      ownerId: 'owner_identifier',
+      propertyType: 'property_type',
+      areaSqm: 'area_sqm',
+      issueDate: 'issue_date',
+    },
+    flatten: ['location'],
+  },
   freelancer_certificate: {
     path: '/v1/freelancer/{certificate_number}',
     method: 'GET',

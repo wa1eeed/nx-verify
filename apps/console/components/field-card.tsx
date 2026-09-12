@@ -1,3 +1,4 @@
+import { fieldLabelAr } from '@nx-verify/core';
 import type { ReactElement } from 'react';
 import { FreshnessBadge, type FreshnessState } from './freshness';
 import { Identifier } from './identifier';
@@ -22,25 +23,15 @@ export interface ProfileFieldView {
   confidence: number;
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  'cr.status': 'حالة السجل التجاري',
-  'cr.core.name': 'اسم المنشأة',
-  'cr.core.capital': 'رأس المال',
-  'address.national.city': 'المدينة',
-  'address.national.district': 'الحي',
-  'address.national.building_number': 'رقم المبنى',
-  'manager.signing_authority': 'صلاحية التوقيع',
-  'manager.signing_authority.verified': 'إثبات صلاحية التوقيع',
-  'iban.ownership': 'ملكية الآيبان',
-  'iban.bank': 'البنك',
-  'holder.name': 'اسم صاحب الحساب',
-  'owner.percentage': 'نسبة الملكية',
-  'freelance.document': 'وثيقة العمل الحر',
-  'property.deed': 'الصك العقاري',
-};
 
+/**
+ * One table of labels, in the domain.
+ *
+ * Two copies drift within a month, and the drift shows as a field labelled one way on
+ * screen and another way on the document the customer hands to their auditor.
+ */
 export function fieldLabel(fieldPath: string): string {
-  return FIELD_LABELS[fieldPath] ?? fieldPath;
+  return fieldLabelAr(fieldPath);
 }
 
 export function formatValue(value: unknown): { text: string; numeric: boolean } {

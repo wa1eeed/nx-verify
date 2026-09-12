@@ -34,10 +34,15 @@ import type { TimelineEntryView, TriggeredBy } from '../../../../components/time
 
 export default async function EntityPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
   const { id } = await params;
+  // The open tab lives in the address, so a refresh, a print and a shared link all show
+  // the same part of the file.
+  const tab = (await searchParams)['tab'];
 
   const data = await query(async (tx) => {
     const entity = await getEntity(tx, id);
@@ -129,6 +134,7 @@ export default async function EntityPage({
 
   return (
     <Entity360
+      {...(typeof tab === 'string' ? { tab } : {})}
       header={{
         entityId: id,
         displayName: data.entity.displayName,

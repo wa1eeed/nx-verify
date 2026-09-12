@@ -1,4 +1,10 @@
 import type { ReactElement } from 'react';
+import {
+  FIELD_GROUP_LABELS,
+  FIELD_GROUP_ORDER,
+  fieldGroup,
+  type FieldGroup,
+} from '@nx-verify/core';
 import { FieldCard, type ProfileFieldView } from './field-card';
 import { ChangeBadge, FreshnessBadge, type FreshnessState } from './freshness';
 import { Identifier } from './identifier';
@@ -6,8 +12,20 @@ import { Timeline, type TimelineEntryView } from './timeline';
 import { Panel } from './page-header';
 
 /**
- * Entity 360, laid out top to bottom as docs/01-blueprint.md section 5.1 specifies:
- * header, alert, cards, timeline, action.
+ * The file of one verified entity, laid out top to bottom as docs/01-blueprint.md
+ * section 5.1 specifies: header, alert, facts, timeline, action.
+ *
+ * The facts are grouped into tabs, and the grouping is by what a reader is looking for
+ * rather than by which product produced them: somebody checking banking arrangements
+ * wants the account, the holder and the income together, whether they arrived from one
+ * product or three. A tab that carries an expired field or a detected change says so on
+ * the tab itself, because the reason to group facts is to let somebody skip the groups
+ * they do not need, and that only works if a group can signal that it should not be
+ * skipped.
+ *
+ * The tabs are links rather than script. A screen that reads a compliance file has to
+ * work behind a locked down browser, print correctly, and survive a page refresh with the
+ * same tab open, and all three come free when the tab is in the address.
  *
  * One primary button on the screen and no more. Everything a compliance officer can do
  * here that is not "verify again" is secondary, because a screen with three equal buttons
@@ -59,7 +77,45 @@ export interface Entity360Props {
   changes: DetectedChange[];
   timeline: TimelineEntryView[];
   relations?: RelationView[];
+  /** Which group of facts is open. Absent means the first group that has any. */
+  tab?: string | undefined;
   now?: Date;
+}
+
+interface GroupSummary {
+  group: FieldGroup;
+  label: string;
+  fields: ProfileFieldView[];
+  expired: number;
+  changed: number;
+}
+
+/**
+ * The tabs, derived from the facts rather than declared.
+ *
+ * A product added as rows (rule 8) brings its fields into the right tab without anybody
+ * editing this file, and a group with nothing in it does not appear at all: an empty tab
+ * is a promise the file cannot keep.
+ */
+function groupFields(fields: ProfileFieldView[], changed: Set<string>): GroupSummary[] {
+  const byGroup = new Map<FieldGroup, ProfileFieldView[]>();
+  for (const field of fields) {
+    const group = fieldGroup(field.fieldPath);
+    byGroup.set(group, [...(byGroup.get(group) ?? []), field]);
+  }
+
+  return FIELD_GROUP_ORDER.filter((group) => (byGroup.get(group)?.length ?? 0) > 0).map(
+    (group): GroupSummary => {
+      const groupFieldList = byGroup.get(group) ?? [];
+      return {
+        group,
+        label: FIELD_GROUP_LABELS[group],
+        fields: groupFieldList,
+        expired: groupFieldList.filter((field) => field.freshness === 'expired').length,
+        changed: groupFieldList.filter((field) => changed.has(field.fieldPath)).length,
+      };
+    },
+  );
 }
 
 export function Entity360({
@@ -68,9 +124,18 @@ export function Entity360({
   changes,
   timeline,
   relations = [],
+  tab,
   now,
 }: Entity360Props): ReactElement {
   const expired = fields.filter((field) => field.freshness === 'expired');
+  const changedPaths = new Set(changes.map((change) => change.fieldPath));
+  const groups = groupFields(fields, changedPaths);
+  const openGroup = groups.find((group) => group.group === tab) ?? groups[0];
+  const verifiedAt = fields.reduce<Date | null>(
+    (latest, field) =>
+      latest === null || field.observedAt > latest ? field.observedAt : latest,
+    null,
+  );
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
@@ -92,8 +157,12 @@ export function Entity360({
           ))}
         </div>
 
-        {/* Two figures, read together: how much we know, and how good what we know is. */}
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+        {/*
+          The figures a reader checks before reading anything else. Kept together and
+          kept few: how good what we know is, how much of it there is, when we last
+          looked, and whether anything is waiting for them.
+        */}
+        <div className="grid" data-role="indicators" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
           <div className="stat">
             <span className="stat-label">درجة الثقة</span>
             {header.score === null ? (
@@ -111,6 +180,41 @@ export function Entity360({
             <strong className="stat-value">
               <bdi dir="ltr" className="mono">
                 {header.completeness}%
+              </bdi>
+            </strong>
+          </div>
+          <div className="stat">
+            <span className="stat-label">حقائق موثقة</span>
+            <strong className="stat-value">
+              <bdi dir="ltr" className="mono">
+                {fields.length}
+              </bdi>
+            </strong>
+            <span className="stat-hint">في {groups.length} مجموعة</span>
+          </div>
+          <div className="stat" {...(expired.length > 0 ? { 'data-tone': 'expired' } : {})}>
+            <span className="stat-label">منتهية الصلاحية</span>
+            <strong className="stat-value">
+              <bdi dir="ltr" className="mono">
+                {expired.length}
+              </bdi>
+            </strong>
+            <span className="stat-hint">معرفة قديمة، لا مشكلة</span>
+          </div>
+          <div className="stat" {...(changes.length > 0 ? { 'data-tone': 'changed' } : {})}>
+            <span className="stat-label">تغيّرات مرصودة</span>
+            <strong className="stat-value">
+              <bdi dir="ltr" className="mono">
+                {changes.length}
+              </bdi>
+            </strong>
+            <span className="stat-hint">تحققنا ووجدنا اختلافاً</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">آخر تحقق</span>
+            <strong className="stat-value" style={{ fontSize: '18px' }}>
+              <bdi dir="ltr" className="mono">
+                {verifiedAt ? verifiedAt.toISOString().slice(0, 10) : 'لا يوجد'}
               </bdi>
             </strong>
           </div>
@@ -193,11 +297,45 @@ export function Entity360({
         </section>
       ) : null}
 
+      {groups.length > 0 ? (
+        <nav className="tabs" data-role="profile-tabs" aria-label="مجموعات الحقائق">
+          {groups.map((group) => (
+            <a
+              key={group.group}
+              className="tab"
+              href={`/entities/${header.entityId}?tab=${group.group}`}
+              {...(openGroup?.group === group.group ? { 'aria-current': 'page' as const } : {})}
+              data-group={group.group}
+            >
+              {group.label}
+              <span className="muted">
+                {' '}
+                (<bdi dir="ltr" className="mono">{group.fields.length}</bdi>)
+              </span>
+              {/* A group that should not be skipped says so on the tab itself, and the
+                  two states keep their own colours here as everywhere else. */}
+              {group.changed > 0 ? (
+                <span className="tab-dot" data-kind="changed" data-role="tab-changed" aria-label="تغيّر مرصود" />
+              ) : null}
+              {group.expired > 0 ? (
+                <span className="tab-dot" data-kind="expired" data-role="tab-expired" aria-label="منتهي الصلاحية" />
+              ) : null}
+            </a>
+          ))}
+        </nav>
+      ) : null}
+
       <section className="grid" data-role="fields">
-        {fields.map((field) => (
+        {(openGroup?.fields ?? []).map((field) => (
           <FieldCard key={field.fieldPath} field={field} {...(now ? { now } : {})} />
         ))}
       </section>
+
+      {fields.length === 0 ? (
+        <p className="empty" data-role="no-facts">
+          لا حقائق موثقة بعد على هذا الكيان. أول تحقق يملأ هذا الملف.
+        </p>
+      ) : null}
 
       {relations.length > 0 ? (
         <Panel title="شبكة العلاقات" aside="داخل هذا المستأجر وحده" role="relations">

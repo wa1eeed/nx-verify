@@ -70,6 +70,18 @@ const FULL_SUCCESS: StubScenario = {
       holder_identifier: '1010478213',
       bank_name: 'Example Bank',
     },
+    property_deed: {
+      deed_number: '310108046855',
+      deed_status: 'ACTIVE',
+      owner_name: 'شركة المثال للتجارة',
+      owner_identifier: '1010478213',
+      property_type: 'LAND',
+      city: 'الرياض',
+      district: 'النرجس',
+      area_sqm: 1250,
+      issue_date: '2021-02-11',
+      encumbrances: [],
+    },
     freelancer_certificate: {
       certificate_number: 'FL-2026-88213',
       freelancer_name: 'محمد عبدالله',

@@ -466,3 +466,12 @@ export { listApiKeys } from './auth/api-keys.js';
 export type { ApiKeySummary } from './auth/api-keys.js';
 export { buildStatement } from './billing/statement.js';
 export type { Statement, StatementLine, TopUpLine } from './billing/statement.js';
+export {
+  FIELD_CATALOGUE,
+  FIELD_GROUP_LABELS,
+  FIELD_GROUP_ORDER,
+  fieldGroup,
+  fieldLabelAr,
+  isNumericField,
+} from './profile/field-catalogue.js';
+export type { FieldDefinition, FieldGroup } from './profile/field-catalogue.js';

@@ -240,6 +240,7 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'NAME_MATCH' },
       { code: 'BANK_ACCOUNT_OWNERSHIP' },
       { code: 'INCOME_VERIFICATION' },
+      { code: 'PROPERTY_DEED' },
     ],
   },
 ];

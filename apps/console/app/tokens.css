@@ -729,3 +729,30 @@ button.link {
   font-weight: 600;
   text-align: center;
 }
+
+/*
+ * A dot on a tab.
+ *
+ * It says a group holds something the reader should not skip. Expired keeps the neutral
+ * grey and a detected change keeps the warning, here as everywhere: painting them alike
+ * would destroy the meaning of both.
+ */
+.tab-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  margin-inline-start: 6px;
+  vertical-align: middle;
+  border: 1px solid;
+}
+
+.tab-dot[data-kind='changed'] {
+  background: var(--changed-line);
+  border-color: var(--changed-fg);
+}
+
+.tab-dot[data-kind='expired'] {
+  background: var(--expired-line);
+  border-color: var(--expired-fg);
+}
