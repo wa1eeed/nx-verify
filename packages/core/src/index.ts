@@ -475,3 +475,27 @@ export {
   isNumericField,
 } from './profile/field-catalogue.js';
 export type { FieldDefinition, FieldGroup } from './profile/field-catalogue.js';
+export {
+  advanceCase,
+  concludeCase,
+  defineJourney,
+  getCase,
+  listCases,
+  listJourneys,
+  openCase as openOnboardingCase,
+  waiveStep,
+} from './onboarding/cases.js';
+export type {
+  AdvanceCaseInput,
+  AdvanceResult,
+  // The review queue already exports a CaseStatus, and the two mean different things: one
+  // is the state of a review, the other the state of an onboarding file.
+  CaseStatus as OnboardingStatus,
+  CaseStep as OnboardingStep,
+  CaseSummary as OnboardingSummary,
+  DefineJourneyInput,
+  Journey,
+  JourneyStepInput,
+  OnboardingCase,
+  WaiveReason,
+} from './onboarding/cases.js';
