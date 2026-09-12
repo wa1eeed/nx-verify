@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
-import { sandboxLink } from '@nx-verify/core';
+import { inboxSeenAt, listInbox, sandboxLink } from '@nx-verify/core';
 import { Shell } from '../../components/shell';
-import { query } from '../../lib/context';
+import { actingUser, query } from '../../lib/context';
 
 /**
  * The shell, with the one fact it needs.
@@ -15,6 +15,17 @@ export default async function AppLayout({
 }: {
   children: ReactNode;
 }): Promise<ReactElement> {
-  const workspace = await query((tx) => sandboxLink(tx));
-  return <Shell isSandbox={workspace.isSandbox}>{children}</Shell>;
+  const user = await actingUser();
+  const { workspace, unread } = await query(async (tx) => ({
+    workspace: await sandboxLink(tx),
+    // Counted in the shell so the badge is right on every screen, not only on the one
+    // that happens to fetch it.
+    unread: (await listInbox(tx, { seenAt: await inboxSeenAt(tx, user.userId) })).unread,
+  }));
+
+  return (
+    <Shell isSandbox={workspace.isSandbox} unread={unread}>
+      {children}
+    </Shell>
+  );
 }

@@ -61,7 +61,7 @@ export const NAV: NavGroup[] = [
       { href: '/settings/users', label: 'المستخدمون' },
       { href: '/settings/rules', label: 'قواعد القرار' },
       { href: '/settings/freshness', label: 'مدد الصلاحية' },
-      { href: '/settings/notifications', label: 'الإشعارات' },
+      { href: '/settings/notifications', label: 'قنوات الإشعار' },
       { href: '/support', label: 'الدعم' },
     ],
   },

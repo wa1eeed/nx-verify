@@ -11,6 +11,7 @@ import { UserAdmin } from '../components/user-admin';
 import { PendingTopUps, TopUpPanel } from '../components/topup';
 import { OperatorReadiness } from '../components/operator-readiness';
 import { VerificationHistory } from '../components/verification-history';
+import { Inbox, InboxBell } from '../components/inbox';
 import { FreshnessSettings } from '../components/freshness-settings';
 import { Timeline } from '../components/timeline';
 import RootLayout from '../app/layout';
@@ -1144,6 +1145,69 @@ describe('the customer file over time', () => {
     expect(html).toContain('جديد');
     // Newest first, the way a person reads a file.
     expect(html.indexOf('VRF-2026-000002')).toBeLessThan(html.indexOf('VRF-2026-000001'));
+  });
+});
+
+describe('the notification centre', () => {
+  const items = [
+    {
+      id: 'change:1',
+      kind: 'change' as const,
+      titleAr: 'تغيّر في بيانات عميل',
+      detailAr: 'الحقل cr.status تغيّر منذ آخر تحقق.',
+      at: new Date('2026-09-12T10:00:00Z'),
+      href: '/entities/e1',
+      severity: 'critical' as const,
+    },
+    {
+      id: 'case:1',
+      kind: 'review' as const,
+      titleAr: 'مراجعة تنتظر قراراً',
+      detailAr: null,
+      at: new Date('2026-09-10T10:00:00Z'),
+      href: '/queue',
+      severity: 'info' as const,
+    },
+  ];
+
+  it('sends every notification somewhere it can be acted on', () => {
+    const html = renderToStaticMarkup(<Inbox items={items} seenAt={null} />);
+    // A notification you cannot act on from makes somebody hunt for the screen it meant.
+    expect(html).toContain('href="/entities/e1"');
+    expect(html).toContain('href="/queue"');
+  });
+
+  it('marks what arrived after the last look, and leaves the rest readable', () => {
+    const html = renderToStaticMarkup(
+      <Inbox items={items} seenAt={new Date('2026-09-11T00:00:00Z')} />,
+    );
+    // The newer one is marked, the older one is not. The attributes sit in one tag, so
+    // the slice starts at the kind and reads forward.
+    const newer = html.indexOf('data-kind="change"');
+    const older = html.indexOf('data-kind="review"');
+    expect(html.slice(newer, newer + 80)).toContain('data-unread="yes"');
+    expect(html.slice(older, older + 80)).toContain('data-unread="no"');
+    // Seen is not deleted: the older one is still on the list.
+    expect(html).toContain('مراجعة تنتظر قراراً');
+    expect(html).toContain('data-unread="no"');
+  });
+
+  it('puts a number on the bell rather than a dot', () => {
+    // "Something happened" makes a person open it to find out whether it matters. A
+    // number lets them decide without leaving what they were doing.
+    const some = renderToStaticMarkup(<InboxBell unread={3} />);
+    expect(some).toContain('data-unread="yes"');
+    expect(some).toContain('>3<');
+    expect(some).toContain('aria-label="الإشعارات، 3 جديدة"');
+
+    const none = renderToStaticMarkup(<InboxBell unread={0} />);
+    expect(none).toContain('data-unread="no"');
+    expect(none).not.toContain('data-role="inbox-count"');
+  });
+
+  it('says nothing is waiting in a way that reads as good news', () => {
+    const html = renderToStaticMarkup(<Inbox items={[]} seenAt={null} />);
+    expect(html).toContain('لا شيء ينتظرك');
   });
 });
 

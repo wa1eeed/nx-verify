@@ -273,6 +273,8 @@ export type {
 export { computeScore, storeScore } from './monitoring/scoring.js';
 export { trustBandFor, trustBands } from './monitoring/trust-band.js';
 export { checkReadiness } from './ops/readiness.js';
+export { inboxSeenAt, listInbox, markInboxSeen } from './notifications/inbox.js';
+export type { Inbox, InboxItem, InboxKind } from './notifications/inbox.js';
 export type {
   ReadinessCheck,
   ReadinessInput,

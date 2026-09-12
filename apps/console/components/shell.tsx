@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import { Nav } from './nav';
+import { InboxBell } from './inbox';
 
 /**
  * The shell every working screen sits in.
@@ -15,9 +16,12 @@ import { Nav } from './nav';
  */
 export function Shell({
   isSandbox,
+  unread = 0,
   children,
 }: {
   isSandbox: boolean;
+  /** How many notifications arrived since this person last looked. */
+  unread?: number;
   children: ReactNode;
 }): ReactElement {
   return (
@@ -54,11 +58,14 @@ export function Shell({
                 {isSandbox ? 'بيئة الاختبار' : 'بيئة الإنتاج'}
               </span>
             </div>
-            <form action="/logout" method="post" className="inline">
-              <button type="submit" className="link" data-role="sign-out">
-                خروج
-              </button>
-            </form>
+            <div className="row" style={{ gap: 'var(--s-4)', alignItems: 'center' }}>
+              <InboxBell unread={unread} />
+              <form action="/logout" method="post" className="inline">
+                <button type="submit" className="link" data-role="sign-out">
+                  خروج
+                </button>
+              </form>
+            </div>
           </header>
 
           <main className="page" id="main">

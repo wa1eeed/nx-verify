@@ -325,6 +325,40 @@ a:hover {
   overflow: hidden;
 }
 
+.inbox-bell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--ink-soft);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--s-2) var(--s-3);
+}
+
+.inbox-bell:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.inbox-bell[data-unread='yes'] {
+  border-color: var(--teal-d);
+  color: var(--ink);
+}
+
+.inbox-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--teal-d);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .panel-note {
   margin: 0;
   padding: var(--s-3) var(--s-5);
