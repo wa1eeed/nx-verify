@@ -60,9 +60,9 @@ export interface PricedTenantOptions {
   /** Provider named on every seeded step, and bound for this tenant. */
   providerName?: string;
   /**
-   * The package the tenant is put on. Enterprise by default, which is every module with
-   * no count limit: a fixture should not make a test fail for a commercial reason it did
-   * not ask about.
+   * The plan the tenant commits to. Enterprise by default, which is every module with no
+   * count limit: a fixture should not make a test fail for a commercial reason it did not
+   * ask about.
    */
   packageCode?: string;
 }
@@ -88,9 +88,17 @@ export async function preparePricedTenant(
   // written on the operator connection exactly as provisioning does it.
   await applyPackageSeed(db.operatorPool);
   await db.operatorPool.query(
-    `INSERT INTO tenant_subscriptions (tenant_id, package_code)
-     VALUES ($1, $2)
+    `INSERT INTO tenant_commitments (tenant_id, package_code, term_months,
+                                     credits_granted_halalas, setup_fee_halalas)
+     SELECT $1, p.code, p.term_months, p.commitment_credits_halalas,
+            CASE WHEN p.setup_waived_from_months IS NOT NULL
+                   AND p.term_months >= p.setup_waived_from_months
+                 THEN 0 ELSE p.setup_fee_halalas END
+     FROM packages p WHERE p.code = $2
      ON CONFLICT (tenant_id) DO UPDATE SET package_code = EXCLUDED.package_code,
+                                           term_months = EXCLUDED.term_months,
+                                           credits_granted_halalas = EXCLUDED.credits_granted_halalas,
+                                           setup_fee_halalas = EXCLUDED.setup_fee_halalas,
                                            status = 'active'`,
     [tenantId, options.packageCode ?? 'ENTERPRISE'],
   );

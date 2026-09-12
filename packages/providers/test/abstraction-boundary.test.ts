@@ -44,6 +44,9 @@ describe('a real provider changes nothing in the domain', () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Boundary Tenant');
     await preparePricedTenant(db, tenant.tenantId, { providerName: PROVIDER_NAME });
+    // The free re-verification window is a commercial rule, and this file is about the
+    // provider boundary. Zero here keeps the two subjects of this test comparable.
+    await db.operatorPool.query(`UPDATE packages SET free_reverify_days = 0`);
   });
 
   afterAll(async () => {
@@ -97,10 +100,11 @@ describe('a real provider changes nothing in the domain', () => {
       }),
     );
 
-    // Two different subjects so each gets its own entity, and the same identifier would
-    // otherwise resolve both runs onto one.
     const viaStub = await runWith(stubRegistry, '7001272184');
     const viaHttp = await runWith(httpRegistry, '7001272184');
+    // Same subject on purpose: this compares adapters, and two subjects would compare
+    // payloads instead. The plan's free re-verification window is switched off below so
+    // that a commercial rule cannot make the second run look different from the first.
 
     expect(viaHttp.status).toBe(viaStub.status);
     expect(viaHttp.relationTypes).toEqual(viaStub.relationTypes);

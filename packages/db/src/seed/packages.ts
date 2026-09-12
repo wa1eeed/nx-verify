@@ -11,6 +11,12 @@ import type { Queryable } from '../client.js';
  * with, registry and address. The middle plan adds the bank account, which is where most
  * of the value and most of the cost is. The top plan turns everything on and stops
  * counting, because an enterprise that has to count is an enterprise that will call.
+ *
+ * The figures follow docs/01-blueprint.md section 9 and not a monthly subscription: a
+ * term, the credit that term grants, a setup fee waived at twenty four months, included
+ * seats and portfolios with a price for extras, and ninety days of rollover. The platform
+ * itself carries no fee, which is the sentence that kills the "why am I paying a
+ * subscription" objection: every riyal comes back as usable credit.
  */
 
 export interface SeedPackage {
@@ -18,8 +24,16 @@ export interface SeedPackage {
   nameAr: string;
   nameEn: string;
   descriptionAr: string;
-  monthlyFeeHalalas: number;
-  includedCreditsHalalas: number;
+  termMonths: 3 | 12 | 24;
+  commitmentCreditsHalalas: number;
+  setupFeeHalalas: number;
+  setupWaivedFromMonths: number | null;
+  creditRolloverDays: number;
+  includedSeats: number;
+  extraSeatHalalas: number;
+  includedPortfolios: number;
+  extraPortfolioHalalas: number;
+  freeReverifyDays: number;
   overageAllowed: boolean;
   maxUsers: number | null;
   maxApiKeys: number | null;
@@ -36,11 +50,19 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     code: 'ESSENTIAL',
     nameAr: 'الأساسية',
     nameEn: 'Essential',
-    descriptionAr: 'التحقق من المنشأة والعنوان الوطني، لفريق صغير يبدأ.',
-    monthlyFeeHalalas: 1_500_00,
-    includedCreditsHalalas: 1_000_00,
+    descriptionAr: 'التحقق من المنشأة والعنوان الوطني، بالتزام سنوي يعود كاملاً رصيد خدمات.',
+    termMonths: 12,
+    commitmentCreditsHalalas: 18_000_00,
+    setupFeeHalalas: 3_000_00,
+    setupWaivedFromMonths: 24,
+    creditRolloverDays: 90,
+    includedSeats: 5,
+    extraSeatHalalas: 150_00,
+    includedPortfolios: 3,
+    extraPortfolioHalalas: 100_00,
+    freeReverifyDays: 30,
     overageAllowed: true,
-    maxUsers: 5,
+    maxUsers: null,
     maxApiKeys: 2,
     maxMonitors: 25,
     rateLimitRpm: 60,
@@ -52,11 +74,19 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     code: 'GROWTH',
     nameAr: 'النمو',
     nameEn: 'Growth',
-    descriptionAr: 'كل ما في الأساسية، مع ملكية الآيبان والمراقبة المستمرة.',
-    monthlyFeeHalalas: 5_000_00,
-    includedCreditsHalalas: 4_000_00,
+    descriptionAr: 'كل ما في الأساسية، مع ملكية الآيبان والمراقبة المستمرة ومقاعد أوسع.',
+    termMonths: 12,
+    commitmentCreditsHalalas: 60_000_00,
+    setupFeeHalalas: 3_000_00,
+    setupWaivedFromMonths: 24,
+    creditRolloverDays: 90,
+    includedSeats: 15,
+    extraSeatHalalas: 120_00,
+    includedPortfolios: 10,
+    extraPortfolioHalalas: 80_00,
+    freeReverifyDays: 30,
     overageAllowed: true,
-    maxUsers: 25,
+    maxUsers: null,
     maxApiKeys: 10,
     maxMonitors: 500,
     rateLimitRpm: 180,
@@ -68,9 +98,17 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     code: 'ENTERPRISE',
     nameAr: 'المؤسسية',
     nameEn: 'Enterprise',
-    descriptionAr: 'كل وحدات التحقق بلا حدود عدّ، ودعم مخصّص.',
-    monthlyFeeHalalas: 20_000_00,
-    includedCreditsHalalas: 18_000_00,
+    descriptionAr: 'كل وحدات التحقق بلا حدود عدّ، التزام أربعة وعشرين شهراً بلا رسم تأسيس، ودعم مخصّص.',
+    termMonths: 24,
+    commitmentCreditsHalalas: 240_000_00,
+    setupFeeHalalas: 0,
+    setupWaivedFromMonths: 24,
+    creditRolloverDays: 90,
+    includedSeats: 50,
+    extraSeatHalalas: 100_00,
+    includedPortfolios: 50,
+    extraPortfolioHalalas: 60_00,
+    freeReverifyDays: 30,
     overageAllowed: true,
     maxUsers: null,
     maxApiKeys: null,
@@ -88,17 +126,29 @@ export async function applyPackageSeed(
 ): Promise<void> {
   for (const pack of packages) {
     await db.query(
-      `INSERT INTO packages (code, name_ar, name_en, description_ar, monthly_fee_halalas,
-                             included_credits_halalas, overage_allowed, max_users,
-                             max_api_keys, max_monitors, rate_limit_rpm, support_tier,
-                             sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `INSERT INTO packages (code, name_ar, name_en, description_ar, term_months,
+                             commitment_credits_halalas, setup_fee_halalas,
+                             setup_waived_from_months, credit_rollover_days,
+                             included_seats, extra_seat_halalas, included_portfolios,
+                             extra_portfolio_halalas, free_reverify_days, overage_allowed,
+                             max_users, max_api_keys, max_monitors, rate_limit_rpm,
+                             support_tier, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+               $18, $19, $20, $21)
        ON CONFLICT (code) DO UPDATE SET
          name_ar = EXCLUDED.name_ar,
          name_en = EXCLUDED.name_en,
          description_ar = EXCLUDED.description_ar,
-         monthly_fee_halalas = EXCLUDED.monthly_fee_halalas,
-         included_credits_halalas = EXCLUDED.included_credits_halalas,
+         term_months = EXCLUDED.term_months,
+         commitment_credits_halalas = EXCLUDED.commitment_credits_halalas,
+         setup_fee_halalas = EXCLUDED.setup_fee_halalas,
+         setup_waived_from_months = EXCLUDED.setup_waived_from_months,
+         credit_rollover_days = EXCLUDED.credit_rollover_days,
+         included_seats = EXCLUDED.included_seats,
+         extra_seat_halalas = EXCLUDED.extra_seat_halalas,
+         included_portfolios = EXCLUDED.included_portfolios,
+         extra_portfolio_halalas = EXCLUDED.extra_portfolio_halalas,
+         free_reverify_days = EXCLUDED.free_reverify_days,
          overage_allowed = EXCLUDED.overage_allowed,
          max_users = EXCLUDED.max_users,
          max_api_keys = EXCLUDED.max_api_keys,
@@ -112,8 +162,16 @@ export async function applyPackageSeed(
         pack.nameAr,
         pack.nameEn,
         pack.descriptionAr,
-        pack.monthlyFeeHalalas,
-        pack.includedCreditsHalalas,
+        pack.termMonths,
+        pack.commitmentCreditsHalalas,
+        pack.setupFeeHalalas,
+        pack.setupWaivedFromMonths,
+        pack.creditRolloverDays,
+        pack.includedSeats,
+        pack.extraSeatHalalas,
+        pack.includedPortfolios,
+        pack.extraPortfolioHalalas,
+        pack.freeReverifyDays,
         pack.overageAllowed,
         pack.maxUsers,
         pack.maxApiKeys,

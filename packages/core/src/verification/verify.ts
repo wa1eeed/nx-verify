@@ -18,7 +18,13 @@ import { resolveRuleset } from '../portfolios/portfolios.js';
 import { resolveEntity, type IdentifierInput } from '../repositories/entities.js';
 import { computeBilling, maximumCharge, type BillingBreakdown } from '../billing/compute.js';
 import { resolvePrice } from '../billing/price-book.js';
-import { assertEntitled, recordUsage, resolveEntitlement } from '../billing/entitlements.js';
+import {
+  assertEntitled,
+  getCommitment,
+  isFreeReverification,
+  recordUsage,
+  resolveEntitlement,
+} from '../billing/entitlements.js';
 import { hold, releaseHold, settle } from '../billing/wallet.js';
 import { toPublicResults, type PublicResults } from '../public-view.js';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
@@ -103,9 +109,28 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
   }
 
   const runId = opened.runId;
-  const price = await resolvePrice(tx, product.code, {
+  const listPrice = await resolvePrice(tx, product.code, {
     contractId: input.contractId ?? null,
   });
+
+  // Practice four in the blueprint's competitive list: re-verifying the same entity with
+  // the same product inside the plan's window costs nothing. It is priced at zero rather
+  // than refunded afterwards, so the hold, the settlement and the invoice all agree.
+  //
+  // Monitoring is excluded, and that is not an oversight. Monitoring is a priced component
+  // with a budget of its own, and a sweep that re-checks the same entity every few days
+  // would be free under this rule, which would make the budget a number that means
+  // nothing. The promise is about a person re-running a check, not about our own sweep.
+  const commitment = input.triggeredBy === 'MONITOR' ? null : await getCommitment(tx);
+  const free =
+    commitment !== null &&
+    (await isFreeReverification(tx, {
+      entityId: subject.entityId,
+      productCode: product.code,
+      withinDays: commitment.freeReverifyDays,
+    }));
+
+  const price = free ? { ...listPrice, unitPrice: 0 } : listPrice;
   const reserved = maximumCharge(price);
   await hold(tx, reserved);
 

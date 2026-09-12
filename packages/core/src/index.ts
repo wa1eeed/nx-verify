@@ -444,15 +444,19 @@ export type {
 export { HttpKmsClient, KmsMasterKeySource, masterKeySourceFromEnv } from './crypto/kms.js';
 export type { Fetcher, HttpKmsOptions, KmsClient, KmsDecryptRequest } from './crypto/kms.js';
 export {
-  advancePeriod,
   assertEntitled,
-  getSubscription,
+  computeTermExtras,
+  getCommitment,
+  isFreeReverification,
   listEntitlements,
   recordUsage,
+  renewTerm,
   resolveEntitlement,
+  setupFeeFor,
 } from './billing/entitlements.js';
 export type {
+  Commitment,
   Entitlement,
   EntitlementRefusal,
-  Subscription,
+  TermExtras,
 } from './billing/entitlements.js';

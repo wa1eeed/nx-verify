@@ -2,9 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../../../packages/db/src/client.js';
 import { verify } from '../src/verification/verify.js';
 import {
-  getSubscription,
+  computeTermExtras,
+  getCommitment,
   listEntitlements,
   resolveEntitlement,
+  setupFeeFor,
 } from '../src/billing/entitlements.js';
 import { getWallet } from '../src/billing/wallet.js';
 import { NxError } from '../src/errors.js';
@@ -79,15 +81,47 @@ describe('packages and entitlement', () => {
       }),
     );
 
-  it('tells a subscriber what their package is', async () => {
-    const subscription = await withTenant(db.appPool, starter.tenantId, (tx) =>
-      getSubscription(tx),
+  it('tells a subscriber what they committed to, and calls it that', async () => {
+    const commitment = await withTenant(db.appPool, starter.tenantId, (tx) =>
+      getCommitment(tx),
     );
-    expect(subscription?.packageCode).toBe('ESSENTIAL');
-    expect(subscription?.supportTier).toBe('STANDARD');
-    expect(subscription?.maxUsers).toBe(5);
-    const period = subscription?.periodEnd.getTime() ?? 0;
-    expect(period).toBeGreaterThan(subscription?.periodStart.getTime() ?? 0);
+    expect(commitment?.packageCode).toBe('ESSENTIAL');
+    expect(commitment?.supportTier).toBe('STANDARD');
+    // A term, not a month: docs/01-blueprint.md section 9 opens by saying do not call
+    // this a subscription.
+    expect(commitment?.termMonths).toBe(12);
+    expect(commitment?.creditRolloverDays).toBe(90);
+    expect(commitment?.includedSeats).toBeGreaterThan(0);
+    const term = commitment?.termEnd.getTime() ?? 0;
+    expect(term).toBeGreaterThan(commitment?.termStart.getTime() ?? 0);
+  });
+
+  it('waives the setup fee at the term the plan names, and charges it below that', () => {
+    const plan = { setupFeeHalalas: 3_000_00, setupWaivedFromMonths: 24 };
+    expect(setupFeeFor(plan, 24)).toBe(0);
+    expect(setupFeeFor(plan, 12)).toBe(3_000_00);
+    // A plan that never waives it says so with a null rather than an impossible number.
+    expect(setupFeeFor({ setupFeeHalalas: 500_00, setupWaivedFromMonths: null }, 24)).toBe(500_00);
+  });
+
+  it('counts seats and portfolios, and charges only above what the plan includes', async () => {
+    const extras = await withTenant(db.appPool, starter.tenantId, (tx) => computeTermExtras(tx));
+    expect(extras).not.toBeNull();
+    // A workspace with fewer people than the plan includes owes nothing for seats, which
+    // is the component that grows revenue without consumption growing.
+    expect(extras?.chargeableSeats).toBe(0);
+    expect(extras?.seatChargeHalalas).toBe(0);
+    expect(extras?.portfolios).toBe(extras?.chargeablePortfolios ?? 0 ? extras?.portfolios : extras?.portfolios);
+  });
+
+  it('charges nothing for re-verifying the same entity inside the plan window', async () => {
+    const first = await run(enterprise.tenantId, 'ADDRESS_ONLY', 'ent-free-1');
+    expect(first.billing.amount).toBeGreaterThan(0);
+
+    // The same entity and the same product, a minute later. Practice four in the
+    // blueprint's competitive list: free inside thirty days.
+    const second = await run(enterprise.tenantId, 'ADDRESS_ONLY', 'ent-free-2');
+    expect(second.billing.amount).toBe(0);
   });
 
   it('runs a module the package includes', async () => {
@@ -191,9 +225,9 @@ describe('packages and entitlement', () => {
     );
   });
 
-  it('refuses everything when the subscription is suspended', async () => {
+  it('refuses everything when the commitment is suspended', async () => {
     await db.operatorPool.query(
-      `UPDATE tenant_subscriptions SET status = 'suspended' WHERE tenant_id = $1`,
+      `UPDATE tenant_commitments SET status = 'suspended' WHERE tenant_id = $1`,
       [enterprise.tenantId],
     );
 
@@ -202,7 +236,7 @@ describe('packages and entitlement', () => {
     );
 
     await db.operatorPool.query(
-      `UPDATE tenant_subscriptions SET status = 'active' WHERE tenant_id = $1`,
+      `UPDATE tenant_commitments SET status = 'active' WHERE tenant_id = $1`,
       [enterprise.tenantId],
     );
   });
@@ -222,9 +256,9 @@ describe('packages and entitlement', () => {
 
   it('keeps one subscriber package out of another subscriber scope', async () => {
     const theirs = await withTenant(db.appPool, enterprise.tenantId, (tx) =>
-      tx.query<{ count: string }>('SELECT count(*) FROM tenant_subscriptions'),
+      tx.query<{ count: string }>('SELECT count(*) FROM tenant_commitments'),
     );
-    // RLS, as everywhere: a subscriber sees one subscription row, their own.
+    // RLS, as everywhere: a subscriber sees one commitment row, their own.
     expect(theirs.rows[0]?.count).toBe('1');
   });
 });

@@ -237,7 +237,7 @@ describe('guard 02: tenant isolation', () => {
               'tenant_provider_binding',
               'tenants',
               'audit_log',
-              'tenant_subscriptions',
+              'tenant_commitments',
               'tenant_product_overrides',
             ],
             `${table}: nx_operator must not reach subscriber data`,

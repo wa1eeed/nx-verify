@@ -67,11 +67,14 @@ describe('guard 03: same key, same result, one charge', () => {
 
   it('charges once for the same key', async () => {
     const key = `idem-${randomUUID()}`;
+    // A subject of its own, so the free re-verification window in the plan cannot make
+    // this run cost nothing and turn a guard about keys into a guard about discounts.
+    const unn = `70012${String(Math.floor(Math.random() * 90000) + 10000)}`;
     const before = await withTenant(db.appPool, tenant.tenantId, (tx) => getWallet(tx));
 
-    const first = await run(key);
+    const first = await run(key, unn);
     const afterFirst = await withTenant(db.appPool, tenant.tenantId, (tx) => getWallet(tx));
-    await run(key);
+    await run(key, unn);
     const afterSecond = await withTenant(db.appPool, tenant.tenantId, (tx) => getWallet(tx));
 
     expect(before.balance - afterFirst.balance).toBe(first.billing.amount);

@@ -61,8 +61,8 @@ const ENTITLEMENT_SQL = `
   SELECT p.code AS product_code,
          s.package_code,
          s.status AS subscription_status,
-         s.current_period_start AS period_start,
-         s.current_period_end AS period_end,
+         s.term_start AS period_start,
+         s.term_end AS period_end,
          pp.enabled AS package_enabled,
          pp.monthly_quota AS package_quota,
          pp.unit_price_halalas AS package_price,
@@ -71,14 +71,14 @@ const ENTITLEMENT_SQL = `
          o.unit_price_halalas AS override_price,
          u.used
   FROM products p
-  LEFT JOIN tenant_subscriptions s ON s.tenant_id = $1
+  LEFT JOIN tenant_commitments s ON s.tenant_id = $1
   LEFT JOIN package_products pp
     ON pp.package_code = s.package_code AND pp.product_code = p.code
   LEFT JOIN tenant_product_overrides o
     ON o.tenant_id = $1 AND o.product_code = p.code
   LEFT JOIN product_usage u
     ON u.tenant_id = $1 AND u.product_code = p.code
-   AND u.period_start = date_trunc('month', coalesce(s.current_period_start, now()))::date
+   AND u.period_start = date_trunc('month', now())::date
   WHERE p.status = 'active' AND ($2::text IS NULL OR p.code = $2)
   ORDER BY p.code
 `;
@@ -208,56 +208,82 @@ export function assertEntitled(entitlement: Entitlement): void {
 export async function recordUsage(tx: TenantTransaction, productCode: string): Promise<void> {
   await tx.query(
     `INSERT INTO product_usage (tenant_id, period_start, product_code, used)
-     VALUES ($1,
-             date_trunc('month', coalesce(
-               (SELECT current_period_start FROM tenant_subscriptions WHERE tenant_id = $1),
-               now()))::date,
-             $2, 1)
+     VALUES ($1, date_trunc('month', now())::date, $2, 1)
      ON CONFLICT (tenant_id, period_start, product_code)
      DO UPDATE SET used = product_usage.used + 1, updated_at = now()`,
     [tx.tenantId, productCode],
   );
 }
 
-export interface Subscription {
+/**
+ * What a subscriber committed to.
+ *
+ * Not a subscription, and the name matters: docs/01-blueprint.md section 9 opens by
+ * saying so. An annual commitment grants credit at full value, the platform carries no
+ * fee of its own, overage is billed at the same unit prices, and what is unused carries
+ * for ninety days. The figures a term granted are read from the commitment row and not
+ * from the plan, because a plan edited next year must not change what a customer was
+ * given this year.
+ */
+export interface Commitment {
   packageCode: string;
   packageNameAr: string;
   status: string;
-  monthlyFeeHalalas: number;
-  includedCreditsHalalas: number;
+  termMonths: number;
+  creditsGrantedHalalas: number;
+  setupFeeHalalas: number;
+  creditRolloverDays: number;
   overageAllowed: boolean;
+  /** Seats included before an extra one is charged, and what an extra one costs. */
+  includedSeats: number;
+  extraSeatHalalas: number;
+  includedPortfolios: number;
+  extraPortfolioHalalas: number;
+  /** Re-verifying the same entity within this many days is free. */
+  freeReverifyDays: number;
   maxUsers: number | null;
   maxApiKeys: number | null;
   maxMonitors: number | null;
   rateLimitRpm: number;
   supportTier: string;
-  periodStart: Date;
-  periodEnd: Date;
+  termStart: Date;
+  termEnd: Date;
   trialEndsAt: Date | null;
+  contractRef: string | null;
 }
 
-export async function getSubscription(tx: TenantTransaction): Promise<Subscription | null> {
+export async function getCommitment(tx: TenantTransaction): Promise<Commitment | null> {
   const { rows } = await tx.query<{
     package_code: string;
     name_ar: string;
     status: string;
-    monthly_fee_halalas: number;
-    included_credits_halalas: number;
+    term_months: number;
+    credits_granted_halalas: number;
+    setup_fee_halalas: number;
+    credit_rollover_days: number;
     overage_allowed: boolean;
+    included_seats: number;
+    extra_seat_halalas: number;
+    included_portfolios: number;
+    extra_portfolio_halalas: number;
+    free_reverify_days: number;
     max_users: number | null;
     max_api_keys: number | null;
     max_monitors: number | null;
     rate_limit_rpm: number;
     support_tier: string;
-    current_period_start: Date;
-    current_period_end: Date;
+    term_start: Date;
+    term_end: Date;
     trial_ends_at: Date | null;
+    contract_ref: string | null;
   }>(
-    `SELECT s.package_code, p.name_ar, s.status, p.monthly_fee_halalas,
-            p.included_credits_halalas, p.overage_allowed, p.max_users, p.max_api_keys,
-            p.max_monitors, p.rate_limit_rpm, p.support_tier,
-            s.current_period_start, s.current_period_end, s.trial_ends_at
-     FROM tenant_subscriptions s
+    `SELECT s.package_code, p.name_ar, s.status, s.term_months,
+            s.credits_granted_halalas, s.setup_fee_halalas, p.credit_rollover_days,
+            p.overage_allowed, p.included_seats, p.extra_seat_halalas,
+            p.included_portfolios, p.extra_portfolio_halalas, p.free_reverify_days,
+            p.max_users, p.max_api_keys, p.max_monitors, p.rate_limit_rpm, p.support_tier,
+            s.term_start, s.term_end, s.trial_ends_at, s.contract_ref
+     FROM tenant_commitments s
      JOIN packages p ON p.code = s.package_code
      WHERE s.tenant_id = $1`,
     [tx.tenantId],
@@ -271,33 +297,135 @@ export async function getSubscription(tx: TenantTransaction): Promise<Subscripti
     packageCode: row.package_code,
     packageNameAr: row.name_ar,
     status: row.status,
-    monthlyFeeHalalas: row.monthly_fee_halalas,
-    includedCreditsHalalas: row.included_credits_halalas,
+    termMonths: row.term_months,
+    creditsGrantedHalalas: row.credits_granted_halalas,
+    setupFeeHalalas: row.setup_fee_halalas,
+    creditRolloverDays: row.credit_rollover_days,
     overageAllowed: row.overage_allowed,
+    includedSeats: row.included_seats,
+    extraSeatHalalas: row.extra_seat_halalas,
+    includedPortfolios: row.included_portfolios,
+    extraPortfolioHalalas: row.extra_portfolio_halalas,
+    freeReverifyDays: row.free_reverify_days,
     maxUsers: row.max_users,
     maxApiKeys: row.max_api_keys,
     maxMonitors: row.max_monitors,
     rateLimitRpm: row.rate_limit_rpm,
     supportTier: row.support_tier,
-    periodStart: row.current_period_start,
-    periodEnd: row.current_period_end,
+    termStart: row.term_start,
+    termEnd: row.term_end,
     trialEndsAt: row.trial_ends_at,
+    contractRef: row.contract_ref,
   };
 }
 
 /**
- * Rolls a subscriber into the next cycle.
+ * What the term is costing beyond the credit, so an invoice can be explained.
  *
- * Usage is not reset, it is left behind: a new period has its own counter row, so last
- * month's numbers remain readable and an invoice can still be explained in March.
+ * Seats and active portfolios are the two components that grow without consumption
+ * growing, which is what separates this from a query gateway. Both are counted, both are
+ * charged only above what the plan includes, and the numbers are aggregates rather than
+ * a walk over anybody's data.
  */
-export async function advancePeriod(db: Queryable, tenantId: string): Promise<boolean> {
+export interface TermExtras {
+  seats: number;
+  chargeableSeats: number;
+  seatChargeHalalas: number;
+  portfolios: number;
+  chargeablePortfolios: number;
+  portfolioChargeHalalas: number;
+  setupFeeHalalas: number;
+  totalHalalas: number;
+}
+
+export async function computeTermExtras(tx: TenantTransaction): Promise<TermExtras | null> {
+  const commitment = await getCommitment(tx);
+  if (!commitment) {
+    return null;
+  }
+
+  const { rows } = await tx.query<{ seats: string; portfolios: string }>(
+    `SELECT
+       (SELECT count(*) FROM users WHERE tenant_id = $1 AND status = 'active') AS seats,
+       (SELECT count(*) FROM portfolios WHERE tenant_id = $1) AS portfolios`,
+    [tx.tenantId],
+  );
+
+  const seats = Number(rows[0]?.seats ?? 0);
+  const portfolios = Number(rows[0]?.portfolios ?? 0);
+  const chargeableSeats = Math.max(0, seats - commitment.includedSeats);
+  const chargeablePortfolios = Math.max(0, portfolios - commitment.includedPortfolios);
+  const seatCharge = chargeableSeats * commitment.extraSeatHalalas;
+  const portfolioCharge = chargeablePortfolios * commitment.extraPortfolioHalalas;
+
+  return {
+    seats,
+    chargeableSeats,
+    seatChargeHalalas: seatCharge,
+    portfolios,
+    chargeablePortfolios,
+    portfolioChargeHalalas: portfolioCharge,
+    setupFeeHalalas: commitment.setupFeeHalalas,
+    totalHalalas: seatCharge + portfolioCharge + commitment.setupFeeHalalas,
+  };
+}
+
+/**
+ * The setup fee this term actually attracts.
+ *
+ * Waived at the term the plan names, which is the promise in the offer and therefore a
+ * rule rather than a discount somebody remembers to apply.
+ */
+export function setupFeeFor(
+  plan: { setupFeeHalalas: number; setupWaivedFromMonths: number | null },
+  termMonths: number,
+): number {
+  if (plan.setupWaivedFromMonths !== null && termMonths >= plan.setupWaivedFromMonths) {
+    return 0;
+  }
+  return plan.setupFeeHalalas;
+}
+
+/**
+ * Has this entity already been verified with this product recently enough to be free.
+ *
+ * Practice four in the blueprint's competitive list: re-verifying the same entity within
+ * thirty days costs nothing. It is a plan figure rather than a constant, because the
+ * customer who negotiates sixty will exist.
+ */
+export async function isFreeReverification(
+  tx: TenantTransaction,
+  input: { entityId: string; productCode: string; withinDays: number },
+): Promise<boolean> {
+  if (input.withinDays <= 0) {
+    return false;
+  }
+
+  const { rows } = await tx.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM verification_runs
+       WHERE tenant_id = $1 AND entity_id = $2 AND product_code = $3
+         AND status <> 'ERROR' AND billed_amount > 0
+         AND created_at > now() - make_interval(days => $4)
+     ) AS exists`,
+    [tx.tenantId, input.entityId, input.productCode, input.withinDays],
+  );
+  return rows[0]?.exists ?? false;
+}
+
+/**
+ * Renews a commitment into its next term.
+ *
+ * Usage is not reset, it is left behind: counters are per calendar month, so last term's
+ * numbers stay readable and an invoice can still be explained a year later.
+ */
+export async function renewTerm(db: Queryable, tenantId: string): Promise<boolean> {
   const { rowCount } = await db.query(
-    `UPDATE tenant_subscriptions
-     SET current_period_start = current_period_end,
-         current_period_end = current_period_end + (current_period_end - current_period_start),
+    `UPDATE tenant_commitments
+     SET term_start = term_end,
+         term_end = term_end + make_interval(months => term_months),
          updated_at = now()
-     WHERE tenant_id = $1 AND current_period_end <= now()`,
+     WHERE tenant_id = $1 AND term_end <= now()`,
     [tenantId],
   );
   return (rowCount ?? 0) > 0;
