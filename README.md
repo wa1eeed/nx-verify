@@ -74,6 +74,24 @@ cp .env.example .env   # ثم املأه
 docker compose up --build
 ```
 
+ثم التزويد، وكل سر يُطبَع مرة واحدة:
+
+```bash
+pnpm provision products:seed --provider stub
+pnpm provision tenant:create --name "شركة العميل" --slug acme --admin-email admin@acme.sa
+pnpm provision price:set --tenant <id> --product KYB_COMPLETE --amount 44.00
+pnpm provision wallet:topup --tenant <id> --amount 1000 --invoice INV-1
+pnpm provision key:issue --tenant <id> --name integration
+```
+
+ولإثبات أن النشر يعمل فعلاً لا أن يُدّعى:
+
+```bash
+bash scripts/smoke.sh
+```
+
+يرفع المكدّس، يزوّد مساحة، يشغّل تحققاً فوق HTTP، ويتحقق أن لا اسم مزوّد ولا معرّف خرج في أي استجابة، وأن نفس مفتاح الـIdempotency لا يُشغّل مرتين.
+
 الـAPI على 3000 والكونسول على 3001. و`/ready` يفحص القاعدة وخدمة المفاتيح ويعيد 503 حين يعجز، فلا تُرسَل إليه حركة وهو عاجز.
 
 **خدمة المفاتيح والأسرار** في الإنتاج، ولا تُقبل البيئة بديلاً عنها هناك:

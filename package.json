@@ -18,7 +18,8 @@
     "migrate:verify": "pnpm --filter @nx-verify/db run migrate:verify",
     "style": "bash scripts/check-style.sh",
     "build:console": "pnpm --filter @nx-verify/console run build",
-    "mcp": "pnpm --filter @nx-verify/mcp run start"
+    "mcp": "pnpm --filter @nx-verify/mcp run start",
+    "provision": "tsx scripts/provision.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

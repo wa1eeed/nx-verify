@@ -185,6 +185,10 @@ export interface RolePasswords {
   nx_migrator?: string | undefined;
   nx_app?: string | undefined;
   nx_retention?: string | undefined;
+  // Added in 0020, and it logs in: the worker reads the list of workspaces on it and the
+  // operator panel runs on it. A role that can log in with no password is a role nobody
+  // can use, which is how a deployment discovers this at the worst moment.
+  nx_operator?: string | undefined;
 }
 
 /**

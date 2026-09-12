@@ -52,6 +52,7 @@ async function commandUp(client: pg.Client, to?: number): Promise<void> {
     nx_migrator: process.env['NX_MIGRATOR_PASSWORD'],
     nx_app: process.env['NX_APP_PASSWORD'],
     nx_retention: process.env['NX_RETENTION_PASSWORD'],
+    nx_operator: process.env['NX_OPERATOR_PASSWORD'],
   });
 }
 

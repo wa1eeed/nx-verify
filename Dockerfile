@@ -5,7 +5,14 @@
 # save nothing: the difference between them is one command. The command is chosen at run
 # time, so what is tested in staging is byte for byte what runs in production.
 FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+# The package manager is prepared into a shared location rather than into root's home.
+# Left in /root, the unprivileged user the image runs as cannot read it and corepack
+# downloads pnpm again at startup, which makes starting the container depend on the
+# network. A production image must start with no registry in reach.
+ENV COREPACK_HOME=/opt/corepack
+RUN corepack enable \
+  && corepack prepare pnpm@9.15.0 --activate \
+  && chmod -R a+rX /opt/corepack
 WORKDIR /app
 
 FROM base AS deps

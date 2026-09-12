@@ -8,7 +8,7 @@ import {
   type TenantKeyProvider,
 } from '@nx-verify/core';
 import {
-  InMemorySecretStore,
+  secretStoreFromEnv,
   createProviderRegistry,
   createProviderStepRunner,
   providerConfigFromEnv,
@@ -67,7 +67,10 @@ export function buildContext(options: BuildContextOptions = {}): AppContext {
       : new EnvMasterKeySource({ NX_MASTER_KEY: options.masterKey }),
   );
   const registry = options.registry ?? createProviderRegistry(providerConfigFromEnv());
-  const secrets = options.secrets ?? new InMemorySecretStore();
+  // Not an empty in memory store by default. A deployment that never passed one would
+  // have started happily and failed at the first provider call with a missing reference,
+  // which is a bad way to learn that the secret manager was never wired.
+  const secrets = options.secrets ?? secretStoreFromEnv();
 
   return {
     pool,
