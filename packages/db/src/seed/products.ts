@@ -284,6 +284,140 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
     ],
   },
   {
+    /**
+     * The articles of association on their own.
+     *
+     * It is a step inside the full company file, and it is also a service somebody buys
+     * by itself: a bank asking who may sign does not want the rest. A product is rows, so
+     * selling it separately costs a seed entry rather than a second code path.
+     */
+    code: 'AOA_ONLY',
+    nameAr: 'عقد التأسيس',
+    nameEn: 'Articles of association',
+    subjectType: 'BUSINESS',
+    inputSchema: {
+      type: 'object',
+      required: ['unn'],
+      additionalProperties: false,
+      properties: { unn: { type: 'string', pattern: '^7[0-9]{9}$' } },
+    },
+    steps: [
+      {
+        stepKey: 'aoa',
+        seq: 1,
+        provider: 'stub',
+        endpoint: 'articles_of_association',
+        inputBinding: { unified_number: '$.subject.unn' },
+        required: true,
+        cacheTtlDays: 90,
+      },
+    ],
+    fieldMap: [
+      {
+        stepKey: 'aoa',
+        sourcePath: '$.managers[*].signing_authority',
+        fieldPath: 'manager.signing_authority',
+        entityRole: 'MANAGER',
+        entityType: 'PERSON',
+        identifierPath: '@.id',
+        identifierTypeSource: '@.id_type',
+        relationType: 'MANAGES',
+      },
+    ],
+  },
+  {
+    /** Whether this named person may sign for this company, and nothing else. */
+    code: 'MANAGER_PERMISSIONS',
+    nameAr: 'صلاحيات المدير',
+    nameEn: 'Manager permissions verification',
+    subjectType: 'BUSINESS',
+    inputSchema: {
+      type: 'object',
+      required: ['unn', 'manager'],
+      additionalProperties: false,
+      properties: {
+        unn: { type: 'string', pattern: '^7[0-9]{9}$' },
+        manager: {
+          type: 'object',
+          required: ['id', 'id_type'],
+          additionalProperties: false,
+          properties: {
+            id: { type: 'string' },
+            id_type: { enum: ['NATIONAL_ID', 'IQAMA'] },
+          },
+        },
+      },
+    },
+    steps: [
+      {
+        stepKey: 'manager_auth',
+        seq: 1,
+        provider: 'stub',
+        endpoint: 'manager_permissions',
+        inputBinding: {
+          unified_number: '$.subject.unn',
+          manager_id: '$.subject.manager.id',
+          type: 'literal:MANAGER_PERMISSIONS',
+        },
+        required: true,
+        cacheTtlDays: 90,
+      },
+    ],
+    fieldMap: [
+      {
+        stepKey: 'manager_auth',
+        sourcePath: '$.verified',
+        fieldPath: 'manager.signing_authority.verified',
+        entityRole: 'MANAGER',
+        entityType: 'PERSON',
+        identifierPath: '$.manager_id',
+        identifierTypeSource: 'literal:NATIONAL_ID',
+        relationType: 'MANAGES',
+      },
+    ],
+  },
+  {
+    /**
+     * A freelance certificate.
+     *
+     * The subject is a person and not a company, which is why it is its own product
+     * rather than a step: the entity it establishes is of a different type, and the
+     * customers who buy it are marketplaces rather than banks.
+     */
+    code: 'FREELANCER_CERTIFICATE',
+    nameAr: 'التحقق من وثيقة العمل الحر',
+    nameEn: 'Freelancer certificate verification',
+    subjectType: 'FREELANCER',
+    inputSchema: {
+      type: 'object',
+      required: ['certificate_number'],
+      additionalProperties: false,
+      properties: {
+        certificate_number: { type: 'string', minLength: 4 },
+        national_id: { type: 'string' },
+      },
+    },
+    steps: [
+      {
+        stepKey: 'certificate',
+        seq: 1,
+        provider: 'stub',
+        endpoint: 'freelancer_certificate',
+        inputBinding: {
+          certificate_number: '$.subject.certificate_number',
+          national_id: '$.subject.national_id',
+        },
+        required: true,
+        cacheTtlDays: 30,
+      },
+    ],
+    fieldMap: [
+      { stepKey: 'certificate', sourcePath: '$.certificate_status', fieldPath: 'freelance.document' },
+      { stepKey: 'certificate', sourcePath: '$.activity', fieldPath: 'freelance.activity' },
+      { stepKey: 'certificate', sourcePath: '$.expiry_date', fieldPath: 'freelance.expires_on' },
+    ],
+  },
+  {
     code: 'KYB_COMPLETE',
     nameAr: 'التحقق الشامل للمنشأة',
     nameEn: 'Complete business verification',

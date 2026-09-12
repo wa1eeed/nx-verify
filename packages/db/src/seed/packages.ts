@@ -21,6 +21,14 @@ import type { Queryable } from '../client.js';
 
 export interface SeedPackage {
   code: string;
+  /** How this plan is sold. A buyer asks for these three and compares them. */
+  billingModel?: 'PAYG' | 'MONTHLY' | 'ANNUAL';
+  /** Transactions the term includes. Null or absent means capacity is not how it sells. */
+  includedTransactions?: number | null;
+  /** A flat price past the capacity. Absent defers to the price book. */
+  overageUnitHalalas?: number | null;
+  /** Named separately in an offer. Zero, which is the blueprint's position, by default. */
+  platformFeeHalalas?: number;
   nameAr: string;
   nameEn: string;
   descriptionAr: string;
@@ -47,9 +55,50 @@ export interface SeedPackage {
 
 export const SEED_PACKAGES: readonly SeedPackage[] = [
   {
+    /**
+     * No commitment, highest unit price.
+     *
+     * It exists to be compared against. A buyer who sees only a commitment cannot tell
+     * whether it is a good one, and the first question in every negotiation is what the
+     * alternative costs.
+     */
+    code: 'PAYG',
+    nameAr: 'الدفع لكل عملية',
+    nameEn: 'Pay per transaction',
+    descriptionAr: 'بلا التزام وبلا رسوم ثابتة. السعر الأعلى لكل عملية، والوصول نفسه.',
+    billingModel: 'PAYG',
+    termMonths: 3,
+    commitmentCreditsHalalas: 0,
+    includedTransactions: null,
+    setupFeeHalalas: 0,
+    setupWaivedFromMonths: null,
+    creditRolloverDays: 0,
+    includedSeats: 3,
+    extraSeatHalalas: 150_00,
+    includedPortfolios: 1,
+    extraPortfolioHalalas: 100_00,
+    freeReverifyDays: 30,
+    overageAllowed: true,
+    maxUsers: null,
+    maxApiKeys: 2,
+    maxMonitors: 10,
+    rateLimitRpm: 60,
+    supportTier: 'STANDARD',
+    sortOrder: 5,
+    products: [
+      { code: 'ADDRESS_ONLY' },
+      { code: 'KYB_COMPLETE' },
+      { code: 'AOA_ONLY' },
+      { code: 'MANAGER_PERMISSIONS' },
+      { code: 'FREELANCER_CERTIFICATE' },
+    ],
+  },
+  {
     code: 'ESSENTIAL',
     nameAr: 'الأساسية',
     nameEn: 'Essential',
+    billingModel: 'MONTHLY',
+    includedTransactions: 3_000,
     descriptionAr: 'التحقق من المنشأة والعنوان الوطني، بالتزام سنوي يعود كاملاً رصيد خدمات.',
     termMonths: 12,
     commitmentCreditsHalalas: 18_000_00,
@@ -68,12 +117,20 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     rateLimitRpm: 60,
     supportTier: 'STANDARD',
     sortOrder: 10,
-    products: [{ code: 'ADDRESS_ONLY' }, { code: 'KYB_COMPLETE', monthlyQuota: 200 }],
+    products: [
+      { code: 'ADDRESS_ONLY' },
+      { code: 'KYB_COMPLETE', monthlyQuota: 200 },
+      { code: 'AOA_ONLY' },
+      { code: 'MANAGER_PERMISSIONS' },
+      { code: 'FREELANCER_CERTIFICATE' },
+    ],
   },
   {
     code: 'GROWTH',
     nameAr: 'النمو',
     nameEn: 'Growth',
+    billingModel: 'ANNUAL',
+    includedTransactions: 12_000,
     descriptionAr: 'كل ما في الأساسية، مع ملكية الآيبان وتأكيد الحساب البنكي ومطابقة الاسم والمراقبة المستمرة.',
     termMonths: 12,
     commitmentCreditsHalalas: 60_000_00,
@@ -95,6 +152,9 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     products: [
       { code: 'ADDRESS_ONLY' },
       { code: 'KYB_COMPLETE' },
+      { code: 'AOA_ONLY' },
+      { code: 'MANAGER_PERMISSIONS' },
+      { code: 'FREELANCER_CERTIFICATE' },
       { code: 'IBAN_OWNERSHIP' },
       { code: 'NAME_MATCH' },
       { code: 'BANK_ACCOUNT_OWNERSHIP', monthlyQuota: 500 },
@@ -104,6 +164,8 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     code: 'ENTERPRISE',
     nameAr: 'المؤسسية',
     nameEn: 'Enterprise',
+    billingModel: 'ANNUAL',
+    includedTransactions: null,
     descriptionAr: 'كل وحدات التحقق بلا حدود عدّ، بما فيها إثبات الدخل، بالتزام أربعة وعشرين شهراً بلا رسم تأسيس ودعم مخصّص.',
     termMonths: 24,
     commitmentCreditsHalalas: 240_000_00,
@@ -125,6 +187,9 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     products: [
       { code: 'ADDRESS_ONLY' },
       { code: 'KYB_COMPLETE' },
+      { code: 'AOA_ONLY' },
+      { code: 'MANAGER_PERMISSIONS' },
+      { code: 'FREELANCER_CERTIFICATE' },
       { code: 'IBAN_OWNERSHIP' },
       { code: 'NAME_MATCH' },
       { code: 'BANK_ACCOUNT_OWNERSHIP' },
@@ -145,9 +210,10 @@ export async function applyPackageSeed(
                              included_seats, extra_seat_halalas, included_portfolios,
                              extra_portfolio_halalas, free_reverify_days, overage_allowed,
                              max_users, max_api_keys, max_monitors, rate_limit_rpm,
-                             support_tier, sort_order)
+                             support_tier, sort_order, billing_model, included_transactions,
+                             overage_unit_halalas, platform_fee_halalas)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-               $18, $19, $20, $21)
+               $18, $19, $20, $21, $22, $23, $24, $25)
        ON CONFLICT (code) DO UPDATE SET
          name_ar = EXCLUDED.name_ar,
          name_en = EXCLUDED.name_en,
@@ -169,6 +235,10 @@ export async function applyPackageSeed(
          rate_limit_rpm = EXCLUDED.rate_limit_rpm,
          support_tier = EXCLUDED.support_tier,
          sort_order = EXCLUDED.sort_order,
+         billing_model = EXCLUDED.billing_model,
+         included_transactions = EXCLUDED.included_transactions,
+         overage_unit_halalas = EXCLUDED.overage_unit_halalas,
+         platform_fee_halalas = EXCLUDED.platform_fee_halalas,
          updated_at = now()`,
       [
         pack.code,
@@ -192,6 +262,10 @@ export async function applyPackageSeed(
         pack.rateLimitRpm,
         pack.supportTier,
         pack.sortOrder,
+        pack.billingModel ?? 'ANNUAL',
+        pack.includedTransactions ?? null,
+        pack.overageUnitHalalas ?? null,
+        pack.platformFeeHalalas ?? 0,
       ],
     );
 

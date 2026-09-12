@@ -19,7 +19,8 @@ export type EntitlementRefusal =
   | 'SUBSCRIPTION_INACTIVE'
   | 'PRODUCT_NOT_IN_PACKAGE'
   | 'PRODUCT_DISABLED'
-  | 'QUOTA_EXHAUSTED';
+  | 'QUOTA_EXHAUSTED'
+  | 'CAPACITY_EXHAUSTED';
 
 export interface Entitlement {
   productCode: string;
@@ -34,6 +35,8 @@ export interface Entitlement {
   unitPriceHalalas: number | null;
   /** True when this product is on because somebody wrote a line for this subscriber. */
   negotiated: boolean;
+  /** Transactions left in the term's capacity. Null when the plan sells no capacity. */
+  capacityRemaining: number | null;
   periodStart: Date | null;
   periodEnd: Date | null;
 }
@@ -51,6 +54,9 @@ interface EntitlementRow {
   override_quota: number | null;
   override_price: number | null;
   used: number | null;
+  included_transactions: number | null;
+  transactions_used: number | null;
+  overage_allowed: boolean | null;
 }
 
 /**
@@ -69,9 +75,13 @@ const ENTITLEMENT_SQL = `
          o.enabled AS override_enabled,
          o.monthly_quota AS override_quota,
          o.unit_price_halalas AS override_price,
-         u.used
+         u.used,
+         s.included_transactions,
+         s.transactions_used,
+         pk.overage_allowed
   FROM products p
   LEFT JOIN tenant_commitments s ON s.tenant_id = $1
+  LEFT JOIN packages pk ON pk.code = s.package_code
   LEFT JOIN package_products pp
     ON pp.package_code = s.package_code AND pp.product_code = p.code
   LEFT JOIN tenant_product_overrides o
@@ -87,7 +97,12 @@ function decide(row: EntitlementRow): Entitlement {
   const used = row.used ?? 0;
   const negotiated = row.override_enabled !== null || row.override_quota !== null || row.override_price !== null;
 
+  const capacity = row.included_transactions;
+  const capacityUsed = row.transactions_used ?? 0;
+  const capacityRemaining = capacity === null ? null : Math.max(0, capacity - capacityUsed);
+
   const base: Omit<Entitlement, 'allowed' | 'refusal' | 'remaining'> = {
+    capacityRemaining,
     productCode: row.product_code,
     packageCode: row.package_code,
     quota: row.override_quota ?? row.package_quota,
@@ -128,6 +143,12 @@ function decide(row: EntitlementRow): Entitlement {
 
   if (base.quota !== null && used >= base.quota) {
     return refuse('QUOTA_EXHAUSTED');
+  }
+
+  // The term's capacity, which is what a quotation actually sells. A plan that allows
+  // overage keeps working past it and bills the excess; one that does not, stops.
+  if (capacity !== null && capacityUsed >= capacity && row.overage_allowed !== true) {
+    return refuse('CAPACITY_EXHAUSTED');
   }
 
   return {
@@ -177,6 +198,10 @@ const REFUSAL_MESSAGES: Record<EntitlementRefusal, { ar: string; en: string }> =
     ar: 'استُنفدت حصة هذه الوحدة لهذه الدورة.',
     en: 'The quota for this module is exhausted for this cycle.',
   },
+  CAPACITY_EXHAUSTED: {
+    ar: 'استُنفدت سعة الالتزام لهذه المدة، ولا تسمح الباقة بتجاوزها.',
+    en: 'The committed capacity for this term is used up and this plan does not allow overage.',
+  },
 };
 
 /**
@@ -206,6 +231,14 @@ export function assertEntitled(entitlement: Entitlement): void {
  * same key is the same result and one charge, and a quota is a charge in another currency.
  */
 export async function recordUsage(tx: TenantTransaction, productCode: string): Promise<void> {
+  // Two counters, because they answer two questions: the monthly one answers whether a
+  // module's quota is spent, and the term one answers what the customer committed to.
+  await tx.query(
+    `UPDATE tenant_commitments SET transactions_used = transactions_used + 1, updated_at = now()
+     WHERE tenant_id = $1`,
+    [tx.tenantId],
+  );
+
   await tx.query(
     `INSERT INTO product_usage (tenant_id, period_start, product_code, used)
      VALUES ($1, date_trunc('month', now())::date, $2, 1)
@@ -230,7 +263,13 @@ export interface Commitment {
   packageNameAr: string;
   status: string;
   termMonths: number;
+  billingModel: string;
   creditsGrantedHalalas: number;
+  /** Transactions this term may run. Null when the plan sells credit rather than count. */
+  includedTransactions: number | null;
+  transactionsUsed: number;
+  overageUnitHalalas: number | null;
+  platformFeeHalalas: number;
   setupFeeHalalas: number;
   creditRolloverDays: number;
   overageAllowed: boolean;
@@ -276,13 +315,20 @@ export async function getCommitment(tx: TenantTransaction): Promise<Commitment |
     term_end: Date;
     trial_ends_at: Date | null;
     contract_ref: string | null;
+    billing_model: string;
+    included_transactions: number | null;
+    transactions_used: number;
+    overage_unit_halalas: number | null;
+    platform_fee_halalas: number;
   }>(
     `SELECT s.package_code, p.name_ar, s.status, s.term_months,
             s.credits_granted_halalas, s.setup_fee_halalas, p.credit_rollover_days,
             p.overage_allowed, p.included_seats, p.extra_seat_halalas,
             p.included_portfolios, p.extra_portfolio_halalas, p.free_reverify_days,
             p.max_users, p.max_api_keys, p.max_monitors, p.rate_limit_rpm, p.support_tier,
-            s.term_start, s.term_end, s.trial_ends_at, s.contract_ref
+                    s.term_start, s.term_end, s.trial_ends_at, s.contract_ref,
+            p.billing_model, s.included_transactions, s.transactions_used,
+            p.overage_unit_halalas, s.platform_fee_halalas
      FROM tenant_commitments s
      JOIN packages p ON p.code = s.package_code
      WHERE s.tenant_id = $1`,
@@ -298,7 +344,12 @@ export async function getCommitment(tx: TenantTransaction): Promise<Commitment |
     packageNameAr: row.name_ar,
     status: row.status,
     termMonths: row.term_months,
+    billingModel: row.billing_model,
     creditsGrantedHalalas: row.credits_granted_halalas,
+    includedTransactions: row.included_transactions,
+    transactionsUsed: row.transactions_used,
+    overageUnitHalalas: row.overage_unit_halalas,
+    platformFeeHalalas: row.platform_fee_halalas,
     setupFeeHalalas: row.setup_fee_halalas,
     creditRolloverDays: row.credit_rollover_days,
     overageAllowed: row.overage_allowed,
@@ -335,6 +386,7 @@ export interface TermExtras {
   chargeablePortfolios: number;
   portfolioChargeHalalas: number;
   setupFeeHalalas: number;
+  platformFeeHalalas: number;
   totalHalalas: number;
 }
 
@@ -366,7 +418,9 @@ export async function computeTermExtras(tx: TenantTransaction): Promise<TermExtr
     chargeablePortfolios,
     portfolioChargeHalalas: portfolioCharge,
     setupFeeHalalas: commitment.setupFeeHalalas,
-    totalHalalas: seatCharge + portfolioCharge + commitment.setupFeeHalalas,
+    platformFeeHalalas: commitment.platformFeeHalalas,
+    totalHalalas:
+      seatCharge + portfolioCharge + commitment.setupFeeHalalas + commitment.platformFeeHalalas,
   };
 }
 

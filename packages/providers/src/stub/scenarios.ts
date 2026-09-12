@@ -70,6 +70,38 @@ const FULL_SUCCESS: StubScenario = {
       holder_identifier: '1010478213',
       bank_name: 'Example Bank',
     },
+    freelancer_certificate: {
+      certificate_number: 'FL-2026-88213',
+      freelancer_name: 'محمد عبدالله',
+      certificate_status: 'ACTIVE',
+      issue_date: '2025-06-01',
+      expiry_date: '2027-06-01',
+      activity: 'تطوير برمجيات',
+    },
+    // The open banking endpoints. They answer in our field names, because the adapter
+    // that speaks the upstream vocabulary has already done its work by this point and the
+    // stub stands in for what comes out of it, not for what goes into it.
+    bank_account_ownership: {
+      match_result: 'MATCH',
+      account_holder_name: 'شركة المثال للتجارة',
+      account_status: 'ACTIVE',
+      account_currency: 'SAR',
+      match_score: 0.97,
+      verification_method: 'CONFIRMATION_OF_PAYEE_SERVICE',
+    },
+    name_match: {
+      match_result: 'PERFECT_MATCH',
+      name_provided: 'شركة المثال للتجارة',
+      name_retrieved: 'شركة المثال للتجارة',
+      match_confidence: 1,
+    },
+    income_verification: {
+      income_currency: 'SAR',
+      average_monthly_income: 18500,
+      income_payment_count: 12,
+      first_income_at: '2025-09-01T00:00:00Z',
+      last_income_at: '2026-08-01T00:00:00Z',
+    },
   },
 };
 

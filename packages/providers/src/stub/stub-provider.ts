@@ -29,6 +29,12 @@ const AUTHORITIES: Readonly<Record<string, string>> = {
   manager_permissions: 'Ministry of Commerce',
   ultimate_beneficial_owner: 'Commercial Registry',
   iban_ownership: 'Saudi Central Bank',
+  freelancer_certificate: 'Ministry of Human Resources',
+  // The open banking endpoints. The authority is who confirmed the fact, never who
+  // carried the question (rule 5).
+  bank_account_ownership: 'Confirmation of Payee',
+  name_match: 'Account Holder Records',
+  income_verification: 'Bank Statements',
 };
 
 export interface StubProviderOptions {

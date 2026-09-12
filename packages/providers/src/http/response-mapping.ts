@@ -68,6 +68,20 @@ export const DEFAULT_ENDPOINTS: Readonly<Record<string, EndpointMapping>> = {
     dataPath: 'data',
     fields: { unifiedNumber: 'unified_number' },
   },
+  freelancer_certificate: {
+    path: '/v1/freelancer/{certificate_number}',
+    method: 'GET',
+    authority: 'Ministry of Human Resources',
+    dataPath: 'data',
+    fields: {
+      certificateNumber: 'certificate_number',
+      fullName: 'freelancer_name',
+      status: 'certificate_status',
+      issueDate: 'issue_date',
+      expiryDate: 'expiry_date',
+      activityName: 'activity',
+    },
+  },
   iban_ownership: {
     path: '/v1/iban/verify',
     method: 'POST',

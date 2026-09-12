@@ -254,6 +254,59 @@ describe('packages and entitlement', () => {
     }
   });
 
+  it('stops at the committed capacity when the plan does not allow overage', async () => {
+    // A capacity package sells a number of transactions for a term. This one has two left.
+    await db.operatorPool.query(
+      `UPDATE packages SET overage_allowed = false WHERE code = 'ESSENTIAL'`,
+    );
+    await db.operatorPool.query(
+      `UPDATE tenant_commitments SET included_transactions = transactions_used + 1
+       WHERE tenant_id = $1`,
+      [starter.tenantId],
+    );
+
+    const before = await withTenant(db.appPool, starter.tenantId, (tx) =>
+      resolveEntitlement(tx, 'ADDRESS_ONLY'),
+    );
+    expect(before.allowed).toBe(true);
+    expect(before.capacityRemaining).toBe(1);
+
+    await run(starter.tenantId, 'ADDRESS_ONLY', 'ess-capacity-1');
+
+    const after = await withTenant(db.appPool, starter.tenantId, (tx) =>
+      resolveEntitlement(tx, 'ADDRESS_ONLY'),
+    );
+    expect(after.capacityRemaining).toBe(0);
+    expect(after.refusal).toBe('CAPACITY_EXHAUSTED');
+    await expect(run(starter.tenantId, 'ADDRESS_ONLY', 'ess-capacity-2')).rejects.toThrow(
+      /committed capacity/,
+    );
+
+    // A plan that allows overage keeps working past the capacity and bills the excess.
+    await db.operatorPool.query(
+      `UPDATE packages SET overage_allowed = true WHERE code = 'ESSENTIAL'`,
+    );
+    await expect(run(starter.tenantId, 'ADDRESS_ONLY', 'ess-capacity-3')).resolves.toBeTruthy();
+  });
+
+  it('lets the application count transactions and nothing else on the commitment', async () => {
+    // The counter moves, because the application increments it on every run.
+    const before = await withTenant(db.appPool, enterprise.tenantId, (tx) => getCommitment(tx));
+    await run(enterprise.tenantId, 'KYB_COMPLETE', 'ent-count-1');
+    const after = await withTenant(db.appPool, enterprise.tenantId, (tx) => getCommitment(tx));
+    expect(after?.transactionsUsed).toBe((before?.transactionsUsed ?? 0) + 1);
+
+    // And the plan does not, because a column level grant is all the application has: an
+    // application that can count must not be able to move a customer onto another plan.
+    await expect(
+      withTenant(db.appPool, enterprise.tenantId, (tx) =>
+        tx.query(`UPDATE tenant_commitments SET package_code = 'PAYG' WHERE tenant_id = $1`, [
+          enterprise.tenantId,
+        ]),
+      ),
+    ).rejects.toThrow(/permission denied/);
+  });
+
   it('keeps one subscriber package out of another subscriber scope', async () => {
     const theirs = await withTenant(db.appPool, enterprise.tenantId, (tx) =>
       tx.query<{ count: string }>('SELECT count(*) FROM tenant_commitments'),
