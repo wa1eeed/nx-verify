@@ -6,6 +6,7 @@ import { evaluate, type Condition } from '../decision/conditions.js';
 import { resolveRuleset } from '../portfolios/portfolios.js';
 import { openCase as openReviewCase } from '../review/queue.js';
 import { getEntityProfile } from '../repositories/profile.js';
+import { dispatchCaseActions } from './actions.js';
 import { verify } from '../verification/verify.js';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
 import type { StepRunner } from '../orchestration/executor.js';
@@ -551,14 +552,14 @@ export async function concludeCase(
   if (failed.length > 0) {
     await setStatus(tx, caseId, 'IN_REVIEW', null, actorId);
     await openReviewCaseFor(tx, current, failed.map((step) => `STEP_FAILED_${step.stepKey}`));
-    return (await getCase(tx, caseId)) ?? current;
+    return fireActions(tx, caseId, current);
   }
 
   if (!current.entityId) {
     // Every required check was waived or did not apply, so nothing was established and
     // there is nothing to judge. A person decides.
     await setStatus(tx, caseId, 'IN_REVIEW', null, actorId);
-    return (await getCase(tx, caseId)) ?? current;
+    return fireActions(tx, caseId, current);
   }
 
   const { rows } = await tx.query<{ decision_ruleset: string | null }>(
@@ -572,7 +573,7 @@ export async function concludeCase(
 
   if (!decision) {
     await setStatus(tx, caseId, 'IN_REVIEW', null, actorId);
-    return (await getCase(tx, caseId)) ?? current;
+    return fireActions(tx, caseId, current);
   }
 
   if (decision.outcome === 'PASS') {
@@ -584,7 +585,24 @@ export async function concludeCase(
     await openReviewCaseFor(tx, current, decision.reasons.map((reason) => reason.code));
   }
 
-  return (await getCase(tx, caseId)) ?? current;
+  return fireActions(tx, caseId, current);
+}
+
+/**
+ * The decision and what follows it commit together.
+ *
+ * A file that is approved but whose activation was never queued, because the process died
+ * between two transactions, is the failure this avoids: the customer's system never hears,
+ * and nothing in our data says anything is missing.
+ */
+async function fireActions(
+  tx: TenantTransaction,
+  caseId: string,
+  fallback: OnboardingCase,
+): Promise<OnboardingCase> {
+  const decided = (await getCase(tx, caseId)) ?? fallback;
+  await dispatchCaseActions(tx, decided);
+  return decided;
 }
 
 async function openReviewCaseFor(

@@ -12,7 +12,13 @@ import { queueNotifications } from '../notifications/notifications.js';
  */
 
 export type WebhookEventType =
-  'verification.completed' | 'entity.changed' | 'attestation.expired' | 'wallet.low';
+  | 'verification.completed'
+  | 'entity.changed'
+  | 'attestation.expired'
+  | 'wallet.low'
+  | 'onboarding.approved'
+  | 'onboarding.rejected'
+  | 'onboarding.review';
 
 export interface WebhookEndpoint {
   id: string;
@@ -176,4 +182,27 @@ export async function registerEndpoint(
     throw new NxError('NX-5001', { detail: 'webhook endpoint insert returned no id' });
   }
   return id;
+}
+
+/**
+ * Queues one delivery to one endpoint.
+ *
+ * Endpoints subscribe to event types globally, which is right for events: a customer who
+ * wants every completed verification says so once. An onboarding action is the other
+ * shape, chosen per journey and per outcome, so it names its endpoint and this queues to
+ * that one alone. The delivery, the signature, the retries and the worker are the same.
+ */
+export async function queueEventTo(
+  tx: TenantTransaction,
+  input: { endpointId: string; eventType: string; payload: Record<string, unknown> },
+): Promise<string | null> {
+  const { rows } = await tx.query<{ id: string }>(
+    `INSERT INTO webhook_deliveries (tenant_id, endpoint_id, event_type, payload, next_retry_at)
+     SELECT $1, e.id, $3, $4::jsonb, now()
+     FROM webhook_endpoints e
+     WHERE e.tenant_id = $1 AND e.id = $2 AND e.status = 'active'
+     RETURNING id`,
+    [tx.tenantId, input.endpointId, input.eventType, JSON.stringify(input.payload)],
+  );
+  return rows[0]?.id ?? null;
 }

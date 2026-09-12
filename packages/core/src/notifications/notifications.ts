@@ -83,6 +83,37 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
       `افتح السجل: ${url}/registry`,
     ].join('\n'),
   }),
+  'onboarding.approved': (url) => ({
+    severity: 'INFO',
+    subject: 'اكتمل تأهيل متقدّم بالقبول',
+    body: [
+      'ملف تأهيل في مساحة عملك انتهى بالقبول.',
+      '',
+      `افتح ملفات التأهيل: ${url}/onboarding`,
+      '',
+      'هذه الرسالة لا تذكر المتقدّم ولا ما فُحص. افتح الكونسول للاطلاع.',
+    ].join('\n'),
+  }),
+  'onboarding.rejected': (url) => ({
+    severity: 'WARNING',
+    subject: 'انتهى تأهيل متقدّم بالرفض',
+    body: [
+      'ملف تأهيل في مساحة عملك انتهى بالرفض.',
+      '',
+      `افتح ملفات التأهيل: ${url}/onboarding`,
+      '',
+      'أسباب القرار في الكونسول، ولا تُرسَل في البريد.',
+    ].join('\n'),
+  }),
+  'onboarding.review': (url) => ({
+    severity: 'WARNING',
+    subject: 'ملف تأهيل يحتاج مراجعة بشرية',
+    body: [
+      'ملف تأهيل في مساحة عملك يحتاج قراراً من شخص.',
+      '',
+      `افتح طابور المراجعة: ${url}/queue`,
+    ].join('\n'),
+  }),
   'wallet.low': (url) => ({
     severity: 'CRITICAL',
     subject: 'رصيد الخدمات منخفض',
@@ -339,4 +370,33 @@ export async function recordNotificationResult(
 
 function consoleUrlFromEnv(): string {
   return process.env['NX_CONSOLE_URL'] ?? 'https://console.nx.sa';
+}
+
+/**
+ * Queues one message to one channel.
+ *
+ * The counterpart of queueEventTo. A subscription says "tell me about this kind of
+ * event"; an onboarding action says "on this outcome, tell this address", and both end in
+ * the same queue with the same retries and the same restraint about what a message may
+ * carry.
+ */
+export async function queueNotificationTo(
+  tx: TenantTransaction,
+  input: { channelId: string; eventType: WebhookEventType; consoleUrl?: string },
+): Promise<string | null> {
+  const message = renderMessage(input.eventType, input.consoleUrl ?? consoleUrlFromEnv());
+
+  const { rows } = await tx.query<{ id: string }>(
+    `INSERT INTO notification_deliveries
+       (tenant_id, rule_id, channel_id, event_type, severity, subject, body)
+     SELECT $1, r.id, c.id, $3, $4, $5, $6
+     FROM notification_channels c
+     LEFT JOIN notification_rules r
+       ON r.tenant_id = c.tenant_id AND r.channel_id = c.id AND r.event_type = $3
+     WHERE c.tenant_id = $1 AND c.id = $2 AND c.status = 'active'
+       AND c.verified_at IS NOT NULL
+     RETURNING id`,
+    [tx.tenantId, input.channelId, input.eventType, message.severity, message.subject, message.body],
+  );
+  return rows[0]?.id ?? null;
 }

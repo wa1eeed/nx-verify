@@ -499,3 +499,11 @@ export type {
   OnboardingCase,
   WaiveReason,
 } from './onboarding/cases.js';
+export { defineAction, dispatchCaseActions, listCaseActions } from './onboarding/actions.js';
+export type {
+  ActionLogEntry,
+  ActionOutcome,
+  ActionType,
+  DefineActionInput,
+  DispatchedAction,
+} from './onboarding/actions.js';
