@@ -107,16 +107,43 @@ export interface CloseRunInput {
   charges?: ReadonlyMap<string, number>;
   billedAmount?: number;
   providerCost?: number;
+  /** Where this run was paid from: the package's capacity, the wallet, or nowhere. */
+  chargeSource?: 'PACKAGE' | 'WALLET' | 'FREE';
 }
 
-export async function closeRun(tx: TenantTransaction, input: CloseRunInput): Promise<void> {
+/**
+ * A reference a person can read out loud.
+ *
+ * Allocated per subscriber and at the end of the run rather than the start, so the row
+ * lock on the counter is held for the shortest part of the transaction, and so a request
+ * that never became a verification never consumes a number: gaps in a sequence a customer
+ * can see are questions we would have to answer.
+ */
+export async function allocateReference(tx: TenantTransaction, at = new Date()): Promise<string> {
+  const year = at.getUTCFullYear();
+  const { rows } = await tx.query<{ next_value: number }>(
+    `INSERT INTO run_counters (tenant_id, year, next_value)
+     VALUES ($1, $2, 2)
+     ON CONFLICT (tenant_id, year) DO UPDATE SET next_value = run_counters.next_value + 1
+     RETURNING CASE WHEN run_counters.next_value IS NULL THEN 1 ELSE run_counters.next_value - 1 END
+               AS next_value`,
+    [tx.tenantId, year],
+  );
+
+  const number = rows[0]?.next_value ?? 1;
+  return `VRF-${year}-${String(number).padStart(6, '0')}`;
+}
+
+export async function closeRun(tx: TenantTransaction, input: CloseRunInput): Promise<string> {
   const billed = input.billedAmount ?? 0;
+  const reference = await allocateReference(tx);
 
   await tx.query(
     `UPDATE verification_runs
      SET status = $3, latency_ms = $4, provider_used = $5, decision = $6,
          decision_reasons = $7::jsonb, billed_amount = $8::numeric,
-         provider_cost = $9::numeric, billable = $10
+         provider_cost = $9::numeric, billable = $10,
+         charge_source = $11, reference = coalesce(reference, $12)
      WHERE tenant_id = $1 AND id = $2`,
     [
       tx.tenantId,
@@ -129,6 +156,8 @@ export async function closeRun(tx: TenantTransaction, input: CloseRunInput): Pro
       decimal(billed),
       input.providerCost === undefined ? null : decimal(input.providerCost),
       billed > 0,
+      input.chargeSource ?? 'WALLET',
+      reference,
     ],
   );
 
@@ -159,6 +188,8 @@ export async function closeRun(tx: TenantTransaction, input: CloseRunInput): Pro
       ],
     );
   }
+
+  return reference;
 }
 
 function decimal(halalas: number): string {
@@ -219,6 +250,10 @@ export interface StoredRunStep {
 
 export interface StoredRun {
   runId: string;
+  /** The number a person reads out loud, such as VRF-2026-000019. */
+  reference: string | null;
+  /** Where this run was paid from: the package, the wallet, or the free window. */
+  chargeSource: string;
   productCode: string;
   entityId: string | null;
   status: string;
@@ -233,6 +268,8 @@ export interface StoredRun {
 export async function getRun(tx: TenantTransaction, runId: string): Promise<StoredRun | null> {
   const { rows } = await tx.query<{
     id: string;
+    reference: string | null;
+    charge_source: string;
     product_code: string;
     entity_id: string | null;
     status: string;
@@ -242,7 +279,7 @@ export async function getRun(tx: TenantTransaction, runId: string): Promise<Stor
     idempotency_key: string | null;
     created_at: Date;
   }>(
-    `SELECT id, product_code, entity_id, status, decision, decision_reasons,
+    `SELECT id, reference, charge_source, product_code, entity_id, status, decision, decision_reasons,
             client_ref, idempotency_key, created_at
      FROM verification_runs
      WHERE tenant_id = $1 AND id = $2`,
@@ -274,6 +311,8 @@ export async function getRun(tx: TenantTransaction, runId: string): Promise<Stor
 
   return {
     runId: run.id,
+    reference: run.reference,
+    chargeSource: run.charge_source,
     productCode: run.product_code,
     entityId: run.entity_id,
     status: run.status,

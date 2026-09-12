@@ -68,6 +68,8 @@ export interface VerifyInput {
 
 export interface VerifyResult {
   runId: string;
+  /** The number a person reads out loud, such as VRF-2026-000019. */
+  reference: string | null;
   status: string;
   entityId: string | null;
   results: PublicResults;
@@ -130,8 +132,29 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
       withinDays: commitment.freeReverifyDays,
     }));
 
+  /**
+   * Where this run is paid from.
+   *
+   * A package sells capacity and a wallet holds credit. A run inside the capacity was
+   * bought when the commitment was signed, so it moves no money: charging the wallet as
+   * well would make the customer pay for it twice, and the package a limit rather than a
+   * purchase. Past the capacity, or with no capacity at all, the wallet pays.
+   */
+  const withinCapacity =
+    commitment !== null &&
+    commitment.includedTransactions !== null &&
+    commitment.transactionsUsed < commitment.includedTransactions;
+
+  const chargeSource: 'PACKAGE' | 'WALLET' | 'FREE' = free
+    ? 'FREE'
+    : withinCapacity
+      ? 'PACKAGE'
+      : 'WALLET';
+
+  // The price is still computed and still recorded, whoever pays: a statement that cannot
+  // say what a package covered is a statement that cannot show what the package is worth.
   const price = free ? { ...listPrice, unitPrice: 0 } : listPrice;
-  const reserved = maximumCharge(price);
+  const reserved = chargeSource === 'WALLET' ? maximumCharge(price) : 0;
   await hold(tx, reserved);
 
   let outcome;
@@ -147,13 +170,14 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
   const breakdown = computeBilling(outcome.steps, price);
   const charges = new Map(breakdown.steps.map((step) => [step.stepKey, step.amount]));
 
-  await closeRun(tx, {
+  const reference = await closeRun(tx, {
     runId,
     status: outcome.status,
     latencyMs: outcome.latencyMs,
     steps: outcome.steps,
     charges,
     billedAmount: breakdown.total,
+    chargeSource,
   });
 
   const normalised = await normaliseRun(tx, input.keys, {
@@ -192,7 +216,13 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     }
   }
 
-  await settle(tx, { runId, heldAmount: reserved, chargeAmount: breakdown.total });
+  // Nothing to settle when the package or the free window paid: no money was reserved
+  // and none is owed.
+  await settle(tx, {
+    runId,
+    heldAmount: reserved,
+    chargeAmount: chargeSource === 'WALLET' ? breakdown.total : 0,
+  });
 
   // Counted once the run is real. A replay returned above never reaches this line, which
   // is rule 7 expressed in the other currency a package is measured in.
@@ -216,6 +246,7 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
 
   return {
     runId,
+    reference,
     status: outcome.status,
     entityId: subject.entityId,
     results: toPublicResults(outcome.steps),
@@ -238,6 +269,7 @@ function replayed(run: StoredRun): VerifyResult {
 
   return {
     runId: run.runId,
+    reference: run.reference,
     status: run.status,
     entityId: run.entityId,
     results,

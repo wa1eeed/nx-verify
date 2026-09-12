@@ -68,6 +68,9 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
           required: ['verification_id', 'product', 'status', 'results'],
           properties: {
             verification_id: { type: 'string', format: 'uuid' },
+            // The number a support conversation is held with. The uuid stays the
+            // identifier; this is for people.
+            reference: { type: 'string', example: 'VRF-2026-000019' },
             product: { type: 'string' },
             status: { enum: ['OK', 'PARTIAL', 'NOT_FOUND', 'ERROR'] },
             decision: { enum: ['PASS', 'FAIL', 'REVIEW', null] },

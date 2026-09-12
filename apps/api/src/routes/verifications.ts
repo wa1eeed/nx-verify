@@ -137,6 +137,8 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
 
       const response = {
         verification_id: result.runId,
+        // The number support conversations are held with. The id stays the identifier.
+        reference: result.reference,
         product: body.product,
         status: result.status,
         decision: result.decision?.outcome ?? null,
@@ -212,6 +214,7 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
 
       const response = {
         verification_id: run.runId,
+        reference: run.reference,
         product: run.productCode,
         status: run.status,
         decision: run.decision,
