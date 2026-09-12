@@ -266,6 +266,21 @@ export type {
 } from './monitoring/monitors.js';
 export { computeScore, storeScore } from './monitoring/scoring.js';
 export { trustBandFor, trustBands } from './monitoring/trust-band.js';
+export {
+  createShare,
+  hashShareToken,
+  listShares,
+  recordShareView,
+  resolveShare,
+  revokeShare,
+  shareTokensMatch,
+} from './profile/shares.js';
+export type {
+  CreateShareInput,
+  CreatedShare,
+  ResolvedShare,
+  ShareRow,
+} from './profile/shares.js';
 export type { TrustBand, TrustBandView } from './monitoring/trust-band.js';
 export type { EntityScore, ScoreComponent } from './monitoring/scoring.js';
 export {

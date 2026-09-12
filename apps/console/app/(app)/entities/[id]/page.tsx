@@ -8,8 +8,11 @@ import {
   getRelations,
   listIdentifiers,
 } from '@nx-verify/core';
+import { fieldGroup, listShares, type FieldGroup } from '@nx-verify/core';
 import { getKeys } from '../../../../lib/keys';
 import { Entity360 } from '../../../../components/entity-360';
+import { SharePanel, type ShareRowView } from '../../../../components/share-panel';
+import { createShareAction, revokeShareAction } from './share-actions';
 import { query } from '../../../../lib/context';
 
 /**
@@ -63,6 +66,7 @@ export default async function EntityPage({
 
     const score = await computeScore(tx, id);
     const edges = await getRelations(tx, id);
+    const shares = await listShares(tx, id);
 
     // Names and link counts for the other side of each relation. The count is what turns
     // a list of relationships into a signal: one person signing for several companies.
@@ -84,7 +88,7 @@ export default async function EntityPage({
       [tx.tenantId, otherIds],
     );
 
-    return { entity, profile, identifiers, timeline, triggers, score, edges, others };
+    return { entity, profile, identifiers, timeline, triggers, score, edges, others, shares };
   });
 
   if (!data) {
@@ -132,7 +136,33 @@ export default async function EntityPage({
     };
   });
 
+  // Only the groups this entity has facts in are offered. Sharing an empty group promises
+  // the recipient something the link cannot deliver.
+  const availableGroups = [
+    ...new Set(fields.map((field) => fieldGroup(field.fieldPath))),
+  ] as FieldGroup[];
+
+  const shares: ShareRowView[] = data.shares.map((share) => ({
+    shareId: share.shareId,
+    groups: share.groups,
+    purpose: share.purpose,
+    createdAt: share.createdAt,
+    expiresAt: share.expiresAt,
+    viewCount: share.viewCount,
+    lastViewedAt: share.lastViewedAt,
+    state: share.state,
+  }));
+
+  // Present for exactly one render, straight after issuing. A refresh loses it, which is
+  // the point: a link that can be recovered from a page never really expires.
+  const issued = (await searchParams)['share'];
+  const issuedLink =
+    typeof issued === 'string' && issued !== ''
+      ? `${process.env['NX_CONSOLE_BASE_URL'] ?? ''}/p/${issued}`
+      : null;
+
   return (
+    <>
     <Entity360
       {...(typeof tab === 'string' ? { tab } : {})}
       header={{
@@ -157,5 +187,14 @@ export default async function EntityPage({
       timeline={entries}
       relations={relations}
     />
+    <SharePanel
+      entityId={id}
+      availableGroups={availableGroups}
+      shares={shares}
+      issuedLink={issuedLink}
+      createAction={createShareAction}
+      revokeAction={revokeShareAction}
+    />
+    </>
   );
 }

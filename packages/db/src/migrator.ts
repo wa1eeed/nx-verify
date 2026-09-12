@@ -94,7 +94,8 @@ function assertNoDrift(migrations: Migration[], applied: AppliedMigration[]): vo
     if (migration.checksum !== record.checksum) {
       throw new Error(
         `migration ${record.version} (${record.name}) changed after it was applied. ` +
-          'Applied migrations are immutable. Add a new migration instead.',
+          'Applied migrations are immutable. Add a new migration instead, or roll this ' +
+          `one back with: pnpm migrate down --to ${record.version - 1}`,
       );
     }
   }
@@ -147,9 +148,20 @@ export async function migrateDown(client: Client, options: MigrateOptions = {}):
   await ensureLedger(client);
   const migrations = loadMigrations();
   const applied = await appliedMigrations(client);
-  assertNoDrift(migrations, applied);
 
   const target = options.to ?? 0;
+  /**
+   * Drift is checked only on what will still be applied afterwards.
+   *
+   * Refusing to roll back a migration because its file changed leaves the one recovery
+   * that exists unavailable: a developer who edited an unreleased migration can neither
+   * apply it nor undo it, and the only way out is to drop the database. What must not
+   * drift is the schema this command leaves behind, so that is what is checked.
+   */
+  assertNoDrift(
+    migrations,
+    applied.filter((record) => record.version <= target),
+  );
   const executed: number[] = [];
 
   for (const record of [...applied].reverse()) {

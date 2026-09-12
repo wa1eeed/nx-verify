@@ -6,6 +6,7 @@ import { FieldCard, formatValue, daysUntil } from '../components/field-card';
 import { ChangeBadge, FreshnessBadge } from '../components/freshness';
 import { Identifier, Money } from '../components/identifier';
 import { Entity360 } from '../components/entity-360';
+import { SharedProfile } from '../components/shared-profile';
 import { FreshnessSettings } from '../components/freshness-settings';
 import { Timeline } from '../components/timeline';
 import RootLayout from '../app/layout';
@@ -778,6 +779,82 @@ describe('the entity file groups what it knows', () => {
     // says nothing while claiming to.
     const html = render();
     expect(html).toMatch(/data-role="coverage"[\s\S]*?align-self:stretch/);
+  });
+});
+
+describe('the profile a third party sees', () => {
+  const render = (openGroups: string[] = ['REGISTRY']) =>
+    renderToStaticMarkup(
+      <SharedProfile
+        view={{
+          displayName: 'مؤسسة نماء للمقاولات',
+          entityType: 'BUSINESS',
+          identifiers: [{ idType: 'UNN', masked: '••••••2184' }],
+          score: 88,
+          openGroups: openGroups as never,
+          sharedBy: 'شركة العميل التجريبية',
+          expiresAt: new Date('2026-10-12T00:00:00Z'),
+          fields: [
+            {
+              fieldPath: 'cr.status',
+              value: 'ACTIVE',
+              authority: 'Commercial Registry',
+              observedAt: new Date('2026-09-12T00:00:00Z'),
+              effectiveUntil: new Date('2026-12-11T00:00:00Z'),
+              freshness: 'fresh',
+              confidence: 1,
+            },
+            {
+              fieldPath: 'iban.bank',
+              value: 'SA44••••1234',
+              authority: 'Confirmation of Payee',
+              observedAt: new Date('2026-09-12T00:00:00Z'),
+              effectiveUntil: null,
+              freshness: 'fresh',
+              confidence: 1,
+            },
+          ],
+        }}
+      />,
+    );
+
+  it('shows only the groups the link opened', () => {
+    const html = render(['REGISTRY']);
+    expect(html).toContain('حالة السجل التجاري');
+    // The banking fact exists on the entity and was not shared, so it is not rendered.
+    expect(html).not.toContain('SA44');
+  });
+
+  it('names what was withheld rather than leaving a silent gap', () => {
+    const html = render(['REGISTRY']);
+    // A reader who cannot tell "no bank account" from "the bank account was not shared
+    // with you" will assume the first, and act on it.
+    expect(html).toContain('data-role="withheld"');
+    expect(html).toContain('الحسابات البنكية');
+  });
+
+  it('offers a reader with no account nothing to click', () => {
+    const html = render(['REGISTRY', 'BANKING']);
+    expect(html).not.toContain('<button');
+    expect(html).not.toContain('<form');
+    // And no way into the console, which they cannot enter.
+    expect(html).not.toContain('href="/registry"');
+    expect(html).not.toContain('href="/dashboard"');
+  });
+
+  it('carries the authority on every fact and never the provider', () => {
+    const html = render(['REGISTRY', 'BANKING']);
+    expect(html).toContain('Commercial Registry');
+    for (const provider of ['wathq', 'lean', 'stub', 'واثق', 'لين']) {
+      expect(html.toLowerCase()).not.toContain(provider.toLowerCase());
+    }
+  });
+
+  it('shows the identifier masked and says when the link dies', () => {
+    const html = render();
+    expect(html).toContain('••••••2184');
+    expect(html).not.toContain('7001272184');
+    expect(html).toContain('2026-10-12');
   });
 });
 

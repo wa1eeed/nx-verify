@@ -73,7 +73,6 @@ CREATE INDEX ix_waits_expiry ON run_waits (expires_at) WHERE status = 'WAITING';
 ALTER TABLE run_waits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE run_waits FORCE ROW LEVEL SECURITY;
 CREATE POLICY t_isolation ON run_waits
-  TO nx_app, nx_retention
   USING (tenant_id = app.current_tenant())
   WITH CHECK (tenant_id = app.current_tenant());
 

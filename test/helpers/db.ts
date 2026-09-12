@@ -24,6 +24,12 @@ export interface TestDatabase {
   /** Owner role. Migrations and inspection only, never used to prove isolation. */
   migratorPool: pg.Pool;
   /**
+   * The role that owns the migration ledger, which is the one a deployment runs
+   * migrations with. nx_migrator owns the tables and is entered with SET LOCAL ROLE
+   * inside each migration file, so it cannot read nx_meta.
+   */
+  adminConnectionString: string;
+  /**
    * Operator role. Manages provider configuration across tenants and can reach nothing
    * else, which guard 02 asserts.
    */
@@ -72,6 +78,11 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     retentionPool,
     migratorPool,
     operatorPool,
+    adminConnectionString: (() => {
+      const url = new URL(baseUrl);
+      url.pathname = `/${databaseName}`;
+      return url.toString();
+    })(),
     appConnectionString: urlFor(baseUrl, databaseName, 'nx_app', TEST_ROLE_PASSWORDS.nx_app),
     operatorConnectionString: urlFor(
       baseUrl,
