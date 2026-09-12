@@ -39,8 +39,16 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'الاشتراك',
+    items: [
+      { href: '/usage', label: 'الاستهلاك والباقة' },
+      { href: '/billing', label: 'كشف الاستهلاك' },
+    ],
+  },
+  {
     label: 'الإعدادات',
     items: [
+      { href: '/settings/api-keys', label: 'مفاتيح الـAPI' },
       { href: '/settings/freshness', label: 'مدد الصلاحية' },
       { href: '/settings/rules', label: 'قواعد القرار' },
       { href: '/settings/notifications', label: 'التنبيهات' },

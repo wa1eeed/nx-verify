@@ -135,3 +135,52 @@ export function secureEquals(left: string, right: string): boolean {
   const b = Buffer.from(right, 'utf8');
   return a.length === b.length && timingSafeEqual(a, b);
 }
+
+export interface ApiKeySummary {
+  id: string;
+  name: string;
+  /** Shown in the console and safe in a log. Never enough to authenticate. */
+  keyPrefix: string;
+  scopes: string[];
+  environment: string;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+  revokedAt: Date | null;
+}
+
+/**
+ * The keys a workspace has.
+ *
+ * The secret is not here and cannot be: the table holds a hash. What a screen shows is
+ * the prefix, which is what a customer matches against their own configuration, and what
+ * a support conversation can safely quote.
+ */
+export async function listApiKeys(tx: TenantTransaction): Promise<ApiKeySummary[]> {
+  const { rows } = await tx.query<{
+    id: string;
+    name: string;
+    key_prefix: string;
+    scopes: string[];
+    environment: string;
+    created_at: Date;
+    last_used_at: Date | null;
+    revoked_at: Date | null;
+  }>(
+    `SELECT id, name, key_prefix, scopes, environment, created_at, last_used_at, revoked_at
+     FROM api_keys
+     WHERE tenant_id = $1
+     ORDER BY revoked_at NULLS FIRST, created_at DESC`,
+    [tx.tenantId],
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    keyPrefix: row.key_prefix,
+    scopes: row.scopes,
+    environment: row.environment,
+    createdAt: row.created_at,
+    lastUsedAt: row.last_used_at,
+    revokedAt: row.revoked_at,
+  }));
+}

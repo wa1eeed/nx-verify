@@ -462,3 +462,7 @@ export type {
 } from './billing/entitlements.js';
 export { findSandboxOf, isSandbox, sandboxLink } from './tenants/sandbox.js';
 export type { SandboxLink } from './tenants/sandbox.js';
+export { listApiKeys } from './auth/api-keys.js';
+export type { ApiKeySummary } from './auth/api-keys.js';
+export { buildStatement } from './billing/statement.js';
+export type { Statement, StatementLine, TopUpLine } from './billing/statement.js';

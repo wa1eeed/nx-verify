@@ -9,7 +9,6 @@ import { Entity360 } from '../components/entity-360';
 import { FreshnessSettings } from '../components/freshness-settings';
 import { Timeline } from '../components/timeline';
 import RootLayout from '../app/layout';
-import AppLayout from '../app/(app)/layout';
 import AuthLayout from '../app/(auth)/layout';
 import { ReviewQueue, reasonLabel } from '../components/review-queue';
 import { Dashboard } from '../components/dashboard';
@@ -17,6 +16,10 @@ import { Portfolios } from '../components/portfolios';
 import { RulesStudio, describeCondition } from '../components/rules-studio';
 import { NotificationSettings, eventLabel } from '../components/notification-settings';
 import { ChangePassword } from '../components/change-password';
+import { ApiKeys } from '../components/api-keys';
+import { Shell } from '../components/shell';
+import { Usage, refusalLabel } from '../components/usage';
+import { Statement } from '../components/statement';
 import { NAV } from '../components/nav';
 import { EmptyState, PageHeader, Panel } from '../components/page-header';
 import type { ProfileFieldView } from '../components/field-card';
@@ -549,15 +552,22 @@ describe('the change password screen', () => {
  * navigation, and whether an empty table says something useful.
  */
 describe('the console shell', () => {
-  const html = renderToStaticMarkup(<AppLayout>{null}</AppLayout>);
+  const html = renderToStaticMarkup(<Shell isSandbox={false}>{null}</Shell>);
 
   it('groups the navigation by what a person came to do', () => {
-    expect(NAV.map((group) => group.label)).toEqual(['المتابعة', 'العمل', 'الإعدادات']);
+    expect(NAV.map((group) => group.label)).toEqual([
+      'المتابعة',
+      'العمل',
+      'الاشتراك',
+      'الإعدادات',
+    ]);
     const hrefs = NAV.flatMap((group) => group.items.map((item) => item.href));
     // No link appears twice, and every screen in the app is reachable from the shell.
     expect(new Set(hrefs).size).toBe(hrefs.length);
     expect(hrefs).toContain('/dashboard');
     expect(hrefs).toContain('/settings/notifications');
+    expect(hrefs).toContain('/usage');
+    expect(hrefs).toContain('/settings/api-keys');
   });
 
   it('lets a keyboard skip the navigation, and offers the way out', () => {
@@ -571,6 +581,16 @@ describe('the console shell', () => {
     expect(renderToStaticMarkup(<RootLayout>{null}</RootLayout>)).toContain(
       '<html lang="ar" dir="rtl">',
     );
+  });
+
+  it('says which world it is in, and shouts when it is the sandbox', () => {
+    expect(html).toContain('data-role="environment-name"');
+    expect(html).toContain('بيئة الإنتاج');
+    expect(html).not.toContain('data-role="sandbox-banner"');
+
+    const sandbox = renderToStaticMarkup(<Shell isSandbox>{null}</Shell>);
+    expect(sandbox).toContain('data-role="sandbox-banner"');
+    expect(sandbox).toContain('بيئة الاختبار');
   });
 
   it('offers a visitor with no session neither navigation nor a way out', () => {
@@ -636,5 +656,129 @@ describe('the stylesheet holds the layout rules that are easy to break', () => {
     const print = css.slice(css.indexOf('@media print'));
     expect(print).toContain('.sidebar');
     expect(print).toContain('display: none');
+  });
+});
+
+/**
+ * The portal a subscriber lives in between verifications: what they hold, what they have
+ * left, and what it cost.
+ */
+describe('the subscriber portal', () => {
+  const keys = [
+    {
+      id: 'k1',
+      name: 'نظام الفوترة',
+      keyPrefix: 'nx_live_ab12',
+      scopes: ['verifications:write'],
+      environment: 'live',
+      createdAt: new Date('2026-08-01T00:00:00Z'),
+      lastUsedAt: new Date('2026-09-10T00:00:00Z'),
+      revokedAt: null,
+    },
+    {
+      id: 'k2',
+      name: 'تجربة',
+      keyPrefix: 'nx_test_cd34',
+      scopes: ['verifications:read'],
+      environment: 'sandbox',
+      createdAt: new Date('2026-07-01T00:00:00Z'),
+      lastUsedAt: null,
+      revokedAt: new Date('2026-08-01T00:00:00Z'),
+    },
+  ];
+
+  it('shows the prefix and never a secret, and says which environment each key is for', () => {
+    const html = renderToStaticMarkup(
+      <ApiKeys keys={keys} issueAction="/issue" revokeAction="/revoke" />,
+    );
+    expect(html).toContain('nx_live_ab12');
+    expect(html).toContain('data-role="environment"');
+    expect(html).toContain('الإنتاج');
+    expect(html).toContain('الاختبار');
+    // One primary action on the screen: issuing.
+    expect(html.match(/btn-primary/g)?.length).toBe(1);
+    // A revoked key stays visible, marked, and cannot be revoked twice.
+    expect(html).toContain('data-revoked="true"');
+    expect(html.match(/data-role="revoke"/g)?.length).toBe(1);
+  });
+
+  it('shows a freshly issued secret once, and says it cannot be recovered', () => {
+    const html = renderToStaticMarkup(
+      <ApiKeys keys={keys} issuedSecret="nx_live_secret" issueAction="/i" revokeAction="/r" />,
+    );
+    expect(html).toContain('data-role="secret-value"');
+    expect(html).toContain('nx_live_secret');
+    expect(html).toContain('لا يمكن عرضه مرة أخرى');
+  });
+
+  it('says why a module is off rather than greying it out', () => {
+    const html = renderToStaticMarkup(
+      <Usage
+        view={{
+          packageNameAr: 'النمو',
+          packageCode: 'GROWTH',
+          status: 'active',
+          termStart: new Date('2026-01-01T00:00:00Z'),
+          termEnd: new Date('2027-01-01T00:00:00Z'),
+          includedTransactions: 12000,
+          transactionsUsed: 400,
+          balanceHalalas: 500000,
+          heldHalalas: 4400,
+          availableHalalas: 495600,
+          isLow: false,
+          entitlements: [
+            {
+              productCode: 'KYB_COMPLETE',
+              nameAr: 'التحقق الشامل',
+              allowed: true,
+              refusal: null,
+              quota: null,
+              used: 12,
+              remaining: null,
+              negotiated: false,
+            },
+            {
+              productCode: 'INCOME_VERIFICATION',
+              nameAr: 'إثبات الدخل',
+              allowed: false,
+              refusal: 'PRODUCT_NOT_IN_PACKAGE',
+              quota: null,
+              used: 0,
+              remaining: null,
+              negotiated: false,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain('data-role="disabled"');
+    expect(html).toContain('غير مشمولة في باقتك');
+    expect(refusalLabel('QUOTA_EXHAUSTED')).toContain('الحصة');
+    // The capacity left is the number a subscriber came for, so it is a figure not a row.
+    expect(html).toContain('data-role="usage-tiles"');
+    expect(html).toContain('11600');
+  });
+
+  it('calls consumption a statement and keeps the tax invoice with the top up', () => {
+    const html = renderToStaticMarkup(
+      <Statement
+        view={{
+          lines: [{ month: '2026-09', productNameAr: 'التحقق الشامل', runs: 12, amountHalalas: 52800 }],
+          topUps: [
+            { at: new Date('2026-09-01T00:00:00Z'), amountHalalas: 1000000, vatInvoiceId: 'INV-77' },
+          ],
+          spentThisTermHalalas: 52800,
+          extras: null,
+        }}
+      />,
+    );
+
+    expect(html).toContain('كشف الاستهلاك');
+    // VAT falls due when credit is bought, not when it is spent. Calling this an invoice
+    // would not be a wording problem.
+    expect(html).toContain('الفاتورة الضريبية تصدر عند شحن الرصيد');
+    expect(html).toContain('INV-77');
+    expect(html).toContain('data-role="statement-line"');
   });
 });

@@ -1,50 +1,20 @@
 import type { ReactElement, ReactNode } from 'react';
-import { Nav } from '../../components/nav';
+import { sandboxLink } from '@nx-verify/core';
+import { Shell } from '../../components/shell';
+import { query } from '../../lib/context';
 
 /**
- * The shell every working screen sits in.
+ * The shell, with the one fact it needs.
  *
- * A fixed navigation on the start side so a person always knows where they are without
- * the page reflowing under them, and a skip link before it, because the navigation is
- * long and skipping it is the difference between usable and unusable for anyone not
- * holding a mouse.
+ * Which workspace this is decides whether every screen carries the sandbox band, and that
+ * is read here rather than inside the shell so the shell stays renderable without a
+ * database.
  */
-export default function AppLayout({ children }: { children: ReactNode }): ReactElement {
-  return (
-    <>
-      <a className="skip-link" href="#main">
-        تخطَّ إلى المحتوى
-      </a>
-
-      <div className="shell">
-        <aside className="sidebar">
-          <div className="brand">
-            <span className="brand-mark" aria-hidden="true">
-              NX
-            </span>
-            <span>NX Verify</span>
-          </div>
-          <Nav />
-        </aside>
-
-        <div>
-          <header className="topbar">
-            <div className="topbar-workspace">
-              <strong>مساحة العمل</strong>
-              <span className="muted">التحقق والامتثال</span>
-            </div>
-            <form action="/logout" method="post" className="inline">
-              <button type="submit" className="link" data-role="sign-out">
-                خروج
-              </button>
-            </form>
-          </header>
-
-          <main className="page" id="main">
-            {children}
-          </main>
-        </div>
-      </div>
-    </>
-  );
+export default async function AppLayout({
+  children,
+}: {
+  children: ReactNode;
+}): Promise<ReactElement> {
+  const workspace = await query((tx) => sandboxLink(tx));
+  return <Shell isSandbox={workspace.isSandbox}>{children}</Shell>;
 }

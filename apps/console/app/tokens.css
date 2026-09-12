@@ -712,3 +712,20 @@ button.link {
     break-inside: avoid;
   }
 }
+
+/*
+ * The environment band.
+ *
+ * Critical colours, and it cannot be dismissed: a person who forgets which world they are
+ * in draws conclusions from test data, and the sandbox exists precisely because its data
+ * means nothing.
+ */
+.env-banner {
+  background: var(--critical-bg);
+  color: var(--critical-fg);
+  border-block-end: 1px solid var(--critical-line);
+  padding: var(--s-2) var(--s-5);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
