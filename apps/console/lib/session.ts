@@ -13,6 +13,11 @@ import type pg from 'pg';
  * There is a development fallback to environment variables, and it refuses to work when
  * NODE_ENV is production. A convenience that silently survives into a deployment is not a
  * convenience.
+ *
+ * In a built console the fallback is not merely refused, it is gone: Next replaces
+ * NODE_ENV at build time, so the production branch is the only branch a built image has,
+ * whatever the container's environment says at run time. Verified by running the image
+ * with NODE_ENV=development and a tenant id set, and being sent to the sign in screen.
  */
 
 export const SESSION_COOKIE = 'nx_session';

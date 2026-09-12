@@ -14,6 +14,7 @@ import { Dashboard } from '../components/dashboard';
 import { Portfolios } from '../components/portfolios';
 import { RulesStudio, describeCondition } from '../components/rules-studio';
 import { NotificationSettings, eventLabel } from '../components/notification-settings';
+import { ChangePassword } from '../components/change-password';
 import type { ProfileFieldView } from '../components/field-card';
 
 /**
@@ -511,5 +512,27 @@ describe('the notifications screen', () => {
     expect(eventLabel('entity.changed')).toBe('تغيّر مرصود');
     expect(html).toContain('تغيّر مرصود');
     expect(html).not.toContain('entity.changed');
+  });
+});
+
+/**
+ * A temporary password that is never actually changed is a permanent password that
+ * somebody once wrote down.
+ */
+describe('the change password screen', () => {
+  it('says why the person is looking at it after a temporary password', () => {
+    const html = renderToStaticMarkup(<ChangePassword forced action="/password" />);
+    expect(html).toContain('data-role="forced-notice"');
+    expect(html).toContain('مؤقتة');
+    // One primary button, and the current password required even though they are in.
+    expect(html.match(/btn-primary/g)?.length).toBe(1);
+    expect(html.toLowerCase()).toContain('autocomplete="current-password"');
+    expect(html.toLowerCase()).toContain('autocomplete="new-password"');
+  });
+
+  it('prints the rule rather than hiding it behind a rejection', () => {
+    const html = renderToStaticMarkup(<ChangePassword action="/password" />);
+    expect(html).toContain('اثنتا عشرة خانة');
+    expect(html).not.toContain('data-role="forced-notice"');
   });
 });

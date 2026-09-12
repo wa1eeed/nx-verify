@@ -48,11 +48,47 @@ export async function actingUser(): Promise<ConsoleSession> {
  * redirect is what makes every screen private without every screen remembering to be.
  */
 async function requireSession(): Promise<ConsoleSession> {
+  let session: ConsoleSession;
+  try {
+    session = await currentSession();
+  } catch {
+    const { redirect } = await import('next/navigation');
+    // redirect throws, so nothing after it runs. TypeScript needs to be told.
+    return redirect('/login') as never;
+  }
+
+  // A temporary password that is never actually changed is a permanent password that
+  // somebody once wrote down. The screen that changes it reads the session directly, so
+  // this redirect cannot loop through it.
+  if (!session.development && (await mustChangePassword(session))) {
+    const { redirect } = await import('next/navigation');
+    return redirect('/password') as never;
+  }
+
+  return session;
+}
+
+async function mustChangePassword(session: ConsoleSession): Promise<boolean> {
+  const { rows } = await withTenant(getPool(), session.tenantId, (tx) =>
+    tx.query<{ must_change: boolean }>(
+      `SELECT must_change FROM user_credentials WHERE tenant_id = $1 AND user_id = $2`,
+      [tx.tenantId, session.userId],
+    ),
+  );
+  return rows[0]?.must_change ?? false;
+}
+
+/**
+ * The session without the password check.
+ *
+ * Used by the screen that changes the password, and by nothing else: every other screen
+ * must go through requireSession.
+ */
+export async function sessionForPasswordChange(): Promise<ConsoleSession> {
   try {
     return await currentSession();
   } catch {
     const { redirect } = await import('next/navigation');
-    // redirect throws, so nothing after it runs. TypeScript needs to be told.
     return redirect('/login') as never;
   }
 }
