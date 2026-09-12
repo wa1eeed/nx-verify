@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { EmptyState, PageHeader, Panel } from './page-header';
 
 /**
  * The review queue.
@@ -43,15 +44,25 @@ export function reasonLabel(code: string): string {
 }
 
 export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
+  const overdue = rows.filter((row) => row.overdue).length;
+
   return (
-    <div className="stack">
-      <h1>طابور المراجعة</h1>
+    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+      <PageHeader
+        title="طابور المراجعة"
+        subtitle="كل حالة يقرّرها شخص ويعتمدها شخص آخر. لا يجوز أن يكون المقرِّر هو المعتمِد."
+        action={
+          <button type="submit" className="btn-primary">
+            إسناد الحالات إليّ
+          </button>
+        }
+      />
 
-      <p className="muted">
-        كل حالة يقرّرها شخص ويعتمدها شخص آخر. لا يجوز أن يكون المقرِّر هو المعتمِد.
-      </p>
-
-      <section className="card">
+      <Panel
+        title="الحالات"
+        aside={overdue > 0 ? `${overdue} متأخرة من ${rows.length}` : `${rows.length} حالة`}
+      >
+        <div className="table-scroll">
         <table>
           <thead>
             <tr>
@@ -97,14 +108,14 @@ export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
             ))}
           </tbody>
         </table>
-        {rows.length === 0 ? <p className="muted">لا توجد حالات مفتوحة.</p> : null}
-      </section>
-
-      <div className="row">
-        <button type="submit" className="btn-primary">
-          إسناد الحالات إليّ
-        </button>
-      </div>
+        </div>
+        {rows.length === 0 ? (
+          <div className="panel-body">
+            {/* Good news, and the screen says so rather than showing a blank table. */}
+            <EmptyState>لا حالات مفتوحة. لا شيء ينتظر قراراً.</EmptyState>
+          </div>
+        ) : null}
+      </Panel>
     </div>
   );
 }

@@ -1,0 +1,12 @@
+# A development overlay.
+#
+# It exposes the database on the host so the console and the API can be run from the
+# repository against the same data the containers use. It is a separate file rather than a
+# port mapping in the main compose, because a database reachable from the host is exactly
+# what a deployment must not have.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
+services:
+  db:
+    ports:
+      - '5439:5432'

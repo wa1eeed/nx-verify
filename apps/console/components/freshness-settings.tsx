@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { fieldLabel } from './field-card';
+import { PageHeader } from './page-header';
 
 /**
  * The retention settings screen.
@@ -37,10 +38,13 @@ export function FreshnessSettings({
   preview?: ImpactPreview | undefined;
 }): ReactElement {
   return (
-    <div className="stack">
-      <h1>مدد الصلاحية</h1>
+    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+      <PageHeader
+        title="مدد الصلاحية"
+        subtitle="كم تبقى المعرفة صالحة قبل أن تُطلب من جديد، حقلاً حقلاً."
+      />
 
-      <p className="muted" data-role="inert-notice">
+      <p className="card muted" data-role="inert-notice">
         تعديل المدة لا يغيّر أي إفادة سابقة. تُعاد الحسابات فقط، والحقائق تبقى كما سُجّلت.
       </p>
 

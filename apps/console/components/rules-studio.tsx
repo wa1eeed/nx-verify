@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { PageHeader } from './page-header';
 
 /**
  * The decision rules, and what changing them would do.
@@ -73,8 +74,11 @@ export function RulesStudio({
   simulation,
 }: RulesStudioProps): ReactElement {
   return (
-    <div className="stack">
-      <h1>قواعد القرار</h1>
+    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+      <PageHeader
+        title="قواعد القرار"
+        subtitle="أول قاعدة تنطبق تحسم النتيجة. جرّبها على بيانات حقيقية قبل تفعيلها."
+      />
 
       <p className="muted">
         {rulesetName}

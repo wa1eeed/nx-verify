@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { EmptyState, PageHeader, Panel } from './page-header';
 
 /**
  * Portfolios.
@@ -23,15 +24,19 @@ export interface PortfolioRowView {
 
 export function Portfolios({ rows }: { rows: PortfolioRowView[] }): ReactElement {
   return (
-    <div className="stack">
-      <h1>المحافظ</h1>
+    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+      <PageHeader
+        title="المحافظ"
+        subtitle="السياسة تنتمي للمحفظة لا للنظام. مدد الصلاحية وقواعد القرار والمراقبة تُضبط هنا، وعند تعارض محفظتين تفوز المدة الأقصر."
+        action={
+          <button type="submit" className="btn-primary">
+            محفظة جديدة
+          </button>
+        }
+      />
 
-      <p className="muted">
-        السياسة تنتمي للمحفظة لا للنظام. مدد الصلاحية وقواعد القرار والمراقبة تُضبط هنا، وعند تعارض
-        محفظتين تفوز المدة الأقصر.
-      </p>
-
-      <section className="card">
+      <Panel title="المحافظ القائمة" aside={`${rows.length} محفظة`}>
+        <div className="table-scroll">
         <table>
           <thead>
             <tr>
@@ -80,14 +85,13 @@ export function Portfolios({ rows }: { rows: PortfolioRowView[] }): ReactElement
             ))}
           </tbody>
         </table>
-        {rows.length === 0 ? <p className="muted">لا توجد محافظ بعد.</p> : null}
-      </section>
-
-      <div className="row">
-        <button type="submit" className="btn-primary">
-          محفظة جديدة
-        </button>
-      </div>
+        </div>
+        {rows.length === 0 ? (
+          <div className="panel-body">
+            <EmptyState>لا محافظ بعد. المحفظة هي المكان الذي تُضبط فيه السياسة.</EmptyState>
+          </div>
+        ) : null}
+      </Panel>
     </div>
   );
 }

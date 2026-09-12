@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { EmptyState, PageHeader, Panel } from './page-header';
 
 /**
  * Who gets told what.
@@ -37,16 +38,22 @@ export function eventLabel(eventType: string): string {
 
 export function NotificationSettings({ channels }: { channels: ChannelView[] }): ReactElement {
   return (
-    <section className="stack" data-role="notification-settings">
-      <h1>التنبيهات</h1>
-      <p className="muted" data-role="content-notice">
+    <section className="stack" data-role="notification-settings" style={{ gap: 'var(--s-5)' }}>
+      <PageHeader
+        title="التنبيهات"
+        subtitle="من يُخطَر، وبماذا. والرسالة نفسها لا تحمل تفاصيل."
+      />
+
+      <p className="card muted" data-role="content-notice">
         رسالة التنبيه تقول إن شيئاً حدث وأين يُنظر إليه، ولا تحمل أي معرّف ولا اسم جهة
         مزوّدة ولا قيمة حقل. التفاصيل في الكونسول وحده.
       </p>
 
       {channels.length === 0 ? (
-        <p className="muted">لا توجد عناوين مسجّلة بعد.</p>
+        <EmptyState>لا عناوين مسجّلة بعد. لا يُرسَل شيء قبل إثبات العنوان.</EmptyState>
       ) : (
+        <Panel title="العناوين" aside={`${channels.length} عنواناً`}>
+        <div className="table-scroll">
         <table>
           <thead>
             <tr>
@@ -98,6 +105,8 @@ export function NotificationSettings({ channels }: { channels: ChannelView[] }):
             ))}
           </tbody>
         </table>
+        </div>
+        </Panel>
       )}
     </section>
   );

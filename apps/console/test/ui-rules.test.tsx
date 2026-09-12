@@ -15,6 +15,8 @@ import { Portfolios } from '../components/portfolios';
 import { RulesStudio, describeCondition } from '../components/rules-studio';
 import { NotificationSettings, eventLabel } from '../components/notification-settings';
 import { ChangePassword } from '../components/change-password';
+import { NAV } from '../components/nav';
+import { EmptyState, PageHeader, Panel } from '../components/page-header';
 import type { ProfileFieldView } from '../components/field-card';
 
 /**
@@ -534,5 +536,93 @@ describe('the change password screen', () => {
     const html = renderToStaticMarkup(<ChangePassword action="/password" />);
     expect(html).toContain('اثنتا عشرة خانة');
     expect(html).not.toContain('data-role="forced-notice"');
+  });
+});
+
+/**
+ * The shell and the furniture.
+ *
+ * A console that people work in all day is judged on the parts that repeat: where the
+ * navigation is, whether the current screen is named, whether a keyboard can get past the
+ * navigation, and whether an empty table says something useful.
+ */
+describe('the console shell', () => {
+  const html = renderToStaticMarkup(<RootLayout>{null}</RootLayout>);
+
+  it('groups the navigation by what a person came to do', () => {
+    expect(NAV.map((group) => group.label)).toEqual(['المتابعة', 'العمل', 'الإعدادات']);
+    const hrefs = NAV.flatMap((group) => group.items.map((item) => item.href));
+    // No link appears twice, and every screen in the app is reachable from the shell.
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+    expect(hrefs).toContain('/dashboard');
+    expect(hrefs).toContain('/settings/notifications');
+  });
+
+  it('lets a keyboard skip the navigation, and offers the way out', () => {
+    expect(html).toContain('class="skip-link"');
+    expect(html).toContain('href="#main"');
+    expect(html).toContain('id="main"');
+    expect(html).toContain('data-role="sign-out"');
+  });
+
+  it('is right to left at the document root, not patched per screen', () => {
+    expect(html).toContain('<html lang="ar" dir="rtl">');
+  });
+});
+
+describe('the page furniture', () => {
+  it('gives a screen a title, a sentence and at most one action', () => {
+    const html = renderToStaticMarkup(
+      <PageHeader
+        title="لوحة المخاطر"
+        subtitle="ما يحتاج قراراً اليوم"
+        action={
+          <button type="button" className="btn-primary">
+            افتح
+          </button>
+        }
+      />,
+    );
+    expect(html).toContain('data-role="page-header"');
+    expect(html).toContain('<h1>لوحة المخاطر</h1>');
+    expect(html.match(/btn-primary/g)?.length).toBe(1);
+  });
+
+  it('names a panel and says what is in it', () => {
+    const html = renderToStaticMarkup(
+      <Panel title="الكيانات" aside="4 كياناً" role="entities">
+        <p>محتوى</p>
+      </Panel>,
+    );
+    expect(html).toContain('data-role="entities"');
+    expect(html).toContain('<h2>الكيانات</h2>');
+    expect(html).toContain('4 كياناً');
+  });
+
+  it('says what an empty screen means rather than showing a blank box', () => {
+    const html = renderToStaticMarkup(<EmptyState>لا حالات مفتوحة.</EmptyState>);
+    expect(html).toContain('data-role="empty-state"');
+    expect(html).toContain('لا حالات مفتوحة.');
+  });
+});
+
+describe('the stylesheet holds the layout rules that are easy to break', () => {
+  const css = readFileSync(fileURLToPath(new URL('../app/tokens.css', import.meta.url)), 'utf8');
+
+  it('keeps one long table from pushing every screen sideways', () => {
+    // A grid item is as wide as its widest child unless it is told otherwise.
+    expect(css).toContain('.shell > * {\n  min-width: 0;\n}');
+  });
+
+  it('makes focus visible, because this screen is worked by keyboard under audit', () => {
+    expect(css).toContain(':focus-visible');
+    expect(css).toContain('outline: 2px solid var(--teal-d)');
+  });
+
+  it('prints the evidence and not the furniture', () => {
+    expect(css).toContain('@media print');
+    const print = css.slice(css.indexOf('@media print'));
+    expect(print).toContain('.sidebar');
+    expect(print).toContain('display: none');
   });
 });

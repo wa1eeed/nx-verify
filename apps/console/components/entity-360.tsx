@@ -3,6 +3,7 @@ import { FieldCard, type ProfileFieldView } from './field-card';
 import { ChangeBadge, FreshnessBadge, type FreshnessState } from './freshness';
 import { Identifier } from './identifier';
 import { Timeline, type TimelineEntryView } from './timeline';
+import { Panel } from './page-header';
 
 /**
  * Entity 360, laid out top to bottom as docs/01-blueprint.md section 5.1 specifies:
@@ -72,14 +73,16 @@ export function Entity360({
   const expired = fields.filter((field) => field.freshness === 'expired');
 
   return (
-    <div className="stack">
-      <section className="card stack" data-role="header">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
+    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+      <section className="card stack" data-role="header" style={{ gap: 'var(--s-4)' }}>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
           <h1 style={{ margin: 0 }}>{header.displayName ?? 'كيان بلا اسم'}</h1>
-          <span className="muted">{header.entityType}</span>
+          <span className="badge" style={{ borderColor: 'var(--line-strong)', color: 'var(--ink-soft)' }}>
+            {header.entityType}
+          </span>
         </div>
 
-        <div className="row" style={{ flexWrap: 'wrap', gap: '16px' }}>
+        <div className="row" style={{ gap: 'var(--s-5)' }}>
           {header.identifiers.map((identifier) => (
             <Identifier
               key={identifier.idType}
@@ -89,23 +92,28 @@ export function Entity360({
           ))}
         </div>
 
-        <div className="row" style={{ gap: '24px' }}>
-          <span>
-            درجة الثقة:{' '}
+        {/* Two figures, read together: how much we know, and how good what we know is. */}
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          <div className="stat">
+            <span className="stat-label">درجة الثقة</span>
             {header.score === null ? (
               <span className="muted">لم تُحسب بعد</span>
             ) : (
-              <bdi dir="ltr" className="mono">
-                {header.score}
-              </bdi>
+              <strong className="stat-value">
+                <bdi dir="ltr" className="mono">
+                  {header.score}
+                </bdi>
+              </strong>
             )}
-          </span>
-          <span>
-            الاكتمال:{' '}
-            <bdi dir="ltr" className="mono">
-              {header.completeness}%
-            </bdi>
-          </span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">الاكتمال</span>
+            <strong className="stat-value">
+              <bdi dir="ltr" className="mono">
+                {header.completeness}%
+              </bdi>
+            </strong>
+          </div>
         </div>
 
         {header.score !== null && header.scoreBreakdown.length > 0 ? (
@@ -150,7 +158,11 @@ export function Entity360({
         visually apart: a detected change is a warning, an expired field is not.
       */}
       {changes.length > 0 ? (
-        <section className="card stack" data-role="alert-changes">
+        <section
+          className="card stack"
+          data-role="alert-changes"
+          style={{ borderColor: 'var(--changed-line)', background: 'var(--changed-bg)' }}
+        >
           <strong>تغيّرات مرصودة</strong>
           {changes.map((change) => (
             <div key={change.fieldPath} className="row">
@@ -167,7 +179,11 @@ export function Entity360({
       ) : null}
 
       {expired.length > 0 ? (
-        <section className="card stack" data-role="alert-expired">
+        <section
+          className="card stack"
+          data-role="alert-expired"
+          style={{ borderColor: 'var(--expired-line)', background: 'var(--expired-bg)' }}
+        >
           <div className="row">
             <FreshnessBadge state="expired" />
             <span>
@@ -184,11 +200,8 @@ export function Entity360({
       </section>
 
       {relations.length > 0 ? (
-        <section className="card stack" data-role="relations">
-          <strong>شبكة العلاقات</strong>
-          <p className="muted">
-            داخل هذا المستأجر وحده. لا تجميع عبر العملاء، وهو حظر تعاقدي وتقني معاً.
-          </p>
+        <Panel title="شبكة العلاقات" aside="داخل هذا المستأجر وحده" role="relations">
+          <div className="table-scroll">
           <table>
             <thead>
               <tr>
@@ -231,13 +244,18 @@ export function Entity360({
               ))}
             </tbody>
           </table>
-        </section>
+          </div>
+          <p className="panel-body faint" style={{ paddingBlockStart: 0 }}>
+            لا تجميع عبر العملاء، وهو حظر تعاقدي وتقني معاً.
+          </p>
+        </Panel>
       ) : null}
 
-      <section className="card stack" data-role="timeline">
-        <strong>الخط الزمني</strong>
-        <Timeline entries={timeline} />
-      </section>
+      <Panel title="الخط الزمني" aside="كل ما عرفناه، بترتيب رصده" role="timeline">
+        <div className="panel-body">
+          <Timeline entries={timeline} />
+        </div>
+      </Panel>
 
       <section className="row" data-role="actions">
         {/* The single primary action on this screen. */}

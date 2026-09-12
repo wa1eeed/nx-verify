@@ -1,11 +1,18 @@
 /*
- * Design tokens from CLAUDE.md, in one place.
+ * The design system, in one file.
  *
- * Two rules here are enforced by tests rather than by discipline: borders are solid and
- * never an rgba shadow, and the two states a compliance officer must not confuse carry
- * deliberately unrelated colours. Expired is neutral grey, because our knowledge is old
- * and that is not a problem with the entity. A detected change is a warning, because we
- * looked and something is different. Painting them alike destroys the meaning of both.
+ * Three rules from CLAUDE.md are enforced by tests rather than by discipline: borders are
+ * solid and never an rgba shadow, the four brand colours are the palette, and the two
+ * states a compliance officer must not confuse carry deliberately unrelated colours.
+ * Expired is neutral grey, because our knowledge is old and that is not a problem with the
+ * entity. A detected change is a warning, because we looked and something is different.
+ * Painting them alike destroys the meaning of both.
+ *
+ * Everything else here follows from what this screen is for. A compliance officer reads
+ * this page to decide something, sometimes under audit, so the type is set for reading
+ * numbers rather than for impact: one accent colour, one weight of emphasis, generous
+ * line height, and a fixed width for digits so a column of them can be scanned rather
+ * than deciphered.
  */
 
 :root {
@@ -16,8 +23,10 @@
 
   --ink: #0a1628;
   --ink-soft: #44506a;
+  --ink-faint: #6b7690;
   --paper: #ffffff;
   --paper-soft: #f5f7fa;
+  --paper-sunken: #eef1f6;
   --line: #d7dde8;
   --line-strong: #9aa6bd;
 
@@ -42,12 +51,30 @@
   --font-sans: 'IBM Plex Sans Arabic', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
+  /* A scale, so spacing is chosen from a set rather than invented per component. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
   --radius: 6px;
-  --gap: 16px;
+  --radius-lg: 10px;
+  --gap: var(--s-4);
+
+  --sidebar: 248px;
+  --measure: 1180px;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  /* An anchored row scrolls clear of the sticky header rather than under it. */
+  scroll-padding-block-start: 96px;
 }
 
 body {
@@ -56,15 +83,239 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: 24px;
+}
+h2 {
+  font-size: 18px;
+}
+h3 {
+  font-size: 15px;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--teal-d);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--navy);
+}
+
+/*
+ * Focus is visible, always.
+ *
+ * A screen that takes decisions under audit is a screen somebody navigates by keyboard,
+ * and an invisible focus ring makes that impossible. Solid, like every other outline here.
+ */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--teal-d);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ---------- shell ---------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar) 1fr;
+  min-height: 100vh;
+}
+
+/*
+ * A grid item is as wide as its widest child unless it is told otherwise, so one long
+ * table or one scrolling strip would push the whole page sideways and every screen would
+ * scroll horizontally. This is the line that keeps that from happening.
+ */
+.shell > * {
+  min-width: 0;
+}
+
+.sidebar {
+  background: var(--navy);
+  color: var(--paper);
+  padding: var(--s-5) var(--s-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  border-inline-start: 1px solid var(--navy);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius);
+  border: 1px solid var(--teal);
+  color: var(--teal);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.nav-label {
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 0 var(--s-2);
+  margin-block-end: var(--s-1);
+}
+
+.nav-link {
+  display: block;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius);
+  color: var(--paper);
+  text-decoration: none;
+  font-size: 14px;
+  border: 1px solid transparent;
+}
+
+.nav-link:hover {
+  background: #12203a;
+  color: var(--paper);
+}
+
+/* The current screen is named, not merely tinted: colour alone is not a label. */
+.nav-link[aria-current='page'] {
+  background: #12203a;
+  border-color: var(--teal-d);
+  color: var(--teal);
+}
+
+.topbar {
+  background: var(--paper);
+  border-block-end: 1px solid var(--line);
+  padding: var(--s-3) var(--s-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.topbar-workspace {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+/* Hidden until it is focused, and clipped rather than pushed off screen: an element
+   parked at a negative offset makes the page scroll sideways. */
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip-link:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  clip-path: none;
+  display: inline-block;
+  padding: var(--s-2) var(--s-3);
+}
+
+.page {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--s-6) var(--s-5) var(--s-7);
+}
+
+/* ---------- page furniture ---------- */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding-block-end: var(--s-4);
+  border-block-end: 1px solid var(--line);
+  margin-block-end: var(--s-5);
+}
+
+.page-header .muted {
+  margin-block-start: var(--s-1);
+  max-width: 62ch;
 }
 
 /* Solid borders only. No rgba shadows anywhere in this stylesheet. */
 .card {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: var(--gap);
+  border-radius: var(--radius-lg);
+  padding: var(--s-5);
+}
+
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  border-block-end: 1px solid var(--line);
+  background: var(--paper-soft);
+}
+
+.panel-body {
+  padding: var(--s-5);
+}
+
+.panel-body > table {
+  margin: 0;
 }
 
 .stack {
@@ -76,20 +327,69 @@ body {
 .row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s-2);
+  flex-wrap: wrap;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--gap);
 }
 
-.page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px;
+/* ---------- figures ---------- */
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-4) var(--s-5);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
 }
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.stat-hint {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+/* A figure that is not zero in a state that matters carries its state's colour. */
+.stat[data-tone='critical'] {
+  border-color: var(--critical-line);
+  background: var(--critical-bg);
+}
+.stat[data-tone='critical'] .stat-value {
+  color: var(--critical-fg);
+}
+.stat[data-tone='changed'] {
+  border-color: var(--changed-line);
+  background: var(--changed-bg);
+}
+.stat[data-tone='changed'] .stat-value {
+  color: var(--changed-fg);
+}
+.stat[data-tone='expired'] {
+  border-color: var(--expired-line);
+  background: var(--expired-bg);
+}
+.stat[data-tone='expired'] .stat-value {
+  color: var(--expired-fg);
+}
+
+/* ---------- controls ---------- */
 
 /* One primary button per screen. Everything else is secondary. */
 .btn-primary {
@@ -97,34 +397,96 @@ body {
   color: var(--paper);
   border: 1px solid var(--teal-d);
   border-radius: var(--radius);
-  padding: 10px 18px;
+  padding: 9px 18px;
   font-family: inherit;
   font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-primary:hover {
+  background: #008d72;
+  border-color: #008d72;
+  color: var(--paper);
 }
 
 .btn-secondary {
-  background: transparent;
+  background: var(--paper);
   color: var(--ink);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  padding: 10px 18px;
+  padding: 9px 18px;
   font-family: inherit;
   font-size: 15px;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-secondary:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 15px;
+  padding: 9px var(--s-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  width: 100%;
+}
+
+label {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* The saved views, as a strip that scrolls rather than a wall that wraps. */
+.tabs {
+  display: flex;
+  gap: var(--s-2);
+  overflow-x: auto;
+  padding-block-end: var(--s-2);
+}
+
+.tab {
+  flex: 0 0 auto;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.tab[aria-current='page'] {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: var(--paper);
 }
 
 .badge {
   display: inline-block;
   border: 1px solid;
   border-radius: 999px;
-  padding: 2px 10px;
+  padding: 1px 10px;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-size: 0.95em;
 }
 
 .muted {
@@ -132,34 +494,61 @@ body {
   font-size: 13px;
 }
 
-.header {
-  background: var(--navy);
-  color: var(--paper);
-  border-bottom: 1px solid var(--navy);
-  padding: 16px 24px;
+.faint {
+  color: var(--ink-faint);
+  font-size: 12px;
 }
 
-.header a {
-  color: var(--paper);
-  text-decoration: none;
-  margin-inline-start: 20px;
-}
+/* ---------- data ---------- */
 
 table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 14px;
 }
 
-th,
-td {
-  border-bottom: 1px solid var(--line);
-  padding: 10px 12px;
+thead th {
   text-align: start;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-soft);
+  padding: var(--s-3) var(--s-5);
+  border-block-end: 1px solid var(--line);
+  background: var(--paper-soft);
+  position: sticky;
+  top: 0;
 }
+
+tbody td {
+  padding: var(--s-3) var(--s-5);
+  border-block-end: 1px solid var(--line);
+  vertical-align: top;
+}
+
+tbody tr:last-child td {
+  border-block-end: none;
+}
+
+tbody tr:hover td {
+  background: var(--paper-soft);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.empty {
+  padding: var(--s-6) var(--s-5);
+  text-align: center;
+  color: var(--ink-soft);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+
+/* ---------- sign in ---------- */
 
 /*
- * The sign in screen. One message for every failure, so it is styled once.
- *
  * Critical rather than the warning colour: the warning colour belongs to a detected
  * change and nothing else, and a failed sign in is not that.
  */
@@ -168,29 +557,133 @@ td {
   background: var(--critical-bg);
   color: var(--critical-fg);
   border-radius: var(--radius);
-  padding: 10px 14px;
+  padding: var(--s-3) var(--s-4);
   font-size: 14px;
 }
 
 .sign-in-divider {
   border: none;
-  border-top: 1px solid var(--line);
-  margin: 22px 0 18px;
+  border-block-start: 1px solid var(--line);
+  margin: var(--s-5) 0 var(--s-4);
 }
 
-/* The way out, sitting in the navigation as a form rather than a link, because signing
-   out changes state and a link would let another site trigger it. */
+/*
+ * The way out, sitting in the navigation as a form rather than a link, because signing
+ * out changes state and a link would let another site trigger it.
+ */
 form.inline {
   display: inline;
-  margin-inline-start: 20px;
 }
 
 button.link {
   background: none;
   border: none;
-  color: var(--paper);
+  color: inherit;
   font-family: inherit;
   font-size: inherit;
   cursor: pointer;
   padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- narrow screens ---------- */
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  /*
+   * Narrow screens get the same navigation as one strip that scrolls sideways. It must
+   * not wrap: three ragged rows of links above every screen is worse than a strip the
+   * reader drags.
+   */
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-4);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding: var(--s-3) var(--s-4);
+  }
+
+  .sidebar > nav {
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    gap: var(--s-4) !important;
+    align-items: center;
+  }
+
+  .nav-group {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: var(--s-2);
+  }
+
+  .nav-label {
+    display: none;
+  }
+
+  .nav-link {
+    white-space: nowrap;
+  }
+
+  .topbar {
+    padding: var(--s-3) var(--s-4);
+  }
+
+  .page {
+    padding: var(--s-5) var(--s-4) var(--s-6);
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  /* Tighter cells, so a name is not broken across three lines to make room for padding. */
+  thead th,
+  tbody td {
+    padding: var(--s-3);
+  }
+
+  .panel-header,
+  .panel-body {
+    padding: var(--s-4);
+  }
+
+  .card {
+    padding: var(--s-4);
+  }
+}
+
+/* ---------- print ---------- */
+
+/*
+ * A screen in this console gets printed and attached to a file, so what prints is the
+ * evidence and not the furniture.
+ */
+@media print {
+  .sidebar,
+  .topbar,
+  .tabs,
+  .btn-primary,
+  .btn-secondary {
+    display: none !important;
+  }
+
+  body {
+    background: var(--paper);
+  }
+
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .card,
+  .panel {
+    break-inside: avoid;
+  }
 }
