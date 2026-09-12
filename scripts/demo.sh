@@ -50,6 +50,10 @@ TENANT=$(echo "$CREATED" | grep '^tenant:' | awk '{print $2}' | tr -d '\r')
 PASSWORD=$(echo "$CREATED" | grep '^temporary password:' | awk '{print $3}' | tr -d '\r')
 [ -n "$TENANT" ] || fail "no tenant was created"
 
+# Entitlement is checked before every run, so a workspace on no plan can run nothing.
+$COMPOSE run --rm --no-deps api pnpm provision package:assign \
+  --tenant "$TENANT" --package ENTERPRISE >/dev/null
+
 for product in KYB_COMPLETE:44.00 ADDRESS_ONLY:8.00 IBAN_OWNERSHIP:12.00; do
   $COMPOSE run --rm --no-deps api pnpm provision price:set \
     --tenant "$TENANT" --product "${product%%:*}" --amount "${product##*:}" >/dev/null
@@ -86,6 +90,19 @@ run_one ADDRESS_ONLY "مصنع الرياض للبلاستيك" '{"unn":"7001272
 run_one IBAN_OWNERSHIP "مؤسسة البيان" \
   '{"iban":"SA4420000001234567891234","identifier":{"type":"CR","value":"1010101010"}}'
 
+step "an onboarding file, so the case screens have one to show"
+$COMPOSE run --rm --no-deps api pnpm provision journey:create --tenant "$TENANT" >/dev/null
+curl -sS -o /dev/null -X POST "$API/v1/onboarding/cases" \
+  -H "authorization: Bearer $KEY" \
+  -H 'content-type: application/json' \
+  -d '{"journey":"MERCHANT","subject":{"unn":"7001272184"},"reference":"DEMO-ONB"}'
+
+step "a sandbox workspace, with its own key"
+DEMO_SANDBOX=$($COMPOSE run --rm --no-deps api pnpm provision sandbox:create --tenant "$TENANT" \
+  | grep '^sandbox:' | awk '{print $2}' | tr -d '\r')
+SANDBOX_KEY=$($COMPOSE run --rm --no-deps api pnpm provision key:issue \
+  --tenant "$DEMO_SANDBOX" --name demo-sandbox | grep '^api key:' | awk '{print $3}' | tr -d '\r')
+
 cat <<SUMMARY
 
 === ready
@@ -96,7 +113,11 @@ cat <<SUMMARY
 كلمة المرور:   $PASSWORD   (مؤقتة، وستُطلب منك واحدة جديدة عند أول دخول)
 
 الـAPI:        $API
-مفتاح الـAPI:  $KEY
+مفتاح الإنتاج: $KEY
+مفتاح الاختبار: $SANDBOX_KEY
+
+لوحة المشغّل:  $CONSOLE/operator/connections
+رمز المشغّل:   ضعه في ترويسة x-nx-operator-token أو كعكة nx_operator
 
 للإيقاف:       docker compose down -v
 SUMMARY

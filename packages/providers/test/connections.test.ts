@@ -125,4 +125,13 @@ describe('provider connections', () => {
     // material is not passed here because this store refuses before looking at it.
     await expect(store.put?.('kms://providers/bankdata/sandbox')).rejects.toThrow(/cannot write/);
   });
+
+  it('declares whether it can be written rather than leaving it to be inferred', () => {
+    // The panel decides whether to offer a save from this flag. Inferring it from the
+    // presence of put would read a refusal as permission, because a store that cannot be
+    // written implements put precisely in order to say so.
+    expect(new EnvSecretStore().writable).toBe(false);
+    expect(typeof new EnvSecretStore().put).toBe('function');
+    expect(new InMemorySecretStore().writable).toBe(true);
+  });
 });

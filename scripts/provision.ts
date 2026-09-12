@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createPool, withTenant, withoutTenant } from '../packages/db/src/index.js';
 import { applyProductSeed } from '../packages/db/src/seed/products.js';
 import { applyPackageSeed } from '../packages/db/src/seed/packages.js';
+import { applyProviderSeed } from '../packages/db/src/seed/providers.js';
 import { setTenantPackage } from '../packages/core/src/billing/package-admin.js';
 import { issueApiKey } from '../packages/core/src/auth/api-keys.js';
 import { createUser } from '../packages/core/src/auth/users.js';
@@ -9,6 +10,7 @@ import { setPassword } from '../packages/core/src/auth/passwords.js';
 import { openPriceVersion } from '../packages/core/src/billing/price-book.js';
 import { topUp } from '../packages/core/src/billing/wallet.js';
 import { setTenantBinding } from '../packages/core/src/routing/provider-routing.js';
+import { setProviderConnection } from '../packages/providers/src/connections.js';
 import { defineJourney } from '../packages/core/src/onboarding/cases.js';
 
 /**
@@ -30,6 +32,8 @@ import { defineJourney } from '../packages/core/src/onboarding/cases.js';
  *   pnpm provision key:issue --tenant <id> --name integration [--scopes a,b]
  *   pnpm provision price:set --tenant <id> --product KYB_COMPLETE --amount 44.00
  *   pnpm provision wallet:topup --tenant <id> --amount 1000 --invoice INV-1
+ *   pnpm provision provider:connect --provider wathq --environment live --kind http \
+ *     --base-url https://api.wathq.sa --ref kms://providers/wathq/live
  *   pnpm provision provider:bind --tenant <id> --provider stub --ref kms://... [--mode BYOC]
  *   pnpm provision sandbox:create --tenant <id>
  *   pnpm provision journey:create --tenant <id> [--code MERCHANT] [--products A,B]
@@ -118,11 +122,14 @@ async function main(): Promise<void> {
         const operator = createPool(operatorUrl);
         try {
           await applyPackageSeed(operator);
+          // The panel configures rows. An empty catalogue leaves an operator with no
+          // provider to give an address, a credential reference, or an environment to.
+          await applyProviderSeed(operator);
         } finally {
           await operator.end();
         }
 
-        console.log(`products and packages seeded, steps pointing at provider ${provider}`);
+        console.log(`products, packages and providers seeded, steps pointing at provider ${provider}`);
         return;
       }
 
@@ -214,6 +221,44 @@ async function main(): Promise<void> {
           }),
         );
         console.log(`balance: ${(wallet.balance / 100).toFixed(2)} ${wallet.currency}`);
+        return;
+      }
+
+      case 'provider:connect': {
+        // The same row the operator panel writes. Kept here so a production install can
+        // be repeated from a script and reviewed in a change request, rather than
+        // depending on somebody remembering which fields they typed.
+        const operatorUrl = process.env['NX_OPERATOR_DATABASE_URL'];
+        if (!operatorUrl) {
+          throw new Error('NX_OPERATOR_DATABASE_URL is not set');
+        }
+        const environment = required(flags, 'environment');
+        if (environment !== 'sandbox' && environment !== 'live') {
+          throw new Error('an environment is either sandbox or live');
+        }
+        const kind = flags['kind'] ?? 'http';
+        if (kind !== 'stub' && kind !== 'http' && kind !== 'openbanking') {
+          throw new Error('a kind is stub, http or openbanking');
+        }
+        const operator = createPool(operatorUrl);
+        try {
+          await setProviderConnection(
+            operator,
+            {
+              provider: required(flags, 'provider'),
+              environment,
+              kind,
+              baseUrl: flags['base-url'] ?? null,
+              authUrl: flags['auth-url'] ?? null,
+              // A pointer, never the material. The column refuses anything else.
+              credentialRef: flags['ref'] ?? null,
+            },
+            process.env['NX_OPERATOR_ID'] ?? 'nx-staff:provision',
+          );
+        } finally {
+          await operator.end();
+        }
+        console.log(`connection set for ${flags['provider']} in ${environment}`);
         return;
       }
 

@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@nx-verify/db';
+import { riyalsToHalalas } from './money.js';
 import { getWallet, type WalletState } from './wallet.js';
 import { computeTermExtras, getCommitment, type Commitment, type TermExtras } from './entitlements.js';
 
@@ -96,13 +97,16 @@ export async function buildStatement(
       month: row.month,
       productCode: row.product_code,
       runs: Number(row.runs),
-      amountHalalas: Number(row.amount),
+      // The ledger column is numeric riyals, and every amount this module publishes is
+      // halalas. Reading it as a number without converting understates every line by a
+      // factor of a hundred, which is a money bug and not a formatting one.
+      amountHalalas: riyalsToHalalas(row.amount),
     })),
     topUps: topUps.rows.map((row) => ({
       at: row.created_at,
-      amountHalalas: Number(row.amount),
+      amountHalalas: riyalsToHalalas(row.amount),
       vatInvoiceId: row.vat_invoice_id,
     })),
-    spentThisTermHalalas: Number(spent?.rows[0]?.total ?? 0),
+    spentThisTermHalalas: riyalsToHalalas(spent?.rows[0]?.total ?? 0),
   };
 }

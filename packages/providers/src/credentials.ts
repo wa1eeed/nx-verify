@@ -12,6 +12,15 @@ import type { ProviderMode, ResolvedCredential } from './types.js';
  */
 
 export interface SecretStore {
+  /**
+   * Whether this store accepts writes from a panel.
+   *
+   * Declared rather than inferred. Asking whether put is a function answers a question
+   * about the class and not about the deployment: a store can implement put purely to
+   * refuse it, and a panel that reads the method as permission renders a save button
+   * that cannot save. This flag is the honest answer, and the screen reads this.
+   */
+  readonly writable: boolean;
   /** Fetches the material behind a kms:// reference. */
   fetch(ref: string): Promise<Readonly<Record<string, string>>>;
   /**
@@ -94,6 +103,7 @@ export async function resolveCredential(
 
 /** For tests and local work. A KMS backed store replaces it in every real environment. */
 export class InMemorySecretStore implements SecretStore {
+  readonly writable = true;
   readonly #entries: Map<string, Readonly<Record<string, string>>>;
 
   constructor(entries: Record<string, Record<string, string>> = {}) {
@@ -130,6 +140,7 @@ export class InMemorySecretStore implements SecretStore {
  *   {"kms://tenants/acme/idp":{"clientSecret":"..."}}
  */
 export class EnvSecretStore implements SecretStore {
+  readonly writable = false;
   readonly #variable: string;
 
   constructor(variable = 'NX_SECRETS') {
@@ -190,6 +201,7 @@ export type SecretFetcher = (
  * the status and the reference and nothing from the response body.
  */
 export class HttpSecretStore implements SecretStore {
+  readonly writable = true;
   readonly #endpoint: string;
   readonly #token: string;
   readonly #fetch: SecretFetcher;

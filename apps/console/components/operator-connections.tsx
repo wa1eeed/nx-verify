@@ -185,8 +185,14 @@ export function OperatorConnections({
                     >
                       حفظ السر في المخزن
                     </button>
+                    {/*
+                      What we hold is the pointer, never the material, so the label says
+                      that and nothing more. Claiming a secret is saved would be a claim
+                      about a store we did not read, and an operator who trusts it would
+                      stop looking for the reason a call is failing.
+                    */}
                     <span className="muted" data-role="secret-state">
-                      {connection?.hasSecret ? 'سر محفوظ' : 'لا سر محفوظ'}
+                      {connection?.hasSecret ? 'مرجع الاعتماد مضبوط' : 'بلا مرجع اعتماد'}
                     </span>
                   </form>
 

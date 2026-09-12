@@ -10,6 +10,7 @@ import {
 import { checkMargin, openPriceVersion, resolvePrice } from '../src/billing/price-book.js';
 import { getLedger, getWallet, reconcile, topUp, vatForTopUp } from '../src/billing/wallet.js';
 import { halalasToDecimalString, riyalsToHalalas, vatOn } from '../src/billing/money.js';
+import { buildStatement } from '../src/billing/statement.js';
 
 describe('money is integer halalas', () => {
   it('does not accumulate floating point error', () => {
@@ -175,6 +176,19 @@ describe('pricing and the wallet', () => {
       await expect(hold(tx, 44_00)).rejects.toMatchObject({ code: 'NX-4002' });
       const wallet = await getWallet(tx);
       expect(wallet.held).toBe(0);
+    });
+  });
+
+  it('states the same amount the wallet holds', async () => {
+    // The ledger column is numeric riyals and every published amount is halalas. A
+    // statement that reads the column without converting shows a hundredth of the money,
+    // and the customer reads it as their bill.
+    const stated = await seedTenant(db.appPool, 'Statement Tenant');
+    await withTenant(db.appPool, stated.tenantId, async (tx) => {
+      await topUp(tx, { amount: 500_00, vatInvoiceId: 'INV-STATEMENT-1' });
+      const statement = await buildStatement(tx);
+      expect(statement.wallet.balance).toBe(500_00);
+      expect(statement.topUps[0]?.amountHalalas).toBe(500_00);
     });
   });
 

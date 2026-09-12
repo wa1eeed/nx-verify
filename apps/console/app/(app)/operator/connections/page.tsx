@@ -23,8 +23,10 @@ export default async function OperatorConnectionsPage(): Promise<ReactElement> {
   const store = secretStoreFromEnv();
   // Whether a secret can be written from here at all, asked of the store rather than
   // assumed: the answer differs between a deployment reading its environment and one
-  // wired to a secret manager.
-  const secretsWritable = typeof store.put === 'function';
+  // wired to a secret manager. Asked as a declared capability and not as the presence of
+  // a method, because a store that implements put only to refuse it would otherwise be
+  // read as permission and the panel would offer a save that cannot save.
+  const secretsWritable = store.writable;
 
   const view: ConnectionsView = {
     providers: data.catalog.map((entry) => entry.code),

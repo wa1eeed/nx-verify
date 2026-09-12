@@ -1506,6 +1506,10 @@ describe('the provider connections screen', () => {
     // The field takes a secret and gives none back.
     expect(html).toContain('type="password"');
     expect(html).toContain('data-role="secret-state"');
+    // The pointer is set, which is all we know. Saying a secret is saved would claim
+    // something about a store this screen never read.
+    expect(html).toContain('مرجع الاعتماد مضبوط');
+    expect(html).not.toContain('سر محفوظ');
   });
 
   it('refuses to pretend when the deployment cannot be written to', () => {
