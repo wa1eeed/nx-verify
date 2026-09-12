@@ -267,6 +267,20 @@ export type {
 export { computeScore, storeScore } from './monitoring/scoring.js';
 export { trustBandFor, trustBands } from './monitoring/trust-band.js';
 export {
+  allocateTopUpReference,
+  confirmTopUp,
+  listPendingTopUps,
+  listTopUpRequests,
+  rejectTopUp,
+  requestTopUp,
+} from './billing/topups.js';
+export type {
+  PendingTopUp,
+  RequestTopUpInput,
+  SettleTopUpInput,
+  TopUpRequest,
+} from './billing/topups.js';
+export {
   createShare,
   hashShareToken,
   listShares,

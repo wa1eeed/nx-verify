@@ -8,6 +8,7 @@ import { Identifier, Money } from '../components/identifier';
 import { Entity360 } from '../components/entity-360';
 import { SharedProfile } from '../components/shared-profile';
 import { UserAdmin } from '../components/user-admin';
+import { PendingTopUps, TopUpPanel } from '../components/topup';
 import { FreshnessSettings } from '../components/freshness-settings';
 import { Timeline } from '../components/timeline';
 import RootLayout from '../app/layout';
@@ -930,6 +931,67 @@ describe('administering people', () => {
     );
     expect(html).toContain('nx-temporary-value');
     expect(html).toContain('لن تُعرض مرة أخرى');
+  });
+});
+
+describe('putting money in', () => {
+  const issued = {
+    id: 't1',
+    reference: 'TOP-2026-000004',
+    amountHalalas: 1_000_00,
+    totalWithVatHalalas: 1_150_00,
+    status: 'REQUESTED' as const,
+    requestedAt: new Date('2026-09-12T00:00:00Z'),
+    vatInvoiceId: null,
+    note: null,
+  };
+
+  it('shows the amount to send with VAT on it, not the amount without', () => {
+    const html = renderToStaticMarkup(
+      <TopUpPanel
+        requests={[issued]}
+        issued={issued}
+        bank={{ accountName: 'شركة', bankName: 'بنك', iban: 'SA0000000000000000000000' }}
+        requestAction="/t"
+      />,
+    );
+    // Showing the figure without VAT beside bank details produces transfers that are
+    // fifteen percent short, every time.
+    expect(html).toContain('1150.00');
+    expect(html).toContain('TOP-2026-000004');
+    expect(html).toContain('SA0000000000000000000000');
+  });
+
+  it('says so when the bank details are not configured', () => {
+    const html = renderToStaticMarkup(
+      <TopUpPanel
+        requests={[]}
+        issued={issued}
+        bank={{ accountName: null, bankName: null, iban: null }}
+        requestAction="/t"
+      />,
+    );
+    // Better than printing an address that is not ours.
+    expect(html).toContain('data-role="bank-unknown"');
+  });
+
+  it('will not let staff confirm a transfer without its tax invoice', () => {
+    const html = renderToStaticMarkup(
+      <PendingTopUps
+        pending={[{ ...issued, tenantId: 'w1', tenantName: 'شركة العميل' }]}
+        confirmAction="/c"
+        rejectAction="/r"
+      />,
+    );
+    expect(html).toContain('data-role="confirm-topup"');
+    // VAT falls due when credit is bought, so the number is required at the moment of
+    // confirming rather than chased afterwards.
+    // The whole tag, whatever order the renderer puts the attributes in.
+    const tag = html.slice(
+      html.lastIndexOf('<input', html.indexOf('name="vat_invoice_id"')),
+      html.indexOf('/>', html.indexOf('name="vat_invoice_id"')) + 2,
+    );
+    expect(tag).toContain('required');
   });
 });
 

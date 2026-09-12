@@ -251,6 +251,11 @@ describe('guard 02: tenant isolation', () => {
               // who cannot see it end up asking the customer to read their own logs aloud
               // (ADR-087).
               'api_requests',
+              // Money coming in: an amount, a reference and whether the transfer arrived.
+              // Staff who cannot see a pending transfer end up asking the customer to
+              // read their own bank statement aloud. It says what the subscriber bought
+              // and carries nothing about whom they verified.
+              'topup_requests',
             ],
             `${table}: nx_operator must not reach subscriber data`,
           ).toContain(table);

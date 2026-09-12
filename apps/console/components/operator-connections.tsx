@@ -99,7 +99,8 @@ export function OperatorConnections({
           </li>
           <li>
             اربط المشترك بالمزوّد من <a href="/operator/providers">شاشة التوجيه</a>، ثم
-            تحقّق من <a href="/operator/health">صحة الخدمة</a>.
+            تحقّق من <a href="/operator/health">صحة الخدمة</a>. والحوالات بانتظار التأكيد في{' '}
+            <a href="/operator/topups">شاشة الحوالات</a>.
           </li>
         </ol>
       </Panel>
