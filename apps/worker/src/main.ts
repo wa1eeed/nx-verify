@@ -18,7 +18,12 @@ import { runDueMonitors } from './jobs/monitors.js';
 import { resumeAwaitingRuns } from './jobs/resume.js';
 import { deliverWebhooks } from './jobs/webhooks.js';
 import { deliverNotifications, HttpMailTransport, type MailTransport } from './jobs/notifications.js';
-import { enforceRetention, ensureAuditPartitions, pruneRequestLogs } from './jobs/retention.js';
+import {
+  enforceRetention,
+  ensureAuditPartitions,
+  pruneInboundEvents,
+  pruneRequestLogs,
+} from './jobs/retention.js';
 import { runBatchItems } from './jobs/batches.js';
 import { checkProviderHealth } from './jobs/provider-health.js';
 
@@ -39,6 +44,26 @@ async function main(): Promise<void> {
 
   const appPool = createPool(appUrl);
   const operatorPool = createPool(operatorUrl);
+  /**
+   * The only role that may delete.
+   *
+   * Separate on purpose, and the retention job runs as it. Wiring that job to the
+   * application role makes the database refuse it on every sweep, and the scheduler
+   * swallows the error the way it is meant to, so the promise that a customer's data is
+   * destroyed after the agreed period stops running and nothing says so.
+   */
+  const retentionUrl = process.env['NX_RETENTION_DATABASE_URL'];
+  const retentionPool = retentionUrl ? createPool(retentionUrl) : null;
+  if (!retentionPool) {
+    // Said once, loudly, at startup rather than quietly on every sweep.
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        message:
+          'NX_RETENTION_DATABASE_URL is not set, so retention will not run and nothing will be destroyed',
+      }),
+    );
+  }
 
   const secrets = secretStoreFromEnv();
   const registry = createProviderRegistry(providerConfigFromEnv(process.env));
@@ -107,10 +132,22 @@ async function main(): Promise<void> {
       name: 'retention',
       everySeconds: 6 * 60 * MINUTE,
       scope: 'tenant',
+      // Deleting, so it runs as the one role that may.
+      role: 'retention',
       run: async ({ tx }) => {
         await enforceRetention(tx);
         // The request log is cleared on the same sweep but by its own rule.
         await pruneRequestLogs(tx);
+      },
+    },
+    {
+      // Provider callbacks carry no tenant, so this sweep carries none either.
+      name: 'inbound-events',
+      everySeconds: 24 * 60 * MINUTE,
+      scope: 'global',
+      role: 'retention',
+      run: async ({ tx }) => {
+        await pruneInboundEvents(tx);
       },
     },
     {
@@ -146,6 +183,14 @@ async function main(): Promise<void> {
     jobs,
     tenants: () => activeTenantIds(operatorPool),
     runInTenant: (tenantId, handler) => withTenant(appPool, tenantId, handler),
+    ...(retentionPool
+      ? {
+          runInTenantAsRetention: <T>(
+            tenantId: string,
+            handler: (tx: Parameters<JobDefinition['run']>[0]['tx']) => Promise<T>,
+          ) => withTenant(retentionPool, tenantId, handler),
+        }
+      : {}),
     // The job name and the workspace, never the row that failed: a worker log is a place
     // an identifier must not reach (rule 4).
     onError: (job, tenantId, error) => {

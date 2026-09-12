@@ -18,6 +18,17 @@ import type { TenantTransaction } from '@nx-verify/db';
 
 export type JobScope = 'tenant' | 'global';
 
+/**
+ * Which database role a job runs as.
+ *
+ * Not a detail. The application role deliberately holds no DELETE on attestations, so a
+ * retention job wired to it is refused by the database on every sweep, and the scheduler
+ * swallows the error exactly as it is meant to: one failing job must not stop the others.
+ * The result is a platform whose headline promise, that a customer's data is destroyed
+ * after the agreed period, never runs and never says so.
+ */
+export type JobRole = 'app' | 'retention';
+
 export interface JobContext {
   /** Present for a tenant scoped job. The transaction already has that tenant in scope. */
   tx: TenantTransaction;
@@ -28,6 +39,8 @@ export interface JobDefinition {
   name: string;
   everySeconds: number;
   scope: JobScope;
+  /** Defaults to the application role, which is right for every job that is not deleting. */
+  role?: JobRole;
   /** Runs once per active tenant for a tenant scoped job, and once otherwise. */
   run: (context: JobContext) => Promise<void>;
 }
@@ -38,6 +51,13 @@ export interface SchedulerOptions {
   tenants: () => Promise<string[]>;
   /** Runs a handler with one workspace in scope, the way every job must run. */
   runInTenant: <T>(tenantId: string, handler: (tx: TenantTransaction) => Promise<T>) => Promise<T>;
+  /**
+   * The same, as the role that may delete. Absent means no deleting job can run, and the
+   * scheduler says so out loud rather than failing quietly on every sweep.
+   */
+  runInTenantAsRetention?:
+    | (<T>(tenantId: string, handler: (tx: TenantTransaction) => Promise<T>) => Promise<T>)
+    | undefined;
   now?: () => number;
   /** Reported rather than thrown, so one bad job does not take the worker down. */
   onError?: (job: string, tenantId: string | null, error: unknown) => void;
@@ -121,7 +141,16 @@ export class Scheduler {
 
   async #runOnce(job: JobDefinition, tenantId: string): Promise<JobRun> {
     try {
-      await this.#options.runInTenant(tenantId, (tx) => job.run({ tx, tenantId }));
+      const runner =
+        job.role === 'retention'
+          ? this.#options.runInTenantAsRetention
+          : this.#options.runInTenant;
+      if (!runner) {
+        throw new Error(
+          `job ${job.name} needs the retention role and no retention connection is configured`,
+        );
+      }
+      await runner(tenantId, (tx) => job.run({ tx, tenantId }));
       return { job: job.name, tenantId, ok: true };
     } catch (error) {
       // One subscriber's bad row must not stop the sweep for everyone else.

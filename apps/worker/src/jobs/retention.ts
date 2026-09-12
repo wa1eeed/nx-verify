@@ -23,6 +23,10 @@ export interface RetentionSummary {
   attestationsDestroyed: number;
   identifiersDestroyed: number;
   entitiesArchived: number;
+  /** Waits the provider already answered, or that we gave up on. */
+  waitsPruned: number;
+  /** Links that have expired or been withdrawn. */
+  sharesPruned: number;
 }
 
 export interface RetentionOptions {
@@ -95,7 +99,46 @@ export async function enforceRetention(
     attestationsDestroyed: attestationsDestroyed ?? 0,
     identifiersDestroyed,
     entitiesArchived: stale.length,
+    waitsPruned: 0,
+    sharesPruned: 0,
   };
+
+  /**
+   * Operational rows, on their own clock.
+   *
+   * Kept apart from the retention window above, which answers a legal question about how
+   * long a customer's knowledge is held. These answer an operational one about tables
+   * that grow with traffic and are worth nothing once they have done their job.
+   *
+   * A wait that is still WAITING is never touched: the provider may still answer it, and
+   * deleting it would leave a run that can never be resumed and never closed.
+   *
+   * A share row is deleted only once it has expired or been withdrawn, and the record of
+   * the disclosure survives it: the audit log carries profile.shared with the share id,
+   * which is what anybody asking months later actually needs.
+   *
+   * topup_requests is not here. It is a financial record with a tax invoice on it, and
+   * money does not age out of relevance on an operations schedule. The role that runs
+   * this holds SELECT on that table and nothing more.
+   */
+  const { rowCount: waitsPruned } = await tx.query(
+    `DELETE FROM run_waits
+     WHERE tenant_id = $1 AND status <> 'WAITING'
+       AND resolved_at < $2::timestamptz - make_interval(days => 30)`,
+    [tx.tenantId, now],
+  );
+
+  const { rowCount: sharesPruned } = await tx.query(
+    `DELETE FROM profile_shares
+     WHERE tenant_id = $1
+       AND (revoked_at IS NOT NULL OR expires_at < now())
+       AND greatest(coalesce(revoked_at, expires_at), expires_at)
+           < $2::timestamptz - make_interval(days => 180)`,
+    [tx.tenantId, now],
+  );
+
+  summary.waitsPruned = waitsPruned ?? 0;
+  summary.sharesPruned = sharesPruned ?? 0;
 
   // The destruction is itself auditable, which is the half of the promise that makes it
   // worth anything to a regulator.
@@ -107,6 +150,26 @@ export async function enforceRetention(
   });
 
   return summary;
+}
+
+/**
+ * Clears provider callbacks that have done their job.
+ *
+ * Global rather than per subscriber, because a delivery lands before anyone knows whose
+ * it is and the table carries no tenant at all. Age alone is the rule: a wait expires
+ * within a day, so a delivery still unmatched after three months will never be matched,
+ * and keeping it teaches nobody anything a support ticket has not already answered.
+ */
+export async function pruneInboundEvents(
+  db: { query: TenantTransaction['query'] },
+  olderThanDays = 90,
+): Promise<number> {
+  const { rowCount } = await db.query(
+    `DELETE FROM inbound_events
+     WHERE received_at < now() - make_interval(days => $1)`,
+    [olderThanDays],
+  );
+  return rowCount ?? 0;
 }
 
 /** Keeps the audit log partitioned ahead of time. */

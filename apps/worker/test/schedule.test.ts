@@ -6,7 +6,7 @@ import {
   type SeededTenant,
   type TestDatabase,
 } from '../../../test/helpers/db.js';
-import { Scheduler, type JobDefinition } from '../src/schedule.js';
+import { Scheduler, type JobDefinition, type SchedulerOptions } from '../src/schedule.js';
 import { activeTenantIds } from '../src/tenants.js';
 
 /**
@@ -33,13 +33,75 @@ describe('the worker scheduler', () => {
     await db.close();
   });
 
-  const build = (jobs: JobDefinition[], overrides: { now?: () => number } = {}) =>
+  const build = (
+    jobs: JobDefinition[],
+    overrides: Partial<Pick<SchedulerOptions, 'now' | 'runInTenantAsRetention' | 'onError'>> = {},
+  ) =>
     new Scheduler({
       jobs,
       tenants: () => activeTenantIds(db.operatorPool),
       runInTenant: (tenantId, handler) => withTenant(db.appPool, tenantId, handler),
       ...overrides,
     });
+
+  it('runs a deleting job as the role that may delete', async () => {
+    // The reason this matters: the application role holds no DELETE on attestations, so a
+    // retention job wired to it is refused by the database on every sweep and the
+    // scheduler swallows the error exactly as it should. The promise that a customer's
+    // data is destroyed then stops running, and nothing says so.
+    await expect(
+      withTenant(db.appPool, alpha.tenantId, (tx) =>
+        tx.query('DELETE FROM attestations WHERE tenant_id = $1', [alpha.tenantId]),
+      ),
+    ).rejects.toMatchObject({ code: '42501' });
+
+    const roles: string[] = [];
+    const scheduler = build(
+      [
+        {
+          name: 'destroy',
+          everySeconds: 3600,
+          scope: 'tenant',
+          role: 'retention',
+          run: async ({ tx }) => {
+            const { rows } = await tx.query<{ role: string }>('SELECT current_user AS role');
+            roles.push(rows[0]?.role ?? 'unknown');
+          },
+        },
+      ],
+      {
+        runInTenantAsRetention: (tenantId, handler) =>
+          withTenant(db.retentionPool, tenantId, handler),
+      },
+    );
+
+    await scheduler.tick();
+    expect(roles.length).toBeGreaterThan(0);
+    expect(new Set(roles)).toEqual(new Set(['nx_retention']));
+  });
+
+  it('says so when a deleting job has no connection to run as', async () => {
+    const failures: string[] = [];
+    const scheduler = build(
+      [
+        {
+          name: 'destroy',
+          everySeconds: 3600,
+          scope: 'tenant',
+          role: 'retention',
+          run: async () => {
+            throw new Error('must not run');
+          },
+        },
+      ],
+      // Deliberately not configured. Failing loudly beats deleting nothing in silence.
+      { onError: (_job, _tenantId, error) => failures.push(String(error)) },
+    );
+
+    await scheduler.tick();
+    expect(failures.length).toBeGreaterThan(0);
+    expect(failures[0]).toContain('retention');
+  });
 
   it('lists workspaces on the operator connection, and only workspaces', async () => {
     const ids = await activeTenantIds(db.operatorPool);
