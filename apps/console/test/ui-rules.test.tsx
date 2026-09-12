@@ -21,6 +21,7 @@ import { Shell } from '../components/shell';
 import { OnboardingList } from '../components/onboarding';
 import { OperatorMargin } from '../components/operator-margin';
 import { Developer } from '../components/developer';
+import { OperatorPackages, billingLabel } from '../components/operator-packages';
 import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
 import { Statement } from '../components/statement';
@@ -1117,5 +1118,96 @@ describe('the developer screen', () => {
     expect(live).toContain('أنت في بيئة الإنتاج');
     expect(live).toContain('data-role="test-cases"');
     expect(live.match(/btn-primary/g)?.length).toBe(1);
+  });
+});
+
+/**
+ * The commercial screen: what each plan sells, and the exceptions written under it.
+ */
+describe('the operator packages screen', () => {
+  const html = renderToStaticMarkup(
+    <OperatorPackages
+      packages={[
+        {
+          code: 'GROWTH',
+          nameAr: 'النمو',
+          billingModel: 'ANNUAL',
+          termMonths: 12,
+          includedTransactions: 12000,
+          platformFeeHalalas: 0,
+          status: 'active',
+          products: [
+            {
+              productCode: 'KYB_COMPLETE',
+              productNameAr: 'التحقق الشامل',
+              enabled: true,
+              monthlyQuota: null,
+            },
+          ],
+        },
+      ]}
+      subscribers={[
+        {
+          tenantId: 't1',
+          legalName: 'شركة العميل',
+          slug: 'acme',
+          isSandbox: false,
+          packageCode: 'GROWTH',
+          includedTransactions: 12000,
+          transactionsUsed: 400,
+          overrides: [
+            { productCode: 'IBAN_OWNERSHIP', productNameAr: 'ملكية الآيبان', enabled: true },
+          ],
+        },
+        {
+          tenantId: 't2',
+          legalName: 'شركة العميل (Sandbox)',
+          slug: 'acme-sandbox',
+          isSandbox: true,
+          packageCode: 'SANDBOX',
+          includedTransactions: null,
+          transactionsUsed: 12,
+          overrides: [],
+        },
+      ]}
+      allProducts={[
+        { code: 'KYB_COMPLETE', nameAr: 'التحقق الشامل' },
+        { code: 'IBAN_OWNERSHIP', nameAr: 'ملكية الآيبان' },
+        { code: 'PROPERTY_DEED', nameAr: 'الصك العقاري' },
+      ]}
+      setProductAction="/p"
+      setOverrideAction="/o"
+      assignAction="/a"
+    />,
+  );
+
+  it('lists every module against every plan, on and off alike', () => {
+    // A module absent from a plan has to be visible to be turned on, so the row exists
+    // either way and says which it is.
+    expect(html).toContain('data-enabled="true"');
+    expect(html).toContain('data-enabled="false"');
+    expect(html).toContain('الصك العقاري');
+    expect(html).toContain('data-role="toggle-product"');
+  });
+
+  it('shows the exceptions beside the plans, and how many exist', () => {
+    // The person writing the next exception should see how many are already written:
+    // enough of them means the plans no longer describe the market.
+    expect(html).toContain('data-role="override"');
+    expect(html).toContain('مفعّلة استثناءً');
+    expect(html).toContain('استثناءات مكتوبة');
+    expect(html).toContain('data-role="add-override"');
+    expect(html).toContain('data-role="clear-override"');
+  });
+
+  it('marks a sandbox workspace so nobody sells to it by mistake', () => {
+    expect(html).toContain('data-sandbox="true"');
+    expect(html).toContain('data-role="sandbox-tag"');
+  });
+
+  it('names the billing model in words rather than a code', () => {
+    expect(billingLabel('ANNUAL')).toBe('التزام سنوي');
+    expect(billingLabel('PAYG')).toBe('دفع لكل عملية');
+    expect(html).toContain('التزام سنوي');
   });
 });

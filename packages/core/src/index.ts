@@ -509,3 +509,17 @@ export type {
 } from './onboarding/actions.js';
 export { marginReport, recordMargin } from './billing/margin.js';
 export type { MarginQuery, MarginRow, RecordMarginInput } from './billing/margin.js';
+export {
+  listPackagesForOperator,
+  listSubscribers,
+  setPackageProduct,
+  setTenantOverride,
+  setTenantPackage,
+} from './billing/package-admin.js';
+export type {
+  PackageProductRow,
+  PackageRow,
+  SetOverrideInput,
+  SetPackageProductInput,
+  SubscriberRow,
+} from './billing/package-admin.js';
