@@ -266,6 +266,13 @@ export type {
 } from './monitoring/monitors.js';
 export { computeScore, storeScore } from './monitoring/scoring.js';
 export { trustBandFor, trustBands } from './monitoring/trust-band.js';
+export { checkReadiness } from './ops/readiness.js';
+export type {
+  ReadinessCheck,
+  ReadinessInput,
+  ReadinessReport,
+  ReadinessState,
+} from './ops/readiness.js';
 export {
   allocateTopUpReference,
   confirmTopUp,

@@ -9,6 +9,7 @@ import { Entity360 } from '../components/entity-360';
 import { SharedProfile } from '../components/shared-profile';
 import { UserAdmin } from '../components/user-admin';
 import { PendingTopUps, TopUpPanel } from '../components/topup';
+import { OperatorReadiness } from '../components/operator-readiness';
 import { FreshnessSettings } from '../components/freshness-settings';
 import { Timeline } from '../components/timeline';
 import RootLayout from '../app/layout';
@@ -992,6 +993,61 @@ describe('putting money in', () => {
       html.indexOf('/>', html.indexOf('name="vat_invoice_id"')) + 2,
     );
     expect(tag).toContain('required');
+  });
+});
+
+describe('deployment readiness on screen', () => {
+  const ready = {
+    id: 'bank',
+    titleAr: 'حساب التحويل',
+    state: 'ok' as const,
+    detailAr: 'مضبوط.',
+    fixAr: null,
+  };
+  const checks = [
+    ready,
+    {
+      id: 'mail',
+      titleAr: 'تسليم البريد',
+      state: 'warn' as const,
+      detailAr: 'لا نقطة تسليم.',
+      fixAr: 'NX_MAIL_ENDPOINT',
+    },
+    {
+      id: 'keys',
+      titleAr: 'خدمة المفاتيح',
+      state: 'blocked' as const,
+      detailAr: 'المفتاح من متغيّر بيئة.',
+      fixAr: 'NX_KMS_ENDPOINT',
+    },
+  ];
+
+  it('puts what stops a launch above what merely passes', () => {
+    const html = renderToStaticMarkup(
+      <OperatorReadiness checks={checks} canServeLive={false} />,
+    );
+    // A screen that puts nine green rows above the one red one is a screen where the red
+    // one is found last.
+    expect(html.indexOf('data-check="keys"')).toBeLessThan(html.indexOf('data-check="mail"'));
+    expect(html.indexOf('data-check="mail"')).toBeLessThan(html.indexOf('data-check="bank"'));
+  });
+
+  it('says plainly whether real customers can be served', () => {
+    const stopped = renderToStaticMarkup(
+      <OperatorReadiness checks={checks} canServeLive={false} />,
+    );
+    expect(stopped).toContain('data-ready="no"');
+
+    const allGood = renderToStaticMarkup(<OperatorReadiness checks={[ready]} canServeLive />);
+    expect(allGood).toContain('data-ready="yes"');
+  });
+
+  it('gives every row that is not ready the exact thing to set', () => {
+    const html = renderToStaticMarkup(
+      <OperatorReadiness checks={checks} canServeLive={false} />,
+    );
+    expect(html).toContain('NX_KMS_ENDPOINT');
+    expect(html).toContain('NX_MAIL_ENDPOINT');
   });
 });
 
