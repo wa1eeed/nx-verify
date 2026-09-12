@@ -7,7 +7,7 @@ import {
   type ConnectionsView,
 } from '../../../../components/operator-connections';
 import { operatorQuery, requireOperator } from '../../../../lib/operator';
-import { setConnectionAction, setSecretAction } from './actions';
+import { setCallbackAction, setConnectionAction, setSecretAction } from './actions';
 
 /** Never prerendered, and refuses to render without an operator token. */
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,7 @@ export default async function OperatorConnectionsPage(): Promise<ReactElement> {
     connections: await listProviderConnections(db),
   }));
 
+  const publicBaseUrl = process.env['NX_PUBLIC_BASE_URL'] ?? 'http://localhost:3000';
   const store = secretStoreFromEnv();
   // Whether a secret can be written from here at all, asked of the store rather than
   // assumed: the answer differs between a deployment reading its environment and one
@@ -42,6 +43,14 @@ export default async function OperatorConnectionsPage(): Promise<ReactElement> {
         status: connection.status,
         // Whether a secret exists is a yes or no. The material is never read to answer it.
         hasSecret: connection.credentialRef !== null,
+        // Shown whole, because the next thing that happens to it is being pasted into a
+        // supplier's dashboard, and half an address is worse than none.
+        callbackUrl:
+          connection.callbackSlug === null
+            ? null
+            : `${publicBaseUrl}/v1/callbacks/${connection.callbackSlug}`,
+        callbackHeader: connection.callbackHeader,
+        callbackAlgorithm: connection.callbackAlgorithm,
         updatedAt: connection.updatedAt,
       }),
     ),
@@ -54,6 +63,7 @@ export default async function OperatorConnectionsPage(): Promise<ReactElement> {
       view={view}
       setConnectionAction={setConnectionAction}
       setSecretAction={setSecretAction}
+      setCallbackAction={setCallbackAction}
     />
   );
 }

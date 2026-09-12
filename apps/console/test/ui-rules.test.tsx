@@ -1483,12 +1483,16 @@ describe('the provider connections screen', () => {
               timeoutMs: 20000,
               status: 'active',
               hasSecret: true,
+              callbackUrl: 'https://api.example.sa/v1/callbacks/9Qb7rk_t0Xz',
+              callbackHeader: 'lean-signature',
+              callbackAlgorithm: 'sha512',
               updatedAt: new Date('2026-09-12T00:00:00Z'),
             },
           ],
         }}
         setConnectionAction="/c"
         setSecretAction="/s"
+        setCallbackAction="/k"
       />,
     );
 
@@ -1510,6 +1514,15 @@ describe('the provider connections screen', () => {
     // something about a store this screen never read.
     expect(html).toContain('مرجع الاعتماد مضبوط');
     expect(html).not.toContain('سر محفوظ');
+  });
+
+  it('shows the callback address whole, and names no provider in it', () => {
+    const html = render(true);
+    // Pasted into a supplier's dashboard, so half an address is worse than none.
+    expect(html).toContain('https://api.example.sa/v1/callbacks/9Qb7rk_t0Xz');
+    // Rule 5 applies to a URL as much as to a response body: the path must not say who
+    // serves us, whoever happens to be calling it.
+    expect(html).not.toContain('/v1/callbacks/bankdata');
   });
 
   it('refuses to pretend when the deployment cannot be written to', () => {

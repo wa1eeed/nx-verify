@@ -24,6 +24,10 @@ export interface ConnectionView {
   timeoutMs: number;
   status: string;
   hasSecret: boolean;
+  /** The full address a provider posts to, once one has been issued. */
+  callbackUrl: string | null;
+  callbackHeader: string;
+  callbackAlgorithm: string;
   updatedAt: Date | null;
 }
 
@@ -53,10 +57,12 @@ export function OperatorConnections({
   view,
   setConnectionAction,
   setSecretAction,
+  setCallbackAction,
 }: {
   view: ConnectionsView;
   setConnectionAction: string | ((formData: FormData) => void | Promise<void>);
   setSecretAction: string | ((formData: FormData) => void | Promise<void>);
+  setCallbackAction: string | ((formData: FormData) => void | Promise<void>);
 }): ReactElement {
   const find = (provider: string, environment: string): ConnectionView | undefined =>
     view.connections.find(
@@ -194,6 +200,45 @@ export function OperatorConnections({
                     <span className="muted" data-role="secret-state">
                       {connection?.hasSecret ? 'مرجع الاعتماد مضبوط' : 'بلا مرجع اعتماد'}
                     </span>
+                  </form>
+
+                  {/*
+                    Some answers do not come back on the call that asked for them. This is
+                    the address the provider posts to when it has finished, and it carries
+                    no provider name because a URL is a public surface (rule 5).
+                  */}
+                  <form action={setCallbackAction} method="post" className="row" style={{ gap: 'var(--s-3)' }}>
+                    <input type="hidden" name="provider" value={provider} />
+                    <input type="hidden" name="environment" value={environment} />
+                    <input
+                      name="callback_header"
+                      defaultValue={connection?.callbackHeader ?? 'x-nx-provider-signature'}
+                      dir="ltr"
+                      className="mono"
+                      aria-label="ترويسة التوقيع"
+                      style={{ width: 'auto' }}
+                    />
+                    <select
+                      name="callback_algorithm"
+                      defaultValue={connection?.callbackAlgorithm ?? 'sha256'}
+                      aria-label="خوارزمية التوقيع"
+                      style={{ width: 'auto' }}
+                    >
+                      <option value="sha256">HMAC-SHA256</option>
+                      <option value="sha512">HMAC-SHA512</option>
+                    </select>
+                    <button type="submit" className="btn-secondary" data-role="issue-callback">
+                      {connection?.callbackUrl ? 'تدوير العنوان' : 'إصدار عنوان الاستقبال'}
+                    </button>
+                    {connection?.callbackUrl ? (
+                      <span className="mono" dir="ltr" data-role="callback-url">
+                        {connection.callbackUrl}
+                      </span>
+                    ) : (
+                      <span className="muted" data-role="callback-url">
+                        بلا عنوان استقبال
+                      </span>
+                    )}
                   </form>
 
                   <p className="faint">{KIND_HELP[connection?.kind ?? 'http']}</p>

@@ -191,6 +191,22 @@ export {
   verifySignature,
 } from './webhooks/signing.js';
 export {
+  digestOf,
+  listInboundEvents,
+  newCallbackSlug,
+  recordInboundEvent,
+  resolveCallback,
+  setCallback,
+  verifyProviderSignature,
+} from './webhooks/inbound.js';
+export type {
+  CallbackTarget,
+  InboundEvent,
+  RecordInboundInput,
+  RecordInboundResult,
+  SetCallbackInput,
+} from './webhooks/inbound.js';
+export {
   claimPendingDeliveries,
   listEndpoints,
   queueEvent,

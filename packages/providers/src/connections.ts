@@ -28,6 +28,11 @@ export interface ProviderConnection {
   timeoutMs: number;
   maxAttempts: number;
   status: 'active' | 'disabled';
+  /** The opaque path a provider calls back on, once one has been issued. */
+  callbackSlug: string | null;
+  callbackSecretRef: string | null;
+  callbackHeader: string;
+  callbackAlgorithm: 'sha256' | 'sha512';
   updatedAt: Date;
 }
 
@@ -42,10 +47,15 @@ export async function listProviderConnections(db: Queryable): Promise<ProviderCo
     timeout_ms: number;
     max_attempts: number;
     status: 'active' | 'disabled';
+    callback_slug: string | null;
+    callback_secret_ref: string | null;
+    callback_header: string;
+    callback_algorithm: 'sha256' | 'sha512';
     updated_at: Date;
   }>(
     `SELECT provider, environment, kind, base_url, auth_url, credential_ref, timeout_ms,
-            max_attempts, status, updated_at
+            max_attempts, status, callback_slug, callback_secret_ref, callback_header,
+            callback_algorithm, updated_at
      FROM provider_connections
      ORDER BY provider, environment`,
   );
@@ -60,6 +70,10 @@ export async function listProviderConnections(db: Queryable): Promise<ProviderCo
     timeoutMs: row.timeout_ms,
     maxAttempts: row.max_attempts,
     status: row.status,
+    callbackSlug: row.callback_slug,
+    callbackSecretRef: row.callback_secret_ref,
+    callbackHeader: row.callback_header,
+    callbackAlgorithm: row.callback_algorithm,
     updatedAt: row.updated_at,
   }));
 }

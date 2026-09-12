@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { setCallback } from '@nx-verify/core';
 import { secretStoreFromEnv, setProviderConnection } from '@nx-verify/providers';
 import { operatorQuery, requireOperator } from '../../../../lib/operator';
 
@@ -62,6 +63,41 @@ export async function setSecretAction(formData: FormData): Promise<void> {
     ...(clientId === '' ? {} : { clientId, apiKey: clientId }),
     clientSecret: secret,
   });
+
+  revalidatePath('/operator/connections');
+}
+
+/**
+ * Issues the address a provider calls back on, or rotates it.
+ *
+ * The secret behind it is a reference like every other credential: the material is put in
+ * the store through the secret form beside this one, and this row holds the pointer.
+ * Pressing the button again rotates the address, which retires the old one immediately,
+ * so the provider's dashboard has to be updated in the same sitting.
+ */
+export async function setCallbackAction(formData: FormData): Promise<void> {
+  await requireOperator();
+
+  const provider = String(formData.get('provider') ?? '');
+  const environment = String(formData.get('environment') ?? 'sandbox') as 'sandbox' | 'live';
+  const header = String(formData.get('callback_header') ?? 'x-nx-provider-signature').trim();
+  const algorithm = String(formData.get('callback_algorithm') ?? 'sha256') as 'sha256' | 'sha512';
+
+  if (provider === '') {
+    return;
+  }
+
+  await operatorQuery((db) =>
+    setCallback(db, {
+      provider,
+      environment,
+      secretRef: `kms://providers/${provider}/${environment}/webhook`,
+      header: header === '' ? 'x-nx-provider-signature' : header,
+      algorithm,
+      // The button reads "rotate" once an address exists, so pressing it means that.
+      rotate: true,
+    }),
+  );
 
   revalidatePath('/operator/connections');
 }

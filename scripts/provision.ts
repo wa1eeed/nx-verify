@@ -11,6 +11,7 @@ import { openPriceVersion } from '../packages/core/src/billing/price-book.js';
 import { topUp } from '../packages/core/src/billing/wallet.js';
 import { setTenantBinding } from '../packages/core/src/routing/provider-routing.js';
 import { setProviderConnection } from '../packages/providers/src/connections.js';
+import { setCallback } from '../packages/core/src/webhooks/inbound.js';
 import { defineJourney } from '../packages/core/src/onboarding/cases.js';
 
 /**
@@ -34,6 +35,8 @@ import { defineJourney } from '../packages/core/src/onboarding/cases.js';
  *   pnpm provision wallet:topup --tenant <id> --amount 1000 --invoice INV-1
  *   pnpm provision provider:connect --provider wathq --environment live --kind http \
  *     --base-url https://api.wathq.sa --ref kms://providers/wathq/live
+ *   pnpm provision provider:callback --provider lean --environment sandbox \
+ *     --ref kms://providers/lean/webhook --header lean-signature --algorithm sha512
  *   pnpm provision provider:bind --tenant <id> --provider stub --ref kms://... [--mode BYOC]
  *   pnpm provision sandbox:create --tenant <id>
  *   pnpm provision journey:create --tenant <id> [--code MERCHANT] [--products A,B]
@@ -259,6 +262,39 @@ async function main(): Promise<void> {
           await operator.end();
         }
         console.log(`connection set for ${flags['provider']} in ${environment}`);
+        return;
+      }
+
+      case 'provider:callback': {
+        // Issues the address a provider calls back on. Prints it once, because the next
+        // thing that happens to it is being pasted into a supplier's dashboard.
+        const operatorUrl = process.env['NX_OPERATOR_DATABASE_URL'];
+        if (!operatorUrl) {
+          throw new Error('NX_OPERATOR_DATABASE_URL is not set');
+        }
+        const environment = required(flags, 'environment');
+        if (environment !== 'sandbox' && environment !== 'live') {
+          throw new Error('an environment is either sandbox or live');
+        }
+        const algorithm = flags['algorithm'] ?? 'sha256';
+        if (algorithm !== 'sha256' && algorithm !== 'sha512') {
+          throw new Error('an algorithm is sha256 or sha512');
+        }
+        const operator = createPool(operatorUrl);
+        try {
+          const { slug } = await setCallback(operator, {
+            provider: required(flags, 'provider'),
+            environment,
+            secretRef: required(flags, 'ref'),
+            header: flags['header'] ?? 'x-nx-provider-signature',
+            algorithm,
+            rotate: flags['rotate'] === 'true',
+          });
+          const base = process.env['NX_PUBLIC_BASE_URL'] ?? 'http://localhost:3000';
+          console.log(`callback url: ${base}/v1/callbacks/${slug}`);
+        } finally {
+          await operator.end();
+        }
         return;
       }
 
