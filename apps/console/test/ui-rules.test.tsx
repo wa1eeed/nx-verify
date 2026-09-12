@@ -7,6 +7,7 @@ import { ChangeBadge, FreshnessBadge } from '../components/freshness';
 import { Identifier, Money } from '../components/identifier';
 import { Entity360 } from '../components/entity-360';
 import { SharedProfile } from '../components/shared-profile';
+import { UserAdmin } from '../components/user-admin';
 import { FreshnessSettings } from '../components/freshness-settings';
 import { Timeline } from '../components/timeline';
 import RootLayout from '../app/layout';
@@ -855,6 +856,80 @@ describe('the profile a third party sees', () => {
     expect(html).toContain('••••••2184');
     expect(html).not.toContain('7001272184');
     expect(html).toContain('2026-10-12');
+  });
+});
+
+describe('administering people', () => {
+  const render = (activeAdmins: number) =>
+    renderToStaticMarkup(
+      <UserAdmin
+        activeAdmins={activeAdmins}
+        users={[
+          {
+            userId: 'u1',
+            email: 'admin@acme.sa',
+            displayName: 'مسؤول',
+            role: 'ADMIN',
+            status: 'active',
+            isSelf: true,
+          },
+          {
+            userId: 'u2',
+            email: 'analyst@acme.sa',
+            displayName: 'محلل',
+            role: 'ANALYST',
+            status: 'active',
+            isSelf: false,
+          },
+          {
+            userId: 'u3',
+            email: 'leaver@acme.sa',
+            displayName: 'مغادر',
+            role: 'VIEWER',
+            status: 'disabled',
+            isSelf: false,
+          },
+        ]}
+        createAction="/c"
+        roleAction="/r"
+        statusAction="/s"
+      />,
+    );
+
+  it('offers nobody a way to disable their own account', () => {
+    const html = render(2);
+    // The row for the person looking at the screen says "you" and carries no control.
+    expect(html).toContain('data-role="self"');
+    const selfRow = html.slice(html.indexOf('u1'), html.indexOf('u2'));
+    expect(selfRow).not.toContain('disable-user');
+  });
+
+  it('locks the last administrator in place, and says why', () => {
+    const html = render(1);
+    expect(html).toContain('data-role="last-admin"');
+    // A workspace with no administrator cannot appoint one, so the control is disabled
+    // rather than left to fail when pressed.
+    expect(html).toContain('disabled=""');
+  });
+
+  it('offers a disabled account a way back', () => {
+    const html = render(2);
+    expect(html).toContain('data-role="enable-user"');
+  });
+
+  it('shows a temporary password once and says it will not be shown again', () => {
+    const html = renderToStaticMarkup(
+      <UserAdmin
+        activeAdmins={2}
+        users={[]}
+        issuedPassword={{ email: 'new@acme.sa', password: 'nx-temporary-value' }}
+        createAction="/c"
+        roleAction="/r"
+        statusAction="/s"
+      />,
+    );
+    expect(html).toContain('nx-temporary-value');
+    expect(html).toContain('لن تُعرض مرة أخرى');
   });
 });
 

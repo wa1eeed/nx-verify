@@ -119,12 +119,48 @@ export async function getUser(tx: TenantTransaction, userId: string): Promise<Us
       };
 }
 
+/**
+ * How many people can still administer this workspace.
+ *
+ * Asked before anything that could reduce it. A workspace with no administrator cannot
+ * add one: there is nobody left who may, and the only way back is for us to reach into
+ * their database, which is not a support process anybody should have.
+ */
+export async function countActiveAdmins(tx: TenantTransaction): Promise<number> {
+  const { rows } = await tx.query<{ total: string }>(
+    `SELECT count(*)::text AS total FROM users
+     WHERE tenant_id = $1 AND role = 'ADMIN' AND status = 'active'`,
+    [tx.tenantId],
+  );
+  return Number(rows[0]?.total ?? 0);
+}
+
+async function assertNotLastAdmin(tx: TenantTransaction, userId: string): Promise<void> {
+  const { rows } = await tx.query<{ role: UserRole; status: string }>(
+    `SELECT role, status FROM users WHERE tenant_id = $1 AND id = $2`,
+    [tx.tenantId, userId],
+  );
+  const subject = rows[0];
+  if (!subject || subject.role !== 'ADMIN' || subject.status !== 'active') {
+    return;
+  }
+  if ((await countActiveAdmins(tx)) <= 1) {
+    throw new NxError('NX-4091', {
+      detail: 'this is the only administrator left, and a workspace without one cannot add one',
+    });
+  }
+}
+
 export async function setUserRole(
   tx: TenantTransaction,
   userId: string,
   role: UserRole,
   actorId: string,
 ): Promise<void> {
+  if (role !== 'ADMIN') {
+    await assertNotLastAdmin(tx, userId);
+  }
+
   const { rowCount } = await tx.query(
     `UPDATE users SET role = $3 WHERE tenant_id = $1 AND id = $2`,
     [tx.tenantId, userId, role],
@@ -147,6 +183,13 @@ export async function disableUser(
   userId: string,
   actorId: string,
 ): Promise<void> {
+  if (userId === actorId) {
+    // Locking yourself out is never the thing you meant to do, and the recovery is a
+    // support ticket to us rather than anything they can do themselves.
+    throw new NxError('NX-4091', { detail: 'an account cannot disable itself' });
+  }
+  await assertNotLastAdmin(tx, userId);
+
   await tx.query(`UPDATE users SET status = 'disabled' WHERE tenant_id = $1 AND id = $2`, [
     tx.tenantId,
     userId,
@@ -163,6 +206,34 @@ export async function disableUser(
     actorType: 'USER',
     actorId,
     action: 'user.disabled',
+    target: userId,
+  });
+}
+
+/**
+ * Lets a disabled account back in.
+ *
+ * Their old sessions stay revoked. Coming back is a new sign in, not the resumption of
+ * the one that was cut off, because the reason for disabling them may not have gone away
+ * on the device that session was open on.
+ */
+export async function enableUser(
+  tx: TenantTransaction,
+  userId: string,
+  actorId: string,
+): Promise<void> {
+  const { rowCount } = await tx.query(
+    `UPDATE users SET status = 'active' WHERE tenant_id = $1 AND id = $2 AND status = 'disabled'`,
+    [tx.tenantId, userId],
+  );
+  if (rowCount === 0) {
+    throw new NxError('NX-4041', { detail: 'no such disabled user' });
+  }
+
+  await audit(tx, {
+    actorType: 'USER',
+    actorId,
+    action: 'user.enabled',
     target: userId,
   });
 }

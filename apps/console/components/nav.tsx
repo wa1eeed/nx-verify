@@ -53,6 +53,7 @@ export const NAV: NavGroup[] = [
       { href: '/docs', label: 'المرجع' },
       { href: '/logs', label: 'سجل النداءات' },
       { href: '/support', label: 'الدعم' },
+      { href: '/settings/users', label: 'المستخدمون' },
       { href: '/settings/api-keys', label: 'مفاتيح الـAPI' },
       { href: '/settings/freshness', label: 'مدد الصلاحية' },
       { href: '/settings/rules', label: 'قواعد القرار' },
