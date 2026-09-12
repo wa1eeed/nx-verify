@@ -1,5 +1,4 @@
 import type { ReactElement, ReactNode } from 'react';
-import { Nav } from '../components/nav';
 import './tokens.css';
 
 export const metadata = {
@@ -8,14 +7,15 @@ export const metadata = {
 };
 
 /**
- * The shell.
+ * The document.
  *
- * Full RTL, set at the document root rather than patched per component, and a fixed
- * navigation on the start side so a person always knows where they are without the page
- * reflowing under them.
+ * Full RTL, set at the root rather than patched per component, and the two fonts named in
+ * CLAUDE.md: IBM Plex Sans Arabic for text and IBM Plex Mono for identifiers, so a run of
+ * digits keeps a fixed width and cannot be misread.
  *
- * The fonts are the two named in CLAUDE.md: IBM Plex Sans Arabic for text and IBM Plex
- * Mono for identifiers, so that a run of digits keeps a fixed width and cannot be misread.
+ * The furniture lives one level down, in two groups. A person who is signed in gets the
+ * shell; a person who is not gets a bare page, because navigation to screens they cannot
+ * open and a sign out button for a session they do not have are both lies.
  */
 export default function RootLayout({ children }: { children: ReactNode }): ReactElement {
   return (
@@ -27,43 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
           rel="stylesheet"
         />
       </head>
-      <body>
-        {/* Keyboard first: the navigation is long, and skipping it is the difference
-            between usable and unusable for anyone not holding a mouse. */}
-        <a className="skip-link" href="#main">
-          تخطَّ إلى المحتوى
-        </a>
-
-        <div className="shell">
-          <aside className="sidebar">
-            <div className="brand">
-              <span className="brand-mark" aria-hidden="true">
-                NX
-              </span>
-              <span>NX Verify</span>
-            </div>
-            <Nav />
-          </aside>
-
-          <div>
-            <header className="topbar">
-              <div className="topbar-workspace">
-                <strong>مساحة العمل</strong>
-                <span className="muted">التحقق والامتثال</span>
-              </div>
-              <form action="/logout" method="post" className="inline">
-                <button type="submit" className="link" data-role="sign-out">
-                  خروج
-                </button>
-              </form>
-            </header>
-
-            <main className="page" id="main">
-              {children}
-            </main>
-          </div>
-        </div>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

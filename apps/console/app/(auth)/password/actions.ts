@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { withTenant } from '@nx-verify/db';
 import { changeOwnPassword } from '@nx-verify/core';
-import { getPool, sessionForPasswordChange } from '../../lib/context';
+import { getPool, sessionForPasswordChange } from '../../../lib/context';
 
 /**
  * The one write a person can make about their own account.

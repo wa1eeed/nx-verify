@@ -8,9 +8,9 @@ import {
   getRelations,
   listIdentifiers,
 } from '@nx-verify/core';
-import { getKeys } from '../../../lib/keys';
-import { Entity360 } from '../../../components/entity-360';
-import { query } from '../../../lib/context';
+import { getKeys } from '../../../../lib/keys';
+import { Entity360 } from '../../../../components/entity-360';
+import { query } from '../../../../lib/context';
 
 /**
  * Never prerendered and never cached.
@@ -21,8 +21,8 @@ import { query } from '../../../lib/context';
  */
 export const dynamic = 'force-dynamic';
 
-import type { ProfileFieldView } from '../../../components/field-card';
-import type { TimelineEntryView, TriggeredBy } from '../../../components/timeline';
+import type { ProfileFieldView } from '../../../../components/field-card';
+import type { TimelineEntryView, TriggeredBy } from '../../../../components/timeline';
 
 /**
  * Entity 360 on real data.

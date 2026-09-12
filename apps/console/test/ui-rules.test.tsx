@@ -9,6 +9,8 @@ import { Entity360 } from '../components/entity-360';
 import { FreshnessSettings } from '../components/freshness-settings';
 import { Timeline } from '../components/timeline';
 import RootLayout from '../app/layout';
+import AppLayout from '../app/(app)/layout';
+import AuthLayout from '../app/(auth)/layout';
 import { ReviewQueue, reasonLabel } from '../components/review-queue';
 import { Dashboard } from '../components/dashboard';
 import { Portfolios } from '../components/portfolios';
@@ -547,7 +549,7 @@ describe('the change password screen', () => {
  * navigation, and whether an empty table says something useful.
  */
 describe('the console shell', () => {
-  const html = renderToStaticMarkup(<RootLayout>{null}</RootLayout>);
+  const html = renderToStaticMarkup(<AppLayout>{null}</AppLayout>);
 
   it('groups the navigation by what a person came to do', () => {
     expect(NAV.map((group) => group.label)).toEqual(['المتابعة', 'العمل', 'الإعدادات']);
@@ -566,7 +568,17 @@ describe('the console shell', () => {
   });
 
   it('is right to left at the document root, not patched per screen', () => {
-    expect(html).toContain('<html lang="ar" dir="rtl">');
+    expect(renderToStaticMarkup(<RootLayout>{null}</RootLayout>)).toContain(
+      '<html lang="ar" dir="rtl">',
+    );
+  });
+
+  it('offers a visitor with no session neither navigation nor a way out', () => {
+    // Both would state something untrue about what they can do.
+    const signedOut = renderToStaticMarkup(<AuthLayout>{null}</AuthLayout>);
+    expect(signedOut).not.toContain('data-role="sign-out"');
+    expect(signedOut).not.toContain('href="/dashboard"');
+    expect(signedOut).toContain('NX Verify');
   });
 });
 

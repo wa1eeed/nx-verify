@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { listRulesets, simulateRuleset } from '@nx-verify/core';
-import { RulesStudio, describeCondition, type RuleRowView } from '../../../components/rules-studio';
-import { query } from '../../../lib/context';
+import { RulesStudio, describeCondition, type RuleRowView } from '../../../../components/rules-studio';
+import { query } from '../../../../lib/context';
 
 /**
  * Never prerendered and never cached.

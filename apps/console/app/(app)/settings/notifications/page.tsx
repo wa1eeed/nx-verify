@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { listChannels } from '@nx-verify/core';
-import { NotificationSettings, type ChannelView } from '../../../components/notification-settings';
-import { query } from '../../../lib/context';
+import { NotificationSettings, type ChannelView } from '../../../../components/notification-settings';
+import { query } from '../../../../lib/context';
 
 /** Never prerendered: one subscriber's configuration, read at request time. */
 export const dynamic = 'force-dynamic';

@@ -2,7 +2,7 @@
 
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { sessionCookie, signInWithPassword, startSso } from '../../lib/auth';
+import { sessionCookie, signInWithPassword, startSso } from '../../../lib/auth';
 
 /**
  * The two doors, as server actions.

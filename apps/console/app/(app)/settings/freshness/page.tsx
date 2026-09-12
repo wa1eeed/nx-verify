@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { listFreshnessPolicy, previewTtlChange } from '@nx-verify/core';
-import { FreshnessSettings } from '../../../components/freshness-settings';
-import { query } from '../../../lib/context';
+import { FreshnessSettings } from '../../../../components/freshness-settings';
+import { query } from '../../../../lib/context';
 
 /**
  * Never prerendered and never cached.

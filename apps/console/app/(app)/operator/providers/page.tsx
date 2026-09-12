@@ -4,8 +4,8 @@ import {
   OperatorProviders,
   type CatalogRow,
   type OperatorBindingRow,
-} from '../../../components/operator-providers';
-import { operatorQuery, requireOperator } from '../../../lib/operator';
+} from '../../../../components/operator-providers';
+import { operatorQuery, requireOperator } from '../../../../lib/operator';
 
 /**
  * Never prerendered and never cached. It also refuses to render at all without an

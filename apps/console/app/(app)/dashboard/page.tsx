@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { riskDashboard } from '@nx-verify/core';
-import { Dashboard } from '../../components/dashboard';
-import { query } from '../../lib/context';
+import { Dashboard } from '../../../components/dashboard';
+import { query } from '../../../lib/context';
 
 /**
  * Never prerendered and never cached.

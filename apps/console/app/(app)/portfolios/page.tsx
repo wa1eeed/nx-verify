@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { listPortfolios, portfolioHealth } from '@nx-verify/core';
-import { Portfolios, type PortfolioRowView } from '../../components/portfolios';
-import { query } from '../../lib/context';
+import { Portfolios, type PortfolioRowView } from '../../../components/portfolios';
+import { query } from '../../../lib/context';
 
 /**
  * Never prerendered and never cached.

@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
-import { SignIn } from '../../components/sign-in';
-import { SIGN_IN_FAILED } from '../../lib/auth';
+import { SignIn } from '../../../components/sign-in';
+import { SIGN_IN_FAILED } from '../../../lib/auth';
 import { passwordSignInAction, ssoSignInAction } from './actions';
 
 /** Never prerendered: it sets a cookie and reads the request. */

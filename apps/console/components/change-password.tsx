@@ -19,9 +19,9 @@ export interface ChangePasswordProps {
 export function ChangePassword({ error, forced, action }: ChangePasswordProps): ReactElement {
   return (
     <section
-      className="card"
+      className="card stack"
       data-role="change-password"
-      style={{ maxWidth: '26rem', margin: '3rem auto' }}
+      style={{ width: 'min(26rem, 100%)', gap: 'var(--s-4)' }}
     >
       <h1>تغيير كلمة المرور</h1>
       {forced ? (

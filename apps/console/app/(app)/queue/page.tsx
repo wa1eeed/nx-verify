@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { listQueue } from '@nx-verify/core';
-import { ReviewQueue, type QueueRowView } from '../../components/review-queue';
-import { query } from '../../lib/context';
+import { ReviewQueue, type QueueRowView } from '../../../components/review-queue';
+import { query } from '../../../lib/context';
 
 /**
  * Never prerendered and never cached.

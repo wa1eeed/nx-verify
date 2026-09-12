@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react';
-import { FreshnessBadge } from '../../components/freshness';
-import { query } from '../../lib/context';
-import { SAVED_VIEWS, findCompletenessGaps, findView, listRegistry } from '../../lib/views';
-import { fieldLabel } from '../../components/field-card';
-import { EmptyState, PageHeader, Panel } from '../../components/page-header';
+import { FreshnessBadge } from '../../../components/freshness';
+import { query } from '../../../lib/context';
+import { SAVED_VIEWS, findCompletenessGaps, findView, listRegistry } from '../../../lib/views';
+import { fieldLabel } from '../../../components/field-card';
+import { EmptyState, PageHeader, Panel } from '../../../components/page-header';
 
 /**
  * Never prerendered and never cached.

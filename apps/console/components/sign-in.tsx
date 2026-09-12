@@ -21,9 +21,15 @@ export interface SignInProps {
 
 export function SignIn({ error, passwordAction, ssoAction }: SignInProps): ReactElement {
   return (
-    <section className="card" data-role="sign-in" style={{ maxWidth: '26rem', margin: '3rem auto' }}>
-      <h1>تسجيل الدخول</h1>
-      <p className="muted">ادخل إلى مساحة عملك في NX Verify.</p>
+    <section
+      className="card stack"
+      data-role="sign-in"
+      style={{ width: 'min(26rem, 100%)', gap: 'var(--s-4)' }}
+    >
+      <div>
+        <h1>تسجيل الدخول</h1>
+        <p className="muted">ادخل إلى مساحة عملك في NX Verify.</p>
+      </div>
 
       {error ? (
         <p className="sign-in-error" data-role="sign-in-error" role="alert">

@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { withTenant } from '@nx-verify/db';
-import { ChangePassword } from '../../components/change-password';
-import { getPool, sessionForPasswordChange } from '../../lib/context';
+import { ChangePassword } from '../../../components/change-password';
+import { getPool, sessionForPasswordChange } from '../../../lib/context';
 import { changePasswordAction } from './actions';
 
 /** Never prerendered: it reads the session and writes a credential. */
