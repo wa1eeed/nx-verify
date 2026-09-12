@@ -90,6 +90,9 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
         });
       }
 
+      // Resolved before the transaction: the registry is configuration, not work.
+      const registry = await context.registryFor(caller.environment);
+
       const result = await context.withTenant(caller.tenantId, async (tx) => {
         const outcome = await verify(tx, {
           productCode: body.product,
@@ -100,8 +103,11 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
           clientRef: body.reference ?? null,
           triggeredBy: 'API',
           modeAtExecution: 'BYOC',
+          // The adapter for the world this key belongs to: a sandbox key reaches each
+          // provider's sandbox host, a live key its production one.
           runStep: context.stepRunnerFor(tx, {
             ...(testScenario === null ? {} : { testScenario }),
+            registry,
           }),
           keys: context.keys,
         });

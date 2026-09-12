@@ -107,6 +107,8 @@ export function registerOnboardingRoutes(app: FastifyInstance, context: AppConte
         });
       }
 
+      const registry = await context.registryFor(caller.environment);
+
       const result = await context.withTenant(caller.tenantId, async (tx) => {
         const opened = await openOnboardingCase(tx, {
           journeyCode: body.journey,
@@ -118,7 +120,7 @@ export function registerOnboardingRoutes(app: FastifyInstance, context: AppConte
           subject: body.subject,
           subjectIdentifiers: identifiers,
           ...(body.display_name === undefined ? {} : { subjectDisplayName: body.display_name }),
-          runStep: context.stepRunnerFor(tx),
+          runStep: context.stepRunnerFor(tx, { registry }),
           keys: context.keys,
         });
       });
@@ -183,12 +185,16 @@ export function registerOnboardingRoutes(app: FastifyInstance, context: AppConte
         ? body.identifiers.map((entry) => ({ idType: entry.type as 'UNN', value: entry.value }))
         : inferIdentifiers(body.subject);
 
+      // Resolved before the transaction opens: the registry is configuration and does not
+      // belong inside a transaction that is about to call a provider.
+      const registry = await context.registryFor(caller.environment);
+
       const result = await context.withTenant(caller.tenantId, (tx) =>
         advanceCase(tx, {
           caseId: request.params.id,
           subject: body.subject,
           subjectIdentifiers: identifiers,
-          runStep: context.stepRunnerFor(tx),
+          runStep: context.stepRunnerFor(tx, { registry }),
           keys: context.keys,
         }),
       );

@@ -14,6 +14,16 @@ import type { ProviderMode, ResolvedCredential } from './types.js';
 export interface SecretStore {
   /** Fetches the material behind a kms:// reference. */
   fetch(ref: string): Promise<Readonly<Record<string, string>>>;
+  /**
+   * Writes material under a reference, where the store allows it.
+   *
+   * This exists so an administrator can set a provider's credential from the operator
+   * panel without a deployment, and it deliberately does not make the database a place
+   * credentials can live: the panel writes through to the store, and our tables keep the
+   * reference alone (rule 10). A store that cannot be written to says so rather than
+   * pretending, and the panel then shows what to run instead.
+   */
+  put?(ref: string, material: Record<string, string>): Promise<void>;
 }
 
 export interface ProviderBinding {
@@ -94,6 +104,11 @@ export class InMemorySecretStore implements SecretStore {
     this.#entries.set(ref, material);
   }
 
+  put(ref: string, material: Record<string, string>): Promise<void> {
+    this.#entries.set(ref, material);
+    return Promise.resolve();
+  }
+
   fetch(ref: string): Promise<Readonly<Record<string, string>>> {
     const material = this.#entries.get(ref);
     if (!material) {
@@ -121,6 +136,22 @@ export class EnvSecretStore implements SecretStore {
     this.#variable = variable;
   }
 
+  /**
+   * The environment cannot be written to from a running process in any way that survives
+   * a restart, so this says so plainly instead of appearing to work.
+   */
+  // Rejects rather than throwing synchronously: the caller awaits it, and a method that
+  // returns a promise and then throws before returning one surprises every caller.
+  put(ref: string): Promise<void> {
+    return Promise.reject(
+      new NxError('NX-4031', {
+        detail:
+          `this deployment reads secrets from ${this.#variable}, which a panel cannot write. ` +
+          `Set ${ref} in that variable, or configure a secret manager with NX_SECRETS_ENDPOINT.`,
+      }),
+    );
+  }
+
   fetch(ref: string): Promise<Readonly<Record<string, string>>> {
     const raw = process.env[this.#variable];
     if (!raw) {
@@ -145,7 +176,7 @@ export class EnvSecretStore implements SecretStore {
 
 export type SecretFetcher = (
   url: string,
-  init: { method: string; headers: Record<string, string> },
+  init: { method: string; headers: Record<string, string>; body?: string },
 ) => Promise<{ status: number; json: () => Promise<unknown> }>;
 
 /**
@@ -224,6 +255,30 @@ export class HttpSecretStore implements SecretStore {
     // thing in a run, and holding it forever would outlive a rotation.
     this.#cache.set(ref, { material: entries, expiresAt: this.#now() + this.#cacheMs });
     return entries;
+  }
+
+  /**
+   * Writes the material to the secret manager and drops what was cached for it.
+   *
+   * The response body is never read on failure, here as everywhere: a secret manager that
+   * echoes its input back would put the material in our logs.
+   */
+  async put(ref: string, material: Record<string, string>): Promise<void> {
+    const response = await this.#fetch(`${this.#endpoint}/${encodeURIComponent(ref)}`, {
+      method: 'PUT',
+      headers: {
+        authorization: `Bearer ${this.#token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ material }),
+    } as never);
+
+    if (response.status >= 400) {
+      throw new NxError('NX-5002', {
+        detail: `the secret manager answered ${response.status} for reference ${ref}`,
+      });
+    }
+    this.forget(ref);
   }
 
   forget(ref?: string): void {

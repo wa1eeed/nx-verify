@@ -25,6 +25,7 @@ import { OperatorPackages, billingLabel } from '../components/operator-packages'
 import { ApiLog } from '../components/api-log';
 import { OperatorHealth } from '../components/operator-health';
 import { Docs } from '../components/docs';
+import { OperatorConnections } from '../components/operator-connections';
 import { Support, supportTierLabel } from '../components/support';
 import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
@@ -1457,5 +1458,69 @@ describe('the reference and the support screen', () => {
     expect(support).toContain('data-role="never-send"');
     expect(support).toContain('لا ترسل رقم هوية');
     expect(supportTierLabel('DEDICATED')).toBe('دعم مخصّص');
+  });
+});
+
+/**
+ * Where a provider is connected, and where a credential is refused rather than half saved.
+ */
+describe('the provider connections screen', () => {
+  const render = (secretsWritable: boolean) =>
+    renderToStaticMarkup(
+      <OperatorConnections
+        view={{
+          providers: ['bankdata'],
+          secretsWritable,
+          secretsVariable: secretsWritable ? null : 'NX_SECRETS',
+          connections: [
+            {
+              provider: 'bankdata',
+              environment: 'sandbox',
+              kind: 'openbanking',
+              baseUrl: 'https://sandbox.example.com',
+              authUrl: 'https://auth.sandbox.example.com/oauth2/token',
+              credentialRef: 'kms://providers/bankdata/sandbox',
+              timeoutMs: 20000,
+              status: 'active',
+              hasSecret: true,
+              updatedAt: new Date('2026-09-12T00:00:00Z'),
+            },
+          ],
+        }}
+        setConnectionAction="/c"
+        setSecretAction="/s"
+      />,
+    );
+
+  it('gives each provider two environments with their own addresses', () => {
+    const html = render(true);
+    expect(html).toContain('data-environment="sandbox"');
+    expect(html).toContain('data-environment="live"');
+    expect(html).toContain('https://sandbox.example.com');
+  });
+
+  it('shows the reference and never a secret', () => {
+    const html = render(true);
+    expect(html).toContain('data-role="credential-ref"');
+    expect(html).toContain('kms://providers/bankdata/sandbox');
+    // The field takes a secret and gives none back.
+    expect(html).toContain('type="password"');
+    expect(html).toContain('data-role="secret-state"');
+  });
+
+  it('refuses to pretend when the deployment cannot be written to', () => {
+    const readOnly = render(false);
+    expect(readOnly).toContain('data-role="secrets-readonly"');
+    expect(readOnly).toContain('لن نتظاهر بالحفظ');
+    expect(readOnly).toContain('NX_SECRETS');
+    // And the button that would lie is disabled rather than present and broken.
+    expect(readOnly).toContain('disabled=""');
+  });
+
+  it('tells an administrator to start with the sandbox', () => {
+    const html = render(true);
+    expect(html).toContain('data-role="instructions"');
+    expect(html).toContain('ابدأ ببيئة الاختبار');
+    expect(html).toContain('nx_test_');
   });
 });

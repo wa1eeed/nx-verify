@@ -12,6 +12,7 @@ import {
   createProviderRegistry,
   createProviderStepRunner,
   providerConfigFromEnv,
+  registryFor as buildRegistryFor,
   resolveCredential,
   type ProviderRegistry,
   type SecretStore,
@@ -42,8 +43,15 @@ export interface AppContext {
   ) => Promise<T>;
   stepRunnerFor: (
     tx: TenantTransaction,
-    options?: { testScenario?: string | undefined },
+    options?: { testScenario?: string | undefined; registry?: ProviderRegistry | undefined },
   ) => ReturnType<typeof createProviderStepRunner>;
+  /**
+   * The registry for one environment, read from the panel and cached briefly.
+   *
+   * An address changed in the operator panel takes effect within a minute rather than at
+   * the next deployment, and the cache exists so a change is not a query on every call.
+   */
+  registryFor: (environment: 'sandbox' | 'live') => Promise<ProviderRegistry>;
 }
 
 export interface BuildContextOptions {
@@ -62,6 +70,7 @@ export function buildContext(options: BuildContextOptions = {}): AppContext {
   }
 
   const pool = createPool(connectionString);
+  const registryCache = new Map<string, { registry: ProviderRegistry; expiresAt: number }>();
   // A key given directly is a test's key. Everything else takes the deployment's choice:
   // a key service where one is configured, and the environment only outside production.
   const keys = new DerivedTenantKeyProvider(
@@ -84,9 +93,24 @@ export function buildContext(options: BuildContextOptions = {}): AppContext {
     publicBaseUrl: options.publicBaseUrl ?? process.env['NX_PUBLIC_BASE_URL'] ?? 'https://verify.nx.sa',
     withTenant: (tenantId, handler) => withTenant(pool, tenantId, handler),
     withoutTenant: (handler) => withoutTenant(pool, handler),
+    registryFor: async (environment) => {
+      // A registry wired in explicitly wins over the table, because somebody passed it on
+      // purpose: a test does, and so does a deployment that pins its providers in code.
+      if (options.registry) {
+        return options.registry;
+      }
+
+      const cached = registryCache.get(environment);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.registry;
+      }
+      const built = await withoutTenant(pool, (tx) => buildRegistryFor(tx, environment));
+      registryCache.set(environment, { registry: built, expiresAt: Date.now() + 60_000 });
+      return built;
+    },
     stepRunnerFor: (tx, runnerOptions) =>
       createProviderStepRunner({
-        registry,
+        registry: runnerOptions?.registry ?? registry,
         credentialFor: (provider) => resolveCredential(tx, secrets, provider),
         ...(runnerOptions?.testScenario === undefined
           ? {}

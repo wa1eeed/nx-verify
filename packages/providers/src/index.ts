@@ -45,3 +45,5 @@ export type { TokenRequest } from './lean/token.js';
 export { SANDBOX_TEST_CASES } from './stub/test-cases.js';
 export type { SandboxTestCase } from './stub/test-cases.js';
 export { SCENARIO_NAMES } from './stub/scenarios.js';
+export { listProviderConnections, registryFor, setProviderConnection } from './connections.js';
+export type { ProviderConnection, SetConnectionInput } from './connections.js';
