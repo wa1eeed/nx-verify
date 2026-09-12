@@ -63,35 +63,39 @@ export function Dashboard({ view }: { view: DashboardView }): ReactElement {
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
-        title="لوحة المخاطر"
-        subtitle="ما يحتاج قراراً اليوم، وما تقادمت معرفتنا به. الاثنان ليسا الشيء نفسه."
+        title="الرئيسية"
+        subtitle="ملخّص ما يحتاج انتباهك اليوم."
         action={
           <a className="btn-primary" href="/queue">
-            افتح طابور المراجعة
+            افتح المراجعات
           </a>
         }
       />
 
       {quiet ? (
-        <EmptyState>لا تغيّرات حرجة ولا حالات مفتوحة ولا حقول منتهية. لا شيء يحتاج قراراً الآن.</EmptyState>
+        <EmptyState>لا شيء يحتاج قراراً الآن. لا مراجعات مفتوحة، ولا تغيّرات، ولا بيانات منتهية.</EmptyState>
       ) : null}
 
       <section className="grid" data-role="tiles">
-        <Tile label="الكيانات" value={view.entities} />
+        {/*
+          The customer's words, not ours. "Entity" is what the schema calls a row; the
+          person reading this screen has customers.
+        */}
+        <Tile label="العملاء" value={view.entities} />
         <Tile
-          label="كيانات فيها حقل منتهي الصلاحية"
+          label="عملاء ببيانات منتهية"
           value={view.entitiesWithExpired}
-          hint="معرفتنا قديمة. لا يعني ذلك وجود مشكلة."
+          hint="تحتاج إعادة تحقق. ليست بالضرورة مشكلة."
           tone="expired"
         />
         <Tile
-          label="تغيّرات حرجة لم تُعالَج"
+          label="تغيّرات مهمة لم تُعالَج"
           value={view.openChanges.critical}
-          hint="تحققنا واكتشفنا اختلافاً."
+          hint="بيانات تغيّرت منذ آخر تحقق."
           tone="changed"
         />
-        <Tile label="حالات مراجعة مفتوحة" value={view.reviewQueue.open} />
-        <Tile label="حالات متأخرة" value={view.reviewQueue.overdue} tone="critical" />
+        <Tile label="مراجعات مفتوحة" value={view.reviewQueue.open} />
+        <Tile label="مراجعات متأخرة" value={view.reviewQueue.overdue} tone="critical" />
         <Tile label="بانتظار الاعتماد" value={view.reviewQueue.awaitingApproval} />
         <Tile
           label="الرصيد بالريال"
@@ -110,7 +114,12 @@ export function Dashboard({ view }: { view: DashboardView }): ReactElement {
         />
       </section>
 
-      <Panel title="توزيع الحداثة" aside="الحقول، لا الكيانات" role="freshness">
+      <Panel
+        title="حالة البيانات"
+        aside="عدد الحقول، لا عدد العملاء"
+        role="freshness"
+        note="«حديث» داخل مدة الصلاحية، و«يقترب» على وشك الانتهاء، و«منتهٍ» يحتاج إعادة تحقق."
+      >
         <div className="panel-body row" style={{ gap: 'var(--s-5)' }}>
           <span className="row">
             <FreshnessBadge state="fresh" />

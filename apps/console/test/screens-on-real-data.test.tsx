@@ -195,9 +195,9 @@ describe('the console renders real data', () => {
     const queue = renderToStaticMarkup(await QueuePage());
     const portfolios = renderToStaticMarkup(await PortfoliosPage());
 
-    expect(dashboard).toContain('لوحة المخاطر');
+    expect(dashboard).toContain('الرئيسية');
     expect(dashboard).toContain('data-role="tiles"');
-    expect(queue).toContain('طابور المراجعة');
+    expect(queue).toContain('المراجعات');
     expect(portfolios).toContain('المحافظ');
 
     // Rule 5 holds on every screen, not only the ones written first.

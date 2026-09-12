@@ -40,8 +40,8 @@ export function NotificationSettings({ channels }: { channels: ChannelView[] }):
   return (
     <section className="stack" data-role="notification-settings" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
-        title="التنبيهات"
-        subtitle="من يُخطَر، وبماذا. والرسالة نفسها لا تحمل تفاصيل."
+        title="الإشعارات"
+        subtitle="من يُخطَر، وعند أي حدث."
       />
 
       <p className="card muted" data-role="content-notice">

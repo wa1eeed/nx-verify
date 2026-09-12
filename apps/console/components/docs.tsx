@@ -45,8 +45,8 @@ export function Docs({ view }: { view: DocsView }): ReactElement {
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
-        title="المرجع"
-        subtitle="مولّد من كتالوج المنتجات نفسه، فما تقرأه هنا هو ما تتحقق منه المنصة فعلاً."
+        title="مرجع الـAPI"
+        subtitle="وحدات التحقق: مدخلاتها، ومخرجاتها، وسعر كل واحدة."
       />
 
       <Panel title="الأساسيات" role="basics">

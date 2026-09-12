@@ -36,7 +36,7 @@ export function ApiLog({
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="سجل النداءات"
-        subtitle="ما وصلنا منكم وما أعدناه، بالمسار لا بالعنوان: العنوان يحمل قيماً والقيم لا تُسجَّل."
+        subtitle="كل نداء وصلنا منك: المسار والحالة وزمن الرد."
       />
 
       <section className="grid" data-role="log-tiles">

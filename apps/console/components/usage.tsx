@@ -62,7 +62,7 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
-        title="الاستهلاك والباقة"
+        title="الباقة والرصيد"
         subtitle={
           view.packageNameAr
             ? `باقة ${view.packageNameAr}. الأرقام أدناه لهذه المدة، ولا تشمل الضريبة.`

@@ -66,8 +66,8 @@ export function OnboardingList({ cases }: { cases: CaseRowView[] }): ReactElemen
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
-        title="ملفات التأهيل"
-        subtitle="كل ملف يجمع ما فُحص عن متقدّم، وما تُنوزل عنه، وما قرره في النهاية."
+        title="التأهيل"
+        subtitle="ملفات العملاء الجدد: ما فُحص، وما تبقّى، وأين وصل كل ملف."
         action={
           <a className="btn-primary" href="/onboarding/new">
             فتح ملف

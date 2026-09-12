@@ -32,7 +32,7 @@ export function Support({ view }: { view: SupportView }): ReactElement {
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="الدعم"
-        subtitle="ما تحتاجه قبل أن تراسلنا، وما نلتزم به بعد أن تفعل."
+        subtitle="كيف تراسلنا، وفي كم نردّ عليك."
       />
 
       <section className="grid" data-role="support-tiles">

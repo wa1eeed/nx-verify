@@ -30,7 +30,7 @@ export default async function OperatorTopUpsPage(): Promise<ReactElement> {
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="الحوالات"
-        subtitle="ما طلبه المشتركون شحناً، ولم يُؤكَّد وصوله بعد. التأكيد يضيف للرصيد فوراً."
+        subtitle="طلبات شحن الرصيد بانتظار تأكيد وصول الحوالة."
       />
       <PendingTopUps
         pending={view}

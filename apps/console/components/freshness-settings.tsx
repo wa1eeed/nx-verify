@@ -41,7 +41,7 @@ export function FreshnessSettings({
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="مدد الصلاحية"
-        subtitle="كم تبقى المعرفة صالحة قبل أن تُطلب من جديد، حقلاً حقلاً."
+        subtitle="كم يبقى كل حقل صالحاً قبل إعادة التحقق منه."
       />
 
       <p className="card muted" data-role="inert-notice">

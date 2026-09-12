@@ -46,7 +46,7 @@ export default async function UsersPage({
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="المستخدمون"
-        subtitle="من يدخل مساحة عملك، وما يستطيع كل منهم فعله."
+        subtitle="من يدخل مساحة عملك، وصلاحيات كل منهم."
       />
       {canAdminister(actor.role) ? (
         <UserAdmin

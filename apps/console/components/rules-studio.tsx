@@ -77,7 +77,7 @@ export function RulesStudio({
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="قواعد القرار"
-        subtitle="أول قاعدة تنطبق تحسم النتيجة. جرّبها على بيانات حقيقية قبل تفعيلها."
+        subtitle="متى يُقبل الملف، ومتى يذهب للمراجعة. أول قاعدة تنطبق تحسم النتيجة."
       />
 
       <p className="muted">

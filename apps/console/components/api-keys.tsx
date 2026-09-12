@@ -47,7 +47,7 @@ export function ApiKeys({
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="مفاتيح الـAPI"
-        subtitle="مفتاح واحد لكل نظام يتصل بنا. السر يظهر مرة واحدة عند الإصدار ولا يمكن استرجاعه."
+        subtitle="مفتاح لكل نظام يتصل بك. السر يظهر مرة واحدة عند الإصدار."
       />
 
       {issuedSecret ? (

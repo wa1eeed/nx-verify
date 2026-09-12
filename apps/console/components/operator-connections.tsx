@@ -73,7 +73,7 @@ export function OperatorConnections({
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="ربط المزودين"
-        subtitle="عنوان كل مزوّد واعتماده، لكل بيئة على حدة. يُغيَّر من هنا بلا إعادة نشر."
+        subtitle="عنوان كل مزوّد واعتماده، لكل بيئة على حدة."
       />
 
       <Panel title="كيف يُركَّب مزوّد" role="instructions">

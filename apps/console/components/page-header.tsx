@@ -30,11 +30,19 @@ export function PageHeader({
 export function Panel({
   title,
   aside,
+  note,
   children,
   role,
 }: {
   title: string;
   aside?: ReactNode;
+  /**
+   * A rule that governs what is in this panel.
+   *
+   * Sits here rather than in the page subtitle. A subtitle answers "what is this screen",
+   * and a rule crammed into it competes with that and loses: the reader skips both.
+   */
+  note?: string;
   children: ReactNode;
   role?: string;
 }): ReactElement {
@@ -44,6 +52,11 @@ export function Panel({
         <h2>{title}</h2>
         {aside ? <span className="muted">{aside}</span> : null}
       </div>
+      {note ? (
+        <p className="faint panel-note" data-role="panel-note">
+          {note}
+        </p>
+      ) : null}
       {children}
     </section>
   );

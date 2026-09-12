@@ -325,6 +325,13 @@ a:hover {
   overflow: hidden;
 }
 
+.panel-note {
+  margin: 0;
+  padding: var(--s-3) var(--s-5);
+  border-block-end: 1px solid var(--line);
+  background: var(--paper);
+}
+
 .panel-header {
   display: flex;
   align-items: baseline;

@@ -375,9 +375,10 @@ describe('the phase two screens keep the same rules', () => {
     );
 
     // The two states carry different words as well as different colours, because merging
-    // them would be the most misleading number on the page.
-    expect(html).toContain('معرفتنا قديمة');
-    expect(html).toContain('تحققنا واكتشفنا اختلافاً');
+    // them would be the most misleading number on the page: data that has aged is not
+    // data that has changed.
+    expect(html).toContain('تحتاج إعادة تحقق');
+    expect(html).toContain('بيانات تغيّرت منذ آخر تحقق');
     expect(html).toContain('data-role="freshness"');
     expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
   });
@@ -570,9 +571,9 @@ describe('the console shell', () => {
 
   it('groups the navigation by what a person came to do', () => {
     expect(NAV.map((group) => group.label)).toEqual([
-      'المتابعة',
-      'العمل',
-      'الاشتراك',
+      'العمل اليومي',
+      'الفوترة',
+      'المطوّرون',
       'الإعدادات',
     ]);
     const hrefs = NAV.flatMap((group) => group.items.map((item) => item.href));
@@ -620,7 +621,7 @@ describe('the page furniture', () => {
   it('gives a screen a title, a sentence and at most one action', () => {
     const html = renderToStaticMarkup(
       <PageHeader
-        title="لوحة المخاطر"
+        title="الرئيسية"
         subtitle="ما يحتاج قراراً اليوم"
         action={
           <button type="button" className="btn-primary">
@@ -630,7 +631,7 @@ describe('the page furniture', () => {
       />,
     );
     expect(html).toContain('data-role="page-header"');
-    expect(html).toContain('<h1>لوحة المخاطر</h1>');
+    expect(html).toContain('<h1>الرئيسية</h1>');
     expect(html.match(/btn-primary/g)?.length).toBe(1);
   });
 
@@ -1186,7 +1187,7 @@ describe('the subscriber portal', () => {
       />,
     );
 
-    expect(html).toContain('كشف الاستهلاك');
+    expect(html).toContain('كشف الحساب');
     // VAT falls due when credit is bought, not when it is spent. Calling this an invoice
     // would not be a wording problem.
     expect(html).toContain('الفاتورة الضريبية تصدر عند شحن الرصيد');

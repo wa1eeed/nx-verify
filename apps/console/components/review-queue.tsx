@@ -49,8 +49,8 @@ export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
-        title="طابور المراجعة"
-        subtitle="كل حالة يقرّرها شخص ويعتمدها شخص آخر. لا يجوز أن يكون المقرِّر هو المعتمِد."
+        title="المراجعات"
+        subtitle="حالات تحتاج قرار موظف. من يقرّر غير من يعتمد."
         action={
           <button type="submit" className="btn-primary">
             إسناد الحالات إليّ
@@ -58,9 +58,15 @@ export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
         }
       />
 
+      {/*
+        The rule the queue exists to enforce, said where it applies rather than in the
+        page subtitle. A subtitle answers "what is this screen"; a person about to press
+        approve needs to know they cannot approve their own decision.
+      */}
       <Panel
         title="الحالات"
         aside={overdue > 0 ? `${overdue} متأخرة من ${rows.length}` : `${rows.length} حالة`}
+        note="لا يجوز أن يكون المقرِّر هو المعتمِد. من يقرّر حالة لا يستطيع اعتمادها."
       >
         <div className="table-scroll">
         <table>

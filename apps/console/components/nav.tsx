@@ -4,10 +4,15 @@ import { usePathname } from 'next/navigation';
 import type { ReactElement } from 'react';
 
 /**
- * The navigation, grouped by what a person came here to do.
+ * The navigation.
  *
- * Grouped rather than listed, because seven flat links make somebody read all seven every
- * time. Watching, working and configuring are three different reasons to be here.
+ * Grouped by who is looking rather than by which part of the system a screen belongs to.
+ * A compliance officer opens four of these every day and never opens the rest; a
+ * developer opens only their own four. Mixing the two groups made a settings list of nine
+ * items that nobody read to the end.
+ *
+ * Labels are the words a customer would use. "Registry" and "risk board" were our words
+ * for them, and a person looking for their customers should not have to learn either.
  *
  * The current screen is marked with aria-current, so it is announced and not merely
  * tinted: colour on its own is not a label.
@@ -25,39 +30,39 @@ export interface NavGroup {
 
 export const NAV: NavGroup[] = [
   {
-    label: 'المتابعة',
+    label: 'العمل اليومي',
     items: [
-      { href: '/dashboard', label: 'لوحة المخاطر' },
-      { href: '/registry', label: 'السجل' },
+      { href: '/dashboard', label: 'الرئيسية' },
+      { href: '/registry', label: 'العملاء' },
+      { href: '/onboarding', label: 'التأهيل' },
+      { href: '/queue', label: 'المراجعات' },
+      { href: '/portfolios', label: 'المجموعات' },
     ],
   },
   {
-    label: 'العمل',
+    label: 'الفوترة',
     items: [
-      { href: '/onboarding', label: 'ملفات التأهيل' },
-      { href: '/queue', label: 'طابور المراجعة' },
-      { href: '/portfolios', label: 'المحافظ' },
+      { href: '/usage', label: 'الباقة والرصيد' },
+      { href: '/billing', label: 'كشف الحساب' },
     ],
   },
   {
-    label: 'الاشتراك',
+    label: 'المطوّرون',
     items: [
-      { href: '/usage', label: 'الاستهلاك والباقة' },
-      { href: '/billing', label: 'كشف الاستهلاك' },
+      { href: '/settings/api-keys', label: 'مفاتيح الـAPI' },
+      { href: '/developer', label: 'بيئة الاختبار' },
+      { href: '/logs', label: 'سجل النداءات' },
+      { href: '/docs', label: 'مرجع الـAPI' },
     ],
   },
   {
     label: 'الإعدادات',
     items: [
-      { href: '/developer', label: 'بيئة المطوّر' },
-      { href: '/docs', label: 'المرجع' },
-      { href: '/logs', label: 'سجل النداءات' },
-      { href: '/support', label: 'الدعم' },
       { href: '/settings/users', label: 'المستخدمون' },
-      { href: '/settings/api-keys', label: 'مفاتيح الـAPI' },
-      { href: '/settings/freshness', label: 'مدد الصلاحية' },
       { href: '/settings/rules', label: 'قواعد القرار' },
-      { href: '/settings/notifications', label: 'التنبيهات' },
+      { href: '/settings/freshness', label: 'مدد الصلاحية' },
+      { href: '/settings/notifications', label: 'الإشعارات' },
+      { href: '/support', label: 'الدعم' },
     ],
   },
 ];

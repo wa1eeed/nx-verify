@@ -26,8 +26,8 @@ export function Portfolios({ rows }: { rows: PortfolioRowView[] }): ReactElement
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
-        title="المحافظ"
-        subtitle="السياسة تنتمي للمحفظة لا للنظام. مدد الصلاحية وقواعد القرار والمراقبة تُضبط هنا، وعند تعارض محفظتين تفوز المدة الأقصر."
+        title="المجموعات"
+        subtitle="جمّع عملاءك حسب الغرض، واضبط لكل مجموعة مدد صلاحيتها وقواعد قرارها ومراقبتها."
         action={
           <button type="submit" className="btn-primary">
             محفظة جديدة
@@ -35,7 +35,11 @@ export function Portfolios({ rows }: { rows: PortfolioRowView[] }): ReactElement
         }
       />
 
-      <Panel title="المحافظ القائمة" aside={`${rows.length} محفظة`}>
+      <Panel
+        title="المحافظ القائمة"
+        aside={`${rows.length} محفظة`}
+        note="الكيان قد ينتمي لأكثر من مجموعة. عند تعارض مجموعتين تفوز المدة الأقصر."
+      >
         <div className="table-scroll">
         <table>
           <thead>

@@ -52,7 +52,7 @@ export default async function OperatorReadinessPage(): Promise<ReactElement> {
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
         title="جاهزية النشر"
-        subtitle="دليل التركيب مسؤولاً عنه النظام نفسه: ما هو مضبوط، وما ينقص، وماذا يُكتب لضبطه."
+        subtitle="ما هو مضبوط في هذا النشر، وما ينقصه، وماذا يُكتب لضبطه."
       />
       <OperatorReadiness checks={report.checks} canServeLive={report.canServeLive} />
     </div>

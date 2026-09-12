@@ -40,8 +40,8 @@ export default async function RegistryPage({
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
-        title="السجل"
-        subtitle={`${view.labelAr}. كل صف كيان، وكل حقل فيه يحمل جهته وتاريخ رصده.`}
+        title="العملاء"
+        subtitle={`${view.labelAr}. اضغط أي عميل لفتح ملفه الكامل.`}
       />
 
       {/* The saved views are a strip that scrolls, not a wall of buttons that wraps. They

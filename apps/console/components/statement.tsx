@@ -48,11 +48,19 @@ export function Statement({ view }: { view: StatementView }): ReactElement {
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
-        title="كشف الاستهلاك"
-        subtitle="الأرقام بلا ضريبة. الفاتورة الضريبية تصدر عند شحن الرصيد، وما بعدها كشف لا فاتورة."
+        title="كشف الحساب"
+        subtitle="تفصيل ما استهلكته، وشحنات رصيدك وفواتيرها. الأرقام بلا ضريبة."
       />
 
-      <Panel title="المستهلك في هذه المدة" aside={`${riyals(view.spentThisTermHalalas)} ريال`}>
+      {/*
+        Where the tax rule belongs: beside the numbers it governs, not in the page
+        subtitle competing with what the screen is.
+      */}
+      <Panel
+        title="المستهلك في هذه المدة"
+        aside={`${riyals(view.spentThisTermHalalas)} ريال`}
+        note="الفاتورة الضريبية تصدر عند شحن الرصيد. ما بعدها كشف استهلاك لا فاتورة."
+      >
         {view.lines.length === 0 ? (
           <div className="panel-body">
             <EmptyState>لا استهلاك بعد في هذه المدة.</EmptyState>
