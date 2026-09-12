@@ -18,6 +18,8 @@ import { NotificationSettings, eventLabel } from '../components/notification-set
 import { ChangePassword } from '../components/change-password';
 import { ApiKeys } from '../components/api-keys';
 import { Shell } from '../components/shell';
+import { OnboardingList } from '../components/onboarding';
+import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
 import { Statement } from '../components/statement';
 import { NAV } from '../components/nav';
@@ -864,5 +866,145 @@ describe('the subscriber portal', () => {
     expect(html).toContain('الفاتورة الضريبية تصدر عند شحن الرصيد');
     expect(html).toContain('INV-77');
     expect(html).toContain('data-role="statement-line"');
+  });
+});
+
+/**
+ * The onboarding screens: what is waiting on us, and what was done to one file.
+ */
+describe('the onboarding screens', () => {
+  const list = renderToStaticMarkup(
+    <OnboardingList
+      cases={[
+        {
+          caseId: 'c1',
+          reference: 'ONB-2026-000001',
+          journeyNameAr: 'تأهيل تاجر',
+          entityName: 'مؤسسة نماء',
+          status: 'IN_REVIEW',
+          outcome: 'REVIEW',
+          done: 2,
+          total: 3,
+          dueAt: new Date('2026-09-01T00:00:00Z'),
+          overdue: true,
+        },
+        {
+          caseId: 'c2',
+          reference: 'ONB-2026-000002',
+          journeyNameAr: 'تأهيل تاجر',
+          entityName: null,
+          status: 'APPROVED',
+          outcome: 'PASS',
+          done: 3,
+          total: 3,
+          dueAt: new Date('2026-10-01T00:00:00Z'),
+          overdue: false,
+        },
+      ]}
+    />,
+  );
+
+  it('leads with what is waiting, and marks a file that ran out of time', () => {
+    expect(list).toContain('data-role="onboarding-tiles"');
+    expect(list).toContain('data-role="overdue"');
+    expect(list).toContain('data-overdue="true"');
+    // One primary action: opening a file.
+    expect(list.match(/btn-primary/g)?.length).toBe(1);
+  });
+
+  it('spends colour on outcomes and not on waiting', () => {
+    // Approved and rejected are outcomes. A file waiting for a person carries neither
+    // palette, because the warning colour belongs to a detected change and nothing else.
+    expect(list).toContain('data-status="APPROVED"');
+    expect(list).toContain('data-status="IN_REVIEW"');
+    expect(list).not.toContain('--changed-line');
+  });
+
+  it('answers what was checked, what was waived and why, and what it set off', () => {
+    const detail = renderToStaticMarkup(
+      <OnboardingCaseView
+        view={{
+          caseId: 'c1',
+          reference: 'ONB-2026-000001',
+          journeyNameAr: 'تأهيل تاجر',
+          entityId: 'e1',
+          entityName: 'مؤسسة نماء',
+          status: 'APPROVED',
+          outcome: 'PASS',
+          clientRef: 'MER-88',
+          openedAt: new Date('2026-08-01T00:00:00Z'),
+          dueAt: new Date('2026-08-03T00:00:00Z'),
+          closedAt: new Date('2026-08-02T00:00:00Z'),
+          overdue: false,
+          steps: [
+            {
+              stepKey: 'company',
+              productNameAr: 'التحقق الشامل',
+              required: true,
+              status: 'DONE',
+              runId: 'r1',
+              runReference: 'VRF-2026-000019',
+              waiveReason: null,
+              decidedAt: new Date('2026-08-01T01:00:00Z'),
+            },
+            {
+              stepKey: 'address',
+              productNameAr: 'العنوان الوطني',
+              required: true,
+              status: 'WAIVED',
+              runId: null,
+              runReference: null,
+              waiveReason: 'DOCUMENT_ON_FILE',
+              decidedAt: new Date('2026-08-01T02:00:00Z'),
+            },
+          ],
+          actions: [
+            {
+              actionKey: 'activate',
+              actionType: 'WEBHOOK',
+              outcome: 'APPROVED',
+              delivered: true,
+              at: new Date('2026-08-02T00:00:00Z'),
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(detail).toContain('data-role="case-steps"');
+    expect(detail).toContain('VRF-2026-000019');
+    // The waiver says why, from the closed set, so the answer reads the same on every
+    // screen and in every report.
+    expect(detail).toContain('data-role="waive-reason"');
+    expect(detail).toContain('مستند محفوظ لدى العميل');
+    expect(detail).toContain('data-role="case-actions"');
+    expect(stepStatusLabel('NOT_APPLICABLE')).toBe('لا تنطبق');
+    expect(waiveReasonLabel('RISK_ACCEPTED')).toBe('مخاطرة مقبولة');
+  });
+
+  it('says plainly when a decision set nothing off, and that it is not a fault', () => {
+    const quiet = renderToStaticMarkup(
+      <OnboardingCaseView
+        view={{
+          caseId: 'c2',
+          reference: 'ONB-2026-000002',
+          journeyNameAr: 'رحلة هادئة',
+          entityId: null,
+          entityName: null,
+          status: 'APPROVED',
+          outcome: 'PASS',
+          clientRef: null,
+          openedAt: new Date('2026-08-01T00:00:00Z'),
+          dueAt: new Date('2026-08-03T00:00:00Z'),
+          closedAt: new Date('2026-08-02T00:00:00Z'),
+          overdue: false,
+          steps: [],
+          actions: [],
+        }}
+      />,
+    );
+
+    expect(quiet).toContain('data-role="no-actions"');
+    expect(quiet).toContain('هذا ليس عطلاً');
   });
 });

@@ -34,6 +34,7 @@ export const NAV: NavGroup[] = [
   {
     label: 'العمل',
     items: [
+      { href: '/onboarding', label: 'ملفات التأهيل' },
       { href: '/queue', label: 'طابور المراجعة' },
       { href: '/portfolios', label: 'المحافظ' },
     ],
