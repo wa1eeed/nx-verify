@@ -23,6 +23,7 @@ import { OperatorMargin } from '../components/operator-margin';
 import { Developer } from '../components/developer';
 import { OperatorPackages, billingLabel } from '../components/operator-packages';
 import { ApiLog } from '../components/api-log';
+import { OperatorHealth } from '../components/operator-health';
 import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
 import { Statement } from '../components/statement';
@@ -1318,5 +1319,62 @@ describe('the request log', () => {
     expect(html).toContain('data-role="log-environment"');
     expect(html).toContain('إنتاج');
     expect(html).toContain('اختبار');
+  });
+});
+
+/**
+ * The screen support opens while the customer is still on the telephone.
+ */
+describe('the operator health screen', () => {
+  const html = renderToStaticMarkup(
+    <OperatorHealth
+      windowHours={24}
+      rows={[
+        {
+          tenantId: 't1',
+          legalName: 'شركة متعثرة',
+          slug: 'struggling',
+          isSandbox: false,
+          calls: 40,
+          failures: 12,
+          slowestMs: 900,
+          balanceHalalas: 500,
+          heldHalalas: 0,
+          balanceLow: true,
+          unhealthyProviders: ['wathq-example-connector'],
+        },
+        {
+          tenantId: 't2',
+          legalName: 'شركة سليمة',
+          slug: 'healthy',
+          isSandbox: false,
+          calls: 100,
+          failures: 0,
+          slowestMs: 30,
+          balanceHalalas: 900000,
+          heldHalalas: 0,
+          balanceLow: false,
+          unhealthyProviders: [],
+        },
+      ]}
+    />,
+  );
+
+  it('answers the three questions support is asked, worst row first', () => {
+    expect(html).toContain('data-role="health-tiles"');
+    expect(html).toContain('data-failing="true"');
+    expect(html).toContain('data-role="low-balance"');
+    expect(html).toContain('data-role="unhealthy-provider"');
+  });
+
+  it('is the one console screen allowed to name a provider', () => {
+    // Rule 5 keeps provider names out of anything a subscriber can reach. This screen is
+    // behind an operator token and an operator connection, which is the exception.
+    expect(html).toContain('wathq-example-connector');
+  });
+
+  it('says plainly that it carries nothing about whom anybody verified', () => {
+    expect(html).toContain('لا شيء هنا عمّن تحقّق منه أحد');
+    expect(html).not.toContain('entity');
   });
 });

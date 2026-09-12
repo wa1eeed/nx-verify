@@ -243,6 +243,14 @@ describe('guard 02: tenant isolation', () => {
               // earned on a service and cannot answer anything about whom that subscriber
               // verified, which is the whole reason it exists in that shape (ADR-080).
               'margin_counters',
+              // What the subscriber bought, in money: a balance and what is held against
+              // work in flight.
+              'wallets',
+              // Telemetry about our own service rather than about a subscriber: a route, a
+              // status and a duration, with no entity, identifier or decision in it. Staff
+              // who cannot see it end up asking the customer to read their own logs aloud
+              // (ADR-087).
+              'api_requests',
             ],
             `${table}: nx_operator must not reach subscriber data`,
           ).toContain(table);

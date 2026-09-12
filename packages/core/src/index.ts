@@ -525,3 +525,5 @@ export type {
 } from './billing/package-admin.js';
 export { listApiRequests, pruneApiRequests, recordApiRequest } from './observability/api-log.js';
 export type { ApiLogFilter, ApiRequestRecord, ApiRequestRow } from './observability/api-log.js';
+export { subscriberHealth } from './observability/service-health.js';
+export type { SubscriberHealthRow } from './observability/service-health.js';
