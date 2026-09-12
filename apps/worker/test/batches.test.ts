@@ -35,7 +35,7 @@ describe('smart batches', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Batch Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { balanceHalalas: 5_000_00 });
+    await preparePricedTenant(db, tenant.tenantId, { balanceHalalas: 5_000_00 });
 
     // Three entities to select from.
     for (const unn of ['7008000001', '7008000002', '7008000003']) {
@@ -78,7 +78,7 @@ describe('smart batches', () => {
 
   it('warns when the balance cannot cover the batch', async () => {
     const poor = await seedTenant(db.appPool, 'Poor Batch Tenant');
-    await preparePricedTenant(db.appPool, poor.tenantId, { balanceHalalas: 1_00 });
+    await preparePricedTenant(db, poor.tenantId, { balanceHalalas: 1_00 });
 
     await withTenant(db.appPool, poor.tenantId, (tx) =>
       verify(tx, {

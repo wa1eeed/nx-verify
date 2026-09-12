@@ -40,7 +40,7 @@ describe('the public API', () => {
     tenant = await seedTenant(db.appPool, 'API Tenant');
     // The provider carries a distinctive name so that a leak into any response body
     // would be unmistakable. Testing against the word "stub" would pass by accident.
-    await preparePricedTenant(db.appPool, tenant.tenantId, { providerName: PROVIDER_NAME });
+    await preparePricedTenant(db, tenant.tenantId, { providerName: PROVIDER_NAME });
 
     const issued = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       issueApiKey(tx, {
@@ -216,7 +216,7 @@ describe('the public API', () => {
     });
 
     const other = await seedTenant(db.appPool, 'API Other Tenant');
-    await preparePricedTenant(db.appPool, other.tenantId, { providerName: PROVIDER_NAME });
+    await preparePricedTenant(db, other.tenantId, { providerName: PROVIDER_NAME });
     const otherKey = await withTenant(db.appPool, other.tenantId, (tx) =>
       issueApiKey(tx, { name: 'other', scopes: ['verifications:read'] }),
     );

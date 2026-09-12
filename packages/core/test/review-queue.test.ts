@@ -54,7 +54,7 @@ describe('the review queue', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Review Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { balanceHalalas: 5_000_00 });
+    await preparePricedTenant(db, tenant.tenantId, { balanceHalalas: 5_000_00 });
 
     await withTenant(db.appPool, tenant.tenantId, async (tx) => {
       ANALYST = await createUser(tx, {

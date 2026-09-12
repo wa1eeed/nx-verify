@@ -34,7 +34,7 @@ describe('sealed evidence', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Evidence Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId);
+    await preparePricedTenant(db, tenant.tenantId);
 
     const result = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       verify(tx, {

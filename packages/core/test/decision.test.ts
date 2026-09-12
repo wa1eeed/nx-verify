@@ -93,7 +93,7 @@ describe('the decision engine on real data', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Decision Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { balanceHalalas: 5_000_00 });
+    await preparePricedTenant(db, tenant.tenantId, { balanceHalalas: 5_000_00 });
   });
 
   afterAll(async () => {

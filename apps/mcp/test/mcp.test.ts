@@ -68,7 +68,7 @@ describe('the MCP server', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'MCP Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { providerName: PROVIDER_NAME });
+    await preparePricedTenant(db, tenant.tenantId, { providerName: PROVIDER_NAME });
 
     const full = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       issueApiKey(tx, {

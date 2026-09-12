@@ -1,6 +1,7 @@
-import type pg from 'pg';
 import { withTenant, withoutTenant } from '../../packages/db/src/client.js';
+import type { TestDatabase } from './db.js';
 import { applyProductSeed } from '../../packages/db/src/seed/products.js';
+import { applyPackageSeed } from '../../packages/db/src/seed/packages.js';
 import { openPriceVersion } from '../../packages/core/src/billing/price-book.js';
 import { topUp } from '../../packages/core/src/billing/wallet.js';
 import { invalidateSchemaCache } from '../../packages/core/src/products/input-validation.js';
@@ -58,17 +59,41 @@ export interface PricedTenantOptions {
   }[];
   /** Provider named on every seeded step, and bound for this tenant. */
   providerName?: string;
+  /**
+   * The package the tenant is put on. Enterprise by default, which is every module with
+   * no count limit: a fixture should not make a test fail for a commercial reason it did
+   * not ask about.
+   */
+  packageCode?: string;
 }
 
-/** Seeds products, a provider binding, a funded wallet and a price list for a tenant. */
+/**
+ * Seeds products and packages, subscribes the tenant, binds a provider, funds the wallet
+ * and opens a price list.
+ *
+ * It takes the whole test database rather than one pool, because the two halves of a real
+ * provisioning run are done by two different roles: the operator writes the catalogue and
+ * the subscription, and the application writes everything that belongs to the subscriber.
+ */
 export async function preparePricedTenant(
-  pool: pg.Pool,
+  db: TestDatabase,
   tenantId: string,
   options: PricedTenantOptions = {},
 ): Promise<void> {
+  const pool = db.appPool;
   const providerName = options.providerName ?? 'stub';
   invalidateSchemaCache();
   await withoutTenant(pool, (tx) => applyProductSeed(tx, undefined, { providerName }));
+  // The catalogue of plans and who is on which belong to the operator, so they are
+  // written on the operator connection exactly as provisioning does it.
+  await applyPackageSeed(db.operatorPool);
+  await db.operatorPool.query(
+    `INSERT INTO tenant_subscriptions (tenant_id, package_code)
+     VALUES ($1, $2)
+     ON CONFLICT (tenant_id) DO UPDATE SET package_code = EXCLUDED.package_code,
+                                           status = 'active'`,
+    [tenantId, options.packageCode ?? 'ENTERPRISE'],
+  );
 
   await withTenant(pool, tenantId, async (tx) => {
     await tx.query(

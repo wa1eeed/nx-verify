@@ -80,8 +80,8 @@ describe('provider routing is per subscriber', () => {
     second = await seedTenant(db.appPool, 'Second Subscriber');
 
     // Seeded with the stub named in the catalogue, then rebound below.
-    await preparePricedTenant(db.appPool, first.tenantId, { balanceHalalas: 5_000_00 });
-    await preparePricedTenant(db.appPool, second.tenantId, { balanceHalalas: 5_000_00 });
+    await preparePricedTenant(db, first.tenantId, { balanceHalalas: 5_000_00 });
+    await preparePricedTenant(db, second.tenantId, { balanceHalalas: 5_000_00 });
 
     // The fixture binds the stub. This suite is about explicit routing, so that binding
     // is removed and the product's declaration becomes the genuine last resort.

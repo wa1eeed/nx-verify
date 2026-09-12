@@ -34,7 +34,7 @@ describe('the console renders real data', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'شركة المثال للتجارة');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { providerName: PROVIDER_NAME });
+    await preparePricedTenant(db, tenant.tenantId, { providerName: PROVIDER_NAME });
 
     const result = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       verify(tx, {

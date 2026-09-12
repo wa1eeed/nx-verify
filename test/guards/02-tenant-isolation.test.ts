@@ -225,9 +225,21 @@ describe('guard 02: tenant isolation', () => {
 
         // nx_operator crosses tenants by design, and only for configuration. It must
         // never be given a policy on a table that holds a subscriber's own data.
+        //
+        // The test for adding a table to this list is one question: does a row here say
+        // what the subscriber bought, or what the subscriber knows? A package code, a
+        // billing period and a negotiated price are the first. An entity, an attestation,
+        // an identifier, a decision and a usage count are the second, and none of them
+        // may ever appear below.
         if (roles.includes('nx_operator')) {
           expect(
-            ['tenant_provider_binding', 'tenants', 'audit_log'],
+            [
+              'tenant_provider_binding',
+              'tenants',
+              'audit_log',
+              'tenant_subscriptions',
+              'tenant_product_overrides',
+            ],
             `${table}: nx_operator must not reach subscriber data`,
           ).toContain(table);
         }

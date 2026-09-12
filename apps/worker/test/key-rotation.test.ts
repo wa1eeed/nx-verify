@@ -65,7 +65,7 @@ describe('key rotation', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Rotation Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { balanceHalalas: 5_000_00 });
+    await preparePricedTenant(db, tenant.tenantId, { balanceHalalas: 5_000_00 });
 
     // Everything below is written under version 1.
     const resolved = await withTenant(db.appPool, tenant.tenantId, async (tx) => {

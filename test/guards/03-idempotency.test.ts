@@ -34,7 +34,7 @@ describe('guard 03: same key, same result, one charge', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Guard 03 Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId);
+    await preparePricedTenant(db, tenant.tenantId);
   });
 
   afterAll(async () => {
@@ -128,7 +128,7 @@ describe('guard 03: same key, same result, one charge', () => {
   it('scopes the key to the tenant', async () => {
     const key = `idem-${randomUUID()}`;
     const other = await seedTenant(db.appPool, 'Guard 03 Other Tenant');
-    await preparePricedTenant(db.appPool, other.tenantId);
+    await preparePricedTenant(db, other.tenantId);
 
     const mine = await run(key);
     const theirs = await withTenant(db.appPool, other.tenantId, (tx) =>

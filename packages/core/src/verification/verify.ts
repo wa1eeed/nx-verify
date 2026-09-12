@@ -18,6 +18,7 @@ import { resolveRuleset } from '../portfolios/portfolios.js';
 import { resolveEntity, type IdentifierInput } from '../repositories/entities.js';
 import { computeBilling, maximumCharge, type BillingBreakdown } from '../billing/compute.js';
 import { resolvePrice } from '../billing/price-book.js';
+import { assertEntitled, recordUsage, resolveEntitlement } from '../billing/entitlements.js';
 import { hold, releaseHold, settle } from '../billing/wallet.js';
 import { toPublicResults, type PublicResults } from '../public-view.js';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
@@ -28,6 +29,9 @@ import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
  * The order of the steps below is the whole point, and each one is there because of a
  * specific way this goes wrong otherwise:
  *
+ *   0. Check the subscriber is entitled to this product, before the key is claimed and
+ *      before anything is reserved. A module the customer did not buy must cost them
+ *      nothing and leave no run behind (ADR-061).
  *   1. Claim the idempotency key first, by inserting a PENDING run. A duplicate then
  *      loses at the unique index and never reaches a provider. Checking first and
  *      inserting later leaves a window where two requests both see nothing and both
@@ -71,6 +75,10 @@ export interface VerifyResult {
 
 export async function verify(tx: TenantTransaction, input: VerifyInput): Promise<VerifyResult> {
   const product = await requireProduct(tx, input.productCode);
+
+  // Before anything else, including the idempotency claim: a product the subscriber's
+  // package does not include never becomes a run, never reserves, and never charges.
+  assertEntitled(await resolveEntitlement(tx, product.code));
 
   // Validate before anything is reserved or claimed. A 422 must cost nothing.
   assertValidSubject(product.code, product.inputSchema, input.subject);
@@ -160,6 +168,10 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
   }
 
   await settle(tx, { runId, heldAmount: reserved, chargeAmount: breakdown.total });
+
+  // Counted once the run is real. A replay returned above never reaches this line, which
+  // is rule 7 expressed in the other currency a package is measured in.
+  await recordUsage(tx, product.code);
 
   // Announced here rather than by the caller, so that a run started by a monitor, a
   // batch or the console emits the same event as one started through the API. An event

@@ -43,7 +43,7 @@ describe('provider health', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Health Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId);
+    await preparePricedTenant(db, tenant.tenantId);
 
     await db.operatorPool.query(
       `INSERT INTO tenant_provider_binding

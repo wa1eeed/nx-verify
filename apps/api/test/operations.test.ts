@@ -58,7 +58,7 @@ describe('the operational API', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Operations Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, {
+    await preparePricedTenant(db, tenant.tenantId, {
       providerName: PROVIDER_NAME,
       balanceHalalas: 5_000_00,
     });

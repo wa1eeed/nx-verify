@@ -54,7 +54,7 @@ describe('guard 04: a skipped step is billed zero', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Guard 04 Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId);
+    await preparePricedTenant(db, tenant.tenantId);
   });
 
   afterAll(async () => {

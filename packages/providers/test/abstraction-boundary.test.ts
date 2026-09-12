@@ -43,7 +43,7 @@ describe('a real provider changes nothing in the domain', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Boundary Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { providerName: PROVIDER_NAME });
+    await preparePricedTenant(db, tenant.tenantId, { providerName: PROVIDER_NAME });
   });
 
   afterAll(async () => {

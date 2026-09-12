@@ -58,7 +58,7 @@ describe('monitoring, alerts and evidence', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Monitoring Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { balanceHalalas: 5_000_00 });
+    await preparePricedTenant(db, tenant.tenantId, { balanceHalalas: 5_000_00 });
 
     const result = await runVerification('7001272184');
     entityId = result.entityId ?? '';

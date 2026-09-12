@@ -443,3 +443,16 @@ export type {
 } from './notifications/notifications.js';
 export { HttpKmsClient, KmsMasterKeySource, masterKeySourceFromEnv } from './crypto/kms.js';
 export type { Fetcher, HttpKmsOptions, KmsClient, KmsDecryptRequest } from './crypto/kms.js';
+export {
+  advancePeriod,
+  assertEntitled,
+  getSubscription,
+  listEntitlements,
+  recordUsage,
+  resolveEntitlement,
+} from './billing/entitlements.js';
+export type {
+  Entitlement,
+  EntitlementRefusal,
+  Subscription,
+} from './billing/entitlements.js';

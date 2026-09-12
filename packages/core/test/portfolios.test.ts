@@ -39,7 +39,7 @@ describe('portfolios carry the policy', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Portfolio Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { balanceHalalas: 5_000_00 });
+    await preparePricedTenant(db, tenant.tenantId, { balanceHalalas: 5_000_00 });
 
     const result = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       verify(tx, {

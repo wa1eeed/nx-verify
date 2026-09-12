@@ -34,7 +34,7 @@ describe('reporting', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Reporting Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { balanceHalalas: 5_000_00 });
+    await preparePricedTenant(db, tenant.tenantId, { balanceHalalas: 5_000_00 });
 
     for (const unn of ['7001272184', '7000000003', '7000000000']) {
       await withTenant(db.appPool, tenant.tenantId, (tx) =>
@@ -136,7 +136,7 @@ describe('reporting', () => {
 
   it('shows another tenant nothing', async () => {
     const other = await seedTenant(db.appPool, 'Reporting Other Tenant');
-    await preparePricedTenant(db.appPool, other.tenantId);
+    await preparePricedTenant(db, other.tenantId);
 
     const dashboard = await withTenant(db.appPool, other.tenantId, (tx) => riskDashboard(tx));
     const report = await withTenant(db.appPool, other.tenantId, (tx) =>

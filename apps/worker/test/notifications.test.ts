@@ -41,7 +41,7 @@ describe('notifications', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'Notified Tenant');
-    await preparePricedTenant(db.appPool, tenant.tenantId, { providerName: PROVIDER_NAME });
+    await preparePricedTenant(db, tenant.tenantId, { providerName: PROVIDER_NAME });
 
     channelId = await withTenant(db.appPool, tenant.tenantId, async (tx) => {
       const id = await addChannel(tx, {

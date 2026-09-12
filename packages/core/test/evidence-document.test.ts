@@ -38,7 +38,7 @@ describe('evidence document', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     tenant = await seedTenant(db.appPool, 'شركة الدليل المحدودة');
-    await preparePricedTenant(db.appPool, tenant.tenantId);
+    await preparePricedTenant(db, tenant.tenantId);
 
     runId = (
       await withTenant(db.appPool, tenant.tenantId, (tx) =>
