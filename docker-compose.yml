@@ -37,7 +37,9 @@ services:
     healthcheck:
       # Readiness, not liveness: an instance that cannot reach the database must not be
       # sent traffic, and restarting it would not help.
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/ready']
+      # 127.0.0.1, not localhost: inside the container localhost resolves to ::1 first,
+      # the server binds IPv4, and the check reports a healthy API as unhealthy.
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/ready']
       interval: 10s
       timeout: 5s
       retries: 6
