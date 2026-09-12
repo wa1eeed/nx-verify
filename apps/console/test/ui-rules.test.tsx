@@ -607,7 +607,7 @@ describe('the console shell', () => {
     const signedOut = renderToStaticMarkup(<AuthLayout>{null}</AuthLayout>);
     expect(signedOut).not.toContain('data-role="sign-out"');
     expect(signedOut).not.toContain('href="/dashboard"');
-    expect(signedOut).toContain('NX Verify');
+    expect(signedOut).toContain('NX Trust');
   });
 });
 

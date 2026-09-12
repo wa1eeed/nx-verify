@@ -50,10 +50,10 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
   return {
     openapi: '3.1.0',
     info: {
-      title: 'NX Verify API',
+      title: 'NX Trust API',
       version: options.version ?? '1.0.0',
       description:
-        'Verification and compliance API. Every field carries the authority that issued it and the time it was observed.',
+        'NX Trust: verification, onboarding, decision, monitoring and the actions that follow. Every field carries the authority that issued it and the time it was observed, and no response names a provider.',
     },
     servers: [{ url: options.serverUrl ?? 'https://api.nx.sa' }],
     components: {

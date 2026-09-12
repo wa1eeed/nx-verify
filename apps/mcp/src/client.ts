@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 /**
- * The MCP server talks to NX Verify through its public API, not through the database.
+ * The MCP server talks to NX Trust through its public API, not through the database.
  *
  * This is the whole design in one sentence. Authentication, scopes, idempotency, pricing,
  * the wallet hold, the audit trail and the rule 5 check on the way out all live in the

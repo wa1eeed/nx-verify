@@ -90,7 +90,10 @@ describe('packages and entitlement', () => {
     // A term, not a month: docs/01-blueprint.md section 9 opens by saying do not call
     // this a subscription.
     expect(commitment?.termMonths).toBe(12);
-    expect(commitment?.creditRolloverDays).toBe(90);
+    // Capacity expires with the term and credit carries. This plan sells capacity, so
+    // what a month's minimum did not use does not follow it into the next one.
+    expect(commitment?.includedTransactions).toBe(3_000);
+    expect(commitment?.creditRolloverDays).toBe(0);
     expect(commitment?.includedSeats).toBeGreaterThan(0);
     const term = commitment?.termEnd.getTime() ?? 0;
     expect(term).toBeGreaterThan(commitment?.termStart.getTime() ?? 0);

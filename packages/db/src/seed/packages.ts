@@ -12,11 +12,22 @@ import type { Queryable } from '../client.js';
  * of the value and most of the cost is. The top plan turns everything on and stops
  * counting, because an enterprise that has to count is an enterprise that will call.
  *
- * The figures follow docs/01-blueprint.md section 9 and not a monthly subscription: a
- * term, the credit that term grants, a setup fee waived at twenty four months, included
- * seats and portfolios with a price for extras, and ninety days of rollover. The platform
- * itself carries no fee, which is the sentence that kills the "why am I paying a
- * subscription" objection: every riyal comes back as usable credit.
+ * The figures are the owner's, from the pricing work behind the first real quotation, and
+ * two of them settle questions ADR-067 deliberately left open as plan fields:
+ *
+ *   - The annual plans name a platform and support fee rather than folding it into the
+ *     unit price, so a buyer can see what the platform costs and what a verification
+ *     costs, and argue with each separately.
+ *   - A plan that sells capacity lets that capacity expire with the term. Capacity is not
+ *     credit: three thousand verifications bought for a year are a year's worth, and
+ *     carrying the unused part forward turns a commitment into a balance.
+ *
+ * The pay as you go plan keeps neither, because it commits to nothing and therefore has
+ * nothing to carry or to charge a platform fee for.
+ *
+ * Per service prices sit on the plan rather than only in a price book, because they
+ * differ by service by a factor of five: an address check is not a company file, and one
+ * blended figure would either overcharge the cheap call or undercharge the expensive one.
  */
 
 export interface SeedPackage {
@@ -112,6 +123,8 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     nameAr: 'الدفع لكل عملية',
     nameEn: 'Pay per transaction',
     descriptionAr: 'بلا التزام وبلا رسوم ثابتة. السعر الأعلى لكل عملية، والوصول نفسه.',
+    // The highest unit price, and it exists to be compared against: a buyer who sees only
+    // a commitment cannot tell whether it is a good one.
     billingModel: 'PAYG',
     termMonths: 3,
     commitmentCreditsHalalas: 0,
@@ -132,11 +145,11 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     supportTier: 'STANDARD',
     sortOrder: 5,
     products: [
-      { code: 'ADDRESS_ONLY' },
-      { code: 'KYB_COMPLETE' },
-      { code: 'AOA_ONLY' },
-      { code: 'MANAGER_PERMISSIONS' },
-      { code: 'FREELANCER_CERTIFICATE' },
+      { code: 'ADDRESS_ONLY', unitPriceHalalas: 6_00 },
+      { code: 'KYB_COMPLETE', unitPriceHalalas: 25_00 },
+      { code: 'AOA_ONLY', unitPriceHalalas: 25_00 },
+      { code: 'MANAGER_PERMISSIONS', unitPriceHalalas: 25_00 },
+      { code: 'FREELANCER_CERTIFICATE', unitPriceHalalas: 28_00 },
     ],
   },
   {
@@ -144,13 +157,17 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     nameAr: 'الأساسية',
     nameEn: 'Essential',
     billingModel: 'MONTHLY',
+    // A monthly minimum of two hundred and fifty, expressed as the year it adds up to.
     includedTransactions: 3_000,
+    overageUnitHalalas: 20_00,
+    platformFeeHalalas: 0,
     descriptionAr: 'التحقق من المنشأة والعنوان الوطني، بالتزام سنوي يعود كاملاً رصيد خدمات.',
     termMonths: 12,
-    commitmentCreditsHalalas: 18_000_00,
+    commitmentCreditsHalalas: 60_000_00,
     setupFeeHalalas: 3_000_00,
     setupWaivedFromMonths: 24,
-    creditRolloverDays: 90,
+    // Capacity, not credit: what a month's minimum did not use does not follow it.
+    creditRolloverDays: 0,
     includedSeats: 5,
     extraSeatHalalas: 150_00,
     includedPortfolios: 3,
@@ -176,13 +193,19 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     nameAr: 'النمو',
     nameEn: 'Growth',
     billingModel: 'ANNUAL',
-    includedTransactions: 12_000,
+    includedTransactions: 3_000,
+    overageUnitHalalas: 18_00,
+    // Named rather than folded into the unit price, so the buyer can see what the
+    // platform costs and what a verification costs and argue with each separately.
+    platformFeeHalalas: 12_000_00,
     descriptionAr: 'كل ما في الأساسية، مع ملكية الآيبان وتأكيد الحساب البنكي ومطابقة الاسم والمراقبة المستمرة.',
     termMonths: 12,
-    commitmentCreditsHalalas: 60_000_00,
+    commitmentCreditsHalalas: 54_000_00,
     setupFeeHalalas: 3_000_00,
     setupWaivedFromMonths: 24,
-    creditRolloverDays: 90,
+    // Unused annual capacity expires with the term. Said in the offer, so it is a rule
+    // here rather than a surprise in month thirteen.
+    creditRolloverDays: 0,
     includedSeats: 15,
     extraSeatHalalas: 120_00,
     includedPortfolios: 10,
@@ -196,14 +219,16 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     supportTier: 'PRIORITY',
     sortOrder: 20,
     products: [
-      { code: 'ADDRESS_ONLY' },
-      { code: 'KYB_COMPLETE' },
-      { code: 'AOA_ONLY' },
-      { code: 'MANAGER_PERMISSIONS' },
-      { code: 'FREELANCER_CERTIFICATE' },
-      { code: 'IBAN_OWNERSHIP' },
-      { code: 'NAME_MATCH' },
-      { code: 'BANK_ACCOUNT_OWNERSHIP', monthlyQuota: 500 },
+      // The five services of the first quotation, each priced for what it costs rather
+      // than blended: an address check is not a company file.
+      { code: 'ADDRESS_ONLY', unitPriceHalalas: 4_00 },
+      { code: 'KYB_COMPLETE', unitPriceHalalas: 18_00 },
+      { code: 'AOA_ONLY', unitPriceHalalas: 18_00 },
+      { code: 'MANAGER_PERMISSIONS', unitPriceHalalas: 18_00 },
+      { code: 'FREELANCER_CERTIFICATE', unitPriceHalalas: 20_00 },
+      { code: 'IBAN_OWNERSHIP', unitPriceHalalas: 12_00 },
+      { code: 'NAME_MATCH', unitPriceHalalas: 8_00 },
+      { code: 'BANK_ACCOUNT_OWNERSHIP', monthlyQuota: 500, unitPriceHalalas: 15_00 },
     ],
   },
   {
@@ -217,6 +242,10 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     commitmentCreditsHalalas: 240_000_00,
     setupFeeHalalas: 0,
     setupWaivedFromMonths: 24,
+    // Credit, not capacity, and the distinction is the whole reason both figures exist:
+    // an enterprise commitment is money that comes back as usable credit, so what is
+    // unused carries ninety days as the blueprint promises. A plan that sells a count of
+    // verifications sells a year's worth of them, and those expire with the year.
     creditRolloverDays: 90,
     includedSeats: 50,
     extraSeatHalalas: 100_00,

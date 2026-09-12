@@ -14,7 +14,7 @@ export default function AuthLayout({ children }: { children: ReactNode }): React
         <span className="brand-mark" aria-hidden="true">
           NX
         </span>
-        <span>NX Verify</span>
+        <span>NX Trust</span>
       </div>
       <main id="main">{children}</main>
       <p className="faint auth-footnote">منصة تحقق وامتثال · جميع الحقول تحمل جهتها وتاريخ رصدها</p>

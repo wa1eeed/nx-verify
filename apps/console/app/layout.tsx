@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 import './tokens.css';
 
 export const metadata = {
-  title: 'NX Verify',
+  title: 'NX Trust',
   description: 'منصة تحقق وامتثال',
 };
 

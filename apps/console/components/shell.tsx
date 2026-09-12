@@ -41,7 +41,7 @@ export function Shell({
             <span className="brand-mark" aria-hidden="true">
               NX
             </span>
-            <span>NX Verify</span>
+            <span>NX Trust</span>
           </div>
           <Nav />
         </aside>

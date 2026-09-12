@@ -28,7 +28,7 @@ export function SignIn({ error, passwordAction, ssoAction }: SignInProps): React
     >
       <div>
         <h1>تسجيل الدخول</h1>
-        <p className="muted">ادخل إلى مساحة عملك في NX Verify.</p>
+        <p className="muted">ادخل إلى مساحة عملك في NX Trust.</p>
       </div>
 
       {error ? (

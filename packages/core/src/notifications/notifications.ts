@@ -54,7 +54,7 @@ export interface Message {
 const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
   'verification.completed': (url) => ({
     severity: 'INFO',
-    subject: 'اكتمل تحقق في NX Verify',
+    subject: 'اكتمل تحقق في NX Trust',
     body: [
       'اكتمل تحقق في مساحة عملك.',
       '',
@@ -76,7 +76,7 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
   }),
   'attestation.expired': (url) => ({
     severity: 'WARNING',
-    subject: 'انتهت صلاحية معرفة في NX Verify',
+    subject: 'انتهت صلاحية معرفة في NX Trust',
     body: [
       'انتهت صلاحية إحدى المعارف في مساحة عملك، وتحتاج تحققاً جديداً.',
       '',
