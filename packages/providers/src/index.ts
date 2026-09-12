@@ -42,3 +42,6 @@ export { LeanProvider, LEAN_ENDPOINTS } from './lean/lean-provider.js';
 export type { LeanEndpointMapping, LeanProviderOptions } from './lean/lean-provider.js';
 export { TokenCache } from './lean/token.js';
 export type { TokenRequest } from './lean/token.js';
+export { SANDBOX_TEST_CASES } from './stub/test-cases.js';
+export type { SandboxTestCase } from './stub/test-cases.js';
+export { SCENARIO_NAMES } from './stub/scenarios.js';

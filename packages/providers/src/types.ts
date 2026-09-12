@@ -40,6 +40,14 @@ export interface ProviderRequest {
   credential: ResolvedCredential;
   /** Passed through to providers that support it, so a retry is not a second charge. */
   idempotencyKey?: string | undefined;
+  /**
+   * Forces a named answer, in a sandbox only.
+   *
+   * A real provider ignores it: it has no way to be told what to reply, and would not be
+   * asked. The stub honours it so a customer's QA team can run the case they wrote rather
+   * than looking up which identifier produces it.
+   */
+  testScenario?: string | undefined;
   timeoutMs?: number | undefined;
 }
 

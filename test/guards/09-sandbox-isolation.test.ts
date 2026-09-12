@@ -10,6 +10,7 @@ import {
 import { buildEvidenceDocument } from '../../packages/core/src/evidence/document.js';
 import { renderEvidenceHtml } from '../../packages/core/src/evidence/render.js';
 import { isSandbox } from '../../packages/core/src/tenants/sandbox.js';
+import { issueApiKey } from '../../packages/core/src/auth/api-keys.js';
 import {
   createTestDatabase,
   seedTenant,
@@ -154,6 +155,35 @@ describe('guard 09: the sandbox is a different world', () => {
     const serialised = JSON.stringify(publicView);
     expect(serialised).not.toContain(sandbox.tenantId);
     expect(serialised).not.toContain('7001272184');
+  });
+
+  it('issues test keys in the sandbox and live keys in the real workspace', async () => {
+    const sandboxKey = await withTenant(db.appPool, sandbox.tenantId, (tx) =>
+      issueApiKey(tx, { name: 'sandbox integration' }),
+    );
+    const liveKey = await withTenant(db.appPool, live.tenantId, (tx) =>
+      issueApiKey(tx, { name: 'live integration' }),
+    );
+
+    expect(sandboxKey.environment).toBe('sandbox');
+    expect(sandboxKey.secret.startsWith('nx_test_')).toBe(true);
+    expect(liveKey.environment).toBe('live');
+    expect(liveKey.secret.startsWith('nx_live_')).toBe(true);
+  });
+
+  it('refuses a key whose environment disagrees with its workspace', async () => {
+    // The application chose this once and got it wrong, so the database decides. A key
+    // labelled sandbox that runs against production data is the exact confusion the
+    // sandbox exists to prevent.
+    await expect(
+      withTenant(db.appPool, live.tenantId, (tx) =>
+        tx.query(
+          `INSERT INTO api_keys (tenant_id, name, key_prefix, key_hash, scopes, environment)
+           VALUES ($1, 'forged', 'nx_test_zz', decode(repeat('ab',32),'hex'), '{}', 'sandbox')`,
+          [live.tenantId],
+        ),
+      ),
+    ).rejects.toThrow(/issues live keys/);
   });
 
   it('leaves a real document unstamped, so the notice means something', async () => {

@@ -1,5 +1,6 @@
 import {
   DEFAULT_SCENARIO,
+  SCENARIO_BY_NAME,
   STUB_SCENARIOS,
   scenarioKeyFor,
   type StubScenario,
@@ -80,9 +81,15 @@ export class StubProvider implements VerificationProvider {
       return Promise.resolve(this.#failure('AUTH', false));
     }
 
+    // A named scenario outranks the identifier, because a caller who asked for one was
+    // explicit and an identifier is a convention.
+    const named = request.testScenario
+      ? SCENARIO_BY_NAME.get(request.testScenario.toLowerCase())
+      : undefined;
     const key = scenarioKeyFor(request.input);
     const scenario =
       this.#override ??
+      named ??
       (key !== null ? (STUB_SCENARIOS.get(key) ?? DEFAULT_SCENARIO) : DEFAULT_SCENARIO);
 
     switch (scenario.kind) {

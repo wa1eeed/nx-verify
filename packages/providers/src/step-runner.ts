@@ -49,6 +49,8 @@ export interface StepRunnerOptions {
   /** Resolves the credential for a provider, from the binding that named it. */
   credentialFor: (provider: string, credentialRef?: string | null) => Promise<ResolvedCredential>;
   idempotencyKey?: string | undefined;
+  /** Forces a named answer from the stub. Ignored by a real provider, and by design. */
+  testScenario?: string | undefined;
   /** Receives shape only log records. Values never reach it. */
   onCall?: ((record: Record<string, unknown>) => void) | undefined;
 }
@@ -106,6 +108,7 @@ export function createProviderStepRunner(options: StepRunnerOptions) {
       input: request,
       credential,
       idempotencyKey: options.idempotencyKey,
+      testScenario: options.testScenario,
     });
 
     return {

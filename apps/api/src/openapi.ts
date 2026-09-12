@@ -65,8 +65,11 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
         StepResult: stepResult,
         Verification: {
           type: 'object',
-          required: ['verification_id', 'product', 'status', 'results'],
+          required: ['environment', 'verification_id', 'product', 'status', 'results'],
           properties: {
+            // Which world answered. A sandbox response is shaped exactly like a live one,
+            // so this is the field an integration checks before trusting the rest.
+            environment: { enum: ['sandbox', 'live'] },
             verification_id: { type: 'string', format: 'uuid' },
             // The number a support conversation is held with. The uuid stays the
             // identifier; this is for people.

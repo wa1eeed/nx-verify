@@ -28,7 +28,6 @@ export interface IssuedKey {
 
 export interface IssueKeyInput {
   name: string;
-  environment?: 'sandbox' | 'live';
   scopes?: string[];
 }
 
@@ -36,8 +35,25 @@ export function hashApiKey(secret: string): Buffer {
   return createHash('sha256').update(secret, 'utf8').digest();
 }
 
+/**
+ * Issues a key for the workspace it is issued in.
+ *
+ * The environment is read from the workspace rather than taken from the caller. It was a
+ * parameter once, defaulting to sandbox, which meant a key labelled sandbox and prefixed
+ * nx_test_ could run against production data: the exact confusion a sandbox exists to
+ * prevent. The database enforces the same rule with a trigger, because the application is
+ * the thing that got it wrong.
+ */
 export async function issueApiKey(tx: TenantTransaction, input: IssueKeyInput): Promise<IssuedKey> {
-  const environment = input.environment ?? 'sandbox';
+  const { rows: workspace } = await tx.query<{ sandbox_of: string | null }>(
+    `SELECT sandbox_of FROM tenants WHERE id = $1`,
+    [tx.tenantId],
+  );
+  if (workspace.length === 0) {
+    throw new NxError('NX-4041', { detail: 'no such workspace' });
+  }
+  const environment: 'sandbox' | 'live' =
+    workspace[0]?.sandbox_of === null ? 'live' : 'sandbox';
   // The prefix is part of the key, so a customer can match a console row to a key they
   // hold without either of us handling the whole value.
   const secret = `nx_${environment === 'live' ? 'live' : 'test'}_${randomBytes(KEY_BYTES).toString('base64url')}`;

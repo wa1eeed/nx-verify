@@ -62,6 +62,19 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
       const body = envelope.parse(request.body);
       const idempotencyKey = headerValue(request.headers['idempotency-key']);
 
+      /**
+       * A forced answer, in a sandbox only.
+       *
+       * A customer's QA team writes a case called "expired registration" and wants to run
+       * it. Honouring the header for a live key would let a caller choose its own result,
+       * which would make every result from this platform meaningless, so the check is on
+       * the environment of the key rather than on anything the request says about itself.
+       */
+      const testScenario =
+        caller.environment === 'sandbox'
+          ? headerValue(request.headers['x-nx-test-scenario'])
+          : null;
+
       const identifiers = body.identifiers
         ? body.identifiers.map((entry): IdentifierInput => ({
             idType: entry.type,
@@ -87,7 +100,9 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
           clientRef: body.reference ?? null,
           triggeredBy: 'API',
           modeAtExecution: 'BYOC',
-          runStep: context.stepRunnerFor(tx),
+          runStep: context.stepRunnerFor(tx, {
+            ...(testScenario === null ? {} : { testScenario }),
+          }),
           keys: context.keys,
         });
 
@@ -136,6 +151,10 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
       });
 
       const response = {
+        // First, because it changes what everything below it means. A test integration
+        // that cannot tell which world answered is a test integration that will one day
+        // read a sandbox result as a real one.
+        environment: caller.environment,
         verification_id: result.runId,
         // The number support conversations are held with. The id stays the identifier.
         reference: result.reference,
@@ -213,6 +232,7 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
       }
 
       const response = {
+        environment: caller.environment,
         verification_id: run.runId,
         reference: run.reference,
         product: run.productCode,

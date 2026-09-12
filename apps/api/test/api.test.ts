@@ -349,6 +349,30 @@ describe('the public API', () => {
     await broken.pool.end();
   });
 
+  it('says which world answered, on every verification it returns', async () => {
+    const created = await call('POST', '/v1/verifications', {
+      body: { product: 'KYB_COMPLETE', subject: { unn: '7001272184' } },
+    });
+    // The field an integration checks before trusting the rest, because a sandbox
+    // response is shaped exactly like a live one.
+    expect(created.json().environment).toBe('live');
+
+    const read = await call('GET', `/v1/verifications/${created.json().verification_id}`);
+    expect(read.json().environment).toBe('live');
+  });
+
+  it('refuses to let a live key choose its own answer', async () => {
+    const forced = await call('POST', '/v1/verifications', {
+      body: { product: 'ADDRESS_ONLY', subject: { unn: '7001272184' } },
+      headers: { 'x-nx-test-scenario': 'not_found' },
+    });
+
+    // Honouring this for a live key would let a caller pick its result, which would make
+    // every result from this platform meaningless.
+    expect(forced.statusCode).toBe(201);
+    expect(forced.json().status).not.toBe('NOT_FOUND');
+  });
+
   it('serves an OpenAPI document generated from the routes', async () => {
     const response = await call('GET', '/openapi.json', { key: null });
     expect(response.statusCode).toBe(200);

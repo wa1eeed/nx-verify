@@ -20,6 +20,7 @@ import { ApiKeys } from '../components/api-keys';
 import { Shell } from '../components/shell';
 import { OnboardingList } from '../components/onboarding';
 import { OperatorMargin } from '../components/operator-margin';
+import { Developer } from '../components/developer';
 import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
 import { Statement } from '../components/statement';
@@ -1058,5 +1059,63 @@ describe('the operator margin screen', () => {
   it('names no entity and no decision, because it reads counters and not runs', () => {
     expect(html).not.toContain('entity');
     expect(html).not.toContain('decision');
+  });
+});
+
+/**
+ * The screen an engineer opens with one afternoon to decide whether integrating will hurt.
+ */
+describe('the developer screen', () => {
+  const render = (isSandbox: boolean) =>
+    renderToStaticMarkup(
+      <Developer
+        view={{
+          isSandbox,
+          apiBaseUrl: 'https://api.nx.sa',
+          keyPrefix: 'nx_test_ab12',
+          testCases: [
+            {
+              input: '7000000010',
+              productCode: 'KYB_COMPLETE',
+              scenario: 'expired_cr',
+              titleAr: 'سجل تجاري منتهٍ',
+              expectedAr: 'المنشأة موجودة وحالة سجلها EXPIRED.',
+            },
+          ],
+          scenarioNames: ['success', 'expired_cr', 'not_found'],
+        }}
+      />,
+    );
+
+  it('publishes which input returns which answer, rather than describing it', () => {
+    const html = render(true);
+    expect(html).toContain('data-role="test-cases"');
+    expect(html).toContain('7000000010');
+    expect(html).toContain('سجل تجاري منتهٍ');
+    // A runnable call, in the address bar of the copy button rather than in a paragraph.
+    expect(html).toContain('data-role="curl"');
+    expect(html).toContain('/v1/verifications');
+  });
+
+  it('says how to tell the two worlds apart in a response', () => {
+    const html = render(true);
+    expect(html).toContain('data-role="environment-note"');
+    expect(html).toContain('environment');
+  });
+
+  it('offers the forced scenarios and says why a live key ignores them', () => {
+    const html = render(true);
+    expect(html).toContain('X-NX-Test-Scenario');
+    expect(html).toContain('data-role="scenario-name"');
+    // The sentence that makes the feature safe rather than clever.
+    expect(html).toContain('data-role="live-refusal"');
+    expect(html).toContain('لفقدت كل نتيجة من المنصة معناها');
+  });
+
+  it('tells a person in production that they are, without hiding the test data', () => {
+    const live = render(false);
+    expect(live).toContain('أنت في بيئة الإنتاج');
+    expect(live).toContain('data-role="test-cases"');
+    expect(live.match(/btn-primary/g)?.length).toBe(1);
   });
 });

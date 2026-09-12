@@ -40,7 +40,10 @@ export interface AppContext {
   withoutTenant: <T>(
     handler: (tx: Omit<TenantTransaction, 'tenantId'>) => Promise<T>,
   ) => Promise<T>;
-  stepRunnerFor: (tx: TenantTransaction) => ReturnType<typeof createProviderStepRunner>;
+  stepRunnerFor: (
+    tx: TenantTransaction,
+    options?: { testScenario?: string | undefined },
+  ) => ReturnType<typeof createProviderStepRunner>;
 }
 
 export interface BuildContextOptions {
@@ -81,10 +84,13 @@ export function buildContext(options: BuildContextOptions = {}): AppContext {
     publicBaseUrl: options.publicBaseUrl ?? process.env['NX_PUBLIC_BASE_URL'] ?? 'https://verify.nx.sa',
     withTenant: (tenantId, handler) => withTenant(pool, tenantId, handler),
     withoutTenant: (handler) => withoutTenant(pool, handler),
-    stepRunnerFor: (tx) =>
+    stepRunnerFor: (tx, runnerOptions) =>
       createProviderStepRunner({
         registry,
         credentialFor: (provider) => resolveCredential(tx, secrets, provider),
+        ...(runnerOptions?.testScenario === undefined
+          ? {}
+          : { testScenario: runnerOptions.testScenario }),
       }),
   };
 }
