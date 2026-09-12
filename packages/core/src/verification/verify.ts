@@ -14,6 +14,7 @@ import { normaliseRun, type NormaliseResult } from '../normalisation/normalise.j
 import { queueEvent } from '../webhooks/dispatch.js';
 import { decide, storeDecision, type Decision } from '../decision/engine.js';
 import { openCase } from '../review/queue.js';
+import { computeScore, storeScore } from '../monitoring/scoring.js';
 import { resolveRuleset } from '../portfolios/portfolios.js';
 import { resolveEntity, type IdentifierInput } from '../repositories/entities.js';
 import { computeBilling, maximumCharge, type BillingBreakdown } from '../billing/compute.js';
@@ -307,6 +308,21 @@ async function concludeRun(tx: TenantTransaction, input: ConcludeInput): Promise
     runId,
     steps: outcome.steps,
   });
+
+  /**
+   * The score, recomputed over the profile this run just changed.
+   *
+   * Stored rather than left to be worked out on every read. A list of a hundred customers
+   * cannot run a hundred scoring queries to draw itself, and a column that says "no score"
+   * for every row because nothing ever wrote one is a column that should not be there.
+   *
+   * It is a snapshot at the moment of the run and says so on screen. Freshness keeps
+   * moving afterwards without anybody calling anything, which is why the list shows the
+   * freshness state beside the score rather than instead of it.
+   */
+  if (input.subject !== '') {
+    await storeScore(tx, await computeScore(tx, input.subject));
+  }
 
   // The decision runs after normalisation, over the profile as it now stands rather than
   // over this run's steps alone. A verification that confirms two fields is judged

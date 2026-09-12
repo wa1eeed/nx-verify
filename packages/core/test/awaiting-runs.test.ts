@@ -42,7 +42,9 @@ function twoPhaseRunner(): { runner: StepRunner; answer: () => void } {
     return {
       outcome: 'OK' as const,
       authority: 'Commercial Registry',
-      data: { status: 'ACTIVE', name: 'مؤسسة الاختبار', capital: 500000 },
+      // The fields this product's map actually declares, so the profile gains something
+      // and the score has something to be about.
+      data: { city: 'الرياض', district: 'العليا', building_number: '2743' },
       latencyMs: 6,
       providerUsed: step.provider,
     };
@@ -91,7 +93,7 @@ describe('a run that waits for the provider', () => {
         runStep: async () => ({
           outcome: 'OK' as const,
           authority: 'Commercial Registry',
-          data: { status: 'ACTIVE' },
+          data: { city: 'جدة', district: 'الروضة', building_number: '1100' },
           latencyMs: 3,
         }),
         keys: KEYS,
@@ -172,6 +174,18 @@ describe('a run that waits for the provider', () => {
     const after = await withTenant(db.appPool, tenant.tenantId, (tx) => getWallet(tx));
     expect(before.balance - after.balance).toBe(synchronousCost);
     expect(after.held).toBe(0);
+  });
+
+  it('leaves a score behind, so a list of customers can be scanned', async () => {
+    // Computed on every run rather than only when a monitor happens to sweep. A column
+    // that says "no score" for every row because nothing ever wrote one is a column that
+    // should not be there.
+    const rows = await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      const result = await tx.query<{ score: number }>(`SELECT score FROM entity_scores`);
+      return result.rows;
+    });
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0]?.score).toBeGreaterThan(0);
   });
 
   it('leaves no delivery to be matched twice', async () => {

@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { FreshnessBadge } from '../../../components/freshness';
+import { TrustChip } from '../../../components/trust-dial';
 import { query } from '../../../lib/context';
 import { SAVED_VIEWS, findCompletenessGaps, findView, listRegistry } from '../../../lib/views';
 import { fieldLabel } from '../../../components/field-card';
@@ -77,6 +78,7 @@ export default async function RegistryPage({
             <tr>
               <th>الكيان</th>
               <th>الحقول</th>
+              <th>درجة الثقة</th>
               <th>الحالة</th>
               <th>آخر ظهور</th>
             </tr>
@@ -88,6 +90,9 @@ export default async function RegistryPage({
                   <a href={`/entities/${row.entityId}`}>{row.displayName ?? 'بلا اسم'}</a>
                 </td>
                 <td>{row.fieldCount}</td>
+                <td>
+                  <TrustChip score={row.score} computedAt={row.scoreAt} />
+                </td>
                 <td>
                   <FreshnessBadge state={row.worstFreshness} />
                 </td>

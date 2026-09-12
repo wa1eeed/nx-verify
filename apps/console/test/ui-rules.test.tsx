@@ -755,6 +755,54 @@ describe('the entity file groups what it knows', () => {
     // a refresh.
     expect(html).toContain('href="/entities/e1?tab=BANKING"');
   });
+
+  it('draws the score and says in words what it means', () => {
+    const html = render();
+    expect(html).toContain('data-role="trust-dial"');
+    // A band, not a bare number. Colour is not a label, and this screen gets printed.
+    expect(html).toMatch(/data-band="(STRONG|ADEQUATE|THIN|INSUFFICIENT)"/);
+    // The arc carries a text alternative, because a reader who cannot see it still has
+    // to be able to read the file.
+    expect(html).toContain('aria-label="درجة الثقة');
+    expect(html).toContain('data-role="coverage"');
+  });
+
+  it('says how current the open group is before showing its facts', () => {
+    const html = render();
+    expect(html).toContain('data-role="group-coverage"');
+  });
+
+  it('gives the coverage bar a segment with height to draw', () => {
+    // The bar lives in a row that centres its children, and a span with no text has no
+    // height to centre: without stretching it the bar renders as an empty groove that
+    // says nothing while claiming to.
+    const html = render();
+    expect(html).toMatch(/data-role="coverage"[\s\S]*?align-self:stretch/);
+  });
+});
+
+describe('the trust band', () => {
+  it('never describes the subject, only what we know about it', async () => {
+    const { trustBands } = await import('@nx-verify/core');
+    for (const band of trustBands()) {
+      // A freshness measure published as a verdict on a company is an opinion this
+      // platform is not licensed to publish. Every label is about our knowledge.
+      expect(band.labelAr).toContain('معرفة');
+    }
+  });
+
+  it('puts a score in exactly one band, at every boundary', async () => {
+    const { trustBandFor } = await import('@nx-verify/core');
+    expect(trustBandFor(null)).toBeNull();
+    expect(trustBandFor(100)?.band).toBe('STRONG');
+    expect(trustBandFor(80)?.band).toBe('STRONG');
+    expect(trustBandFor(79)?.band).toBe('ADEQUATE');
+    expect(trustBandFor(60)?.band).toBe('ADEQUATE');
+    expect(trustBandFor(59)?.band).toBe('THIN');
+    expect(trustBandFor(35)?.band).toBe('THIN');
+    expect(trustBandFor(34)?.band).toBe('INSUFFICIENT');
+    expect(trustBandFor(0)?.band).toBe('INSUFFICIENT');
+  });
 });
 
 describe('the subscriber portal', () => {

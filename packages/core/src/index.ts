@@ -265,6 +265,8 @@ export type {
   ExpiryAlert,
 } from './monitoring/monitors.js';
 export { computeScore, storeScore } from './monitoring/scoring.js';
+export { trustBandFor, trustBands } from './monitoring/trust-band.js';
+export type { TrustBand, TrustBandView } from './monitoring/trust-band.js';
 export type { EntityScore, ScoreComponent } from './monitoring/scoring.js';
 export {
   buildBundleContent,

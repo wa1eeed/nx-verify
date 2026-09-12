@@ -10,6 +10,7 @@ import { ChangeBadge, FreshnessBadge, type FreshnessState } from './freshness';
 import { Identifier } from './identifier';
 import { Timeline, type TimelineEntryView } from './timeline';
 import { Panel } from './page-header';
+import { CoverageBar, TrustDial, type CoverageCounts } from './trust-dial';
 
 /**
  * The file of one verified entity, laid out top to bottom as docs/01-blueprint.md
@@ -88,6 +89,7 @@ interface GroupSummary {
   fields: ProfileFieldView[];
   expired: number;
   changed: number;
+  coverage: CoverageCounts;
 }
 
 /**
@@ -107,12 +109,20 @@ function groupFields(fields: ProfileFieldView[], changed: Set<string>): GroupSum
   return FIELD_GROUP_ORDER.filter((group) => (byGroup.get(group)?.length ?? 0) > 0).map(
     (group): GroupSummary => {
       const groupFieldList = byGroup.get(group) ?? [];
+      const expired = groupFieldList.filter((field) => field.freshness === 'expired').length;
+      const expiring = groupFieldList.filter((field) => field.freshness === 'expiring').length;
       return {
         group,
         label: FIELD_GROUP_LABELS[group],
         fields: groupFieldList,
-        expired: groupFieldList.filter((field) => field.freshness === 'expired').length,
+        expired,
         changed: groupFieldList.filter((field) => changed.has(field.fieldPath)).length,
+        // Permanent fields count as current: a registration number does not go stale.
+        coverage: {
+          fresh: groupFieldList.length - expired - expiring,
+          expiring,
+          expired,
+        },
       };
     },
   );
@@ -128,6 +138,7 @@ export function Entity360({
   now,
 }: Entity360Props): ReactElement {
   const expired = fields.filter((field) => field.freshness === 'expired');
+  const expiring = fields.filter((field) => field.freshness === 'expiring');
   const changedPaths = new Set(changes.map((change) => change.fieldPath));
   const groups = groupFields(fields, changedPaths);
   const openGroup = groups.find((group) => group.group === tab) ?? groups[0];
@@ -158,31 +169,37 @@ export function Entity360({
         </div>
 
         {/*
-          The figures a reader checks before reading anything else. Kept together and
-          kept few: how good what we know is, how much of it there is, when we last
-          looked, and whether anything is waiting for them.
+          The figures a reader checks before reading anything else, in the order they are
+          checked. The score comes first and is drawn rather than printed, because it is
+          the one number that decides whether the rest is worth reading. The others follow
+          it and are deliberately smaller: a screen where six figures are equally loud is
+          a screen where the reader picks one at random.
         */}
-        <div className="grid" data-role="indicators" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
-          <div className="stat">
-            <span className="stat-label">درجة الثقة</span>
-            {header.score === null ? (
-              <span className="muted">لم تُحسب بعد</span>
-            ) : (
-              <strong className="stat-value">
-                <bdi dir="ltr" className="mono">
-                  {header.score}
-                </bdi>
-              </strong>
-            )}
-          </div>
-          <div className="stat">
+        <div
+          className="row"
+          data-role="headline"
+          style={{ gap: 'var(--s-5)', alignItems: 'center', flexWrap: 'wrap' }}
+        >
+          <TrustDial score={header.score} />
+          <div className="stack" style={{ gap: 'var(--s-2)', minWidth: '180px' }}>
             <span className="stat-label">الاكتمال</span>
-            <strong className="stat-value">
+            <CoverageBar
+              counts={{
+                fresh: fields.length - expired.length - expiring.length,
+                expiring: expiring.length,
+                expired: expired.length,
+              }}
+            />
+            <span className="stat-hint">
               <bdi dir="ltr" className="mono">
                 {header.completeness}%
-              </bdi>
-            </strong>
+              </bdi>{' '}
+              من الحقول التي يطلبها هذا النوع من الكيانات
+            </span>
           </div>
+        </div>
+
+        <div className="grid" data-role="indicators" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
           <div className="stat">
             <span className="stat-label">حقائق موثقة</span>
             <strong className="stat-value">
@@ -323,6 +340,25 @@ export function Entity360({
             </a>
           ))}
         </nav>
+      ) : null}
+
+      {/*
+        How current this group is, before the cards themselves. A reader who opened this
+        tab to answer one question gets the answer to a different one for free: whether
+        what they are about to read is worth trusting.
+      */}
+      {openGroup ? (
+        <section className="card" data-role="group-coverage" data-group={openGroup.group}>
+          <div
+            className="row"
+            style={{ justifyContent: 'space-between', alignItems: 'flex-end', gap: 'var(--s-4)' }}
+          >
+            <strong>{openGroup.label}</strong>
+            <div style={{ minWidth: '200px' }}>
+              <CoverageBar counts={openGroup.coverage} />
+            </div>
+          </div>
+        </section>
       ) : null}
 
       <section className="grid" data-role="fields">

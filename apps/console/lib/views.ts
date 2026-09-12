@@ -43,6 +43,13 @@ export interface RegistryRow {
   fieldCount: number;
   expiredCount: number;
   worstFreshness: 'fresh' | 'expiring' | 'expired' | 'permanent';
+  /** Null until a verification has produced a field to score. */
+  score: number | null;
+  /**
+   * When that score was worked out. Freshness keeps moving afterwards without anybody
+   * calling anything, so the date is shown rather than implied.
+   */
+  scoreAt: Date | null;
 }
 
 export async function listRegistry(
@@ -58,16 +65,23 @@ export async function listRegistry(
     field_count: string;
     expired_count: string;
     expiring_count: string;
+    score: number | null;
+    score_at: Date | null;
   }>(
+    // The score comes from the stored row rather than being recomputed per entity. A list
+    // of a hundred customers must not run a hundred scoring queries to draw itself.
     `SELECT e.id AS entity_id,
             e.display_name,
             e.entity_type,
             e.last_seen_at,
             count(p.field_path)::text AS field_count,
             count(*) FILTER (WHERE p.freshness = 'expired')::text AS expired_count,
-            count(*) FILTER (WHERE p.freshness = 'expiring')::text AS expiring_count
+            count(*) FILTER (WHERE p.freshness = 'expiring')::text AS expiring_count,
+            max(s.score) AS score,
+            max(s.computed_at) AS score_at
      FROM entities e
      LEFT JOIN entity_profile p ON p.tenant_id = e.tenant_id AND p.entity_id = e.id
+     LEFT JOIN entity_scores s ON s.tenant_id = e.tenant_id AND s.entity_id = e.id
      WHERE e.tenant_id = $1 AND e.entity_type = $2 AND e.archived_at IS NULL
      GROUP BY e.id, e.display_name, e.entity_type, e.last_seen_at
      ORDER BY e.last_seen_at DESC
@@ -82,6 +96,8 @@ export async function listRegistry(
     lastSeenAt: row.last_seen_at,
     fieldCount: Number(row.field_count),
     expiredCount: Number(row.expired_count),
+    score: row.score,
+    scoreAt: row.score_at,
     worstFreshness:
       Number(row.expired_count) > 0
         ? 'expired'
