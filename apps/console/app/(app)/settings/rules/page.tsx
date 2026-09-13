@@ -2,6 +2,8 @@ import type { ReactElement } from 'react';
 import { listRulesets, simulateRuleset } from '@nx-verify/core';
 import { RulesStudio, describeCondition, type RuleRowView } from '../../../../components/rules-studio';
 import { query } from '../../../../lib/context';
+import { SectionTabs } from '../../../../components/section-tabs';
+import { SETTINGS_TABS } from '../../../../components/nav';
 
 /**
  * Never prerendered and never cached.
@@ -55,19 +57,22 @@ export default async function RulesPage({
   }));
 
   return (
-    <RulesStudio
-      rulesetName={data.chosen.nameAr}
-      isDefault={data.chosen.isDefault}
-      rules={rules}
-      {...(data.simulation
-        ? {
-            simulation: {
-              entitiesEvaluated: data.simulation.entitiesEvaluated,
-              outcomes: data.simulation.outcomes,
-              changed: data.simulation.changed,
-            },
-          }
-        : {})}
-    />
+    <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      <SectionTabs tabs={SETTINGS_TABS} current="/settings/rules" label="أقسام الإعدادات" />
+      <RulesStudio
+        rulesetName={data.chosen.nameAr}
+        isDefault={data.chosen.isDefault}
+        rules={rules}
+        {...(data.simulation
+          ? {
+              simulation: {
+                entitiesEvaluated: data.simulation.entitiesEvaluated,
+                outcomes: data.simulation.outcomes,
+                changed: data.simulation.changed,
+              },
+            }
+          : {})}
+      />
+    </div>
   );
 }

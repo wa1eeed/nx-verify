@@ -64,7 +64,7 @@ export function Support({ view }: { view: SupportView }): ReactElement {
             أن نطلب وصفه.
           </li>
           <li>
-            راجع <a href="/logs?failures=1">النداءات الفاشلة</a> أولاً: الرمز هناك يقول ما
+            راجع <a href="/developers/logs?failures=1">النداءات الفاشلة</a> أولاً: الرمز هناك يقول ما
             حدث، وكثير منها يُحل بلا مراسلة.
           </li>
           <li data-role="never-send">

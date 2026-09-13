@@ -74,7 +74,7 @@ export function Developer({
             : 'أنت في بيئة الإنتاج. للتجربة استخدم مفتاح الاختبار والبيانات الجاهزة أدناه.'
         }
         action={
-          <a className="btn-primary" href="/settings/api-keys">
+          <a className="btn-primary" href="/developers">
             إصدار مفتاح
           </a>
         }

@@ -76,7 +76,7 @@ describe('the console renders real data', () => {
     renderToStaticMarkup(await element);
 
   it('shows the customer file with its fields, their source and its history', async () => {
-    const { default: EntityPage } = await import('../app/(app)/entities/[id]/page.js');
+    const { default: EntityPage } = await import('../app/(app)/customers/[id]/page.js');
     const html = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('شركة المثال للتجارة');
@@ -90,7 +90,7 @@ describe('the console renders real data', () => {
   });
 
   it('masks every identifier it shows', async () => {
-    const { default: EntityPage } = await import('../app/(app)/entities/[id]/page.js');
+    const { default: EntityPage } = await import('../app/(app)/customers/[id]/page.js');
     const html = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
 
     // Rule 4. The full value never reaches a screen.
@@ -101,8 +101,8 @@ describe('the console renders real data', () => {
   });
 
   it('never names the provider on any screen', async () => {
-    const { default: EntityPage } = await import('../app/(app)/entities/[id]/page.js');
-    const { default: RegistryPage } = await import('../app/(app)/registry/page.js');
+    const { default: EntityPage } = await import('../app/(app)/customers/[id]/page.js');
+    const { default: RegistryPage } = await import('../app/(app)/customers/page.js');
 
     const entity = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
     const registry = await render(RegistryPage({ searchParams: Promise.resolve({}) }));
@@ -115,22 +115,22 @@ describe('the console renders real data', () => {
   });
 
   it('lists the entity in the registry and links to it', async () => {
-    const { default: RegistryPage } = await import('../app/(app)/registry/page.js');
+    const { default: RegistryPage } = await import('../app/(app)/customers/page.js');
     const html = await render(
       RegistryPage({ searchParams: Promise.resolve({ view: 'businesses' }) }),
     );
 
-    expect(html).toContain(`/entities/${entityId}`);
+    expect(html).toContain(`/customers/${entityId}`);
     expect(html).toContain('شركة المثال للتجارة');
   });
 
   it('shows the people created by normalisation under their own saved view', async () => {
-    const { default: RegistryPage } = await import('../app/(app)/registry/page.js');
+    const { default: RegistryPage } = await import('../app/(app)/customers/page.js');
     const html = await render(RegistryPage({ searchParams: Promise.resolve({ view: 'people' }) }));
 
     // The manager became an entity of its own during normalisation, and appears here
     // without a screen having been written for managers.
-    expect(html).toContain('/entities/');
+    expect(html).toContain('/customers/');
     expect(html).toContain('الأشخاص');
   });
 
@@ -156,7 +156,7 @@ describe('the console renders real data', () => {
   });
 
   it('shows the retention settings with their source', async () => {
-    const { default: SettingsPage } = await import('../app/(app)/settings/freshness/page.js');
+    const { default: SettingsPage } = await import('../app/(app)/monitoring/freshness/page.js');
     const html = await render(SettingsPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('data-source="system"');
@@ -165,7 +165,7 @@ describe('the console renders real data', () => {
   });
 
   it('previews the impact of a retention change on this tenant own data', async () => {
-    const { default: SettingsPage } = await import('../app/(app)/settings/freshness/page.js');
+    const { default: SettingsPage } = await import('../app/(app)/monitoring/freshness/page.js');
     const html = await render(
       SettingsPage({
         searchParams: Promise.resolve({ field: 'cr.core.name', ttl: '1' }),
@@ -181,7 +181,7 @@ describe('the console renders real data', () => {
       setTenantTtl(tx, { fieldPath: 'cr.status', ttlDays: 3, weight: 20 }),
     );
 
-    const { default: SettingsPage } = await import('../app/(app)/settings/freshness/page.js');
+    const { default: SettingsPage } = await import('../app/(app)/monitoring/freshness/page.js');
     const html = await render(SettingsPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('data-source="tenant"');
@@ -190,8 +190,8 @@ describe('the console renders real data', () => {
 
   it('renders the risk dashboard, the queue and the portfolios on real data', async () => {
     const { default: DashboardPage } = await import('../app/(app)/dashboard/page');
-    const { default: QueuePage } = await import('../app/(app)/queue/page');
-    const { default: PortfoliosPage } = await import('../app/(app)/portfolios/page');
+    const { default: QueuePage } = await import('../app/(app)/verifications/reviews/page');
+    const { default: PortfoliosPage } = await import('../app/(app)/settings/portfolios/page');
 
     const dashboard = renderToStaticMarkup(await DashboardPage());
     const queue = renderToStaticMarkup(await QueuePage());
@@ -277,7 +277,7 @@ describe('the console renders real data', () => {
   });
 
   it('names no provider on a subscriber screen even while the operator panel does', async () => {
-    const { default: RegistryPage } = await import('../app/(app)/registry/page');
+    const { default: RegistryPage } = await import('../app/(app)/customers/page');
     const { default: DashboardPage } = await import('../app/(app)/dashboard/page');
 
     // The operator panel and these pages read the same database. Only one of them may
@@ -291,7 +291,7 @@ describe('the console renders real data', () => {
   });
 
   it('reports completeness gaps the tenant can act on', async () => {
-    const { default: RegistryPage } = await import('../app/(app)/registry/page.js');
+    const { default: RegistryPage } = await import('../app/(app)/customers/page.js');
     const html = await render(RegistryPage({ searchParams: Promise.resolve({ view: 'people' }) }));
 
     // People carry none of the business fields, so the gap section has something to say.

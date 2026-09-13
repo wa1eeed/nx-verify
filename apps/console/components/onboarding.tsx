@@ -69,7 +69,7 @@ export function OnboardingList({ cases }: { cases: CaseRowView[] }): ReactElemen
         title="التأهيل"
         subtitle="ملفات العملاء الجدد: ما فُحص، وما تبقّى، وأين وصل كل ملف."
         action={
-          <a className="btn-primary" href="/onboarding/new">
+          <a className="btn-primary" href="/verifications/onboarding/new">
             فتح ملف
           </a>
         }
@@ -125,7 +125,7 @@ export function OnboardingList({ cases }: { cases: CaseRowView[] }): ReactElemen
                 {cases.map((row) => (
                   <tr key={row.caseId} data-role="case-row" data-overdue={row.overdue ? 'true' : 'false'}>
                     <td>
-                      <a href={`/onboarding/${row.caseId}`}>
+                      <a href={`/verifications/onboarding/${row.caseId}`}>
                         <bdi dir="ltr" className="mono">
                           {row.reference}
                         </bdi>

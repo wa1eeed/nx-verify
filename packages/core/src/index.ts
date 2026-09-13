@@ -181,6 +181,8 @@ export {
   verify,
 } from './verification/verify.js';
 export type { ResumeInput, VerifyInput, VerifyResult } from './verification/verify.js';
+export { countRuns, listRecentRuns } from './verification/runs-log.js';
+export type { RunCounts, RunLogEntry, RunLogFilter } from './verification/runs-log.js';
 
 export {
   assertScope,

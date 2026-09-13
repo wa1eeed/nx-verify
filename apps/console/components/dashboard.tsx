@@ -66,7 +66,7 @@ export function Dashboard({ view }: { view: DashboardView }): ReactElement {
         title="الرئيسية"
         subtitle="ملخّص ما يحتاج انتباهك اليوم."
         action={
-          <a className="btn-primary" href="/queue">
+          <a className="btn-primary" href="/verifications/reviews">
             افتح المراجعات
           </a>
         }

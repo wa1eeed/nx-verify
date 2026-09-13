@@ -65,7 +65,7 @@ describe('the notification centre', () => {
     expect(item?.severity).toBe('critical');
     // Every row goes somewhere. A notification you cannot act on from makes somebody hunt
     // for the screen it meant.
-    expect(item?.href).toBe(`/entities/${tenant.entityId}`);
+    expect(item?.href).toBe(`/customers/${tenant.entityId}`);
     // Rule 4: no identifier reaches a notification, on screen or in a message.
     expect(`${item?.titleAr} ${item?.detailAr ?? ''}`).not.toMatch(/\d{10}/);
 

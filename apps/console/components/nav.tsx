@@ -1,92 +1,70 @@
-'use client';
-
-import { usePathname } from 'next/navigation';
 import type { ReactElement } from 'react';
+import { SectionNav, type SectionLink } from './section-nav';
+import type { SectionTab } from './section-tabs';
 
 /**
- * The navigation.
+ * The navigation: seven places, each a question a subscriber comes with.
  *
- * Grouped by who is looking rather than by which part of the system a screen belongs to.
- * A compliance officer opens four of these every day and never opens the rest; a
- * developer opens only their own four. Mixing the two groups made a settings list of nine
- * items that nobody read to the end.
+ * The owner's complaint about the previous navigation was that its sections repeated one
+ * another and did not say what they were for. It listed fifteen screens under four headings,
+ * so the same work was split across several links ("customers", "onboarding", "reviews",
+ * "portfolios") and a person had to know the system to know where to click.
  *
- * Labels are the words a customer would use. "Registry" and "risk board" were our words
- * for them, and a person looking for their customers should not have to learn either.
+ * Now the sidebar lists places, and the screens inside a place are its tabs:
  *
- * The current screen is marked with aria-current, so it is announced and not merely
- * tinted: colour on its own is not a label.
+ *   الرئيسية        what needs attention today
+ *   العملاء         every customer file, and adding one
+ *   عمليات التحقق   every verification that ran, and the ones waiting for a decision
+ *   المراقبة        what changed since the last check, and when facts go stale
+ *   الفوترة         the package, the balance, and the statement
+ *   المطوّرون       keys, sandbox, call log and the API reference
+ *   الإعدادات       team, decision rules, groups, notification channels, support
+ *
+ * Labels are the words a customer would use, and a place stays marked on every one of its
+ * tabs so moving between them never looks like leaving.
  */
 
-export interface NavItem {
-  href: string;
-  label: string;
-}
+export const SECTIONS: readonly SectionLink[] = [
+  { href: '/dashboard', label: 'الرئيسية' },
+  { href: '/customers', label: 'العملاء' },
+  { href: '/verifications', label: 'عمليات التحقق' },
+  { href: '/monitoring', label: 'المراقبة' },
+  { href: '/billing', label: 'الفوترة' },
+  { href: '/developers', label: 'المطوّرون' },
+  { href: '/settings', label: 'الإعدادات' },
+];
 
-export interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
+export const VERIFICATION_TABS: readonly SectionTab[] = [
+  { href: '/verifications', label: 'كل العمليات' },
+  { href: '/verifications/reviews', label: 'بانتظار قرار' },
+  { href: '/verifications/onboarding', label: 'ملفات التأهيل' },
+];
 
-export const NAV: NavGroup[] = [
-  {
-    label: 'العمل اليومي',
-    items: [
-      { href: '/dashboard', label: 'الرئيسية' },
-      { href: '/registry', label: 'العملاء' },
-      { href: '/onboarding', label: 'التأهيل' },
-      { href: '/queue', label: 'المراجعات' },
-      { href: '/portfolios', label: 'المجموعات' },
-    ],
-  },
-  {
-    label: 'الفوترة',
-    items: [
-      { href: '/usage', label: 'الباقة والرصيد' },
-      { href: '/billing', label: 'كشف الحساب' },
-    ],
-  },
-  {
-    label: 'المطوّرون',
-    items: [
-      { href: '/settings/api-keys', label: 'مفاتيح الـAPI' },
-      { href: '/developer', label: 'بيئة الاختبار' },
-      { href: '/logs', label: 'سجل النداءات' },
-      { href: '/docs', label: 'مرجع الـAPI' },
-    ],
-  },
-  {
-    label: 'الإعدادات',
-    items: [
-      { href: '/settings/users', label: 'المستخدمون' },
-      { href: '/settings/rules', label: 'قواعد القرار' },
-      { href: '/settings/freshness', label: 'مدد الصلاحية' },
-      { href: '/settings/notifications', label: 'قنوات الإشعار' },
-      { href: '/support', label: 'الدعم' },
-    ],
-  },
+export const MONITORING_TABS: readonly SectionTab[] = [
+  { href: '/monitoring', label: 'التغيّرات والتنبيهات' },
+  { href: '/monitoring/freshness', label: 'مدد الصلاحية' },
+];
+
+export const BILLING_TABS: readonly SectionTab[] = [
+  { href: '/billing', label: 'الباقة والرصيد' },
+  { href: '/billing/statement', label: 'كشف الحساب والشحن' },
+];
+
+export const DEVELOPER_TABS: readonly SectionTab[] = [
+  { href: '/developers', label: 'مفاتيح الـAPI' },
+  { href: '/developers/sandbox', label: 'بيئة الاختبار' },
+  { href: '/developers/logs', label: 'سجل النداءات' },
+  { href: '/developers/reference', label: 'مرجع الـAPI' },
+];
+
+export const SETTINGS_TABS: readonly SectionTab[] = [
+  { href: '/settings', label: 'الفريق' },
+  { href: '/settings/rules', label: 'قواعد القرار' },
+  { href: '/settings/portfolios', label: 'المجموعات' },
+  { href: '/settings/notifications', label: 'قنوات الإشعار' },
+  { href: '/settings/support', label: 'الدعم' },
 ];
 
 export function Nav(): ReactElement {
-  const pathname = usePathname();
-
-  return (
-    <nav aria-label="أقسام الكونسول" className="stack" style={{ gap: 'var(--s-5)' }}>
-      {NAV.map((group) => (
-        <div key={group.label} className="nav-group">
-          <span className="nav-label">{group.label}</span>
-          {group.items.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="nav-link"
-              {...(pathname === item.href ? { 'aria-current': 'page' as const } : {})}
-            >
-              {item.label}
-            </a>
-          ))}
-        </div>
-      ))}
-    </nav>
-  );
+  return <SectionNav sections={SECTIONS} label="أقسام المنصة" />;
 }

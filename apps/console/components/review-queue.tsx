@@ -83,7 +83,7 @@ export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
             {rows.map((row) => (
               <tr key={row.caseId} data-overdue={row.overdue ? 'true' : 'false'}>
                 <td>
-                  <a href={`/entities/${row.entityId}`}>{row.entityName ?? 'بلا اسم'}</a>
+                  <a href={`/customers/${row.entityId}`}>{row.entityName ?? 'بلا اسم'}</a>
                 </td>
                 <td>{row.reasonCodes.map(reasonLabel).join('، ')}</td>
                 <td>

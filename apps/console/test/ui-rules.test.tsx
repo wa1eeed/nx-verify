@@ -36,7 +36,17 @@ import { Support, supportTierLabel } from '../components/support';
 import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
 import { Statement } from '../components/statement';
-import { NAV } from '../components/nav';
+import {
+  BILLING_TABS,
+  DEVELOPER_TABS,
+  MONITORING_TABS,
+  SECTIONS,
+  SETTINGS_TABS,
+  VERIFICATION_TABS,
+} from '../components/nav';
+import { isInSection } from '../components/section-nav';
+import { readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { EmptyState, PageHeader, Panel } from '../components/page-header';
 import type { ProfileFieldView } from '../components/field-card';
 
@@ -571,20 +581,55 @@ describe('the change password screen', () => {
 describe('the console shell', () => {
   const html = renderToStaticMarkup(<Shell isSandbox={false}>{null}</Shell>);
 
-  it('groups the navigation by what a person came to do', () => {
-    expect(NAV.map((group) => group.label)).toEqual([
-      'العمل اليومي',
+  it('lists seven places, in the order a subscriber works through them', () => {
+    expect(SECTIONS.map((section) => section.label)).toEqual([
+      'الرئيسية',
+      'العملاء',
+      'عمليات التحقق',
+      'المراقبة',
       'الفوترة',
       'المطوّرون',
       'الإعدادات',
     ]);
-    const hrefs = NAV.flatMap((group) => group.items.map((item) => item.href));
-    // No link appears twice, and every screen in the app is reachable from the shell.
+  });
+
+  it('puts every tab inside exactly one place, and repeats no link', () => {
+    const tabs = [VERIFICATION_TABS, MONITORING_TABS, BILLING_TABS, DEVELOPER_TABS, SETTINGS_TABS].flat();
+    const hrefs = tabs.map((tab) => tab.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
-    expect(hrefs).toContain('/dashboard');
-    expect(hrefs).toContain('/settings/notifications');
-    expect(hrefs).toContain('/usage');
-    expect(hrefs).toContain('/settings/api-keys');
+    for (const tab of tabs) {
+      const owners = SECTIONS.filter((section) => isInSection(tab.href, section));
+      expect(owners.map((owner) => owner.label), tab.href).toHaveLength(1);
+    }
+  });
+
+  it('reaches every screen in the console from a place or one of its tabs', () => {
+    // Walked from the file system, so a screen added later without a way to reach it
+    // fails here rather than being found by a customer who cannot find it.
+    const root = join(__dirname, '../app/(app)');
+    const pages: string[] = [];
+    const walk = (dir: string): void => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) {
+          walk(path);
+        } else if (name === 'page.tsx') {
+          pages.push(`/${relative(root, dir)}`.replace(/\/$/, ''));
+        }
+      }
+    };
+    walk(root);
+
+    const reachable = new Set([
+      ...SECTIONS.map((section) => section.href),
+      ...[VERIFICATION_TABS, MONITORING_TABS, BILLING_TABS, DEVELOPER_TABS, SETTINGS_TABS].flat().map((tab) => tab.href),
+    ]);
+    const unreachable = pages.filter(
+      (page) =>
+        // A detail screen is reached from its list, and the inbox from the bell.
+        !page.includes('[') && page !== '/notifications' && !reachable.has(page),
+    );
+    expect(unreachable).toEqual([]);
   });
 
   it('lets a keyboard skip the navigation, and offers the way out', () => {
@@ -760,7 +805,7 @@ describe('the entity file groups what it knows', () => {
     expect(html).toContain('آخر تحقق');
     // The tab links carry no script: they work behind a locked down browser and survive
     // a refresh.
-    expect(html).toContain('href="/entities/e1?tab=BANKING"');
+    expect(html).toContain('href="/customers/e1?tab=BANKING"');
   });
 
   it('draws the score and says in words what it means', () => {
@@ -844,7 +889,7 @@ describe('the profile a third party sees', () => {
     expect(html).not.toContain('<button');
     expect(html).not.toContain('<form');
     // And no way into the console, which they cannot enter.
-    expect(html).not.toContain('href="/registry"');
+    expect(html).not.toContain('href="/customers"');
     expect(html).not.toContain('href="/dashboard"');
   });
 
@@ -1156,7 +1201,7 @@ describe('the notification centre', () => {
       titleAr: 'تغيّر في بيانات عميل',
       detailAr: 'الحقل cr.status تغيّر منذ آخر تحقق.',
       at: new Date('2026-09-12T10:00:00Z'),
-      href: '/entities/e1',
+      href: '/customers/e1',
       severity: 'critical' as const,
     },
     {
@@ -1165,7 +1210,7 @@ describe('the notification centre', () => {
       titleAr: 'مراجعة تنتظر قراراً',
       detailAr: null,
       at: new Date('2026-09-10T10:00:00Z'),
-      href: '/queue',
+      href: '/verifications/reviews',
       severity: 'info' as const,
     },
   ];
@@ -1173,8 +1218,8 @@ describe('the notification centre', () => {
   it('sends every notification somewhere it can be acted on', () => {
     const html = renderToStaticMarkup(<Inbox items={items} seenAt={null} />);
     // A notification you cannot act on from makes somebody hunt for the screen it meant.
-    expect(html).toContain('href="/entities/e1"');
-    expect(html).toContain('href="/queue"');
+    expect(html).toContain('href="/customers/e1"');
+    expect(html).toContain('href="/verifications/reviews"');
   });
 
   it('marks what arrived after the last look, and leaves the rest readable', () => {

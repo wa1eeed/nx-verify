@@ -1,65 +1,54 @@
 import type { ReactElement } from 'react';
-import { buildStatement, listProducts, listTopUpRequests } from '@nx-verify/core';
-import { Statement, type StatementView } from '../../../components/statement';
-import { TopUpPanel, type TopUpRowView } from '../../../components/topup';
-import { requestTopUpAction } from './topup-actions';
+import { getCommitment, getWallet, listEntitlements, listProducts } from '@nx-verify/core';
+import { Usage, type EntitlementView, type UsageView } from '../../../components/usage';
 import { query } from '../../../lib/context';
+import { SectionTabs } from '../../../components/section-tabs';
+import { BILLING_TABS } from '../../../components/nav';
 
 export const dynamic = 'force-dynamic';
 
-export default async function BillingPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}): Promise<ReactElement> {
-  const requests = await query((tx) => listTopUpRequests(tx));
+export default async function UsagePage(): Promise<ReactElement> {
+  const view = await query(async (tx): Promise<UsageView> => {
+    const [commitment, wallet, entitlements, products] = await Promise.all([
+      getCommitment(tx),
+      getWallet(tx),
+      listEntitlements(tx),
+      listProducts(tx),
+    ]);
 
-  const view = await query(async (tx): Promise<StatementView> => {
-    const [statement, products] = await Promise.all([buildStatement(tx), listProducts(tx)]);
     const nameOf = new Map(products.map((product) => [product.code, product.nameAr]));
 
     return {
-      lines: statement.lines.map((line) => ({
-        month: line.month,
-        productNameAr:
-          line.productCode === null ? 'غير محدد' : (nameOf.get(line.productCode) ?? line.productCode),
-        runs: line.runs,
-        amountHalalas: line.amountHalalas,
-      })),
-      topUps: statement.topUps,
-      spentThisTermHalalas: statement.spentThisTermHalalas,
-      extras: statement.extras,
+      packageNameAr: commitment?.packageNameAr ?? null,
+      packageCode: commitment?.packageCode ?? null,
+      status: commitment?.status ?? null,
+      termStart: commitment?.termStart ?? null,
+      termEnd: commitment?.termEnd ?? null,
+      includedTransactions: commitment?.includedTransactions ?? null,
+      transactionsUsed: commitment?.transactionsUsed ?? 0,
+      balanceHalalas: wallet.balance,
+      heldHalalas: wallet.held,
+      availableHalalas: wallet.available,
+      isLow: wallet.isLow,
+      entitlements: entitlements.map(
+        (entry): EntitlementView => ({
+          productCode: entry.productCode,
+          nameAr: nameOf.get(entry.productCode) ?? entry.productCode,
+          allowed: entry.allowed,
+          refusal: entry.refusal,
+          quota: entry.quota,
+          used: entry.used,
+          remaining: entry.remaining,
+          negotiated: entry.negotiated,
+        }),
+      ),
     };
   });
 
-  const rows: TopUpRowView[] = requests.map((request) => ({
-    id: request.id,
-    reference: request.reference,
-    amountHalalas: request.amountHalalas,
-    totalWithVatHalalas: request.totalWithVatHalalas,
-    status: request.status,
-    requestedAt: request.requestedAt,
-    vatInvoiceId: request.vatInvoiceId,
-    note: request.note,
-  }));
-
-  const asked = (await searchParams)['topup'];
-  const issued =
-    typeof asked === 'string' ? (rows.find((row) => row.reference === asked) ?? null) : null;
-
   return (
-    <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <Statement view={view} />
-      <TopUpPanel
-        requests={rows}
-        issued={issued}
-        bank={{
-          accountName: process.env['NX_BANK_ACCOUNT_NAME'] ?? null,
-          bankName: process.env['NX_BANK_NAME'] ?? null,
-          iban: process.env['NX_BANK_IBAN'] ?? null,
-        }}
-        requestAction={requestTopUpAction}
-      />
+    <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      <SectionTabs tabs={BILLING_TABS} current="/billing" label="أقسام الفوترة" />
+      <Usage view={view} />
     </div>
   );
 }

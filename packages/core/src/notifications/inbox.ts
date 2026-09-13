@@ -66,7 +66,7 @@ export async function listInbox(
       titleAr: 'تغيّر في بيانات عميل',
       detailAr: `الحقل ${row.field_path} تغيّر منذ آخر تحقق.`,
       at: row.detected_at,
-      href: `/entities/${row.entity_id}`,
+      href: `/customers/${row.entity_id}`,
       severity: row.severity === 'CRITICAL' ? 'critical' : 'warning',
     });
   }
@@ -93,7 +93,7 @@ export async function listInbox(
       titleAr: row.overdue ? 'مراجعة تجاوزت مهلتها' : 'مراجعة تنتظر قراراً',
       detailAr: null,
       at: row.opened_at,
-      href: '/queue',
+      href: '/verifications/reviews',
       severity: row.overdue ? 'critical' : 'info',
     });
   }
@@ -131,7 +131,7 @@ export async function listInbox(
       titleAr: 'تحقق بانتظار جواب الجهة',
       detailAr: 'لا حاجة لإعادة الطلب. سنكمله حين يصل الجواب.',
       at: row.created_at,
-      href: '/logs',
+      href: '/developers/logs',
       severity: 'info',
     });
   }
@@ -155,7 +155,7 @@ export async function listInbox(
       titleAr: 'فُتح ملف شاركته',
       detailAr: `عدد مرات الفتح: ${row.view_count}.`,
       at: row.last_viewed_at,
-      href: `/entities/${row.entity_id}`,
+      href: `/customers/${row.entity_id}`,
       severity: 'info',
     });
   }

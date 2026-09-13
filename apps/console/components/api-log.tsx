@@ -68,12 +68,12 @@ export function ApiLog({
       </section>
 
       <nav className="tabs" aria-label="تصفية">
-        <a className="tab" href="/logs" {...(failuresOnly ? {} : { 'aria-current': 'page' as const })}>
+        <a className="tab" href="/developers/logs" {...(failuresOnly ? {} : { 'aria-current': 'page' as const })}>
           الكل
         </a>
         <a
           className="tab"
-          href="/logs?failures=1"
+          href="/developers/logs?failures=1"
           {...(failuresOnly ? { 'aria-current': 'page' as const } : {})}
           data-role="failures-filter"
         >

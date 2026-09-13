@@ -80,7 +80,7 @@ export function OnboardingCaseView({ view }: { view: CaseDetailView }): ReactEle
         subtitle={`${view.journeyNameAr} · ${view.entityName ?? 'متقدّم لم يُحَل بعد'}`}
         action={
           view.entityId ? (
-            <a className="btn-secondary" href={`/entities/${view.entityId}`}>
+            <a className="btn-secondary" href={`/customers/${view.entityId}`}>
               ملف الكيان
             </a>
           ) : undefined
@@ -156,7 +156,7 @@ export function OnboardingCaseView({ view }: { view: CaseDetailView }): ReactEle
                   </td>
                   <td>
                     {step.runId ? (
-                      <a href={`/registry?run=${step.runId}`}>
+                      <a href={`/verifications?run=${step.runId}`}>
                         <bdi dir="ltr" className="mono">
                           {step.runReference ?? 'عرض'}
                         </bdi>

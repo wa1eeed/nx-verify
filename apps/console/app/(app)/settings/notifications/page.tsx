@@ -2,6 +2,8 @@ import type { ReactElement } from 'react';
 import { listChannels } from '@nx-verify/core';
 import { NotificationSettings, type ChannelView } from '../../../../components/notification-settings';
 import { query } from '../../../../lib/context';
+import { SectionTabs } from '../../../../components/section-tabs';
+import { SETTINGS_TABS } from '../../../../components/nav';
 
 /** Never prerendered: one subscriber's configuration, read at request time. */
 export const dynamic = 'force-dynamic';
@@ -38,5 +40,10 @@ export default async function NotificationsPage(): Promise<ReactElement> {
     }));
   });
 
-  return <NotificationSettings channels={channels} />;
+  return (
+    <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      <SectionTabs tabs={SETTINGS_TABS} current="/settings/notifications" label="أقسام الإعدادات" />
+      <NotificationSettings channels={channels} />
+    </div>
+  );
 }

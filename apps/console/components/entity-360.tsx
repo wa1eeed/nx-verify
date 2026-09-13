@@ -329,7 +329,7 @@ export function Entity360({
             <a
               key={group.group}
               className="tab"
-              href={`/entities/${header.entityId}?tab=${group.group}`}
+              href={`/customers/${header.entityId}?tab=${group.group}`}
               {...(openGroup?.group === group.group ? { 'aria-current': 'page' as const } : {})}
               data-group={group.group}
             >
@@ -401,7 +401,7 @@ export function Entity360({
                 >
                   <td>{RELATION_LABELS[relation.relType] ?? relation.relType}</td>
                   <td>
-                    <a href={`/entities/${relation.otherEntityId}`}>
+                    <a href={`/customers/${relation.otherEntityId}`}>
                       {relation.otherName ?? 'بلا اسم'}
                     </a>
                   </td>
@@ -439,14 +439,14 @@ export function Entity360({
         <button
           type="submit"
           className="btn-primary"
-          formAction={`/entities/${header.entityId}/verify`}
+          formAction={`/customers/${header.entityId}/verify`}
         >
           تحديث التحقق
         </button>
-        <a className="btn-secondary" href={`/entities/${header.entityId}/evidence`}>
+        <a className="btn-secondary" href={`/customers/${header.entityId}/evidence`}>
           ملف الدليل
         </a>
-        <a className="btn-secondary" href={`/entities/${header.entityId}/monitor`}>
+        <a className="btn-secondary" href={`/customers/${header.entityId}/monitor`}>
           تفعيل المراقبة
         </a>
       </section>
