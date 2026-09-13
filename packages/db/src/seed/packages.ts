@@ -109,6 +109,15 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'NAME_MATCH' },
       { code: 'BANK_ACCOUNT_OWNERSHIP' },
       { code: 'INCOME_VERIFICATION' },
+      // The customer file checks, one verification each.
+      { code: 'CR_FULL' },
+      { code: 'ARTICLES_OF_ASSOCIATION' },
+      { code: 'MANAGER_AUTHORITY' },
+      { code: 'NATIONAL_ADDRESS' },
+      { code: 'IBAN_VERIFICATION' },
+      { code: 'IBAN_BENEFICIARY_NAME' },
+      { code: 'FREELANCE_CERTIFICATE' },
+      { code: 'PROPERTY_VERIFICATION' },
     ],
   },
   {
@@ -163,6 +172,16 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'BANK_ACCOUNT_OWNERSHIP', unitPriceHalalas: 25_00 },
       { code: 'INCOME_VERIFICATION', unitPriceHalalas: 25_00 },
       { code: 'PROPERTY_DEED', unitPriceHalalas: 25_00 },
+      // The customer file checks. One call to the data source each, so one price each: ten
+      // riyals of cost for a verification and two for the national address.
+      { code: 'CR_FULL', unitPriceHalalas: 20_00 },
+      { code: 'ARTICLES_OF_ASSOCIATION', unitPriceHalalas: 20_00 },
+      { code: 'MANAGER_AUTHORITY', unitPriceHalalas: 20_00 },
+      { code: 'NATIONAL_ADDRESS', unitPriceHalalas: 6_00 },
+      { code: 'IBAN_VERIFICATION', unitPriceHalalas: 20_00 },
+      { code: 'IBAN_BENEFICIARY_NAME', unitPriceHalalas: 20_00 },
+      { code: 'FREELANCE_CERTIFICATE', unitPriceHalalas: 20_00 },
+      { code: 'PROPERTY_VERIFICATION', unitPriceHalalas: 20_00 },
     ],
   },
   {
@@ -199,6 +218,11 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'AOA_ONLY' },
       { code: 'MANAGER_PERMISSIONS' },
       { code: 'FREELANCER_CERTIFICATE' },
+      { code: 'CR_FULL' },
+      { code: 'ARTICLES_OF_ASSOCIATION' },
+      { code: 'MANAGER_AUTHORITY' },
+      { code: 'NATIONAL_ADDRESS' },
+      { code: 'FREELANCE_CERTIFICATE' },
     ],
   },
   {
@@ -245,6 +269,16 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'BANK_ACCOUNT_OWNERSHIP', monthlyQuota: 500, unitPriceHalalas: 20_00 },
       { code: 'INCOME_VERIFICATION', unitPriceHalalas: 20_00 },
       { code: 'PROPERTY_DEED', unitPriceHalalas: 20_00 },
+      // The customer file checks. One call to the data source each, so one price each: ten
+      // riyals of cost for a verification and two for the national address.
+      { code: 'CR_FULL', unitPriceHalalas: 16_00 },
+      { code: 'ARTICLES_OF_ASSOCIATION', unitPriceHalalas: 16_00 },
+      { code: 'MANAGER_AUTHORITY', unitPriceHalalas: 16_00 },
+      { code: 'NATIONAL_ADDRESS', unitPriceHalalas: 4_00 },
+      { code: 'IBAN_VERIFICATION', unitPriceHalalas: 16_00 },
+      { code: 'IBAN_BENEFICIARY_NAME', unitPriceHalalas: 16_00 },
+      { code: 'FREELANCE_CERTIFICATE', unitPriceHalalas: 16_00 },
+      { code: 'PROPERTY_VERIFICATION', unitPriceHalalas: 16_00 },
     ],
   },
   {
@@ -286,6 +320,15 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'BANK_ACCOUNT_OWNERSHIP' },
       { code: 'INCOME_VERIFICATION' },
       { code: 'PROPERTY_DEED' },
+      // The customer file checks, one verification each.
+      { code: 'CR_FULL' },
+      { code: 'ARTICLES_OF_ASSOCIATION' },
+      { code: 'MANAGER_AUTHORITY' },
+      { code: 'NATIONAL_ADDRESS' },
+      { code: 'IBAN_VERIFICATION' },
+      { code: 'IBAN_BENEFICIARY_NAME' },
+      { code: 'FREELANCE_CERTIFICATE' },
+      { code: 'PROPERTY_VERIFICATION' },
     ],
   },
 ];

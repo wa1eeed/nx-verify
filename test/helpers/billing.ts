@@ -2,6 +2,7 @@ import { withTenant, withoutTenant } from '../../packages/db/src/client.js';
 import type { TestDatabase } from './db.js';
 import { applyProductSeed } from '../../packages/db/src/seed/products.js';
 import { applyPackageSeed } from '../../packages/db/src/seed/packages.js';
+import { applyDefaultPriceSeed } from '../../packages/db/src/seed/default-prices.js';
 import { openPriceVersion } from '../../packages/core/src/billing/price-book.js';
 import { topUp } from '../../packages/core/src/billing/wallet.js';
 import { invalidateSchemaCache } from '../../packages/core/src/products/input-validation.js';
@@ -87,6 +88,9 @@ export async function preparePricedTenant(
   // The catalogue of plans and who is on which belong to the operator, so they are
   // written on the operator connection exactly as provisioning does it.
   await applyPackageSeed(db.operatorPool);
+  // The default list price of each customer file check, on the owner role, as provisioning
+  // publishes it.
+  await applyDefaultPriceSeed(db.migratorPool);
   await db.operatorPool.query(
     `INSERT INTO tenant_commitments (tenant_id, package_code, term_months,
                                      credits_granted_halalas, setup_fee_halalas,

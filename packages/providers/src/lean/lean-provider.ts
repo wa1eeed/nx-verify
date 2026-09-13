@@ -1,5 +1,7 @@
 import { TokenCache, type FetchLike } from './token.js';
+import { LEAN_VERIFICATION_ENDPOINTS } from './verification-endpoints.js';
 import type {
+  ProviderErrorCode,
   ProviderHealth,
   ProviderRequest,
   ProviderResult,
@@ -27,10 +29,22 @@ export interface LeanEndpointMapping {
   authority: string;
   /** Builds the upstream body from the flat input a step_field_map binding produced. */
   body: (input: Readonly<Record<string, unknown>>) => Record<string, unknown>;
-  /** Turns the upstream payload into the flat bag normalisation expects. */
-  map: (payload: Record<string, unknown>) => Record<string, unknown>;
+  /**
+   * Turns the upstream payload into the flat bag normalisation expects. The request's own
+   * input is passed too, because some answers only make sense beside the question: which
+   * certificate was asked about, which of two registry numbers is the one we sent.
+   */
+  map: (payload: Record<string, unknown>, input: Readonly<Record<string, unknown>>) => Record<string, unknown>;
   /** Reads the upstream's own status vocabulary. */
   outcome?: (payload: Record<string, unknown>) => 'OK' | 'NOT_FOUND' | 'ERROR' | 'AWAITING';
+  /**
+   * The authority, when it depends on the answer: an account confirmed through the
+   * national payments rail and one confirmed by the bank directly are two different
+   * authorities, and a subscriber is owed the right one.
+   */
+  authorityFor?: (payload: Record<string, unknown>) => string;
+  /** Our error code for an answer the outcome reads as ERROR. */
+  failureCode?: (payload: Record<string, unknown>) => ProviderErrorCode;
   /**
    * What the provider will name when it calls back, read from the payload it answered
    * with. Required for an endpoint whose outcome can be AWAITING: without it there is
@@ -52,6 +66,8 @@ const asRecord = (value: unknown): Record<string, unknown> =>
  * ours, and the two vocabularies meet here and nowhere else.
  */
 export const LEAN_ENDPOINTS: Readonly<Record<string, LeanEndpointMapping>> = {
+  // The verification products: registry, managers, address, freelance, IBAN, property.
+  ...LEAN_VERIFICATION_ENDPOINTS,
   bank_account_ownership: {
     path: '/verifications/v1/accounts',
     // The scheme that confirms a payee, not the company that carried the question.
@@ -351,14 +367,25 @@ export class LeanProvider implements VerificationProvider {
       }
       return { outcome, authority: mapping.authority, data: null, latencyMs, correlation };
     }
+    if (outcome === 'ERROR') {
+      // A failure of the source, answered politely. Not billed, and named by our code.
+      return {
+        outcome,
+        authority: null,
+        data: null,
+        latencyMs,
+        errorCode: mapping.failureCode?.(payload) ?? 'UPSTREAM',
+        retryable: (mapping.failureCode?.(payload) ?? 'UPSTREAM') === 'UPSTREAM',
+      };
+    }
     if (outcome !== 'OK') {
-      return { outcome, authority: mapping.authority, data: null, latencyMs };
+      return { outcome, authority: mapping.authorityFor?.(payload) ?? mapping.authority, data: null, latencyMs };
     }
 
     return {
       outcome: 'OK',
-      authority: mapping.authority,
-      data: mapping.map(payload),
+      authority: mapping.authorityFor?.(payload) ?? mapping.authority,
+      data: mapping.map(payload, input),
       latencyMs,
     };
   }

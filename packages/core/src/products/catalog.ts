@@ -35,6 +35,8 @@ export interface ProductDefinition {
   partialPolicy: PartialPolicy;
   decisionRuleset: string | null;
   status: 'active' | 'retired';
+  /** Whether it can run now, or is documented and not yet enabled at the source. */
+  availability: 'AVAILABLE' | 'COMING_SOON';
   steps: ProductStepDefinition[];
 }
 
@@ -52,9 +54,10 @@ export async function getProduct(
     partial_policy: PartialPolicy;
     decision_ruleset: string | null;
     status: 'active' | 'retired';
+    availability: 'AVAILABLE' | 'COMING_SOON';
   }>(
     `SELECT code, name_ar, name_en, subject_type, input_schema, is_composite,
-            partial_policy, decision_ruleset, status
+            partial_policy, decision_ruleset, status, availability
      FROM products
      WHERE code = $1 AND status = 'active'
        AND valid_from <= now() AND (valid_to IS NULL OR valid_to > now())`,
@@ -96,6 +99,7 @@ export async function getProduct(
     partialPolicy: product.partial_policy,
     decisionRuleset: product.decision_ruleset,
     status: product.status,
+    availability: product.availability,
     steps: stepRows.map((row) => ({
       stepKey: row.step_key,
       seq: row.seq,

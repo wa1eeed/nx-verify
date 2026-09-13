@@ -36,6 +36,7 @@ function productFromSeed(partialPolicy: 'BEST_EFFORT' | 'ALL_OR_NOTHING'): Produ
     partialPolicy,
     decisionRuleset: null,
     status: 'active',
+    availability: 'AVAILABLE',
     steps: KYB.steps.map((step): ProductStepDefinition => ({
       stepKey: step.stepKey,
       seq: step.seq,

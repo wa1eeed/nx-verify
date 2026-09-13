@@ -1,6 +1,6 @@
 import type { Queryable } from '@nx-verify/db';
 import type { EndpointMapping } from './http/response-mapping.js';
-import type { LeanEndpointMapping } from './lean/lean-provider.js';
+import { LEAN_ENDPOINTS, type LeanEndpointMapping } from './lean/lean-provider.js';
 
 /**
  * A provider's endpoint map, read from rows.
@@ -158,7 +158,10 @@ export function openBankingMappingsFor(
     return null;
   }
 
-  const mappings: Record<string, LeanEndpointMapping> = {};
+  // Rows are laid over the map compiled into the adapter rather than replacing it. A row
+  // entered for one endpoint must not make every other endpoint disappear, which is what
+  // returning the rows alone did.
+  const mappings: Record<string, LeanEndpointMapping> = { ...LEAN_ENDPOINTS };
   for (const row of mine) {
     const bodyTemplate = row.bodyMap ?? {};
     const fieldMap = row.fieldMap;

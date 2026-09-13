@@ -4,6 +4,7 @@ import { applyProductSeed } from '../packages/db/src/seed/products.js';
 import { applyPackageSeed } from '../packages/db/src/seed/packages.js';
 import { applyProviderSeed } from '../packages/db/src/seed/providers.js';
 import { applyCostSeed } from '../packages/db/src/seed/costs.js';
+import { applyDefaultPriceSeed } from '../packages/db/src/seed/default-prices.js';
 import { setTenantPackage } from '../packages/core/src/billing/package-admin.js';
 import { issueApiKey } from '../packages/core/src/auth/api-keys.js';
 import { createUser } from '../packages/core/src/auth/users.js';
@@ -124,6 +125,31 @@ async function main(): Promise<void> {
           await applyCostSeed(tx);
         });
 
+        // The default list price of each check belongs to no subscriber, so it is written on
+        // the owner role, the only one the price book lets write a row without a tenant.
+        const adminUrl = process.env['NX_ADMIN_DATABASE_URL'];
+        if (adminUrl) {
+          const admin = createPool(adminUrl);
+          try {
+            const client = await admin.connect();
+            try {
+              await client.query('BEGIN');
+              await client.query('SET LOCAL ROLE nx_migrator');
+              await applyDefaultPriceSeed({ query: (text, values) => client.query(text, values as unknown[] | undefined) });
+              await client.query('COMMIT');
+            } catch (error) {
+              await client.query('ROLLBACK');
+              throw error;
+            } finally {
+              client.release();
+            }
+          } finally {
+            await admin.end();
+          }
+        } else {
+          console.log('NX_ADMIN_DATABASE_URL is not set: default check prices were not published.');
+        }
+
         const operatorUrl = process.env['NX_OPERATOR_DATABASE_URL'];
         if (!operatorUrl) {
           throw new Error('NX_OPERATOR_DATABASE_URL is not set');
@@ -143,6 +169,31 @@ async function main(): Promise<void> {
       }
 
       case 'package:assign': {
+        // The default list price of each check belongs to no subscriber, so it is written on
+        // the owner role, the only one the price book lets write a row without a tenant.
+        const adminUrl = process.env['NX_ADMIN_DATABASE_URL'];
+        if (adminUrl) {
+          const admin = createPool(adminUrl);
+          try {
+            const client = await admin.connect();
+            try {
+              await client.query('BEGIN');
+              await client.query('SET LOCAL ROLE nx_migrator');
+              await applyDefaultPriceSeed({ query: (text, values) => client.query(text, values as unknown[] | undefined) });
+              await client.query('COMMIT');
+            } catch (error) {
+              await client.query('ROLLBACK');
+              throw error;
+            } finally {
+              client.release();
+            }
+          } finally {
+            await admin.end();
+          }
+        } else {
+          console.log('NX_ADMIN_DATABASE_URL is not set: default check prices were not published.');
+        }
+
         const operatorUrl = process.env['NX_OPERATOR_DATABASE_URL'];
         if (!operatorUrl) {
           throw new Error('NX_OPERATOR_DATABASE_URL is not set');
@@ -307,6 +358,31 @@ async function main(): Promise<void> {
       case 'provider:bind': {
         // A binding names a provider, so it is written on the operator connection: rule 5
         // keeps provider names away from anything a subscriber can reach.
+        // The default list price of each check belongs to no subscriber, so it is written on
+        // the owner role, the only one the price book lets write a row without a tenant.
+        const adminUrl = process.env['NX_ADMIN_DATABASE_URL'];
+        if (adminUrl) {
+          const admin = createPool(adminUrl);
+          try {
+            const client = await admin.connect();
+            try {
+              await client.query('BEGIN');
+              await client.query('SET LOCAL ROLE nx_migrator');
+              await applyDefaultPriceSeed({ query: (text, values) => client.query(text, values as unknown[] | undefined) });
+              await client.query('COMMIT');
+            } catch (error) {
+              await client.query('ROLLBACK');
+              throw error;
+            } finally {
+              client.release();
+            }
+          } finally {
+            await admin.end();
+          }
+        } else {
+          console.log('NX_ADMIN_DATABASE_URL is not set: default check prices were not published.');
+        }
+
         const operatorUrl = process.env['NX_OPERATOR_DATABASE_URL'];
         if (!operatorUrl) {
           throw new Error('NX_OPERATOR_DATABASE_URL is not set');

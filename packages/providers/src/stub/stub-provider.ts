@@ -5,6 +5,8 @@ import {
   scenarioKeyFor,
   type StubScenario,
 } from './scenarios.js';
+import { LEAN_VERIFICATION_ENDPOINTS, interpretAnswer } from '../lean/verification-endpoints.js';
+import { sandboxVerificationAnswer } from './verification-sandbox.js';
 import type {
   ProviderHealth,
   ProviderRequest,
@@ -52,7 +54,7 @@ export interface StubProviderOptions {
 
 export class StubProvider implements VerificationProvider {
   readonly name: string;
-  readonly endpoints = Object.keys(AUTHORITIES);
+  readonly endpoints = [...Object.keys(AUTHORITIES), ...Object.keys(LEAN_VERIFICATION_ENDPOINTS)];
 
   readonly #latencyMs: number;
   readonly #override: StubScenario | undefined;
@@ -81,6 +83,26 @@ export class StubProvider implements VerificationProvider {
     }
     if (Object.keys(request.credential.material).length === 0) {
       return Promise.resolve(this.#failure('AUTH', false));
+    }
+
+    // The verification products answer in the data source's own shape, through the same
+    // mapping a live answer goes through (see ./verification-sandbox.ts).
+    const verification = LEAN_VERIFICATION_ENDPOINTS[request.endpoint];
+    if (verification) {
+      const payload = sandboxVerificationAnswer(request.endpoint, request.input);
+      if (payload === null) {
+        return Promise.resolve(this.#failure('UNSUPPORTED_ENDPOINT', false));
+      }
+      const answer = interpretAnswer(verification, payload, request.input);
+      return Promise.resolve({
+        outcome: answer.outcome,
+        authority: answer.authority,
+        data: answer.data,
+        latencyMs: this.#latencyMs,
+        ...(answer.errorCode === undefined ? {} : { errorCode: answer.errorCode }),
+        ...(answer.retryable === undefined ? {} : { retryable: answer.retryable }),
+        ...(answer.outcome === 'OK' ? { providerCost: 0 } : {}),
+      });
     }
 
     // A named scenario outranks the identifier, because a caller who asked for one was

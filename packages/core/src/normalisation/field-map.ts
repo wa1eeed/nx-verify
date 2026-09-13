@@ -2,7 +2,14 @@ import type { TenantTransaction } from '@nx-verify/db';
 import type { EntityType } from '../repositories/entities.js';
 import type { IdentifierType } from '../crypto/identifier.js';
 
-export type EntityRole = 'SUBJECT' | 'MANAGER' | 'OWNER' | 'ACCOUNT_HOLDER' | 'PROPERTY_OWNER';
+export type EntityRole =
+  | 'SUBJECT'
+  | 'MANAGER'
+  | 'OWNER'
+  | 'ACCOUNT_HOLDER'
+  | 'PROPERTY_OWNER'
+  | 'PARTNER'
+  | 'ACCOUNT';
 export type RelationType =
   'MANAGES' | 'OWNS' | 'HOLDS_ACCOUNT' | 'OWNS_PROPERTY' | 'SHARES_ADDRESS';
 

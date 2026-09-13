@@ -37,6 +37,10 @@ export interface OpenRunInput {
   idempotencyKey?: string | null;
   modeAtExecution: 'MANAGED' | 'BYOC';
   triggeredBy: TriggeredBy;
+  /** The console user who pressed verify. */
+  requestedBy?: string | null;
+  /** Shared by the checks of one verification started together. */
+  bundleKey?: string | null;
 }
 
 export type OpenRunOutcome =
@@ -56,8 +60,8 @@ export async function openRun(tx: TenantTransaction, input: OpenRunInput): Promi
       const result = await tx.query<{ id: string }>(
         `INSERT INTO verification_runs
            (tenant_id, product_code, entity_id, client_ref, idempotency_key,
-            mode_at_execution, status, triggered_by)
-         VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7)
+            mode_at_execution, status, triggered_by, requested_by, bundle_key)
+         VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, $8, $9)
          RETURNING id`,
         [
           tx.tenantId,
@@ -67,6 +71,8 @@ export async function openRun(tx: TenantTransaction, input: OpenRunInput): Promi
           input.idempotencyKey ?? null,
           input.modeAtExecution,
           input.triggeredBy,
+          input.requestedBy ?? null,
+          input.bundleKey ?? null,
         ],
       );
       return result.rows;

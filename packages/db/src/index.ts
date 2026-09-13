@@ -12,6 +12,9 @@ export {
   applyProviderSeed,
 } from './seed/providers.js';
 export { LEAN_COSTS, STUB_COSTS, applyCostSeed } from './seed/costs.js';
+export { CHECK_PRODUCTS } from './seed/checks.js';
+export { DEFAULT_CHECK_PRICES, applyDefaultPriceSeed } from './seed/default-prices.js';
+export type { DefaultPrice } from './seed/default-prices.js';
 export type { SeedCost } from './seed/costs.js';
 export type { SeedProvider } from './seed/providers.js';
 export type { SeedPackage } from './seed/packages.js';

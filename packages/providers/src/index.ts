@@ -47,6 +47,21 @@ export type { ProviderConfig } from './factory.js';
 export { LeanProvider, LEAN_ENDPOINTS } from './lean/lean-provider.js';
 export type { LeanEndpointMapping, LeanProviderOptions } from './lean/lean-provider.js';
 export { TokenCache } from './lean/token.js';
+export {
+  LEAN_VERIFICATION_ENDPOINTS,
+  companyKind,
+  interpretAnswer,
+  personIdentifierType,
+} from './lean/verification-endpoints.js';
+export {
+  SANDBOX_FREELANCER,
+  SANDBOX_IBAN,
+  SANDBOX_MANAGER_ID,
+  SANDBOX_UNN,
+  VERIFICATION_SANDBOX_CASES,
+  sandboxVerificationAnswer,
+} from './stub/verification-sandbox.js';
+export type { VerificationSandboxCase } from './stub/verification-sandbox.js';
 export type { TokenRequest } from './lean/token.js';
 export { SANDBOX_TEST_CASES } from './stub/test-cases.js';
 export type { SandboxTestCase } from './stub/test-cases.js';

@@ -90,10 +90,14 @@ async function resolveSeverity(
     reason_ar: string;
     reason_en: string;
   }>(
+    // A rule on a path covers everything under it, so a rule on manager.permissions reads
+    // a manager's powers in every company they manage. The most specific path is tried
+    // first, and a tenant's own reading before the default.
     `SELECT severity, from_value, to_value, reason_ar, reason_en
      FROM change_severity_rules
-     WHERE field_path = $2 AND (tenant_id IS NULL OR tenant_id = $1)
-     ORDER BY tenant_id NULLS LAST, seq`,
+     WHERE (field_path = $2 OR $2 LIKE field_path || '.%')
+       AND (tenant_id IS NULL OR tenant_id = $1)
+     ORDER BY tenant_id NULLS LAST, length(field_path) DESC, seq`,
     [tx.tenantId, fieldPath],
   );
 

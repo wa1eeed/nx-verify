@@ -1,4 +1,5 @@
 import type { Queryable } from '../client.js';
+import { CHECK_PRODUCTS } from './checks.js';
 
 /**
  * The three products from docs/03-products.md section 4, as data.
@@ -12,6 +13,8 @@ export interface SeedStep {
   stepKey: string;
   seq: number;
   provider: string;
+  /** Tried when the provider above is not running in this deployment. */
+  fallbackProvider?: string;
   endpoint: string;
   inputBinding: Record<string, string>;
   dependsOn?: string[];
@@ -45,9 +48,19 @@ export interface SeedProduct {
   fieldMap?: SeedFieldMap[];
   /** Ruleset code, resolved to its id at seed time. */
   decisionRuleset?: string;
+  /** The section of a customer file this product fills. Absent for API only products. */
+  profileSection?: 'REGISTRY' | 'CONTRACT' | 'MANAGERS' | 'ADDRESS' | 'BANKING' | 'FREELANCE' | 'PROPERTY';
+  /** The kinds of customer the check is offered for. Required with a section. */
+  appliesTo?: ('COMPANY' | 'ESTABLISHMENT' | 'FREELANCER')[];
+  checkOrder?: number;
+  availability?: 'AVAILABLE' | 'COMING_SOON';
 }
 
-export const SEED_PRODUCTS: readonly SeedProduct[] = [
+/**
+ * Products that predate the customer file and are still sold through the API. They name no
+ * section, so a customer file does not offer them as checks.
+ */
+const API_PRODUCTS: readonly SeedProduct[] = [
   {
     code: 'ADDRESS_ONLY',
     nameAr: 'التحقق من العنوان الوطني',
@@ -608,6 +621,8 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
   },
 ];
 
+export const SEED_PRODUCTS: readonly SeedProduct[] = [...API_PRODUCTS, ...CHECK_PRODUCTS];
+
 export interface SeedOptions {
   /**
    * Overrides the provider named on every step.
@@ -628,10 +643,12 @@ export async function applyProductSeed(
   for (const product of products) {
     await db.query(
       `INSERT INTO products (code, name_ar, name_en, subject_type, input_schema,
-                             is_composite, partial_policy, decision_ruleset)
+                             is_composite, partial_policy, decision_ruleset,
+                             profile_section, applies_to, check_order, availability)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7,
                (SELECT id FROM decision_rulesets
-                WHERE code = $8 AND tenant_id IS NULL))
+                WHERE code = $8 AND tenant_id IS NULL),
+               $9, $10, $11, $12)
        ON CONFLICT (code) DO UPDATE SET
          name_ar = EXCLUDED.name_ar,
          name_en = EXCLUDED.name_en,
@@ -639,7 +656,12 @@ export async function applyProductSeed(
          input_schema = EXCLUDED.input_schema,
          is_composite = EXCLUDED.is_composite,
          partial_policy = EXCLUDED.partial_policy,
-         decision_ruleset = EXCLUDED.decision_ruleset`,
+         decision_ruleset = EXCLUDED.decision_ruleset,
+         profile_section = EXCLUDED.profile_section,
+         applies_to = EXCLUDED.applies_to,
+         check_order = EXCLUDED.check_order`,
+      // Availability is written on insert and left alone after: once the panel marks a
+      // product available, a later seed must not quietly take it away again.
       [
         product.code,
         product.nameAr,
@@ -649,6 +671,10 @@ export async function applyProductSeed(
         product.isComposite ?? false,
         product.partialPolicy ?? 'BEST_EFFORT',
         product.decisionRuleset ?? null,
+        product.profileSection ?? null,
+        product.appliesTo ?? [],
+        product.checkOrder ?? 100,
+        product.availability ?? 'AVAILABLE',
       ],
     );
 
@@ -656,8 +682,8 @@ export async function applyProductSeed(
       await db.query(
         `INSERT INTO product_steps (product_code, step_key, seq, provider, endpoint,
                                     input_binding, depends_on, required, cache_ttl_days,
-                                    step_weight)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
+                                    step_weight, fallback_provider)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)
          ON CONFLICT (product_code, step_key) DO UPDATE SET
            seq = EXCLUDED.seq,
            provider = EXCLUDED.provider,
@@ -666,7 +692,8 @@ export async function applyProductSeed(
            depends_on = EXCLUDED.depends_on,
            required = EXCLUDED.required,
            cache_ttl_days = EXCLUDED.cache_ttl_days,
-           step_weight = EXCLUDED.step_weight`,
+           step_weight = EXCLUDED.step_weight,
+           fallback_provider = EXCLUDED.fallback_provider`,
         [
           product.code,
           step.stepKey,
@@ -678,6 +705,11 @@ export async function applyProductSeed(
           step.required ?? true,
           step.cacheTtlDays ?? null,
           step.stepWeight ?? 1,
+          // A fallback to the provider already named would only try the same thing twice.
+          step.fallbackProvider !== undefined &&
+          step.fallbackProvider !== (options.providerName ?? step.provider)
+            ? step.fallbackProvider
+            : null,
         ],
       );
     }

@@ -26,7 +26,17 @@ export type ProviderOutcome = 'OK' | 'NOT_FOUND' | 'ERROR' | 'AWAITING';
  * about a failure, and it can only do that if failures come in a known set.
  */
 export type ProviderErrorCode =
-  'NETWORK' | 'TIMEOUT' | 'AUTH' | 'RATE_LIMIT' | 'UPSTREAM' | 'MALFORMED' | 'UNSUPPORTED_ENDPOINT';
+  | 'NETWORK'
+  | 'TIMEOUT'
+  | 'AUTH'
+  | 'RATE_LIMIT'
+  | 'UPSTREAM'
+  | 'MALFORMED'
+  | 'UNSUPPORTED_ENDPOINT'
+  /** The source answered, and cannot verify this at the moment: a bank not connected, a service switched off. */
+  | 'SOURCE_UNAVAILABLE'
+  /** The source answered that what we sent cannot be verified as given. */
+  | 'INVALID_INPUT';
 
 export type ProviderMode = 'MANAGED' | 'BYOC';
 

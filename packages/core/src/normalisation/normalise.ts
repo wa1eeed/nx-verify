@@ -2,6 +2,7 @@ import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { recordAttestation } from '../repositories/attestations.js';
 import { resolveEntity } from '../repositories/entities.js';
+import { attachIdentifier } from '../repositories/identifiers.js';
 import { recordChangeEvent, type Severity } from '../monitoring/change-events.js';
 import { getFieldMappings, isIdentifierType, type FieldMapping } from './field-map.js';
 import { readMatches, resolveReference } from './paths.js';
@@ -55,6 +56,8 @@ export interface NormaliseResult {
   /** Secondary entities created or matched, keyed by role. */
   entities: { role: string; entityId: string; created: boolean }[];
   relations: { relationId: string; relType: string; toEntity: string; created: boolean }[];
+  /** Identifiers found in the answer and attached to the subject. Types only, never values. */
+  identifiers: { entityId: string; idType: string }[];
   /**
    * Changes worth telling someone about.
    *
@@ -82,6 +85,7 @@ export async function normaliseRun(
     attestations: [],
     entities: [],
     relations: [],
+    identifiers: [],
     changes: [],
   };
   const observedAt = input.observedAt ?? new Date();
@@ -95,6 +99,11 @@ export async function normaliseRun(
     }
 
     for (const mapping of byStep.get(step.stepKey) ?? []) {
+      if (mapping.entityRole === 'SUBJECT' && mapping.identifierPath) {
+        await attachFoundIdentifier(tx, keys, mapping, step.data, input.subjectEntityId, result);
+        continue;
+      }
+
       for (const match of readMatches(step.data, mapping.sourcePath)) {
         const entityId =
           mapping.entityRole === 'SUBJECT'
@@ -102,10 +111,11 @@ export async function normaliseRun(
             : await resolveSecondaryEntity(tx, keys, mapping, step.data, match.element, result);
 
         const validUntil = readValidUntil(mapping, step.data, match.element);
+        const fieldPath = fieldPathFor(mapping.fieldPath, input.subjectEntityId);
 
         const recorded = await recordAttestation(tx, {
           entityId,
-          fieldPath: mapping.fieldPath,
+          fieldPath,
           value: match.value,
           // Internal. Rule 5 keeps it out of every public projection.
           source: step.provider,
@@ -116,9 +126,19 @@ export async function normaliseRun(
           confidence: mapping.confidence,
         });
 
+        if (DISPLAY_NAME_FIELDS.has(fieldPath) && typeof match.value === 'string' && match.value.trim() !== '') {
+          // The name a list shows is the name the authority gave, kept current by the same
+          // answer that recorded it rather than typed in by whoever created the entity.
+          await tx.query(
+            `UPDATE entities SET display_name = $3, last_seen_at = now()
+             WHERE tenant_id = $1 AND id = $2 AND display_name IS DISTINCT FROM $3`,
+            [tx.tenantId, entityId, match.value.trim()],
+          );
+        }
+
         result.attestations.push({
           entityId,
-          fieldPath: mapping.fieldPath,
+          fieldPath,
           attestationId: recorded.attestationId,
           changed: recorded.changed,
           firstObservation: recorded.firstObservation,
@@ -127,7 +147,7 @@ export async function normaliseRun(
         if (recorded.changed) {
           const event = await recordChangeEvent(tx, {
             entityId,
-            fieldPath: mapping.fieldPath,
+            fieldPath,
             oldAttestationId: recorded.previousAttestationId,
             newAttestationId: recorded.attestationId,
             oldValue: recorded.previousValue,
@@ -137,7 +157,7 @@ export async function normaliseRun(
             result.changes.push({
               changeEventId: event.changeEventId,
               entityId,
-              fieldPath: mapping.fieldPath,
+              fieldPath,
               severity: event.severity,
               reasonAr: event.reasonAr,
             });
@@ -164,6 +184,58 @@ export async function normaliseRun(
   }
 
   return result;
+}
+
+const DISPLAY_NAME_FIELDS = new Set(['cr.core.name', 'person.name']);
+
+/**
+ * An identifier found in an answer about the subject, such as the registration number a
+ * registry returns for the unified number it was asked about.
+ *
+ * Attached, hashed and encrypted, and never recorded as a value (rule 4). If the same number
+ * already belongs to another entity of this subscriber, which happens when a company was
+ * first met as somebody else's partner, nothing is attached: merging two entities rewrites
+ * history, and that is a decision for a person, not a side effect of a verification.
+ */
+async function attachFoundIdentifier(
+  tx: TenantTransaction,
+  keys: TenantKeyProvider,
+  mapping: FieldMapping,
+  payload: Readonly<Record<string, unknown>>,
+  subjectEntityId: string,
+  result: NormaliseResult,
+): Promise<void> {
+  const raw = resolveReference(mapping.identifierPath ?? '', payload, null);
+  const type = mapping.identifierTypeSource
+    ? resolveReference(mapping.identifierTypeSource, payload, null)
+    : null;
+  if (typeof raw !== 'string' || raw.trim() === '' || !isIdentifierType(type)) {
+    return;
+  }
+  try {
+    const attached = await attachIdentifier(tx, keys, { entityId: subjectEntityId, idType: type, value: raw });
+    if (!attached.alreadyPresent) {
+      result.identifiers.push({ entityId: subjectEntityId, idType: type });
+    }
+  } catch (error) {
+    if (!(error instanceof NxError) || error.code !== 'NX-4091') {
+      throw error;
+    }
+  }
+}
+
+/**
+ * A field that belongs to a relationship rather than to either side of it.
+ *
+ * A manager's positions and signing powers are true of one person in one company. The same
+ * person managing a second company holds different ones, and recording both under one
+ * field of the person would make each verification of one company look like a change in the
+ * other. So a mapping may name {subject} in its field path, and the fact is recorded on the
+ * person under a path that carries the company: manager.permissions.<company entity id>.
+ * Still rows and not code (rule 8), and still one immutable attestation per observation.
+ */
+export function fieldPathFor(template: string, subjectEntityId: string): string {
+  return template.includes('{subject}') ? template.replace('{subject}', subjectEntityId) : template;
 }
 
 async function resolveSecondaryEntity(

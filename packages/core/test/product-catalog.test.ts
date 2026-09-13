@@ -77,14 +77,22 @@ describe('the product catalog drives execution', () => {
     expect(products.map((product) => product.code).sort()).toEqual([
       'ADDRESS_ONLY',
       'AOA_ONLY',
+      'ARTICLES_OF_ASSOCIATION',
       'BANK_ACCOUNT_OWNERSHIP',
+      'CR_FULL',
       'FREELANCER_CERTIFICATE',
+      'FREELANCE_CERTIFICATE',
+      'IBAN_BENEFICIARY_NAME',
       'IBAN_OWNERSHIP',
+      'IBAN_VERIFICATION',
       'INCOME_VERIFICATION',
       'KYB_COMPLETE',
+      'MANAGER_AUTHORITY',
       'MANAGER_PERMISSIONS',
       'NAME_MATCH',
+      'NATIONAL_ADDRESS',
       'PROPERTY_DEED',
+      'PROPERTY_VERIFICATION',
     ]);
     // The schema travels with the product, which is why adding one needs no change on
     // the customer's side either.

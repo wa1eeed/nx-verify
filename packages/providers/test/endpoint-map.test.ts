@@ -116,7 +116,7 @@ describe('a provider endpoint map in rows', () => {
       entity_id: 'e-77',
       income_type: 'ALL',
     });
-    expect(mapping?.map({ salary: { currency: 'SAR' } })).toEqual({ income_currency: 'SAR' });
+    expect(mapping?.map({ salary: { currency: 'SAR' } }, {})).toEqual({ income_currency: 'SAR' });
   });
 
   it('gives the adapter the stored map when there is one, and the built in one otherwise', async () => {

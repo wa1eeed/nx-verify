@@ -83,6 +83,10 @@ export interface VerifyInput {
   environment?: 'sandbox' | 'live';
   /** How long a provider is given to call back before the run is closed unanswered. */
   awaitTtlSeconds?: number;
+  /** The console user who pressed verify, for the verification log. */
+  requestedBy?: string | null;
+  /** Groups the checks of one full verification. */
+  bundleKey?: string | null;
 }
 
 export interface VerifyResult {
@@ -103,6 +107,12 @@ export interface VerifyResult {
 export async function verify(tx: TenantTransaction, input: VerifyInput): Promise<VerifyResult> {
   const product = await requireProduct(tx, input.productCode);
 
+  // Shown in the catalogue so the offer is honest about what is coming, and never run:
+  // the source has not enabled it, so a run could only fail after being claimed and held.
+  if (product.availability !== 'AVAILABLE') {
+    throw new NxError('NX-4031', { detail: 'this verification is not available yet' });
+  }
+
   // Before anything else, including the idempotency claim: a product the subscriber's
   // package does not include never becomes a run, never reserves, and never charges.
   const entitlement = await resolveEntitlement(tx, product.code);
@@ -117,6 +127,17 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     displayName: input.subjectDisplayName,
   });
 
+  // A person first met as somebody's manager and now verified as a freelancer is the same
+  // person, matched by their national ID, and from now on a customer in their own right.
+  // Only that one direction: a freelancer never becomes a mere person again.
+  if (!subject.created && product.subjectType === 'FREELANCER') {
+    await tx.query(
+      `UPDATE entities SET entity_type = 'FREELANCER'
+       WHERE tenant_id = $1 AND id = $2 AND entity_type = 'PERSON'`,
+      [tx.tenantId, subject.entityId],
+    );
+  }
+
   const opened = await openRun(tx, {
     productCode: product.code,
     entityId: subject.entityId,
@@ -124,6 +145,8 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     idempotencyKey: input.idempotencyKey ?? null,
     modeAtExecution: input.modeAtExecution ?? (await resolveExecutionMode(tx)),
     triggeredBy: input.triggeredBy,
+    requestedBy: input.requestedBy ?? null,
+    bundleKey: input.bundleKey ?? null,
   });
 
   if (opened.kind === 'replayed') {
