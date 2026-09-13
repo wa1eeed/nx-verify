@@ -31,7 +31,7 @@ import { OperatorPackages, billingLabel } from '../components/operator-packages'
 import { ApiLog } from '../components/api-log';
 import { OperatorHealth } from '../components/operator-health';
 import { Docs } from '../components/docs';
-import { OperatorConnections } from '../components/operator-connections';
+import { OperatorIntegration, type IntegrationView } from '../components/operator-integration';
 import { Support, supportTierLabel } from '../components/support';
 import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
@@ -1942,80 +1942,77 @@ describe('the reference and the support screen', () => {
 /**
  * Where a provider is connected, and where a credential is refused rather than half saved.
  */
-describe('the provider connections screen', () => {
-  const render = (secretsWritable: boolean) =>
+describe('the integration screen in the administration panel', () => {
+  const base: IntegrationView = {
+    environment: 'sandbox',
+    baseUrl: 'https://sandbox.example.com',
+    authUrl: 'https://auth.sandbox.example.com/oauth2/token',
+    credential: {
+      updatedAt: new Date('2026-09-12T00:00:00Z'),
+      fields: { clientId: { masked: 'fd62a5…8ffe' }, clientSecret: { fingerprint: '3fa2c1d0' } },
+    },
+    webhook: { updatedAt: new Date('2026-09-12T00:00:00Z'), fields: { webhookSecret: { fingerprint: '9b1e44aa' } } },
+    callbackUrl: 'https://api.example.sa/v1/callbacks/9Qb7rk_t0Xz',
+    callbackHeader: 'x-nx-provider-signature',
+    callbackAlgorithm: 'sha256',
+    lastTest: null,
+    changes: [
+      { at: new Date('2026-09-12T08:30:00Z'), operatorId: 'nx-staff:waleed', action: 'credentials.saved', fields: ['clientSecret'] },
+    ],
+    secretsWritable: true,
+    notice: null,
+    error: null,
+  };
+  const render = (overrides: Partial<IntegrationView> = {}) =>
     renderToStaticMarkup(
-      <OperatorConnections
-        view={{
-          providers: ['bankdata'],
-          secretsWritable,
-          secretsVariable: secretsWritable ? null : 'NX_SECRETS',
-          connections: [
-            {
-              provider: 'bankdata',
-              environment: 'sandbox',
-              kind: 'openbanking',
-              baseUrl: 'https://sandbox.example.com',
-              authUrl: 'https://auth.sandbox.example.com/oauth2/token',
-              credentialRef: 'kms://providers/bankdata/sandbox',
-              timeoutMs: 20000,
-              status: 'active',
-              hasSecret: true,
-              callbackUrl: 'https://api.example.sa/v1/callbacks/9Qb7rk_t0Xz',
-              callbackHeader: 'lean-signature',
-              callbackAlgorithm: 'sha512',
-              updatedAt: new Date('2026-09-12T00:00:00Z'),
-            },
-          ],
-        }}
-        setConnectionAction="/c"
-        setSecretAction="/s"
-        setCallbackAction="/k"
-      />,
+      <OperatorIntegration view={{ ...base, ...overrides }} saveAction="/s" testAction="/t" callbackAction="/k" />,
     );
 
-  it('gives each provider two environments with their own addresses', () => {
-    const html = render(true);
-    expect(html).toContain('data-environment="sandbox"');
-    expect(html).toContain('data-environment="live"');
-    expect(html).toContain('https://sandbox.example.com');
+  it('keeps one primary button, for the environment in front of the person', () => {
+    const html = render();
+    expect(html.match(/class="btn-primary"/g)?.length).toBe(1);
+    expect(html).toContain('href="/operator/integration?env=sandbox"');
+    expect(html).toContain('href="/operator/integration?env=live"');
   });
 
-  it('shows the reference and never a secret', () => {
-    const html = render(true);
-    expect(html).toContain('data-role="credential-ref"');
-    expect(html).toContain('kms://providers/bankdata/sandbox');
-    // The field takes a secret and gives none back.
+  it('takes secrets and gives none back: a fingerprint and a masked id only', () => {
+    const html = render();
     expect(html).toContain('type="password"');
-    expect(html).toContain('data-role="secret-state"');
-    // The pointer is set, which is all we know. Saying a secret is saved would claim
-    // something about a store this screen never read.
-    expect(html).toContain('مرجع الاعتماد مضبوط');
-    expect(html).not.toContain('سر محفوظ');
+    expect(html).toContain('3fa2c1d0');
+    expect(html).toContain('fd62a5…8ffe');
+    // Inputs start empty. A secret value in a defaultValue would be a secret on the page.
+    expect(html).not.toMatch(/name="client_secret"[^>]*value="/);
+    expect(html).not.toMatch(/name="webhook_secret"[^>]*value="/);
   });
 
-  it('shows the callback address whole, and names no provider in it', () => {
-    const html = render(true);
-    // Pasted into a supplier's dashboard, so half an address is worse than none.
-    expect(html).toContain('https://api.example.sa/v1/callbacks/9Qb7rk_t0Xz');
-    // Rule 5 applies to a URL as much as to a response body: the path must not say who
-    // serves us, whoever happens to be calling it.
-    expect(html).not.toContain('/v1/callbacks/bankdata');
+  it('names no data source anywhere on the screen', () => {
+    const html = render();
+    expect(html.toLowerCase()).not.toContain('lean');
+    expect(html).not.toContain('لين');
+    expect(html).not.toContain('/v1/callbacks/lean');
   });
 
-  it('refuses to pretend when the deployment cannot be written to', () => {
-    const readOnly = render(false);
-    expect(readOnly).toContain('data-role="secrets-readonly"');
-    expect(readOnly).toContain('لن نتظاهر بالحفظ');
-    expect(readOnly).toContain('NX_SECRETS');
-    // And the button that would lie is disabled rather than present and broken.
-    expect(readOnly).toContain('disabled=""');
+  it('shows the callback address whole, to paste into the data source dashboard', () => {
+    expect(render()).toContain('https://api.example.sa/v1/callbacks/9Qb7rk_t0Xz');
   });
 
-  it('tells an administrator to start with the sandbox', () => {
-    const html = render(true);
-    expect(html).toContain('data-role="instructions"');
-    expect(html).toContain('ابدأ ببيئة الاختبار');
-    expect(html).toContain('nx_test_');
+  it('says what a failed test means in words a person can act on', () => {
+    const html = render({ lastTest: { at: new Date('2026-09-13T10:00:00Z'), ok: false, detail: '401' } });
+    expect(html).toContain('data-role="test-failed"');
+    expect(html).toContain('رُفضت بيانات الدخول');
+  });
+
+  it('refuses to pretend when the deployment cannot hold a secret', () => {
+    const html = render({ secretsWritable: false, error: 'readonly' });
+    expect(html).toContain('data-role="integration-error"');
+    expect(html).toContain('NX_SECRETS_FILE');
+    expect(html).toContain('disabled=""');
+  });
+
+  it('records who changed which field, never the value', () => {
+    const html = render();
+    expect(html).toContain('nx-staff:waleed');
+    expect(html).toContain('حُفظت بيانات الربط');
+    expect(html).toContain('السر');
   });
 });

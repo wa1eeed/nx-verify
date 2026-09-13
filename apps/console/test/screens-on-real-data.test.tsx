@@ -220,24 +220,27 @@ describe('the console renders real data', () => {
     expect(html).toContain('غير قابل للتعديل');
   });
 
-  it('refuses the operator panel without a token, and shows it with one', async () => {
-    const { default: OperatorPage } = await import('../app/operator/(panel)/providers/page');
+  it('refuses the integration screen without a sign in, and names no data source with one', async () => {
+    const { default: IntegrationPage } = await import('../app/operator/(panel)/integration/page');
 
     delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
     process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
     process.env['NX_OPERATOR_DATABASE_URL'] = db.operatorConnectionString;
 
-    // No token, no page. Every provider name on this screen depends on that refusal.
-    await expect(OperatorPage()).rejects.toThrow();
+    await expect(IntegrationPage({ searchParams: Promise.resolve({}) })).rejects.toThrow();
 
     process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
-    const html = renderToStaticMarkup(await OperatorPage());
-
-    expect(html).toContain('data-role="bindings"');
-    expect(html).toContain(PROVIDER_NAME);
-    expect(html).toContain('المشترك لا يرى اسم أي مزوّد');
-
-    delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+    try {
+      const html = renderToStaticMarkup(await IntegrationPage({ searchParams: Promise.resolve({ env: 'live' }) }));
+      expect(html).toContain('data-role="credentials"');
+      expect(html).toContain('بيئة الإنتاج');
+      // The addresses are the data source's own hosts, so they carry its domain, and they
+      // sit in the collapsed address fields of this panel only. Nothing else names it.
+      const withoutAddresses = html.replace(/value="https:\/\/[^"]*"/g, '');
+      expect(withoutAddresses.toLowerCase()).not.toContain('lean');
+    } finally {
+      delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+    }
   });
 
   it('shows the operator who is subscribed, until when, and what is left', async () => {

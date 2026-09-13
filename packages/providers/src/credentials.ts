@@ -1,6 +1,7 @@
 import type { TenantTransaction } from '@nx-verify/db';
-import { NxError } from '@nx-verify/core';
+import { NxError, masterKeySourceFromEnv } from '@nx-verify/core';
 import type { ProviderMode, ResolvedCredential } from './types.js';
+import { LayeredSecretStore, SealedFileSecretStore, describeMaterial } from './sealed-store.js';
 
 /**
  * Credential resolution.
@@ -33,6 +34,21 @@ export interface SecretStore {
    * pretending, and the panel then shows what to run instead.
    */
   put?(ref: string, material: Record<string, string>): Promise<void>;
+  /**
+   * What is stored under a reference, without the material: which fields, when, and a
+   * fingerprint of each. Null when nothing is stored there.
+   */
+  describe?(ref: string): Promise<SecretDescription | null>;
+}
+
+export interface SecretDescription {
+  /** Null when the store does not record when a value was written. */
+  updatedAt: Date | null;
+  /**
+   * One entry per stored field. A secret carries a short fingerprint, an identifier that
+   * is not a secret carries a masked form, and neither can be turned back into the value.
+   */
+  fields: Record<string, { fingerprint?: string; masked?: string }>;
 }
 
 export interface ProviderBinding {
@@ -89,16 +105,41 @@ export async function resolveCredential(
   }
 
   const binding = await getProviderBinding(tx, provider);
+  if (binding?.credentialRef) {
+    const material = await secrets.fetch(binding.credentialRef);
+    return { ref: binding.credentialRef, mode: binding.mode, material };
+  }
+
+  /**
+   * The platform's own connection, for the world this subscriber lives in.
+   *
+   * Every subscriber is served under NX's agreement with the data source, and none brings
+   * a credential of their own (ADR-108). So a subscriber with no binding row, or with a
+   * managed row that names no reference, uses the credential the administration panel set
+   * for the sandbox or for production. Which of the two is decided by the workspace, never
+   * by the request, so a sandbox cannot reach the production credential.
+   */
+  const { rows: sandbox } = await tx.query<{ is_sandbox: boolean }>(
+    `SELECT sandbox_of IS NOT NULL AS is_sandbox FROM tenants WHERE id = $1`,
+    [tx.tenantId],
+  );
+  const environment = sandbox[0]?.is_sandbox ? 'sandbox' : 'live';
+  const { rows: connection } = await tx.query<{ credential_ref: string | null }>(
+    `SELECT credential_ref FROM provider_connections
+     WHERE provider = $1 AND environment = $2 AND status = 'active'`,
+    [provider, environment],
+  );
+  const platformRef = connection[0]?.credential_ref ?? null;
+
+  if (platformRef) {
+    return { ref: platformRef, mode: 'MANAGED', material: await secrets.fetch(platformRef) };
+  }
+
   if (!binding) {
     // The provider name is internal, so it does not go into the message (rule 5).
     throw new NxError('NX-4041', { detail: 'no provider binding for this tenant' });
   }
-  if (!binding.credentialRef) {
-    throw new NxError('NX-5001', { detail: 'provider binding has no credential reference' });
-  }
-
-  const material = await secrets.fetch(binding.credentialRef);
-  return { ref: binding.credentialRef, mode: binding.mode, material };
+  throw new NxError('NX-5001', { detail: 'provider binding has no credential reference' });
 }
 
 /** For tests and local work. A KMS backed store replaces it in every real environment. */
@@ -126,6 +167,11 @@ export class InMemorySecretStore implements SecretStore {
       throw new NxError('NX-5001', { detail: `no secret stored for reference ${ref}` });
     }
     return Promise.resolve(material);
+  }
+
+  describe(ref: string): Promise<SecretDescription | null> {
+    const material = this.#entries.get(ref);
+    return Promise.resolve(material ? describeMaterial(material, null) : null);
   }
 }
 
@@ -182,6 +228,14 @@ export class EnvSecretStore implements SecretStore {
       throw new NxError('NX-5001', { detail: `no secret stored for reference ${ref}` });
     }
     return Promise.resolve(material);
+  }
+
+  async describe(ref: string): Promise<SecretDescription | null> {
+    try {
+      return describeMaterial(await this.fetch(ref), null);
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -300,12 +354,23 @@ export class HttpSecretStore implements SecretStore {
     }
     this.#cache.delete(ref);
   }
+
+  async describe(ref: string): Promise<SecretDescription | null> {
+    try {
+      return describeMaterial(await this.fetch(ref), null);
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**
- * The store a deployment actually gets: a secret manager if one is configured, and the
- * environment otherwise, refusing the environment in production for the same reason the
- * key source does.
+ * The store a deployment actually gets.
+ *
+ * A secret manager when one is configured. Otherwise a sealed file when one is named,
+ * which the administration panel can write, layered over the environment so references
+ * set there before the file existed keep working. The environment alone only outside
+ * production, for the same reason the key source refuses it there.
  */
 export function secretStoreFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
@@ -313,8 +378,15 @@ export function secretStoreFromEnv(
   if (env['NX_SECRETS_ENDPOINT']) {
     return HttpSecretStore.fromEnv(env);
   }
+  if (env['NX_SECRETS_FILE']) {
+    const sealed = new SealedFileSecretStore({
+      path: env['NX_SECRETS_FILE'],
+      keys: masterKeySourceFromEnv(env),
+    });
+    return env['NX_SECRETS'] ? new LayeredSecretStore([sealed, new EnvSecretStore()]) : sealed;
+  }
   if (env['NODE_ENV'] === 'production') {
-    throw new Error('NX_SECRETS_ENDPOINT is required in production');
+    throw new Error('NX_SECRETS_ENDPOINT or NX_SECRETS_FILE is required in production');
   }
   return new EnvSecretStore();
 }

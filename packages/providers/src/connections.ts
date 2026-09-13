@@ -35,6 +35,10 @@ export interface ProviderConnection {
   callbackHeader: string;
   callbackAlgorithm: 'sha256' | 'sha512';
   updatedAt: Date;
+  /** The last connection test from the panel, when there has been one. */
+  lastTestAt: Date | null;
+  lastTestOk: boolean | null;
+  lastTestDetail: string | null;
 }
 
 export async function listProviderConnections(db: Queryable): Promise<ProviderConnection[]> {
@@ -53,10 +57,13 @@ export async function listProviderConnections(db: Queryable): Promise<ProviderCo
     callback_header: string;
     callback_algorithm: 'sha256' | 'sha512';
     updated_at: Date;
+    last_test_at: Date | null;
+    last_test_ok: boolean | null;
+    last_test_detail: string | null;
   }>(
     `SELECT provider, environment, kind, base_url, auth_url, credential_ref, timeout_ms,
             max_attempts, status, callback_slug, callback_secret_ref, callback_header,
-            callback_algorithm, updated_at
+            callback_algorithm, updated_at, last_test_at, last_test_ok, last_test_detail
      FROM provider_connections
      ORDER BY provider, environment`,
   );
@@ -76,6 +83,9 @@ export async function listProviderConnections(db: Queryable): Promise<ProviderCo
     callbackHeader: row.callback_header,
     callbackAlgorithm: row.callback_algorithm,
     updatedAt: row.updated_at,
+    lastTestAt: row.last_test_at,
+    lastTestOk: row.last_test_ok,
+    lastTestDetail: row.last_test_detail,
   }));
 }
 
@@ -123,25 +133,126 @@ export async function setProviderConnection(
     ],
   );
 
-  // Recorded against no subscriber: this is our own configuration, and the audit entry
-  // names the address and never a credential.
+  // Recorded against no subscriber: this is our own configuration, so it goes to the
+  // panel's own trail rather than into every subscriber's (0044). The entry names the
+  // address and the reference, never a credential.
+  await recordOperatorChange(operator, {
+    operatorId,
+    action: 'connection.set',
+    target: `${input.provider}/${input.environment}`,
+    metadata: {
+      kind: input.kind,
+      base_url: input.baseUrl ?? null,
+      auth_url: input.authUrl ?? null,
+      credential_ref: input.credentialRef ?? null,
+    },
+  });
+}
+
+export interface OperatorChange {
+  operatorId: string;
+  action: string;
+  target: string;
+  /** References and field names only. Never material. */
+  metadata?: Record<string, unknown>;
+}
+
+export async function recordOperatorChange(operator: Queryable, change: OperatorChange): Promise<void> {
   await operator.query(
-    `INSERT INTO audit_log (tenant_id, actor_type, actor_id, action, target, metadata)
-     SELECT t.id, 'NX_STAFF', $1, 'provider.connection_set', $2, $3::jsonb
-     FROM tenants t
-     JOIN tenant_provider_binding b ON b.tenant_id = t.id AND b.provider = $2
-     LIMIT 50`,
-    [
-      operatorId,
-      input.provider,
-      JSON.stringify({
-        environment: input.environment,
-        kind: input.kind,
-        base_url: input.baseUrl ?? null,
-        credential_ref: input.credentialRef ?? null,
-      }),
-    ],
+    `INSERT INTO operator_audit (operator_id, action, target, metadata) VALUES ($1, $2, $3, $4::jsonb)`,
+    [change.operatorId, change.action, change.target, JSON.stringify(change.metadata ?? {})],
   );
+}
+
+export interface OperatorChangeRow extends Required<OperatorChange> {
+  at: Date;
+}
+
+export async function listOperatorChanges(
+  operator: Queryable,
+  target: string,
+  limit = 10,
+): Promise<OperatorChangeRow[]> {
+  const { rows } = await operator.query<{
+    at: Date;
+    operator_id: string;
+    action: string;
+    target: string;
+    metadata: Record<string, unknown>;
+  }>(
+    `SELECT at, operator_id, action, target, metadata FROM operator_audit
+     WHERE target = $1 ORDER BY at DESC LIMIT $2`,
+    [target, limit],
+  );
+  return rows.map((row) => ({
+    at: row.at,
+    operatorId: row.operator_id,
+    action: row.action,
+    target: row.target,
+    metadata: row.metadata,
+  }));
+}
+
+export interface ConnectionTestResult {
+  ok: boolean;
+  /** A status line: "200", "401", "timeout". Never a body. */
+  detail: string;
+}
+
+export async function recordConnectionTest(
+  operator: Queryable,
+  input: { provider: string; environment: 'sandbox' | 'live' } & ConnectionTestResult,
+): Promise<void> {
+  await operator.query(
+    `UPDATE provider_connections
+     SET last_test_at = now(), last_test_ok = $3, last_test_detail = $4
+     WHERE provider = $1 AND environment = $2`,
+    [input.provider, input.environment, input.ok, input.detail.slice(0, 200)],
+  );
+}
+
+/**
+ * Asks the identity service for a token with the stored credential, and nothing else.
+ *
+ * The cheapest question that proves the credential: it costs no verification, touches no
+ * subscriber, and a wrong paste answers 401 in under a second. The body of the answer is
+ * never read beyond whether it holds a token, because an identity service that echoes the
+ * client id back would otherwise put it on a screen.
+ */
+export async function testClientCredentials(
+  input: { authUrl: string; clientId: string; clientSecret: string; scope?: string },
+  fetcher: (url: string, init: RequestInit) => Promise<Response> = (url, init) => fetch(url, init),
+  timeoutMs = 10_000,
+): Promise<ConnectionTestResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetcher(input.authUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: input.clientId,
+        client_secret: input.clientSecret,
+        scope: input.scope ?? 'api',
+      }).toString(),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return { ok: false, detail: String(response.status) };
+    }
+    const body = (await response.json().catch(() => ({}))) as { access_token?: unknown };
+    return typeof body.access_token === 'string'
+      ? { ok: true, detail: String(response.status) }
+      : { ok: false, detail: 'no token in the answer' };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: (error as Error).name === 'AbortError' ? 'timeout' : 'unreachable',
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**

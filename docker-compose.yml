@@ -29,6 +29,12 @@ services:
     build: .
     command: ['pnpm', '--filter', '@nx-verify/api', 'run', 'start']
     env_file: .env
+    environment:
+      # Connection secrets set from the administration panel, sealed on a shared volume
+      # and never in the database (rule 10, ADR-108).
+      NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
+    volumes:
+      - secrets:/var/lib/nx-secrets
     ports:
       - '3000:3000'
     depends_on:
@@ -48,6 +54,12 @@ services:
     build: .
     command: ['pnpm', '--filter', '@nx-verify/console', 'run', 'start']
     env_file: .env
+    environment:
+      # Connection secrets set from the administration panel, sealed on a shared volume
+      # and never in the database (rule 10, ADR-108).
+      NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
+    volumes:
+      - secrets:/var/lib/nx-secrets
     ports:
       - '3001:3000'
     depends_on:
@@ -58,9 +70,16 @@ services:
     build: .
     command: ['pnpm', '--filter', '@nx-verify/worker', 'run', 'start']
     env_file: .env
+    environment:
+      NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
+    volumes:
+      - secrets:/var/lib/nx-secrets
     depends_on:
       migrate:
         condition: service_completed_successfully
 
 volumes:
   db:
+  # Sealed connection secrets. Back it up separately from the database, and never
+  # together with the master key.
+  secrets:

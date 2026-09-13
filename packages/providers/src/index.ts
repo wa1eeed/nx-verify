@@ -19,7 +19,13 @@ export {
   resolveCredential,
   secretStoreFromEnv,
 } from './credentials.js';
-export type { ProviderBinding, SecretFetcher, SecretStore } from './credentials.js';
+export type {
+  ProviderBinding,
+  SecretDescription,
+  SecretFetcher,
+  SecretStore,
+} from './credentials.js';
+export { LayeredSecretStore, SealedFileSecretStore, describeMaterial } from './sealed-store.js';
 
 export { StubProvider } from './stub/stub-provider.js';
 export type { StubProviderOptions } from './stub/stub-provider.js';
@@ -45,8 +51,22 @@ export type { TokenRequest } from './lean/token.js';
 export { SANDBOX_TEST_CASES } from './stub/test-cases.js';
 export type { SandboxTestCase } from './stub/test-cases.js';
 export { SCENARIO_NAMES } from './stub/scenarios.js';
-export { listProviderConnections, registryFor, setProviderConnection } from './connections.js';
-export type { ProviderConnection, SetConnectionInput } from './connections.js';
+export {
+  listOperatorChanges,
+  listProviderConnections,
+  recordConnectionTest,
+  recordOperatorChange,
+  registryFor,
+  setProviderConnection,
+  testClientCredentials,
+} from './connections.js';
+export type {
+  ConnectionTestResult,
+  OperatorChange,
+  OperatorChangeRow,
+  ProviderConnection,
+  SetConnectionInput,
+} from './connections.js';
 export {
   httpMappingsFor,
   listProviderEndpoints,

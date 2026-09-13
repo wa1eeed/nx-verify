@@ -22,7 +22,7 @@ export const OPERATOR_SECTIONS: readonly SectionLink[] = [
   { href: '/operator/packages', label: 'الباقات والأسعار', also: ['/operator/margin'] },
   { href: '/operator/topups', label: 'الحوالات' },
   {
-    href: '/operator/connections',
+    href: '/operator/integration',
     label: 'الربط التقني',
     also: ['/operator/endpoints', '/operator/health', '/operator/readiness'],
   },
@@ -34,7 +34,7 @@ export const PRICING_TABS: readonly SectionTab[] = [
 ];
 
 export const INTEGRATION_TABS: readonly SectionTab[] = [
-  { href: '/operator/connections', label: 'بيانات الربط' },
+  { href: '/operator/integration', label: 'بيانات الربط' },
   { href: '/operator/endpoints', label: 'نقاط النهاية' },
   { href: '/operator/health', label: 'صحة الخدمة' },
   { href: '/operator/readiness', label: 'جاهزية النشر' },
