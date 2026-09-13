@@ -39,6 +39,15 @@ const FULL_SUCCESS: StubScenario = {
       postal_code: '12211',
       additional_number: '8456',
     },
+    // The address is its own call now, so it is its own payload. The registry lookup no
+    // longer carries it: two calls that cost different amounts must be distinguishable.
+    national_address: {
+      city: 'الرياض',
+      district: 'العليا',
+      building_number: '2743',
+      postal_code: '12211',
+      additional_number: '8456',
+    },
     articles_of_association: {
       unified_number: '7001272184',
       document_number: 'AOA-88213',
@@ -173,6 +182,15 @@ const EXPIRED_CR: StubScenario = {
       district: 'الروضة',
       building_number: '4410',
     },
+    // The address is its own call now, so it is its own payload. The registry lookup no
+    // longer carries it: two calls that cost different amounts must be distinguishable.
+    national_address: {
+      city: 'الرياض',
+      district: 'العليا',
+      building_number: '2743',
+      postal_code: '12211',
+      additional_number: '8456',
+    },
   },
 };
 
@@ -189,6 +207,15 @@ const MANAGER_NOT_AUTHORISED: StubScenario = {
       city: 'الدمام',
       district: 'الفيصلية',
       building_number: '7712',
+    },
+    // The address is its own call now, so it is its own payload. The registry lookup no
+    // longer carries it: two calls that cost different amounts must be distinguishable.
+    national_address: {
+      city: 'الرياض',
+      district: 'العليا',
+      building_number: '2743',
+      postal_code: '12211',
+      additional_number: '8456',
     },
     articles_of_association: {
       unified_number: '7000000011',

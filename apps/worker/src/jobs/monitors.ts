@@ -86,7 +86,6 @@ export async function runDueMonitors(
       subject: subject.subject,
       subjectIdentifiers: subject.identifiers,
       triggeredBy: 'MONITOR',
-      modeAtExecution: 'BYOC',
       runStep: options.runStep,
       keys: options.keys,
     });

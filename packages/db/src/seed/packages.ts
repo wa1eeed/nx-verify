@@ -145,11 +145,24 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     supportTier: 'STANDARD',
     sortOrder: 5,
     products: [
+      /*
+       * Priced against what each product costs to deliver, not against a round number.
+       *
+       * The provider bills per call, so a product making five calls costs five. The
+       * complete check is four registry calls and one address lookup: 42 riyals at the
+       * agreed rate, which is why it is not sold at the price of a single lookup. Guard
+       * 10 holds every line here to covering its cost with a margin.
+       */
       { code: 'ADDRESS_ONLY', unitPriceHalalas: 6_00 },
-      { code: 'KYB_COMPLETE', unitPriceHalalas: 25_00 },
+      { code: 'KYB_COMPLETE', unitPriceHalalas: 95_00 },
       { code: 'AOA_ONLY', unitPriceHalalas: 25_00 },
       { code: 'MANAGER_PERMISSIONS', unitPriceHalalas: 25_00 },
       { code: 'FREELANCER_CERTIFICATE', unitPriceHalalas: 28_00 },
+      { code: 'IBAN_OWNERSHIP', unitPriceHalalas: 25_00 },
+      { code: 'NAME_MATCH', unitPriceHalalas: 25_00 },
+      { code: 'BANK_ACCOUNT_OWNERSHIP', unitPriceHalalas: 25_00 },
+      { code: 'INCOME_VERIFICATION', unitPriceHalalas: 25_00 },
+      { code: 'PROPERTY_DEED', unitPriceHalalas: 25_00 },
     ],
   },
   {
@@ -221,14 +234,17 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     products: [
       // The five services of the first quotation, each priced for what it costs rather
       // than blended: an address check is not a company file.
+      // The annual commitment buys a lower price per call, not a price below cost.
       { code: 'ADDRESS_ONLY', unitPriceHalalas: 4_00 },
-      { code: 'KYB_COMPLETE', unitPriceHalalas: 18_00 },
-      { code: 'AOA_ONLY', unitPriceHalalas: 18_00 },
-      { code: 'MANAGER_PERMISSIONS', unitPriceHalalas: 18_00 },
+      { code: 'KYB_COMPLETE', unitPriceHalalas: 78_00 },
+      { code: 'AOA_ONLY', unitPriceHalalas: 20_00 },
+      { code: 'MANAGER_PERMISSIONS', unitPriceHalalas: 20_00 },
       { code: 'FREELANCER_CERTIFICATE', unitPriceHalalas: 20_00 },
-      { code: 'IBAN_OWNERSHIP', unitPriceHalalas: 12_00 },
-      { code: 'NAME_MATCH', unitPriceHalalas: 8_00 },
-      { code: 'BANK_ACCOUNT_OWNERSHIP', monthlyQuota: 500, unitPriceHalalas: 15_00 },
+      { code: 'IBAN_OWNERSHIP', unitPriceHalalas: 20_00 },
+      { code: 'NAME_MATCH', unitPriceHalalas: 20_00 },
+      { code: 'BANK_ACCOUNT_OWNERSHIP', monthlyQuota: 500, unitPriceHalalas: 20_00 },
+      { code: 'INCOME_VERIFICATION', unitPriceHalalas: 20_00 },
+      { code: 'PROPERTY_DEED', unitPriceHalalas: 20_00 },
     ],
   },
   {

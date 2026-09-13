@@ -16,6 +16,7 @@ import { decide, storeDecision, type Decision } from '../decision/engine.js';
 import { openCase } from '../review/queue.js';
 import { computeScore, storeScore } from '../monitoring/scoring.js';
 import { resolveRuleset } from '../portfolios/portfolios.js';
+import { resolveExecutionMode } from '../routing/provider-routing.js';
 import { resolveEntity, type IdentifierInput } from '../repositories/entities.js';
 import { computeBilling, maximumCharge, type BillingBreakdown } from '../billing/compute.js';
 import { resolvePrice } from '../billing/price-book.js';
@@ -63,7 +64,12 @@ export interface VerifyInput {
   idempotencyKey?: string | null;
   clientRef?: string | null;
   triggeredBy: TriggeredBy;
-  modeAtExecution: 'MANAGED' | 'BYOC';
+  /**
+   * How this run is paid for at the provider. Read from the binding when absent, which
+   * is what a caller should normally do: it is a fact about the relationship, not about
+   * the request.
+   */
+  modeAtExecution?: 'MANAGED' | 'BYOC';
   runStep: StepRunner;
   keys: TenantKeyProvider;
   contractId?: string | null;
@@ -116,7 +122,7 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     entityId: subject.entityId,
     clientRef: input.clientRef ?? null,
     idempotencyKey: input.idempotencyKey ?? null,
-    modeAtExecution: input.modeAtExecution,
+    modeAtExecution: input.modeAtExecution ?? (await resolveExecutionMode(tx)),
     triggeredBy: input.triggeredBy,
   });
 

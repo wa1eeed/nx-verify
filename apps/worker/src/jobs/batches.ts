@@ -70,7 +70,6 @@ export async function runBatchItems(
         subject: { [subjectKey]: identifier.value },
         subjectIdentifiers: [{ idType: identifier.idType, value: identifier.value }],
         triggeredBy: 'BULK',
-        modeAtExecution: 'BYOC',
         runStep: options.runStep,
         keys: options.keys,
       });

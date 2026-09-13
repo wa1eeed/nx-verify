@@ -97,7 +97,9 @@ describe('the product catalog drives execution', () => {
     const { outcome } = await runProduct('ADDRESS_ONLY', { unn: '7001272184' });
     expect(outcome.status).toBe('OK');
     expect(outcome.steps).toHaveLength(1);
-    expect(outcome.steps[0]?.authority).toBe('Commercial Registry');
+    // The national address register is not the commercial registry, and the two are
+    // separate calls at separate prices, so they carry separate authorities.
+    expect(outcome.steps[0]?.authority).toBe('National Address');
   });
 
   it('runs a composite product and passes output between steps', async () => {

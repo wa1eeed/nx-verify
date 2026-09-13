@@ -132,7 +132,7 @@ describe('provider routing is per subscriber', () => {
 
     // Rule 5 across both names, on the response either subscriber receives.
     expect(() => assertNoProviderLeak(one.results, [ALPHA, BETA])).not.toThrow();
-    expect(JSON.stringify(one.results)).toContain('Commercial Registry');
+    expect(JSON.stringify(one.results)).toContain('National Address');
   });
 
   it('prefers the lower priority binding and falls through when it fails', async () => {

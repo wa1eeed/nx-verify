@@ -3,6 +3,7 @@ import { createPool, withTenant, withoutTenant } from '../packages/db/src/index.
 import { applyProductSeed } from '../packages/db/src/seed/products.js';
 import { applyPackageSeed } from '../packages/db/src/seed/packages.js';
 import { applyProviderSeed } from '../packages/db/src/seed/providers.js';
+import { applyCostSeed } from '../packages/db/src/seed/costs.js';
 import { setTenantPackage } from '../packages/core/src/billing/package-admin.js';
 import { issueApiKey } from '../packages/core/src/auth/api-keys.js';
 import { createUser } from '../packages/core/src/auth/users.js';
@@ -37,7 +38,7 @@ import { defineJourney } from '../packages/core/src/onboarding/cases.js';
  *     --base-url https://api.wathq.sa --ref kms://providers/wathq/live
  *   pnpm provision provider:callback --provider lean --environment sandbox \
  *     --ref kms://providers/lean/webhook --header lean-signature --algorithm sha512
- *   pnpm provision provider:bind --tenant <id> --provider stub --ref kms://... [--mode BYOC]
+ *   pnpm provision provider:bind --tenant <id> --provider lean --ref kms://... [--mode BYOC]
  *   pnpm provision sandbox:create --tenant <id>
  *   pnpm provision journey:create --tenant <id> [--code MERCHANT] [--products A,B]
  */
@@ -116,7 +117,12 @@ async function main(): Promise<void> {
         // is checked before every run, a workspace on no plan can run nothing, and a
         // deployment with products and no plans is a deployment that refuses everything.
         const provider = flags['provider'] ?? 'stub';
-        await withoutTenant(pool, (tx) => applyProductSeed(tx, undefined, { providerName: provider }));
+        await withoutTenant(pool, async (tx) => {
+          await applyProductSeed(tx, undefined, { providerName: provider });
+          // What each call costs us, so the margin check and the operator screen read a
+          // figure rather than assuming one.
+          await applyCostSeed(tx);
+        });
 
         const operatorUrl = process.env['NX_OPERATOR_DATABASE_URL'];
         if (!operatorUrl) {
@@ -132,7 +138,7 @@ async function main(): Promise<void> {
           await operator.end();
         }
 
-        console.log(`products, packages and providers seeded, steps pointing at provider ${provider}`);
+        console.log(`products, packages, providers and costs seeded, steps pointing at provider ${provider}`);
         return;
       }
 
@@ -312,7 +318,10 @@ async function main(): Promise<void> {
             {
               tenantId: required(flags, 'tenant'),
               provider: required(flags, 'provider'),
-              mode: (flags['mode'] ?? 'BYOC') as 'BYOC' | 'MANAGED',
+              // NX calls on its own credential and charges the subscriber here, which is
+              // the model the provider agreement allows. BYOC stays available for a
+              // subscriber who brings their own account.
+              mode: (flags['mode'] ?? 'MANAGED') as 'BYOC' | 'MANAGED',
               credentialRef: required(flags, 'ref'),
               activate: true,
             },
@@ -397,7 +406,7 @@ async function main(): Promise<void> {
             {
               tenantId: sandboxId,
               provider: flags['provider'] ?? 'stub',
-              mode: 'BYOC',
+              mode: 'MANAGED',
               credentialRef: flags['ref'] ?? 'kms://sandbox/stub',
               activate: true,
             },

@@ -98,7 +98,7 @@ describe('pricing and the wallet', () => {
     await withoutTenant(db.appPool, (tx) =>
       tx.query(
         `INSERT INTO cost_book (provider, endpoint, unit_cost)
-         VALUES ('stub', 'business_verification', 3.00)
+         VALUES ('stub', 'national_address', 3.00)
          ON CONFLICT DO NOTHING`,
       ),
     );

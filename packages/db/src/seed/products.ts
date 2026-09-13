@@ -64,7 +64,7 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
         stepKey: 'address',
         seq: 1,
         provider: 'stub',
-        endpoint: 'business_verification',
+        endpoint: 'national_address',
         inputBinding: { identifications: '$.subject.unn', type: 'literal:ADDRESS' },
         cacheTtlDays: 30,
       },
@@ -514,7 +514,10 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
         stepKey: 'address',
         seq: 2,
         provider: 'stub',
-        endpoint: 'business_verification',
+        // Its own endpoint, not the registry one with a flag. The two cost different
+        // amounts from the provider, and an endpoint that stands for both cannot be
+        // priced: the cost book is keyed on what we called, and so is the invoice.
+        endpoint: 'national_address',
         inputBinding: {
           identifications: '$.steps.cr_full.unified_number',
           type: 'literal:ADDRESS',

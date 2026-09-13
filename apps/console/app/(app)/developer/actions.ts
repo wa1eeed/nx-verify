@@ -49,7 +49,6 @@ export async function runPlaygroundAction(formData: FormData): Promise<void> {
       subjectIdentifiers: [{ idType: identifierTypeFor(productCode), value: input }],
       idempotencyKey: `playground-${randomUUID()}`,
       triggeredBy: 'CONSOLE',
-      modeAtExecution: 'BYOC',
       runStep: createProviderStepRunner({
         registry,
         candidatesFor: (step) =>

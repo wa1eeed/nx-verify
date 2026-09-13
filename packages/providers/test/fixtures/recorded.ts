@@ -34,6 +34,18 @@ export const RECORDED: Readonly<Record<string, RecordedResponse>> = {
     },
   },
 
+  // The address is its own call at this provider too, and its own recorded response.
+  'GET /v1/national-address/7001272184': {
+    status: 200,
+    headers: { 'x-charge-amount': '0.65' },
+    body: {
+      requestId: 'up_9f3',
+      data: {
+        address: { city: 'الرياض', district: 'العليا', buildingNumber: '2743' },
+      },
+    },
+  },
+
   'GET /v1/commercial-registration/7000000000': {
     status: 404,
     body: { code: 'RECORD_NOT_FOUND', message: 'no registration for this number' },

@@ -150,7 +150,7 @@ describe('the public API', () => {
     expect(body.status).toBe('OK');
     expect(body.entity_id).toBeTruthy();
     expect(body.results.address.status).toBe('OK');
-    expect(body.results.address.authority).toBe('Commercial Registry');
+    expect(body.results.address.authority).toBe('National Address');
     expect(body.billing).toEqual({ amount: 8, currency: 'SAR' });
   });
 

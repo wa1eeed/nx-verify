@@ -26,6 +26,8 @@ import type {
 
 const AUTHORITIES: Readonly<Record<string, string>> = {
   business_verification: 'Commercial Registry',
+  // A call of its own, because it is billed as one.
+  national_address: 'National Address',
   articles_of_association: 'Ministry of Commerce',
   manager_permissions: 'Ministry of Commerce',
   ultimate_beneficial_owner: 'Commercial Registry',

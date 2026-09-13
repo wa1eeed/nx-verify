@@ -477,7 +477,6 @@ export async function advanceCase(
         // same check twice or charge for it twice (rule 7).
         idempotencyKey: `case:${input.caseId}:${step.stepKey}`,
         triggeredBy: 'API',
-        modeAtExecution: 'BYOC',
         runStep: input.runStep,
         keys: input.keys,
       });

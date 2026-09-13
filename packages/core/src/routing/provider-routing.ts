@@ -229,3 +229,31 @@ export async function upsertCatalogEntry(
     [entry.code, entry.nameAr, entry.nameEn, entry.endpoints, entry.status, entry.notes],
   );
 }
+
+
+/**
+ * How this workspace's runs are paid for at the provider.
+ *
+ * MANAGED means the call goes out on our credential and the subscriber is charged here.
+ * BYOC means they brought their own account and we charge no query cost. The choice is
+ * per (subscriber, provider) and lives in the binding, which is the whole point of the
+ * column: it is a commercial fact about a relationship, not a property of a request.
+ *
+ * Callers used to assert it. Five of them asserted BYOC because that was the model when
+ * they were written, so every run was recorded as costing us nothing whatever the
+ * binding said, and the margin figures were derived from that. Reading it from the
+ * binding is the fix, and the default when no binding exists is MANAGED: a workspace
+ * verifying through our platform on our provider account is the ordinary case now.
+ */
+export async function resolveExecutionMode(tx: TenantTransaction): Promise<'MANAGED' | 'BYOC'> {
+  const { rows } = await tx.query<{ mode: 'MANAGED' | 'BYOC' }>(
+    `SELECT mode FROM tenant_provider_binding
+     WHERE tenant_id = $1 AND activated_at IS NOT NULL
+     ORDER BY CASE mode WHEN 'MANAGED' THEN 0 ELSE 1 END
+     LIMIT 1`,
+    [tx.tenantId],
+  );
+  // Any managed binding means we paid for something in this run, and a run recorded as
+  // costing nothing when it cost us is a margin report that overstates itself.
+  return rows[0]?.mode ?? 'MANAGED';
+}

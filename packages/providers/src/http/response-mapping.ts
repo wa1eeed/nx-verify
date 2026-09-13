@@ -47,6 +47,27 @@ export const DEFAULT_ENDPOINTS: Readonly<Record<string, EndpointMapping>> = {
     },
     flatten: ['address'],
   },
+  /*
+   * The national address is its own call and its own authority.
+   *
+   * It used to ride along with the registry lookup as a flattened sub object. That made
+   * the two indistinguishable to the cost book, which is keyed on what we called, and a
+   * call we cannot name is a call we cannot price.
+   */
+  national_address: {
+    path: '/v1/national-address/{identifications}',
+    method: 'GET',
+    authority: 'National Address',
+    dataPath: 'data',
+    fields: {
+      city: 'city',
+      district: 'district',
+      buildingNumber: 'building_number',
+      postalCode: 'postal_code',
+      additionalNumber: 'additional_number',
+    },
+    flatten: ['address'],
+  },
   articles_of_association: {
     path: '/v1/aoa/{unified_number}',
     method: 'GET',

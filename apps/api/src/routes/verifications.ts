@@ -102,7 +102,6 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
           idempotencyKey,
           clientRef: body.reference ?? null,
           triggeredBy: 'API',
-          modeAtExecution: 'BYOC',
           // The adapter for the world this key belongs to: a sandbox key reaches each
           // provider's sandbox host, a live key its production one.
           runStep: context.stepRunnerFor(tx, {

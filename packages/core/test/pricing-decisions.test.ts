@@ -78,9 +78,10 @@ describe('the plans the platform ships with', () => {
     );
 
     // An address check is not a company file, and one blended figure would either
-    // overcharge the cheap call or undercharge the expensive one.
+    // overcharge the cheap call or undercharge the expensive one. The gap between them
+    // is the gap in what they cost: one provider call against five.
     expect(priceOf.get('ADDRESS_ONLY')).toBe(4_00);
-    expect(priceOf.get('KYB_COMPLETE')).toBe(18_00);
+    expect(priceOf.get('KYB_COMPLETE')).toBe(78_00);
     expect(priceOf.get('FREELANCER_CERTIFICATE')).toBe(20_00);
   });
 
