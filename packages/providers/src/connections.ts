@@ -1,6 +1,7 @@
 import type { Queryable } from '@nx-verify/db';
 import type { ProviderRegistry } from './registry.js';
 import { createProviderRegistry, providerConfigFromEnv, type ProviderConfig } from './factory.js';
+import { httpMappingsFor, listProviderEndpoints, openBankingMappingsFor } from './endpoint-map.js';
 
 /**
  * Which provider is running, read from the panel rather than from a deployment.
@@ -163,14 +164,26 @@ export async function registryFor(
     return createProviderRegistry(providerConfigFromEnv(env));
   }
 
-  const configs = connections.map((connection): ProviderConfig => ({
-    name: connection.provider,
-    kind: connection.kind,
-    ...(connection.baseUrl === null ? {} : { baseUrl: connection.baseUrl }),
-    ...(connection.authUrl === null ? {} : { authUrl: connection.authUrl }),
-    timeoutMs: connection.timeoutMs,
-    maxAttempts: connection.maxAttempts,
-  }));
+  // The endpoint map for this environment, where one has been entered. A row wins over
+  // the map compiled into the adapter, because somebody entered it on purpose.
+  const stored = await listProviderEndpoints(db, environment);
+
+  const configs = connections.map((connection): ProviderConfig => {
+    const endpoints =
+      connection.kind === 'openbanking'
+        ? openBankingMappingsFor(stored, connection.provider)
+        : httpMappingsFor(stored, connection.provider);
+
+    return {
+      name: connection.provider,
+      kind: connection.kind,
+      ...(connection.baseUrl === null ? {} : { baseUrl: connection.baseUrl }),
+      ...(connection.authUrl === null ? {} : { authUrl: connection.authUrl }),
+      timeoutMs: connection.timeoutMs,
+      maxAttempts: connection.maxAttempts,
+      ...(endpoints === null ? {} : { endpoints }),
+    };
+  });
 
   return createProviderRegistry(configs);
 }

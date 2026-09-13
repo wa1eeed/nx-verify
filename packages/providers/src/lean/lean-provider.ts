@@ -180,7 +180,7 @@ export interface LeanProviderOptions {
   /** The API host. The authorisation host is separate and given below. */
   baseUrl: string;
   authUrl: string;
-  endpoints?: Readonly<Record<string, LeanEndpointMapping>>;
+  endpoints?: Readonly<Record<string, LeanEndpointMapping>> | undefined;
   fetch?: FetchLike;
   timeoutMs?: number;
   tokens?: TokenCache;

@@ -23,6 +23,14 @@ export interface ProviderConfig {
   authUrl?: string | undefined;
   timeoutMs?: number | undefined;
   maxAttempts?: number | undefined;
+  /**
+   * The endpoint map for this provider, when one has been entered.
+   *
+   * Absent means the adapter uses the map compiled into it. A row wins, because somebody
+   * entered it on purpose and a supplier moves a path on their timetable rather than on
+   * the timetable of our releases.
+   */
+  endpoints?: Record<string, unknown> | undefined;
 }
 
 export function createProviderRegistry(configs: readonly ProviderConfig[]): ProviderRegistry {
@@ -45,6 +53,9 @@ export function createProviderRegistry(configs: readonly ProviderConfig[]): Prov
           baseUrl: config.baseUrl,
           authUrl: config.authUrl,
           ...(config.timeoutMs === undefined ? {} : { timeoutMs: config.timeoutMs }),
+          ...(config.endpoints === undefined
+            ? {}
+            : { endpoints: config.endpoints as ConstructorParameters<typeof LeanProvider>[0]['endpoints'] }),
         }),
       );
       continue;
@@ -59,6 +70,13 @@ export function createProviderRegistry(configs: readonly ProviderConfig[]): Prov
         baseUrl: config.baseUrl,
         ...(config.timeoutMs === undefined ? {} : { timeoutMs: config.timeoutMs }),
         ...(config.maxAttempts === undefined ? {} : { maxAttempts: config.maxAttempts }),
+        ...(config.endpoints === undefined
+          ? {}
+          : {
+              endpoints: config.endpoints as ConstructorParameters<
+                typeof HttpVerificationProvider
+              >[0]['endpoints'],
+            }),
       }),
     );
   }

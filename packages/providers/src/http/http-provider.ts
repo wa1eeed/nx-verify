@@ -31,7 +31,7 @@ export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 export interface HttpProviderOptions {
   name: string;
   baseUrl: string;
-  endpoints?: Readonly<Record<string, EndpointMapping>>;
+  endpoints?: Readonly<Record<string, EndpointMapping>> | undefined;
   fetch?: FetchLike;
   timeoutMs?: number;
   /** Transient failures only. An auth failure is never retried. */

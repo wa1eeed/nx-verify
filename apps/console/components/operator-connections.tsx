@@ -101,7 +101,8 @@ export function OperatorConnections({
             اربط المشترك بالمزوّد من <a href="/operator/providers">شاشة التوجيه</a>، ثم
             تحقّق من <a href="/operator/health">صحة الخدمة</a>. والحوالات بانتظار التأكيد في{' '}
             <a href="/operator/topups">شاشة الحوالات</a>. وما ينقص هذا النشر كاملاً في{' '}
-            <a href="/operator/readiness">جاهزية النشر</a>.
+            <a href="/operator/readiness">جاهزية النشر</a>. وأين يذهب كل نداء في{' '}
+            <a href="/operator/endpoints">خريطة نقاط النهاية</a>.
           </li>
         </ol>
       </Panel>

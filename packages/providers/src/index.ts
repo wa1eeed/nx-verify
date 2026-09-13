@@ -47,3 +47,10 @@ export type { SandboxTestCase } from './stub/test-cases.js';
 export { SCENARIO_NAMES } from './stub/scenarios.js';
 export { listProviderConnections, registryFor, setProviderConnection } from './connections.js';
 export type { ProviderConnection, SetConnectionInput } from './connections.js';
+export {
+  httpMappingsFor,
+  listProviderEndpoints,
+  openBankingMappingsFor,
+  setProviderEndpoint,
+} from './endpoint-map.js';
+export type { SetEndpointInput, StoredEndpoint } from './endpoint-map.js';
