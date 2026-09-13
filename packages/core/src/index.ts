@@ -604,6 +604,19 @@ export type {
   SetPackageProductInput,
   SubscriberRow,
 } from './billing/package-admin.js';
+export {
+  RENEWAL_WINDOW_DAYS,
+  getSubscriberDetail,
+  listSubscriberSummaries,
+  platformOverview,
+} from './billing/subscribers.js';
+export type {
+  PlatformOverview,
+  ProductUsage,
+  SubscriberDetail,
+  SubscriberSummary,
+  SubscriberTopUp,
+} from './billing/subscribers.js';
 export { listApiRequests, pruneApiRequests, recordApiRequest } from './observability/api-log.js';
 export type { ApiLogFilter, ApiRequestRecord, ApiRequestRow } from './observability/api-log.js';
 export { subscriberHealth } from './observability/service-health.js';

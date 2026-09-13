@@ -2,6 +2,8 @@ import type { ReactElement } from 'react';
 import { subscriberHealth } from '@nx-verify/core';
 import { OperatorHealth, type HealthRowView } from '../../../../components/operator-health';
 import { operatorQuery, requireOperator } from '../../../../lib/operator';
+import { SectionTabs } from '../../../../components/section-tabs';
+import { INTEGRATION_TABS } from '../../../../components/operator-shell';
 
 /** Never prerendered, and refuses to render without an operator token. */
 export const dynamic = 'force-dynamic';
@@ -27,5 +29,10 @@ export default async function OperatorHealthPage(): Promise<ReactElement> {
     unhealthyProviders: row.unhealthyProviders,
   }));
 
-  return <OperatorHealth rows={view} windowHours={WINDOW_HOURS} />;
+  return (
+    <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      <SectionTabs tabs={INTEGRATION_TABS} current="/operator/health" label="أقسام الربط التقني" />
+      <OperatorHealth rows={view} windowHours={WINDOW_HOURS} />
+    </div>
+  );
 }

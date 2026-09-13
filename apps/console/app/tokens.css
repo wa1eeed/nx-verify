@@ -628,6 +628,88 @@ label {
   white-space: nowrap;
 }
 
+/*
+ * The tones a badge may carry, named once. Expired stays neutral grey and a detected change
+ * stays the warning colour, here as everywhere: the two must never be mistaken for each
+ * other at a glance.
+ */
+.badge[data-tone='critical'] {
+  color: var(--critical-fg);
+  background: var(--critical-bg);
+  border-color: var(--critical-line);
+}
+
+.badge[data-tone='fresh'] {
+  color: var(--fresh-fg);
+  background: var(--fresh-bg);
+  border-color: var(--fresh-line);
+}
+
+.badge[data-tone='changed'] {
+  color: var(--changed-fg);
+  background: var(--changed-bg);
+  border-color: var(--changed-line);
+}
+
+.badge[data-tone='expired'] {
+  color: var(--expired-fg);
+  background: var(--expired-bg);
+  border-color: var(--expired-line);
+}
+
+.badge[data-tone='neutral'] {
+  color: var(--ink-soft);
+  background: var(--paper);
+  border-color: var(--line-strong);
+}
+
+/* A thin solid bar for a share of something: capacity used, a check list done. */
+.meter {
+  display: block;
+  width: 100%;
+  min-width: 96px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.meter-fill {
+  display: block;
+  height: 100%;
+  background: var(--teal-d);
+  transition: width var(--slow) var(--ease);
+}
+
+.meter-fill[data-full='yes'] {
+  background: var(--critical-line);
+}
+
+/* Which surface this is, under the brand, so the panel is never mistaken for a console. */
+.surface-label {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 1px 10px;
+}
+
+.attention-list {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.attention-list > li {
+  padding-block: var(--s-2);
+  border-block-end: 1px solid var(--line);
+}
+
+.attention-list > li:last-child {
+  border-block-end: 0;
+}
+
 .mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;

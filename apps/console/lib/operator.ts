@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { createPool, type Queryable } from '@nx-verify/db';
 import type pg from 'pg';
 
@@ -35,11 +36,74 @@ export async function closeOperatorPool(): Promise<void> {
   }
 }
 
+export const OPERATOR_COOKIE = 'nx_operator';
+
+/** How long a sign in to the panel lasts before the token is asked for again. */
+export const OPERATOR_SESSION_HOURS = 8;
+
+const SESSION_LABEL = 'nx-operator-session/v1';
+
+/** Whether this deployment has a panel at all. Without a token nobody can sign in. */
+export function operatorPanelEnabled(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  const token = env['NX_OPERATOR_TOKEN'];
+  return token !== undefined && token.length >= 24;
+}
+
 /**
- * Refuses unless an operator token is presented.
+ * The cookie value for a signed in operator.
  *
- * Compared in constant time, and it throws rather than returning false, so a caller
- * cannot forget to check the result.
+ * Derived from the token and never the token itself. A browser holding the raw token
+ * holds something that works for ever and from anywhere; this holds a value that stops
+ * working at its expiry, and every one of them stops working the moment the token is
+ * rotated, which is what signing everybody out needs to mean.
+ */
+export function operatorSessionValue(token: string, expiresAtMs: number): string {
+  const mac = createHmac('sha256', token)
+    .update(`${SESSION_LABEL}|${expiresAtMs}`)
+    .digest('base64url');
+  return `v1.${expiresAtMs}.${mac}`;
+}
+
+export function verifyOperatorSession(
+  token: string,
+  value: string,
+  nowMs: number = Date.now(),
+): boolean {
+  const [version, expires, mac] = value.split('.');
+  if (version !== 'v1' || !expires || !mac) {
+    return false;
+  }
+  const expiresAt = Number(expires);
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= nowMs) {
+    return false;
+  }
+  // A value claiming to last longer than any sign in can was not issued by us.
+  if (expiresAt - nowMs > OPERATOR_SESSION_HOURS * 3_600_000 + 60_000) {
+    return false;
+  }
+  return timingSafeEquals(value, operatorSessionValue(token, expiresAt));
+}
+
+/** Compares a presented token with the configured one, in constant time. */
+export function operatorTokenMatches(
+  presented: string,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  const expected = env['NX_OPERATOR_TOKEN'];
+  if (!expected || expected.length < 24 || presented.length === 0) {
+    return false;
+  }
+  return timingSafeEquals(presented, expected);
+}
+
+/**
+ * Refuses unless an operator is signed in.
+ *
+ * Two ways in. A script or a test presents the token itself in a header; a person signs
+ * in once and carries a derived session cookie. Both are checked in constant time, and a
+ * refusal throws rather than returning false, so a caller cannot forget to check it.
  */
 export async function requireOperator(): Promise<string> {
   const expected = process.env['NX_OPERATOR_TOKEN'];
@@ -47,12 +111,38 @@ export async function requireOperator(): Promise<string> {
     throw new Error('NX_OPERATOR_TOKEN is not set, or is too short to be one');
   }
 
-  const presented = await readOperatorToken();
-  if (!presented || !timingSafeEquals(presented, expected)) {
+  const presented = await readOperatorCredential();
+  const allowed =
+    presented !== null &&
+    (presented.kind === 'token'
+      ? timingSafeEquals(presented.value, expected)
+      : verifyOperatorSession(expected, presented.value));
+
+  if (!allowed) {
     throw new Error('operator access requires a valid token');
   }
 
   return process.env['NX_OPERATOR_ID'] ?? 'nx-staff:unknown';
+}
+
+/**
+ * The same check for a screen: the sign in page instead of an error.
+ *
+ * The redirect happens outside the try, because a redirect in Next is thrown and a catch
+ * around it would swallow it.
+ */
+export async function operatorOrSignIn(): Promise<string> {
+  let operatorId: string | null = null;
+  try {
+    operatorId = await requireOperator();
+  } catch {
+    operatorId = null;
+  }
+  if (operatorId === null) {
+    const { redirect } = await import('next/navigation');
+    return redirect('/operator/login') as never;
+  }
+  return operatorId;
 }
 
 /** Runs a query as the operator role, which crosses tenants for configuration only. */
@@ -67,19 +157,21 @@ export async function operatorQuery<T>(handler: (db: Queryable) => Promise<T>): 
   }
 }
 
-async function readOperatorToken(): Promise<string | null> {
+async function readOperatorCredential(): Promise<{ kind: 'token' | 'session'; value: string } | null> {
   try {
     const { cookies, headers } = await import('next/headers');
     const headerStore = await headers();
     const fromHeader = headerStore.get('x-nx-operator-token');
     if (fromHeader) {
-      return fromHeader;
+      return { kind: 'token', value: fromHeader };
     }
     const cookieStore = await cookies();
-    return cookieStore.get('nx_operator')?.value ?? null;
+    const session = cookieStore.get(OPERATOR_COOKIE)?.value;
+    return session ? { kind: 'session', value: session } : null;
   } catch {
     // Outside a request. Expected in tests and during a build.
-    return process.env['NX_OPERATOR_TOKEN_OVERRIDE'] ?? null;
+    const override = process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+    return override ? { kind: 'token', value: override } : null;
   }
 }
 

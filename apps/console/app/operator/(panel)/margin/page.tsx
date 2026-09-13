@@ -2,6 +2,8 @@ import type { ReactElement } from 'react';
 import { marginReport } from '@nx-verify/core';
 import { OperatorMargin, type MarginRowView } from '../../../../components/operator-margin';
 import { operatorQuery, requireOperator } from '../../../../lib/operator';
+import { SectionTabs } from '../../../../components/section-tabs';
+import { PRICING_TABS } from '../../../../components/operator-shell';
 
 /**
  * Never prerendered, and it refuses to render without an operator token. It is the only
@@ -39,5 +41,10 @@ export default async function OperatorMarginPage(): Promise<ReactElement> {
     marginPct: row.marginPct,
   }));
 
-  return <OperatorMargin rows={view} />;
+  return (
+    <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      <SectionTabs tabs={PRICING_TABS} current="/operator/margin" label="أقسام الباقات والأسعار" />
+      <OperatorMargin rows={view} />
+    </div>
+  );
 }

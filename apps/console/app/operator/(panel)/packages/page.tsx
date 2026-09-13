@@ -8,6 +8,8 @@ import {
 } from '../../../../components/operator-packages';
 import { operatorQuery, requireOperator } from '../../../../lib/operator';
 import { assignPackageAction, setOverrideAction, setProductAction } from './actions';
+import { SectionTabs } from '../../../../components/section-tabs';
+import { PRICING_TABS } from '../../../../components/operator-shell';
 
 /** Never prerendered, and refuses to render without an operator token. */
 export const dynamic = 'force-dynamic';
@@ -59,13 +61,16 @@ export default async function OperatorPackagesPage(): Promise<ReactElement> {
   }));
 
   return (
-    <OperatorPackages
-      packages={packages}
-      subscribers={subscribers}
-      allProducts={data.products}
-      setProductAction={setProductAction}
-      setOverrideAction={setOverrideAction}
-      assignAction={assignPackageAction}
-    />
+    <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      <SectionTabs tabs={PRICING_TABS} current="/operator/packages" label="أقسام الباقات والأسعار" />
+      <OperatorPackages
+        packages={packages}
+        subscribers={subscribers}
+        allProducts={data.products}
+        setProductAction={setProductAction}
+        setOverrideAction={setOverrideAction}
+        assignAction={assignPackageAction}
+      />
+    </div>
   );
 }

@@ -8,6 +8,8 @@ import {
 } from '../../../../components/operator-connections';
 import { operatorQuery, requireOperator } from '../../../../lib/operator';
 import { setCallbackAction, setConnectionAction, setSecretAction } from './actions';
+import { SectionTabs } from '../../../../components/section-tabs';
+import { INTEGRATION_TABS } from '../../../../components/operator-shell';
 
 /** Never prerendered, and refuses to render without an operator token. */
 export const dynamic = 'force-dynamic';
@@ -59,11 +61,14 @@ export default async function OperatorConnectionsPage(): Promise<ReactElement> {
   };
 
   return (
-    <OperatorConnections
-      view={view}
-      setConnectionAction={setConnectionAction}
-      setSecretAction={setSecretAction}
-      setCallbackAction={setCallbackAction}
-    />
+    <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      <SectionTabs tabs={INTEGRATION_TABS} current="/operator/connections" label="أقسام الربط التقني" />
+      <OperatorConnections
+        view={view}
+        setConnectionAction={setConnectionAction}
+        setSecretAction={setSecretAction}
+        setCallbackAction={setCallbackAction}
+      />
+    </div>
   );
 }

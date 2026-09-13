@@ -6,6 +6,8 @@ import { secretStoreFromEnv } from '@nx-verify/providers';
 import { PageHeader } from '../../../../components/page-header';
 import { OperatorReadiness } from '../../../../components/operator-readiness';
 import { operatorQuery, requireOperator } from '../../../../lib/operator';
+import { SectionTabs } from '../../../../components/section-tabs';
+import { INTEGRATION_TABS } from '../../../../components/operator-shell';
 
 /** Never prerendered, and refuses to render without an operator token. */
 export const dynamic = 'force-dynamic';
@@ -49,12 +51,15 @@ export default async function OperatorReadinessPage(): Promise<ReactElement> {
   });
 
   return (
-    <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <PageHeader
-        title="جاهزية النشر"
-        subtitle="ما هو مضبوط في هذا النشر، وما ينقصه، وماذا يُكتب لضبطه."
-      />
-      <OperatorReadiness checks={report.checks} canServeLive={report.canServeLive} />
+    <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      <SectionTabs tabs={INTEGRATION_TABS} current="/operator/readiness" label="أقسام الربط التقني" />
+      <div className="stack" style={{ gap: 'var(--s-5)' }}>
+        <PageHeader
+          title="جاهزية النشر"
+          subtitle="ما هو مضبوط في هذا النشر، وما ينقصه، وماذا يُكتب لضبطه."
+        />
+        <OperatorReadiness checks={report.checks} canServeLive={report.canServeLive} />
+      </div>
     </div>
   );
 }

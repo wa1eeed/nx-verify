@@ -221,7 +221,7 @@ describe('the console renders real data', () => {
   });
 
   it('refuses the operator panel without a token, and shows it with one', async () => {
-    const { default: OperatorPage } = await import('../app/(app)/operator/providers/page');
+    const { default: OperatorPage } = await import('../app/operator/(panel)/providers/page');
 
     delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
     process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
@@ -238,6 +238,39 @@ describe('the console renders real data', () => {
     expect(html).toContain('المشترك لا يرى اسم أي مزوّد');
 
     delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+  });
+
+  it('shows the operator who is subscribed, until when, and what is left', async () => {
+    const { default: TenantsPage } = await import('../app/operator/(panel)/tenants/page');
+    const { default: OverviewPage } = await import('../app/operator/(panel)/page');
+    const { default: TenantPage } = await import('../app/operator/(panel)/tenants/[id]/page');
+
+    process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
+    process.env['NX_OPERATOR_DATABASE_URL'] = db.operatorConnectionString;
+    delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+    await expect(TenantsPage()).rejects.toThrow();
+
+    process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
+    try {
+      const list = renderToStaticMarkup(await TenantsPage());
+      expect(list).toContain('data-role="tenant-row"');
+      expect(list).toContain('شركة المثال للتجارة');
+      // Commercial figures only. Nothing a subscriber verified reaches this panel.
+      expect(list).not.toContain('7001272184');
+
+      const overview = renderToStaticMarkup(await OverviewPage());
+      expect(overview).toContain('data-role="month-figures"');
+      expect(overview).toContain('data-role="attention"');
+
+      const detail = renderToStaticMarkup(
+        await TenantPage({ params: Promise.resolve({ id: tenant.tenantId }) }),
+      );
+      expect(detail).toContain('data-role="tenant-usage"');
+      // The service the one verification above was billed under, by its name.
+      expect(detail).toContain('التحقق الشامل للمنشأة');
+    } finally {
+      delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+    }
   });
 
   it('names no provider on a subscriber screen even while the operator panel does', async () => {

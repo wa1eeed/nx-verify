@@ -9,6 +9,8 @@ import {
 } from '../../../../components/operator-endpoints';
 import { operatorQuery, requireOperator } from '../../../../lib/operator';
 import { setEndpointAction } from './actions';
+import { SectionTabs } from '../../../../components/section-tabs';
+import { INTEGRATION_TABS } from '../../../../components/operator-shell';
 
 /** Never prerendered, and refuses to render without an operator token. */
 export const dynamic = 'force-dynamic';
@@ -47,12 +49,15 @@ export default async function OperatorEndpointsPage(): Promise<ReactElement> {
   };
 
   return (
-    <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <PageHeader
-        title="خريطة نقاط النهاية"
-        subtitle="أين يذهب كل نداء عند كل مزوّد، وكيف تُقرأ إجابته. يُغيَّر من هنا بلا إعادة نشر."
-      />
-      <OperatorEndpoints view={view} setEndpointAction={setEndpointAction} />
+    <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      <SectionTabs tabs={INTEGRATION_TABS} current="/operator/endpoints" label="أقسام الربط التقني" />
+      <div className="stack" style={{ gap: 'var(--s-5)' }}>
+        <PageHeader
+          title="خريطة نقاط النهاية"
+          subtitle="أين يذهب كل نداء عند كل مزوّد، وكيف تُقرأ إجابته. يُغيَّر من هنا بلا إعادة نشر."
+        />
+        <OperatorEndpoints view={view} setEndpointAction={setEndpointAction} />
+      </div>
     </div>
   );
 }
