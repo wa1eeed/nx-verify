@@ -553,9 +553,13 @@ export {
   FIELD_CATALOGUE,
   FIELD_GROUP_LABELS,
   FIELD_GROUP_ORDER,
+  RELATIONSHIP_FIELDS,
+  definitionOf,
   fieldGroup,
   fieldLabelAr,
+  isHiddenField,
   isNumericField,
+  valueLabelAr,
 } from './profile/field-catalogue.js';
 export type { FieldDefinition, FieldGroup } from './profile/field-catalogue.js';
 export {
@@ -623,3 +627,46 @@ export { listApiRequests, pruneApiRequests, recordApiRequest } from './observabi
 export type { ApiLogFilter, ApiRequestRecord, ApiRequestRow } from './observability/api-log.js';
 export { subscriberHealth } from './observability/service-health.js';
 export type { SubscriberHealthRow } from './observability/service-health.js';
+export {
+  checksFor,
+  listBundleRuns,
+  listChecks,
+  refusalFor,
+  runChecks,
+} from './customers/checks.js';
+export type {
+  CheckDefinition,
+  CheckOutcome,
+  CheckStatus,
+  CustomerIdentity,
+  CustomerKind,
+  ProfileSection,
+  RunChecksDependencies,
+  RunChecksInput,
+  RunChecksResult,
+} from './customers/checks.js';
+export { assessCustomer } from './customers/indicators.js';
+export type {
+  Assessment,
+  AssessmentInput,
+  Indicator,
+  IndicatorState,
+  RiskLevel,
+  RiskSignal,
+  SignalSeverity,
+} from './customers/indicators.js';
+export { KIND_LABELS, SECTION_TITLES, getCustomerFile } from './customers/customer-file.js';
+export type {
+  AccountView,
+  CustomerFile,
+  FileField,
+  FileSection,
+  Intersection,
+  IntersectionKind,
+  LastRun,
+  LinkedEntity,
+  ManagerView,
+  PartnerView,
+  Permission,
+  SectionState,
+} from './customers/customer-file.js';

@@ -173,11 +173,14 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
       { stepKey: 'articles', sourcePath: '$.profit_set_aside_pct', fieldPath: 'contract.profit_set_aside_pct' },
       { stepKey: 'articles', sourcePath: '$.partner_decisions', fieldPath: 'contract.partner_decisions' },
       { stepKey: 'articles', sourcePath: '$.articles_count', fieldPath: 'contract.articles_count' },
-      { stepKey: 'articles', sourcePath: '$.management_structure', fieldPath: 'governance.structure' },
-      { stepKey: 'articles', sourcePath: '$.dismissal_method', fieldPath: 'governance.dismissal_method' },
-      { stepKey: 'articles', sourcePath: '$.directors_board_members', fieldPath: 'governance.board_members' },
-      { stepKey: 'articles', sourcePath: '$.managers_total', fieldPath: 'governance.managers_total' },
-      { stepKey: 'articles', sourcePath: '$.partners_total', fieldPath: 'ownership.partners_total' },
+      // Recorded under the articles' own paths even where the registry answers the same
+      // question. Two sources writing one field would make every verification of either
+      // look like a change whenever they differ by a day or a word.
+      { stepKey: 'articles', sourcePath: '$.management_structure', fieldPath: 'contract.management_structure' },
+      { stepKey: 'articles', sourcePath: '$.dismissal_method', fieldPath: 'contract.dismissal_method' },
+      { stepKey: 'articles', sourcePath: '$.directors_board_members', fieldPath: 'contract.board_members' },
+      { stepKey: 'articles', sourcePath: '$.managers_total', fieldPath: 'contract.managers_total' },
+      { stepKey: 'articles', sourcePath: '$.partners_total', fieldPath: 'contract.partners_total' },
       ...peopleMappings('articles'),
     ],
   },
