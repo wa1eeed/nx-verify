@@ -13,3 +13,4 @@ verify/check-design.mjs
 verify/shoot.mjs
 PLAN.md
 PROGRESS.md
+apps/console/src/styles/organic.css

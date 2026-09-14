@@ -17,6 +17,8 @@
     "migrate": "pnpm --filter @nx-verify/db run migrate",
     "migrate:verify": "pnpm --filter @nx-verify/db run migrate:verify",
     "style": "bash scripts/check-style.sh",
+    "design:check": "cd apps/console && node ../../verify/check-design.mjs",
+    "design:shots": "node verify/shoot.mjs",
     "build:console": "pnpm --filter @nx-verify/console run build",
     "mcp": "pnpm --filter @nx-verify/mcp run start",
     "provision": "tsx scripts/provision.ts"
