@@ -69,51 +69,51 @@ export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
         note="لا يجوز أن يكون المقرِّر هو المعتمِد. من يقرّر حالة لا يستطيع اعتمادها."
       >
         <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>الاسم</th>
-              <th>السبب</th>
-              <th>الحالة</th>
-              <th>العمر</th>
-              <th>المقرِّر</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.caseId} data-overdue={row.overdue ? 'true' : 'false'}>
-                <td>
-                  <a href={`/customers/${row.entityId}`}>{row.entityName ?? 'بلا اسم'}</a>
-                </td>
-                <td>{row.reasonCodes.map(reasonLabel).join('، ')}</td>
-                <td>
-                  {STATUS_LABELS[row.status]}
-                  {row.overdue ? (
-                    <span
-                      className="badge"
-                      data-kind="overdue"
-                      style={{
-                        marginInlineStart: '8px',
-                        color: 'var(--changed-fg)',
-                        background: 'var(--changed-bg)',
-                        borderColor: 'var(--changed-line)',
-                      }}
-                    >
-                      متأخرة
-                    </span>
-                  ) : null}
-                </td>
-                <td>
-                  <bdi dir="ltr" className="mono">
-                    {Math.round(row.ageHours)}
-                  </bdi>{' '}
-                  ساعة
-                </td>
-                <td className="muted">{row.decidedBy ?? row.assignedTo ?? 'غير مسندة'}</td>
+          <table>
+            <thead>
+              <tr>
+                <th>الاسم</th>
+                <th>السبب</th>
+                <th>الحالة</th>
+                <th>العمر</th>
+                <th>المقرِّر</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.caseId} data-overdue={row.overdue ? 'true' : 'false'}>
+                  <td>
+                    <a href={`/customers/${row.entityId}`}>{row.entityName ?? 'بلا اسم'}</a>
+                  </td>
+                  <td>{row.reasonCodes.map(reasonLabel).join('، ')}</td>
+                  <td>
+                    {STATUS_LABELS[row.status]}
+                    {row.overdue ? (
+                      <span
+                        className="badge"
+                        data-kind="overdue"
+                        style={{
+                          marginInlineStart: '8px',
+                          color: 'var(--changed-fg)',
+                          background: 'var(--changed-bg)',
+                          borderColor: 'var(--changed-line)',
+                        }}
+                      >
+                        متأخرة
+                      </span>
+                    ) : null}
+                  </td>
+                  <td>
+                    <bdi dir="ltr" className="mono">
+                      {Math.round(row.ageHours)}
+                    </bdi>{' '}
+                    ساعة
+                  </td>
+                  <td className="muted">{row.decidedBy ?? row.assignedTo ?? 'غير مسندة'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         {rows.length === 0 ? (
           <div className="panel-body">

@@ -33,7 +33,11 @@ import { OperatorHealth } from '../components/operator-health';
 import { Docs } from '../components/docs';
 import { OperatorIntegration, type IntegrationView } from '../components/operator-integration';
 import { Support, supportTierLabel } from '../components/support';
-import { OnboardingCaseView, stepStatusLabel, waiveReasonLabel } from '../components/onboarding-case';
+import {
+  OnboardingCaseView,
+  stepStatusLabel,
+  waiveReasonLabel,
+} from '../components/onboarding-case';
 import { Usage, refusalLabel } from '../components/usage';
 import { Statement } from '../components/statement';
 import {
@@ -511,9 +515,7 @@ describe('the notifications screen', () => {
           displayName: 'الامتثال',
           verified: true,
           status: 'active',
-          events: [
-            { ruleId: 'r1', eventType: 'entity.changed', minSeverity: 'WARNING' },
-          ],
+          events: [{ ruleId: 'r1', eventType: 'entity.changed', minSeverity: 'WARNING' }],
         },
         {
           id: 'c2',
@@ -594,12 +596,21 @@ describe('the console shell', () => {
   });
 
   it('puts every tab inside exactly one place, and repeats no link', () => {
-    const tabs = [VERIFICATION_TABS, MONITORING_TABS, BILLING_TABS, DEVELOPER_TABS, SETTINGS_TABS].flat();
+    const tabs = [
+      VERIFICATION_TABS,
+      MONITORING_TABS,
+      BILLING_TABS,
+      DEVELOPER_TABS,
+      SETTINGS_TABS,
+    ].flat();
     const hrefs = tabs.map((tab) => tab.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
     for (const tab of tabs) {
       const owners = SECTIONS.filter((section) => isInSection(tab.href, section));
-      expect(owners.map((owner) => owner.label), tab.href).toHaveLength(1);
+      expect(
+        owners.map((owner) => owner.label),
+        tab.href,
+      ).toHaveLength(1);
     }
   });
 
@@ -622,14 +633,19 @@ describe('the console shell', () => {
 
     const reachable = new Set([
       ...SECTIONS.map((section) => section.href),
-      ...[VERIFICATION_TABS, MONITORING_TABS, BILLING_TABS, DEVELOPER_TABS, SETTINGS_TABS].flat().map((tab) => tab.href),
+      ...[VERIFICATION_TABS, MONITORING_TABS, BILLING_TABS, DEVELOPER_TABS, SETTINGS_TABS]
+        .flat()
+        .map((tab) => tab.href),
     ]);
     // Screens reached from a place's own primary button rather than from the sidebar.
     const fromActions = new Set(['/customers/new']);
     const unreachable = pages.filter(
       (page) =>
         // A detail screen is reached from its list, and the inbox from the bell.
-        !page.includes('[') && page !== '/notifications' && !fromActions.has(page) && !reachable.has(page),
+        !page.includes('[') &&
+        page !== '/notifications' &&
+        !fromActions.has(page) &&
+        !reachable.has(page),
     );
     expect(unreachable).toEqual([]);
   });
@@ -731,7 +747,10 @@ describe('the stylesheet holds the layout rules that are easy to break', () => {
  * The entity file: what a compliance officer reads before deciding.
  */
 describe('the entity file groups what it knows', () => {
-  const field = (fieldPath: string, freshness: 'fresh' | 'expired' = 'fresh'): ProfileFieldView => ({
+  const field = (
+    fieldPath: string,
+    freshness: 'fresh' | 'expired' = 'fresh',
+  ): ProfileFieldView => ({
     fieldPath,
     value: 'قيمة',
     authority: 'وزارة التجارة',
@@ -760,7 +779,11 @@ describe('the entity file groups what it knows', () => {
           field('property.deed', 'expired'),
         ]}
         changes={[
-          { fieldPath: 'account.ownership', severity: 'WARNING', detectedAt: new Date('2026-09-01') },
+          {
+            fieldPath: 'account.ownership',
+            severity: 'WARNING',
+            detectedAt: new Date('2026-09-01'),
+          },
         ]}
         timeline={[]}
         {...(tab ? { tab } : {})}
@@ -1073,9 +1096,7 @@ describe('deployment readiness on screen', () => {
   ];
 
   it('puts what stops a launch above what merely passes', () => {
-    const html = renderToStaticMarkup(
-      <OperatorReadiness checks={checks} canServeLive={false} />,
-    );
+    const html = renderToStaticMarkup(<OperatorReadiness checks={checks} canServeLive={false} />);
     // A screen that puts nine green rows above the one red one is a screen where the red
     // one is found last.
     expect(html.indexOf('data-check="keys"')).toBeLessThan(html.indexOf('data-check="mail"'));
@@ -1093,9 +1114,7 @@ describe('deployment readiness on screen', () => {
   });
 
   it('gives every row that is not ready the exact thing to set', () => {
-    const html = renderToStaticMarkup(
-      <OperatorReadiness checks={checks} canServeLive={false} />,
-    );
+    const html = renderToStaticMarkup(<OperatorReadiness checks={checks} canServeLive={false} />);
     expect(html).toContain('NX_KMS_ENDPOINT');
     expect(html).toContain('NX_MAIL_ENDPOINT');
   });
@@ -1383,9 +1402,15 @@ describe('the subscriber portal', () => {
     const html = renderToStaticMarkup(
       <Statement
         view={{
-          lines: [{ month: '2026-09', productNameAr: 'التحقق الشامل', runs: 12, amountHalalas: 52800 }],
+          lines: [
+            { month: '2026-09', productNameAr: 'التحقق الشامل', runs: 12, amountHalalas: 52800 },
+          ],
           topUps: [
-            { at: new Date('2026-09-01T00:00:00Z'), amountHalalas: 1000000, vatInvoiceId: 'INV-77' },
+            {
+              at: new Date('2026-09-01T00:00:00Z'),
+              amountHalalas: 1000000,
+              vatInvoiceId: 'INV-77',
+            },
           ],
           spentThisTermHalalas: 52800,
           extras: null,
@@ -1930,7 +1955,11 @@ describe('the reference and the support screen', () => {
             code: 'ADDRESS_ONLY',
             nameAr: 'التحقق من العنوان الوطني',
             subjectType: 'BUSINESS',
-            inputSchema: { type: 'object', required: ['unn'], properties: { unn: { type: 'string' } } },
+            inputSchema: {
+              type: 'object',
+              required: ['unn'],
+              properties: { unn: { type: 'string' } },
+            },
             allowed: true,
             refusalAr: null,
           },
@@ -1998,13 +2027,21 @@ describe('the integration screen in the administration panel', () => {
       updatedAt: new Date('2026-09-12T00:00:00Z'),
       fields: { clientId: { masked: 'fd62a5…8ffe' }, clientSecret: { fingerprint: '3fa2c1d0' } },
     },
-    webhook: { updatedAt: new Date('2026-09-12T00:00:00Z'), fields: { webhookSecret: { fingerprint: '9b1e44aa' } } },
+    webhook: {
+      updatedAt: new Date('2026-09-12T00:00:00Z'),
+      fields: { webhookSecret: { fingerprint: '9b1e44aa' } },
+    },
     callbackUrl: 'https://api.example.sa/v1/callbacks/9Qb7rk_t0Xz',
     callbackHeader: 'x-nx-provider-signature',
     callbackAlgorithm: 'sha256',
     lastTest: null,
     changes: [
-      { at: new Date('2026-09-12T08:30:00Z'), operatorId: 'nx-staff:waleed', action: 'credentials.saved', fields: ['clientSecret'] },
+      {
+        at: new Date('2026-09-12T08:30:00Z'),
+        operatorId: 'nx-staff:waleed',
+        action: 'credentials.saved',
+        fields: ['clientSecret'],
+      },
     ],
     secretsWritable: true,
     notice: null,
@@ -2012,7 +2049,12 @@ describe('the integration screen in the administration panel', () => {
   };
   const render = (overrides: Partial<IntegrationView> = {}) =>
     renderToStaticMarkup(
-      <OperatorIntegration view={{ ...base, ...overrides }} saveAction="/s" testAction="/t" callbackAction="/k" />,
+      <OperatorIntegration
+        view={{ ...base, ...overrides }}
+        saveAction="/s"
+        testAction="/t"
+        callbackAction="/k"
+      />,
     );
 
   it('keeps one primary button, for the environment in front of the person', () => {
@@ -2044,7 +2086,9 @@ describe('the integration screen in the administration panel', () => {
   });
 
   it('says what a failed test means in words a person can act on', () => {
-    const html = render({ lastTest: { at: new Date('2026-09-13T10:00:00Z'), ok: false, detail: '401' } });
+    const html = render({
+      lastTest: { at: new Date('2026-09-13T10:00:00Z'), ok: false, detail: '401' },
+    });
     expect(html).toContain('data-role="test-failed"');
     expect(html).toContain('رُفضت بيانات الدخول');
   });

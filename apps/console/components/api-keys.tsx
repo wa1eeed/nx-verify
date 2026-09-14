@@ -57,8 +57,8 @@ export function ApiKeys({
             {issuedSecret}
           </bdi>
           <p className="muted">
-            انسخه الآن. لا نخزّنه، ولا يمكن عرضه مرة أخرى. فقده يعني إصدار مفتاح بديل، وهذا
-            هو الجواب الصحيح لا نقصاً في المنصة.
+            انسخه الآن. لا نخزّنه، ولا يمكن عرضه مرة أخرى. فقده يعني إصدار مفتاح بديل، وهذا هو
+            الجواب الصحيح لا نقصاً في المنصة.
           </p>
         </section>
       ) : null}
@@ -83,7 +83,11 @@ export function ApiKeys({
               </thead>
               <tbody>
                 {keys.map((key) => (
-                  <tr key={key.id} data-role="api-key" data-revoked={key.revokedAt ? 'true' : 'false'}>
+                  <tr
+                    key={key.id}
+                    data-role="api-key"
+                    data-revoked={key.revokedAt ? 'true' : 'false'}
+                  >
                     <td>{key.name}</td>
                     <td>
                       <bdi dir="ltr" className="mono">
@@ -138,8 +142,8 @@ export function ApiKeys({
           <label htmlFor="key-name">الاسم</label>
           <input id="key-name" name="name" required placeholder="نظام الفوترة" />
           <p className="muted">
-            الصلاحيات تُمنح كما هي لباقي مفاتيح مساحة العمل. البيئة تتبع مساحة العمل التي
-            أنت فيها، فلا يمكن إصدار مفتاح إنتاج من بيئة الاختبار.
+            الصلاحيات تُمنح كما هي لباقي مفاتيح مساحة العمل. البيئة تتبع مساحة العمل التي أنت فيها،
+            فلا يمكن إصدار مفتاح إنتاج من بيئة الاختبار.
           </p>
           <button type="submit" className="btn-primary" data-role="issue-key">
             إصدار

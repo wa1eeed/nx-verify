@@ -124,7 +124,10 @@ export function VerificationHistory({
                     >
                       <span style={{ minWidth: '10ch' }}>{KIND_LABELS[field.kind]}</span>
                       <span>{fieldLabel(field.fieldPath)}</span>
-                      <span>{valueLabelAr(field.fieldPath, field.value) ?? formatValue(field.value).text}</span>
+                      <span>
+                        {valueLabelAr(field.fieldPath, field.value) ??
+                          formatValue(field.value).text}
+                      </span>
                     </li>
                   ))}
                 </ul>

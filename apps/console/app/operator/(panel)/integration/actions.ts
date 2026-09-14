@@ -40,7 +40,9 @@ function validUrl(value: string, environment: Environment): boolean {
   try {
     const url = new URL(value);
     // Production speaks to the data source over TLS and nothing else.
-    return environment === 'live' ? url.protocol === 'https:' : ['https:', 'http:'].includes(url.protocol);
+    return environment === 'live'
+      ? url.protocol === 'https:'
+      : ['https:', 'http:'].includes(url.protocol);
   } catch {
     return false;
   }
@@ -174,8 +176,11 @@ export async function testIntegrationAction(formData: FormData): Promise<void> {
 export async function rotateCallbackAction(formData: FormData): Promise<void> {
   const operatorId = await requireOperator();
   const environment = environmentOf(formData);
-  const header = String(formData.get('callback_header') ?? '').trim().toLowerCase();
-  const algorithm = String(formData.get('callback_algorithm') ?? 'sha256') === 'sha512' ? 'sha512' : 'sha256';
+  const header = String(formData.get('callback_header') ?? '')
+    .trim()
+    .toLowerCase();
+  const algorithm =
+    String(formData.get('callback_algorithm') ?? 'sha256') === 'sha512' ? 'sha512' : 'sha256';
 
   await operatorQuery(async (db) => {
     await setCallback(db, {

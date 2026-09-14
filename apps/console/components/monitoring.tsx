@@ -120,7 +120,9 @@ export function Monitoring({
                 {stale.map((customer) => (
                   <tr key={customer.entityId} data-role="stale-row">
                     <td>
-                      <a href={`/customers/${customer.entityId}`}>{customer.entityName ?? 'بلا اسم'}</a>
+                      <a href={`/customers/${customer.entityId}`}>
+                        {customer.entityName ?? 'بلا اسم'}
+                      </a>
                     </td>
                     <td>
                       <span className="row" style={{ gap: 'var(--s-2)' }}>

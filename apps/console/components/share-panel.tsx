@@ -76,12 +76,16 @@ export function SharePanel({
           }}
         >
           <strong>انسخ الرابط الآن</strong>
-          <code className="mono" dir="ltr" data-role="share-link" style={{ wordBreak: 'break-all' }}>
+          <code
+            className="mono"
+            dir="ltr"
+            data-role="share-link"
+            style={{ wordBreak: 'break-all' }}
+          >
             {issuedLink}
           </code>
           <span className="stat-hint">
-            لن يُعرض مرة أخرى. لا نحتفظ به، ولا يمكننا استخراجه. إن ضاع فاسحب الرابط وأصدر
-            غيره.
+            لن يُعرض مرة أخرى. لا نحتفظ به، ولا يمكننا استخراجه. إن ضاع فاسحب الرابط وأصدر غيره.
           </span>
         </div>
       ) : null}

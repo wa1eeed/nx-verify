@@ -30,10 +30,7 @@ export function supportTierLabel(tier: string | null): string {
 export function Support({ view }: { view: SupportView }): ReactElement {
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <PageHeader
-        title="الدعم"
-        subtitle="كيف تراسلنا، وفي كم نردّ عليك."
-      />
+      <PageHeader title="الدعم" subtitle="كيف تراسلنا، وفي كم نردّ عليك." />
 
       <section className="grid" data-role="support-tiles">
         <article className="stat">
@@ -59,17 +56,23 @@ export function Support({ view }: { view: SupportView }): ReactElement {
       <Panel title="قبل أن تراسل" role="before-you-write">
         <ul className="panel-body stack" style={{ gap: 'var(--s-2)', margin: 0 }}>
           <li data-role="bring-request-id">
-            أرسل <bdi dir="ltr" className="mono">request_id</bdi> من الاستجابة، أو مرجع
-            التحقق <bdi dir="ltr" className="mono">VRF-…</bdi>. به نجد النداء في ثوانٍ بدل
-            أن نطلب وصفه.
+            أرسل{' '}
+            <bdi dir="ltr" className="mono">
+              request_id
+            </bdi>{' '}
+            من الاستجابة، أو مرجع التحقق{' '}
+            <bdi dir="ltr" className="mono">
+              VRF-…
+            </bdi>
+            . به نجد النداء في ثوانٍ بدل أن نطلب وصفه.
           </li>
           <li>
-            راجع <a href="/developers/logs?failures=1">النداءات الفاشلة</a> أولاً: الرمز هناك يقول ما
-            حدث، وكثير منها يُحل بلا مراسلة.
+            راجع <a href="/developers/logs?failures=1">النداءات الفاشلة</a> أولاً: الرمز هناك يقول
+            ما حدث، وكثير منها يُحل بلا مراسلة.
           </li>
           <li data-role="never-send">
-            لا ترسل رقم هوية ولا أي معرّف لشخص أو منشأة في البريد. لا نحتاجه، ولا نحتفظ
-            به نصاً صريحاً، ووصوله إلى بريد يخالف ما بنينا المنصة عليه.
+            لا ترسل رقم هوية ولا أي معرّف لشخص أو منشأة في البريد. لا نحتاجه، ولا نحتفظ به نصاً
+            صريحاً، ووصوله إلى بريد يخالف ما بنينا المنصة عليه.
           </li>
         </ul>
       </Panel>

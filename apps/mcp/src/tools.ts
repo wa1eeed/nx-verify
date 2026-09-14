@@ -217,7 +217,8 @@ export function createTools(
         'Reads a verification by id: its status, decision, the per step outcome and the link to its sealed evidence.',
       inputSchema: { verification_id: z.string().uuid() },
       writes: false,
-      handler: async (input) => expect('GET', `/v1/verifications/${String(input['verification_id'])}`),
+      handler: async (input) =>
+        expect('GET', `/v1/verifications/${String(input['verification_id'])}`),
     },
     {
       name: 'get_entity_profile',

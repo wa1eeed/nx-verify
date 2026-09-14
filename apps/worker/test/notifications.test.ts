@@ -19,7 +19,11 @@ import {
   type TestDatabase,
 } from '../../../test/helpers/db.js';
 import { preparePricedTenant, providerFixture } from '../../../test/helpers/billing.js';
-import { CollectingMailTransport, deliverNotifications, type MailTransport } from '../src/jobs/notifications.js';
+import {
+  CollectingMailTransport,
+  deliverNotifications,
+  type MailTransport,
+} from '../src/jobs/notifications.js';
 
 /**
  * Unit 29 acceptance: a person is told, and the message tells them nothing.

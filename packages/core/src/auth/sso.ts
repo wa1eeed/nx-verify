@@ -267,8 +267,11 @@ export async function completeSso(
     nonce_hash: Buffer;
     code_verifier: string;
     redirect_uri: string;
-  }>(`SELECT id, tenant_id, nonce_hash, code_verifier, redirect_uri
-      FROM app.resolve_sso_request($1)`, [sha256(input.state)]);
+  }>(
+    `SELECT id, tenant_id, nonce_hash, code_verifier, redirect_uri
+      FROM app.resolve_sso_request($1)`,
+    [sha256(input.state)],
+  );
 
   const request = rows[0];
   if (!request) {
@@ -425,7 +428,12 @@ async function ensureEndpoints(
        SET authorization_endpoint = $2, token_endpoint = $3, jwks_uri = $4,
            discovered_at = now(), updated_at = now()
        WHERE tenant_id = $1`,
-      [config.tenantId, endpoints.authorizationEndpoint, endpoints.tokenEndpoint, endpoints.jwksUri],
+      [
+        config.tenantId,
+        endpoints.authorizationEndpoint,
+        endpoints.tokenEndpoint,
+        endpoints.jwksUri,
+      ],
     ),
   );
 
@@ -576,7 +584,8 @@ async function upsertPerson(
   role: SsoRole,
 ): Promise<PersonRow> {
   const email = typeof claims.email === 'string' ? claims.email : null;
-  const displayName = typeof claims.name === 'string' && claims.name !== '' ? claims.name : (email ?? claims.sub);
+  const displayName =
+    typeof claims.name === 'string' && claims.name !== '' ? claims.name : (email ?? claims.sub);
 
   // The match is on the subject at the provider, never on the address. Directories let
   // people change their address, and they hand a leaver's address to a joiner.
@@ -725,7 +734,13 @@ function toConfig(row: DomainRow): IdpConfig {
 
 function domainOf(email: string): string {
   const at = email.lastIndexOf('@');
-  const domain = at === -1 ? '' : email.slice(at + 1).trim().toLowerCase();
+  const domain =
+    at === -1
+      ? ''
+      : email
+          .slice(at + 1)
+          .trim()
+          .toLowerCase();
   if (domain === '') {
     throw new NxError('NX-4001', { detail: 'that is not an email address' });
   }

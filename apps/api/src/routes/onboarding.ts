@@ -53,7 +53,12 @@ const advanceEnvelope = z.object({
 
 const waiveEnvelope = z.object({
   step: z.string().min(1).max(64),
-  reason: z.enum(['ALREADY_VERIFIED_ELSEWHERE', 'NOT_APPLICABLE', 'DOCUMENT_ON_FILE', 'RISK_ACCEPTED']),
+  reason: z.enum([
+    'ALREADY_VERIFIED_ELSEWHERE',
+    'NOT_APPLICABLE',
+    'DOCUMENT_ON_FILE',
+    'RISK_ACCEPTED',
+  ]),
   actor: z.string().uuid(),
 });
 
@@ -155,7 +160,9 @@ export function registerOnboardingRoutes(app: FastifyInstance, context: AppConte
     { preHandler: requireAuth(context, 'onboarding:read') },
     async (request, reply) => {
       const caller = callerOf(request);
-      const cases = await context.withTenant(caller.tenantId, (tx) => listCases(tx, { limit: 100 }));
+      const cases = await context.withTenant(caller.tenantId, (tx) =>
+        listCases(tx, { limit: 100 }),
+      );
 
       return reply.send({
         environment: caller.environment,

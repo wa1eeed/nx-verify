@@ -155,7 +155,12 @@ export interface CustomerCounts {
 }
 
 export async function countCustomers(tx: TenantTransaction): Promise<CustomerCounts> {
-  const { rows } = await tx.query<{ all: string; companies: string; establishments: string; freelancers: string }>(
+  const { rows } = await tx.query<{
+    all: string;
+    companies: string;
+    establishments: string;
+    freelancers: string;
+  }>(
     `SELECT count(*)::text AS all,
             count(*) FILTER (WHERE k.value = '"COMPANY"'::jsonb)::text AS companies,
             count(*) FILTER (WHERE k.value = '"ESTABLISHMENT"'::jsonb)::text AS establishments,

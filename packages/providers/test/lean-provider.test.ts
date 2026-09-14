@@ -36,9 +36,10 @@ interface Call {
   init: RequestInit;
 }
 
-function recorded(
-  answers: { status?: number; body?: unknown; tokenStatus?: number }[] = [{}],
-): { fetch: (url: string, init: RequestInit) => Promise<Response>; calls: Call[] } {
+function recorded(answers: { status?: number; body?: unknown; tokenStatus?: number }[] = [{}]): {
+  fetch: (url: string, init: RequestInit) => Promise<Response>;
+  calls: Call[];
+} {
   const calls: Call[] = [];
   let index = 0;
 

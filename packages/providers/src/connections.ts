@@ -157,7 +157,10 @@ export interface OperatorChange {
   metadata?: Record<string, unknown>;
 }
 
-export async function recordOperatorChange(operator: Queryable, change: OperatorChange): Promise<void> {
+export async function recordOperatorChange(
+  operator: Queryable,
+  change: OperatorChange,
+): Promise<void> {
   await operator.query(
     `INSERT INTO operator_audit (operator_id, action, target, metadata) VALUES ($1, $2, $3, $4::jsonb)`,
     [change.operatorId, change.action, change.target, JSON.stringify(change.metadata ?? {})],

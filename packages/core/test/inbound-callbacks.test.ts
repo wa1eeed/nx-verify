@@ -137,8 +137,16 @@ describe('inbound provider callbacks', () => {
     };
     const body = Buffer.from('{"id":"evt_replay","type":"entity.data.refresh.updated"}', 'utf8');
 
-    const first = await recordInboundEvent(db.appPool, { target, body, parsed: JSON.parse(body.toString()) });
-    const second = await recordInboundEvent(db.appPool, { target, body, parsed: JSON.parse(body.toString()) });
+    const first = await recordInboundEvent(db.appPool, {
+      target,
+      body,
+      parsed: JSON.parse(body.toString()),
+    });
+    const second = await recordInboundEvent(db.appPool, {
+      target,
+      body,
+      parsed: JSON.parse(body.toString()),
+    });
 
     expect(first.duplicate).toBe(false);
     expect(second.duplicate).toBe(true);

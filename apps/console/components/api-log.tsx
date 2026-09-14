@@ -34,10 +34,7 @@ export function ApiLog({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <PageHeader
-        title="سجل النداءات"
-        subtitle="كل نداء وصلنا منك: المسار والحالة وزمن الرد."
-      />
+      <PageHeader title="سجل النداءات" subtitle="كل نداء وصلنا منك: المسار والحالة وزمن الرد." />
 
       <section className="grid" data-role="log-tiles">
         <article className="stat">
@@ -68,7 +65,11 @@ export function ApiLog({
       </section>
 
       <nav className="tabs" aria-label="تصفية">
-        <a className="tab" href="/developers/logs" {...(failuresOnly ? {} : { 'aria-current': 'page' as const })}>
+        <a
+          className="tab"
+          href="/developers/logs"
+          {...(failuresOnly ? {} : { 'aria-current': 'page' as const })}
+        >
           الكل
         </a>
         <a
@@ -105,7 +106,11 @@ export function ApiLog({
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} data-role="log-row" data-failed={row.status >= 400 ? 'true' : 'false'}>
+                  <tr
+                    key={row.id}
+                    data-role="log-row"
+                    data-failed={row.status >= 400 ? 'true' : 'false'}
+                  >
                     <td>
                       <bdi dir="ltr" className="mono">
                         {row.requestId}
@@ -125,9 +130,7 @@ export function ApiLog({
                       <bdi
                         dir="ltr"
                         className="mono"
-                        style={
-                          row.status >= 400 ? { color: 'var(--critical-fg)' } : undefined
-                        }
+                        style={row.status >= 400 ? { color: 'var(--critical-fg)' } : undefined}
                       >
                         {row.status}
                       </bdi>

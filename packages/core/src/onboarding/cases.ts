@@ -30,18 +30,10 @@ import type { IdentifierInput } from '../repositories/entities.js';
  */
 
 export type CaseStatus =
-  | 'IN_PROGRESS'
-  | 'AWAITING_INPUT'
-  | 'IN_REVIEW'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'WITHDRAWN';
+  'IN_PROGRESS' | 'AWAITING_INPUT' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
 
 export type WaiveReason =
-  | 'ALREADY_VERIFIED_ELSEWHERE'
-  | 'NOT_APPLICABLE'
-  | 'DOCUMENT_ON_FILE'
-  | 'RISK_ACCEPTED';
+  'ALREADY_VERIFIED_ELSEWHERE' | 'NOT_APPLICABLE' | 'DOCUMENT_ON_FILE' | 'RISK_ACCEPTED';
 
 export interface JourneyStepInput {
   stepKey: string;
@@ -550,7 +542,11 @@ export async function concludeCase(
 
   if (failed.length > 0) {
     await setStatus(tx, caseId, 'IN_REVIEW', null, actorId);
-    await openReviewCaseFor(tx, current, failed.map((step) => `STEP_FAILED_${step.stepKey}`));
+    await openReviewCaseFor(
+      tx,
+      current,
+      failed.map((step) => `STEP_FAILED_${step.stepKey}`),
+    );
     return fireActions(tx, caseId, current);
   }
 
@@ -581,7 +577,11 @@ export async function concludeCase(
     await setStatus(tx, caseId, 'REJECTED', 'FAIL', actorId);
   } else {
     await setStatus(tx, caseId, 'IN_REVIEW', 'REVIEW', actorId);
-    await openReviewCaseFor(tx, current, decision.reasons.map((reason) => reason.code));
+    await openReviewCaseFor(
+      tx,
+      current,
+      decision.reasons.map((reason) => reason.code),
+    );
   }
 
   return fireActions(tx, caseId, current);

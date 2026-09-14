@@ -23,7 +23,10 @@ export interface CheckOption {
   noteAr?: string | null;
 }
 
-const RIYALS = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const RIYALS = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 export function CheckList({
   options,
@@ -36,7 +39,12 @@ export function CheckList({
   capacityRemaining: number | null;
 }): ReactElement {
   const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(options.filter((option) => option.checked && option.disabledReasonAr === null).map((option) => option.productCode)),
+    () =>
+      new Set(
+        options
+          .filter((option) => option.checked && option.disabledReasonAr === null)
+          .map((option) => option.productCode),
+      ),
   );
 
   const toggle = (code: string, on: boolean): void => {
@@ -61,7 +69,11 @@ export function CheckList({
           const disabled = option.disabledReasonAr !== null;
           return (
             <li key={option.productCode}>
-              <label className="check-item" data-disabled={disabled ? 'yes' : 'no'} data-check={option.productCode}>
+              <label
+                className="check-item"
+                data-disabled={disabled ? 'yes' : 'no'}
+                data-check={option.productCode}
+              >
                 <input
                   type="checkbox"
                   name="checks"
@@ -73,7 +85,9 @@ export function CheckList({
                 <span className="stack" style={{ gap: 2 }}>
                   <strong style={{ color: 'var(--ink)', fontSize: 14 }}>{option.nameAr}</strong>
                   <span className="faint">
-                    {[option.sectionAr, option.noteAr, disabled ? option.disabledReasonAr : null].filter((part) => part).join(' · ')}
+                    {[option.sectionAr, option.noteAr, disabled ? option.disabledReasonAr : null]
+                      .filter((part) => part)
+                      .join(' · ')}
                   </span>
                 </span>
                 <span className="muted">

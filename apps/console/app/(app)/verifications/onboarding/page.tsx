@@ -38,7 +38,11 @@ export default async function OnboardingPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={VERIFICATION_TABS} current="/verifications/onboarding" label="أقسام عمليات التحقق" />
+      <SectionTabs
+        tabs={VERIFICATION_TABS}
+        current="/verifications/onboarding"
+        label="أقسام عمليات التحقق"
+      />
       <OnboardingList cases={cases} />
     </div>
   );

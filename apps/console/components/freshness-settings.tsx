@@ -39,10 +39,7 @@ export function FreshnessSettings({
 }): ReactElement {
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <PageHeader
-        title="مدد الصلاحية"
-        subtitle="كم يبقى كل حقل صالحاً قبل إعادة التحقق منه."
-      />
+      <PageHeader title="مدد الصلاحية" subtitle="كم يبقى كل حقل صالحاً قبل إعادة التحقق منه." />
 
       <p className="card muted" data-role="inert-notice">
         تعديل المدة لا يغيّر أي إفادة سابقة. تُعاد الحسابات فقط، والحقائق تبقى كما سُجّلت.

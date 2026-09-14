@@ -122,8 +122,18 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
       </section>
 
       <Panel title="السجل" aside={`آخر ${view.rows.length}`} role="runs">
-        <form method="get" action="/verifications" className="panel-body row" style={{ gap: 'var(--s-3)' }}>
-          <select name="product" defaultValue={view.filter.product ?? ''} aria-label="المنتج" style={{ width: 'auto' }}>
+        <form
+          method="get"
+          action="/verifications"
+          className="panel-body row"
+          style={{ gap: 'var(--s-3)' }}
+        >
+          <select
+            name="product"
+            defaultValue={view.filter.product ?? ''}
+            aria-label="المنتج"
+            style={{ width: 'auto' }}
+          >
             <option value="">كل المنتجات</option>
             {view.products.map((product) => (
               <option key={product.code} value={product.code}>
@@ -131,7 +141,12 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
               </option>
             ))}
           </select>
-          <select name="status" defaultValue={view.filter.status ?? ''} aria-label="النتيجة" style={{ width: 'auto' }}>
+          <select
+            name="status"
+            defaultValue={view.filter.status ?? ''}
+            aria-label="النتيجة"
+            style={{ width: 'auto' }}
+          >
             <option value="">كل النتائج</option>
             {Object.entries(RUN_STATUS_LABELS).map(([code, label]) => (
               <option key={code} value={code}>

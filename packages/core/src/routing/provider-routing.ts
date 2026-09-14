@@ -230,7 +230,6 @@ export async function upsertCatalogEntry(
   );
 }
 
-
 /**
  * How this workspace's runs are paid for at the provider.
  *

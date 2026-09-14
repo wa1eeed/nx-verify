@@ -58,24 +58,34 @@ export function OperatorEndpoints({
         </div>
         <ol className="panel-body stack" style={{ gap: 'var(--s-2)', margin: 0 }}>
           <li>
-            <strong>المسار</strong> كما في توثيق المزوّد، وما بين قوسين معقوفين يُملأ من
-            مدخلات الخطوة: <bdi dir="ltr" className="mono">{'/v1/address/{identifications}'}</bdi>
+            <strong>المسار</strong> كما في توثيق المزوّد، وما بين قوسين معقوفين يُملأ من مدخلات
+            الخطوة:{' '}
+            <bdi dir="ltr" className="mono">
+              {'/v1/address/{identifications}'}
+            </bdi>
           </li>
           <li>
             <strong>مسار البيانات</strong> هو اسم الحقل الذي يحوي الإجابة داخل مظروفهم، مثل{' '}
-            <bdi dir="ltr" className="mono">data</bdi>. اتركه فارغاً إن كانت الإجابة في الجذر.
+            <bdi dir="ltr" className="mono">
+              data
+            </bdi>
+            . اتركه فارغاً إن كانت الإجابة في الجذر.
           </li>
           <li>
             <strong>خريطة الحقول</strong> من أسمائهم إلى أسمائنا، سطراً لكل حقل بالشكل{' '}
-            <bdi dir="ltr" className="mono">cityName=city</bdi>. اليمين اسمنا ولا يتغيّر.
+            <bdi dir="ltr" className="mono">
+              cityName=city
+            </bdi>
+            . اليمين اسمنا ولا يتغيّر.
           </li>
           <li>
             <strong>جسم الطلب</strong> لنداءات POST وحدها، بنفس الشكل، والقيمة التي تبدأ بـ
-            <bdi dir="ltr" className="mono">$.</bdi> تُقرأ من مدخلات الخطوة.
+            <bdi dir="ltr" className="mono">
+              $.
+            </bdi>{' '}
+            تُقرأ من مدخلات الخطوة.
           </li>
-          <li>
-            ابدأ ببيئة الاختبار. المضيفان يختلفان في المسارات أكثر مما يتوقع أحد.
-          </li>
+          <li>ابدأ ببيئة الاختبار. المضيفان يختلفان في المسارات أكثر مما يتوقع أحد.</li>
         </ol>
       </section>
 

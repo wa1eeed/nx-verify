@@ -27,7 +27,13 @@ import {
  * customers that the facts reveal. And never to another subscriber's.
  */
 
-const ALL_BUSINESS_CHECKS = ['CR_FULL', 'ARTICLES_OF_ASSOCIATION', 'MANAGER_AUTHORITY', 'NATIONAL_ADDRESS', 'IBAN_VERIFICATION'];
+const ALL_BUSINESS_CHECKS = [
+  'CR_FULL',
+  'ARTICLES_OF_ASSOCIATION',
+  'MANAGER_AUTHORITY',
+  'NATIONAL_ADDRESS',
+  'IBAN_VERIFICATION',
+];
 
 describe('the customer file', () => {
   let db: TestDatabase;
@@ -43,7 +49,9 @@ describe('the customer file', () => {
   });
 
   const fileOf = (tenantId: string, entityId: string) =>
-    withTenant(db.appPool, tenantId, (tx) => getCustomerFile(tx, keys, entityId, { now: new Date('2026-09-14T09:00:00Z') }));
+    withTenant(db.appPool, tenantId, (tx) =>
+      getCustomerFile(tx, keys, entityId, { now: new Date('2026-09-14T09:00:00Z') }),
+    );
 
   let companyId = '';
   let firstBundle = '';
@@ -73,7 +81,8 @@ describe('the customer file', () => {
     companyId = result.entityId ?? '';
     expect(companyId).not.toBe('');
 
-    const byCode = (code: string) => result.outcomes.filter((outcome) => outcome.productCode === code);
+    const byCode = (code: string) =>
+      result.outcomes.filter((outcome) => outcome.productCode === code);
     expect(byCode('CR_FULL')[0]?.status).toBe('OK');
     expect(byCode('ARTICLES_OF_ASSOCIATION')[0]?.status).toBe('OK');
     expect(byCode('NATIONAL_ADDRESS')[0]?.status).toBe('OK');
@@ -113,12 +122,19 @@ describe('the customer file', () => {
 
     const sections = new Map(file?.sections.map((section) => [section.section, section]));
     expect(sections.get('REGISTRY')?.state).toBe('VERIFIED');
-    expect(sections.get('REGISTRY')?.fields.map((field) => field.fieldPath)).toContain('cr.core.name');
+    expect(sections.get('REGISTRY')?.fields.map((field) => field.fieldPath)).toContain(
+      'cr.core.name',
+    );
     expect(sections.get('CONTRACT')?.state).toBe('VERIFIED');
     expect(sections.get('ADDRESS')?.fields.every((field) => field.authority !== null)).toBe(true);
-    expect(sections.get('BANKING')?.fields.find((field) => field.fieldPath === 'bank.iban_ownership')?.valueLabelAr).toBe('مطابق');
+    expect(
+      sections.get('BANKING')?.fields.find((field) => field.fieldPath === 'bank.iban_ownership')
+        ?.valueLabelAr,
+    ).toBe('مطابق');
     // Hidden facts are used, never listed.
-    expect(sections.get('REGISTRY')?.fields.map((field) => field.fieldPath)).not.toContain('cr.status_code');
+    expect(sections.get('REGISTRY')?.fields.map((field) => field.fieldPath)).not.toContain(
+      'cr.status_code',
+    );
   });
 
   it('lists the managers with their masked ID, positions and powers in this company', async () => {
@@ -150,7 +166,9 @@ describe('the customer file', () => {
       bundleKey: randomUUID(),
       requestedBy: null,
     });
-    const articles = result.outcomes.find((outcome) => outcome.productCode === 'ARTICLES_OF_ASSOCIATION');
+    const articles = result.outcomes.find(
+      (outcome) => outcome.productCode === 'ARTICLES_OF_ASSOCIATION',
+    );
     expect(articles?.status).toBe('SKIPPED');
     expect(articles?.noteAr).toContain('المؤسسة الفردية');
 
@@ -158,7 +176,9 @@ describe('the customer file', () => {
     expect(file?.kindLabelAr).toBe('مؤسسة');
     expect(file?.assessment.items.find((item) => item.key === 'articles')?.state).toBe('NA');
     // The same national address as the active company, which the file now says.
-    expect(file?.intersections.map((intersection) => intersection.kind)).toContain('SHARED_ADDRESS');
+    expect(file?.intersections.map((intersection) => intersection.kind)).toContain(
+      'SHARED_ADDRESS',
+    );
   });
 
   it('shows a shared manager and a shared IBAN on both files, and rates the second high risk', async () => {
@@ -180,11 +200,13 @@ describe('the customer file', () => {
     );
 
     const first = await fileOf(tenant.tenantId, companyId);
-    const shared = first?.intersections.find((intersection) => intersection.kind === 'SHARED_MANAGER');
+    const shared = first?.intersections.find(
+      (intersection) => intersection.kind === 'SHARED_MANAGER',
+    );
     expect(shared?.entities.map((entity) => entity.entityId)).toContain(result.entityId);
   });
 
-  it('never links to another subscriber\'s customers, whatever they verified', async () => {
+  it("never links to another subscriber's customers, whatever they verified", async () => {
     const theirs = await runChecks(depsFor(other.tenantId), {
       kind: 'BUSINESS',
       identity: { unn: SANDBOX_UNN.ACTIVE },
@@ -202,25 +224,34 @@ describe('the customer file', () => {
   it('reads a freelancer as KYC, from the certificate', async () => {
     const result = await runChecks(depsFor(tenant.tenantId), {
       kind: 'FREELANCER',
-      identity: { nationalId: SANDBOX_FREELANCER.NATIONAL_ID, certificateNumber: SANDBOX_FREELANCER.ACTIVE },
+      identity: {
+        nationalId: SANDBOX_FREELANCER.NATIONAL_ID,
+        certificateNumber: SANDBOX_FREELANCER.ACTIVE,
+      },
       productCodes: ['FREELANCE_CERTIFICATE', 'CR_FULL'],
       bundleKey: randomUUID(),
       requestedBy: null,
     });
-    expect(result.outcomes.find((outcome) => outcome.productCode === 'FREELANCE_CERTIFICATE')?.status).toBe('OK');
+    expect(
+      result.outcomes.find((outcome) => outcome.productCode === 'FREELANCE_CERTIFICATE')?.status,
+    ).toBe('OK');
 
     const file = await fileOf(tenant.tenantId, result.entityId ?? '');
     expect(file?.kind).toBe('FREELANCER');
     expect(file?.kindLabelAr).toBe('عامل حر');
     expect(file?.assessment.mode).toBe('KYC');
-    expect(file?.assessment.items.find((item) => item.key === 'certificate_active')?.state).toBe('PASS');
+    expect(file?.assessment.items.find((item) => item.key === 'certificate_active')?.state).toBe(
+      'PASS',
+    );
     expect(file?.sections.map((section) => section.section)).toContain('FREELANCE');
     expect(file?.status.tone).toBe('fresh');
   });
 
   it('lists customers, not the people and accounts inside their files', async () => {
     const rows = await withTenant(db.appPool, tenant.tenantId, (tx) => listCustomers(tx, keys));
-    expect(rows.every((row) => row.entityType === 'BUSINESS' || row.entityType === 'FREELANCER')).toBe(true);
+    expect(
+      rows.every((row) => row.entityType === 'BUSINESS' || row.entityType === 'FREELANCER'),
+    ).toBe(true);
     const company = rows.find((row) => row.entityId === companyId);
     expect(company?.kind).toBe('COMPANY');
     expect(company?.statusText).toBe('فعال');
@@ -238,7 +269,9 @@ describe('the customer file', () => {
     );
     expect(byNumber.map((row) => row.entityId)).toEqual([companyId]);
 
-    const byName = await withTenant(db.appPool, tenant.tenantId, (tx) => listCustomers(tx, keys, { search: 'موقوفة' }));
+    const byName = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listCustomers(tx, keys, { search: 'موقوفة' }),
+    );
     expect(byName).toHaveLength(1);
 
     const establishments = await withTenant(db.appPool, tenant.tenantId, (tx) =>

@@ -69,18 +69,16 @@ export default async function OnboardingCasePage({
       dueAt: onboarding.dueAt,
       closedAt: onboarding.closedAt,
       overdue: onboarding.overdue,
-      steps: onboarding.steps.map(
-        (step): CaseStepView => ({
-          stepKey: step.stepKey,
-          productNameAr: productName.get(step.productCode) ?? step.productCode,
-          required: step.required,
-          status: step.status,
-          runId: step.runId,
-          runReference: step.runId ? (referenceOf.get(step.runId) ?? null) : null,
-          waiveReason: step.waiveReason,
-          decidedAt: step.decidedAt,
-        }),
-      ),
+      steps: onboarding.steps.map((step): CaseStepView => ({
+        stepKey: step.stepKey,
+        productNameAr: productName.get(step.productCode) ?? step.productCode,
+        required: step.required,
+        status: step.status,
+        runId: step.runId,
+        runReference: step.runId ? (referenceOf.get(step.runId) ?? null) : null,
+        waiveReason: step.waiveReason,
+        decidedAt: step.decidedAt,
+      })),
       actions: actions.map((action) => ({
         actionKey: action.actionKey,
         actionType: action.actionType,

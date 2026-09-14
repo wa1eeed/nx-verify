@@ -40,16 +40,12 @@ export async function signInWithPassword(input: {
   password: string;
   ip?: string | null;
 }): Promise<SignedIn> {
-  const result = await login(
-    getPool(),
-    (tenantId, handler) => runInTenant(tenantId, handler),
-    {
-      slug: input.slug.trim().toLowerCase(),
-      email: input.email.trim(),
-      password: input.password,
-      ip: input.ip ?? null,
-    },
-  );
+  const result = await login(getPool(), (tenantId, handler) => runInTenant(tenantId, handler), {
+    slug: input.slug.trim().toLowerCase(),
+    email: input.email.trim(),
+    password: input.password,
+    ip: input.ip ?? null,
+  });
   return toSignedIn(result.session);
 }
 

@@ -159,7 +159,10 @@ export function Statement({ view }: { view: StatementView }): ReactElement {
               </thead>
               <tbody>
                 {view.topUps.map((topUp) => (
-                  <tr key={`${topUp.at.toISOString()}-${topUp.vatInvoiceId ?? ''}`} data-role="topup">
+                  <tr
+                    key={`${topUp.at.toISOString()}-${topUp.vatInvoiceId ?? ''}`}
+                    data-role="topup"
+                  >
                     <td>
                       <bdi dir="ltr" className="mono">
                         {topUp.at.toISOString().slice(0, 10)}

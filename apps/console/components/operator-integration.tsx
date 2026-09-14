@@ -88,10 +88,20 @@ function testExplanation(detail: string): string {
   return `ردّ غير متوقع (${detail}).`;
 }
 
-function StoredHint({ secret, field }: { secret: StoredSecretView | null; field: string }): ReactElement {
+function StoredHint({
+  secret,
+  field,
+}: {
+  secret: StoredSecretView | null;
+  field: string;
+}): ReactElement {
   const entry = secret?.fields[field];
   if (!entry) {
-    return <span className="faint" data-role={`hint-${field}`}>لم يُحفظ بعد</span>;
+    return (
+      <span className="faint" data-role={`hint-${field}`}>
+        لم يُحفظ بعد
+      </span>
+    );
   }
   return (
     <span className="faint" data-role={`hint-${field}`}>
@@ -245,14 +255,33 @@ export function OperatorIntegration({
             <summary className="muted">العناوين</summary>
             <div className="stack" style={{ marginBlockStart: 'var(--s-3)' }}>
               <label htmlFor="base_url">عنوان الـAPI</label>
-              <input id="base_url" name="base_url" defaultValue={view.baseUrl} dir="ltr" className="mono" required />
+              <input
+                id="base_url"
+                name="base_url"
+                defaultValue={view.baseUrl}
+                dir="ltr"
+                className="mono"
+                required
+              />
               <label htmlFor="auth_url">عنوان إصدار الرمز</label>
-              <input id="auth_url" name="auth_url" defaultValue={view.authUrl} dir="ltr" className="mono" required />
+              <input
+                id="auth_url"
+                name="auth_url"
+                defaultValue={view.authUrl}
+                dir="ltr"
+                className="mono"
+                required
+              />
             </div>
           </details>
 
           <div className="row">
-            <button type="submit" className="btn-primary" data-role="save-credentials" disabled={!view.secretsWritable}>
+            <button
+              type="submit"
+              className="btn-primary"
+              data-role="save-credentials"
+              disabled={!view.secretsWritable}
+            >
               حفظ
             </button>
           </div>
@@ -260,10 +289,19 @@ export function OperatorIntegration({
       </Panel>
 
       <Panel title="اختبار الربط" aside="لا يستهلك أي عملية تحقق" role="test">
-        <form action={testAction} className="panel-body row" style={{ justifyContent: 'space-between' }}>
+        <form
+          action={testAction}
+          className="panel-body row"
+          style={{ justifyContent: 'space-between' }}
+        >
           <input type="hidden" name="environment" value={view.environment} />
           <span className="muted">يطلب رمز دخول بالبيانات المحفوظة، ولا يرسل أي بيانات عملاء.</span>
-          <button type="submit" className="btn-secondary" data-role="test-connection" disabled={!configured}>
+          <button
+            type="submit"
+            className="btn-secondary"
+            data-role="test-connection"
+            disabled={!configured}
+          >
             اختبر الربط
           </button>
         </form>
@@ -287,12 +325,26 @@ export function OperatorIntegration({
           {view.callbackUrl ? (
             <details>
               <summary className="muted">التوقيع وتجديد العنوان</summary>
-              <form action={callbackAction} className="stack" style={{ marginBlockStart: 'var(--s-3)' }}>
+              <form
+                action={callbackAction}
+                className="stack"
+                style={{ marginBlockStart: 'var(--s-3)' }}
+              >
                 <input type="hidden" name="environment" value={view.environment} />
                 <label htmlFor="callback_header">ترويسة التوقيع</label>
-                <input id="callback_header" name="callback_header" defaultValue={view.callbackHeader} dir="ltr" className="mono" />
+                <input
+                  id="callback_header"
+                  name="callback_header"
+                  defaultValue={view.callbackHeader}
+                  dir="ltr"
+                  className="mono"
+                />
                 <label htmlFor="callback_algorithm">الخوارزمية</label>
-                <select id="callback_algorithm" name="callback_algorithm" defaultValue={view.callbackAlgorithm}>
+                <select
+                  id="callback_algorithm"
+                  name="callback_algorithm"
+                  defaultValue={view.callbackAlgorithm}
+                >
                   <option value="sha256">HMAC-SHA256</option>
                   <option value="sha512">HMAC-SHA512</option>
                 </select>
@@ -337,7 +389,10 @@ export function OperatorIntegration({
                     <td>
                       {ACTION_LABELS[change.action] ?? change.action}
                       {change.fields.length > 0 ? (
-                        <span className="muted"> · {change.fields.map((field) => FIELD_LABELS[field] ?? field).join('، ')}</span>
+                        <span className="muted">
+                          {' '}
+                          · {change.fields.map((field) => FIELD_LABELS[field] ?? field).join('، ')}
+                        </span>
                       ) : null}
                     </td>
                     <td>

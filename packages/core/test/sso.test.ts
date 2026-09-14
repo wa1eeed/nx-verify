@@ -51,8 +51,7 @@ describe('single sign on', () => {
     tenant = await seedTenant(db.appPool, 'SSO Tenant');
     other = await seedTenant(db.appPool, 'Other Tenant');
     idp = new FakeIdp();
-    runInTenant = ((tenantId, handler) =>
-      withTenant(db.appPool, tenantId, handler)) as RunInTenant;
+    runInTenant = ((tenantId, handler) => withTenant(db.appPool, tenantId, handler)) as RunInTenant;
 
     await withTenant(db.appPool, tenant.tenantId, async (tx) => {
       await configureIdp(tx, {
@@ -74,7 +73,10 @@ describe('single sign on', () => {
     await db.close();
   });
 
-  const signIn = async (options: Parameters<FakeIdp['authorize']>[1] = {}, email = 'sara@client.example.sa') => {
+  const signIn = async (
+    options: Parameters<FakeIdp['authorize']>[1] = {},
+    email = 'sara@client.example.sa',
+  ) => {
     const redirect = await beginSso(db.appPool, runInTenant, {
       email,
       redirectUri: REDIRECT,
@@ -138,18 +140,30 @@ describe('single sign on', () => {
   });
 
   it('follows a role change in the directory on the next sign in', async () => {
-    const first = await signIn({ subject: 'idp-omar', email: 'omar@client.example.sa', groups: ['nx-analysts'] });
+    const first = await signIn({
+      subject: 'idp-omar',
+      email: 'omar@client.example.sa',
+      groups: ['nx-analysts'],
+    });
     expect(first.result.role).toBe('ANALYST');
 
     // Promoted in the customer's directory, which is where that decision belongs.
-    const second = await signIn({ subject: 'idp-omar', email: 'omar@client.example.sa', groups: ['nx-approvers'] });
+    const second = await signIn({
+      subject: 'idp-omar',
+      email: 'omar@client.example.sa',
+      groups: ['nx-approvers'],
+    });
     expect(second.result.created).toBe(false);
     expect(second.result.userId).toBe(first.result.userId);
     expect(second.result.role).toBe('APPROVER');
   });
 
   it('matches the person by their subject, not by the address the directory gave them', async () => {
-    const first = await signIn({ subject: 'idp-noura', email: 'noura@client.example.sa', groups: ['nx-analysts'] });
+    const first = await signIn({
+      subject: 'idp-noura',
+      email: 'noura@client.example.sa',
+      groups: ['nx-analysts'],
+    });
 
     // The directory changes her address. She is the same person, and must not get a
     // second account.
@@ -161,20 +175,28 @@ describe('single sign on', () => {
     expect(second.result.userId).toBe(first.result.userId);
 
     // And a joiner handed her old address is a different person, not her.
-    const joiner = await signIn({ subject: 'idp-new-hire', email: 'noura@client.example.sa', groups: ['nx-analysts'] });
+    const joiner = await signIn({
+      subject: 'idp-new-hire',
+      email: 'noura@client.example.sa',
+      groups: ['nx-analysts'],
+    });
     expect(joiner.result.userId).not.toBe(first.result.userId);
   });
 
   it('never links a second subject to an account that already signed in here', async () => {
-    const first = await signIn({ subject: 'idp-maha', email: 'maha@client.example.sa', groups: ['nx-analysts'] });
+    const first = await signIn({
+      subject: 'idp-maha',
+      email: 'maha@client.example.sa',
+      groups: ['nx-analysts'],
+    });
 
     // The second layer, on its own: even with the address still sitting on her row, a
     // different person at the directory gets their own account and not hers.
     await withTenant(db.appPool, tenant.tenantId, (tx) =>
-      tx.query(`UPDATE users SET email = 'maha@client.example.sa' WHERE tenant_id = $1 AND id = $2`, [
-        tenant.tenantId,
-        first.result.userId,
-      ]),
+      tx.query(
+        `UPDATE users SET email = 'maha@client.example.sa' WHERE tenant_id = $1 AND id = $2`,
+        [tenant.tenantId, first.result.userId],
+      ),
     );
 
     // Refused, not linked. Handing this person that account is the one outcome that must
@@ -209,8 +231,14 @@ describe('single sign on', () => {
   });
 
   it('refuses someone the workspace disabled, whatever the directory says', async () => {
-    const { result } = await signIn({ subject: 'idp-leaver', email: 'leaver@client.example.sa', groups: ['nx-analysts'] });
-    await withTenant(db.appPool, tenant.tenantId, (tx) => disableUser(tx, result.userId, "admin-under-test"));
+    const { result } = await signIn({
+      subject: 'idp-leaver',
+      email: 'leaver@client.example.sa',
+      groups: ['nx-analysts'],
+    });
+    await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      disableUser(tx, result.userId, 'admin-under-test'),
+    );
 
     await expect(
       signIn({ subject: 'idp-leaver', email: 'leaver@client.example.sa', groups: ['nx-analysts'] }),
@@ -219,7 +247,11 @@ describe('single sign on', () => {
 
   it('refuses a person in no mapped group when there is no default role', async () => {
     await expect(
-      signIn({ subject: 'idp-stranger', email: 'stranger@client.example.sa', groups: ['everyone'] }),
+      signIn({
+        subject: 'idp-stranger',
+        email: 'stranger@client.example.sa',
+        groups: ['everyone'],
+      }),
     ).rejects.toThrow(/no group/);
   });
 
@@ -357,9 +389,15 @@ describe('single sign on', () => {
   });
 
   it('records the sign in without the token and without the address', async () => {
-    const { result } = await signIn({ subject: 'idp-audit', email: 'audit@client.example.sa', groups: ['nx-admins'] });
+    const { result } = await signIn({
+      subject: 'idp-audit',
+      email: 'audit@client.example.sa',
+      groups: ['nx-admins'],
+    });
 
-    const entries = await withTenant(db.appPool, tenant.tenantId, (tx) => readAudit(tx, { limit: 20 }));
+    const entries = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      readAudit(tx, { limit: 20 }),
+    );
     const entry = entries.find((row) => row.target === result.userId);
     expect(entry?.action).toMatch(/^user\.sso_/);
     expect(JSON.stringify(entry)).not.toContain(result.session.token);
@@ -389,9 +427,9 @@ describe('identity token verification', () => {
 
   it('refuses a token signed by a key the provider does not publish', async () => {
     const stranger = generateKeyPairSync('rsa', { modulusLength: 2048 });
-    await expect(
-      verifyIdToken(idp.mint({ key: stranger.privateKey }), options),
-    ).rejects.toThrow(/signature does not verify/);
+    await expect(verifyIdToken(idp.mint({ key: stranger.privateKey }), options)).rejects.toThrow(
+      /signature does not verify/,
+    );
   });
 
   it('refuses a token whose payload was edited after signing', async () => {
@@ -405,24 +443,24 @@ describe('identity token verification', () => {
   });
 
   it('refuses a token minted for another client of the same provider', async () => {
-    await expect(verifyIdToken(idp.mint({ audience: 'someone-elses-app' }), options)).rejects.toThrow(
-      /another client/,
-    );
+    await expect(
+      verifyIdToken(idp.mint({ audience: 'someone-elses-app' }), options),
+    ).rejects.toThrow(/another client/);
   });
 
   it('refuses a token from another issuer', async () => {
-    await expect(verifyIdToken(idp.mint({ issuer: 'https://evil.example.com' }), options)).rejects.toThrow(
-      /issued by someone else/,
-    );
+    await expect(
+      verifyIdToken(idp.mint({ issuer: 'https://evil.example.com' }), options),
+    ).rejects.toThrow(/issued by someone else/);
   });
 
   it('refuses an expired token and one dated in the future', async () => {
     await expect(verifyIdToken(idp.mint({ expiresInSeconds: -3600 }), options)).rejects.toThrow(
       /expired/,
     );
-    await expect(
-      verifyIdToken(idp.mint({ issuedAtOffsetSeconds: 3600 }), options),
-    ).rejects.toThrow(/dated in the future/);
+    await expect(verifyIdToken(idp.mint({ issuedAtOffsetSeconds: 3600 }), options)).rejects.toThrow(
+      /dated in the future/,
+    );
   });
 
   it('refuses a token that is not a token', async () => {

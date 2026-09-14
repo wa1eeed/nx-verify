@@ -147,8 +147,7 @@ export async function listShares(
     revokedAt: row.revoked_at,
     viewCount: row.view_count,
     lastViewedAt: row.last_viewed_at,
-    state:
-      row.revoked_at !== null ? 'revoked' : row.expires_at <= now ? 'expired' : 'live',
+    state: row.revoked_at !== null ? 'revoked' : row.expires_at <= now ? 'expired' : 'live',
   }));
 }
 

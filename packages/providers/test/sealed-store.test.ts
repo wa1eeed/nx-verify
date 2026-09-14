@@ -35,7 +35,10 @@ describe('the sealed secret file', () => {
     const path = join(dir, 'roundtrip.sealed');
     const store = new SealedFileSecretStore({ path, keys: keys() });
 
-    await store.put('kms://providers/primary/sandbox', { clientId: CLIENT_ID, clientSecret: SECRET });
+    await store.put('kms://providers/primary/sandbox', {
+      clientId: CLIENT_ID,
+      clientSecret: SECRET,
+    });
     expect(await store.fetch('kms://providers/primary/sandbox')).toEqual({
       clientId: CLIENT_ID,
       clientSecret: SECRET,
@@ -50,7 +53,9 @@ describe('the sealed secret file', () => {
 
   it('is readable by its owner alone', async () => {
     const path = join(dir, 'mode.sealed');
-    await new SealedFileSecretStore({ path, keys: keys() }).put('kms://x', { clientSecret: SECRET });
+    await new SealedFileSecretStore({ path, keys: keys() }).put('kms://x', {
+      clientSecret: SECRET,
+    });
     expect((await stat(path)).mode & 0o777).toBe(0o600);
   });
 
@@ -77,7 +82,9 @@ describe('the sealed secret file', () => {
 
   it('opens nothing with the wrong master key, and says so without the material', async () => {
     const path = join(dir, 'wrong-key.sealed');
-    await new SealedFileSecretStore({ path, keys: keys(7) }).put('kms://y', { clientSecret: SECRET });
+    await new SealedFileSecretStore({ path, keys: keys(7) }).put('kms://y', {
+      clientSecret: SECRET,
+    });
 
     const error = await new SealedFileSecretStore({ path, keys: keys(9) })
       .fetch('kms://y')
@@ -101,7 +108,9 @@ describe('the sealed secret file', () => {
     await rotated.put('kms://new', { clientSecret: 'new' });
 
     expect(await rotated.fetch('kms://old')).toEqual({ clientSecret: 'old' });
-    const file = JSON.parse(await readFile(path, 'utf8')) as { entries: Record<string, { v: number }> };
+    const file = JSON.parse(await readFile(path, 'utf8')) as {
+      entries: Record<string, { v: number }>;
+    };
     expect(file.entries['kms://old']?.v).toBe(1);
     expect(file.entries['kms://new']?.v).toBe(2);
   });
@@ -122,7 +131,9 @@ describe('the sealed secret file', () => {
   it('moves a deployment off its environment without a flag day', async () => {
     const path = join(dir, 'layered.sealed');
     const previous = process.env['NX_SECRETS_LAYERED_TEST'];
-    process.env['NX_SECRETS_LAYERED_TEST'] = JSON.stringify({ 'kms://legacy': { apiKey: 'from-env' } });
+    process.env['NX_SECRETS_LAYERED_TEST'] = JSON.stringify({
+      'kms://legacy': { apiKey: 'from-env' },
+    });
 
     try {
       const store = new LayeredSecretStore([

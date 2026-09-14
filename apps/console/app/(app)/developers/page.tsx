@@ -18,18 +18,16 @@ export default async function ApiKeysPage({
   const issued = params['issued'];
 
   const keys = await query(async (tx) =>
-    (await listApiKeys(tx)).map(
-      (key): ApiKeyView => ({
-        id: key.id,
-        name: key.name,
-        keyPrefix: key.keyPrefix,
-        scopes: key.scopes,
-        environment: key.environment,
-        createdAt: key.createdAt,
-        lastUsedAt: key.lastUsedAt,
-        revokedAt: key.revokedAt,
-      }),
-    ),
+    (await listApiKeys(tx)).map((key): ApiKeyView => ({
+      id: key.id,
+      name: key.name,
+      keyPrefix: key.keyPrefix,
+      scopes: key.scopes,
+      environment: key.environment,
+      createdAt: key.createdAt,
+      lastUsedAt: key.lastUsedAt,
+      revokedAt: key.revokedAt,
+    })),
   );
 
   return (

@@ -1,7 +1,12 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { riyalsToHalalas } from './money.js';
 import { getWallet, type WalletState } from './wallet.js';
-import { computeTermExtras, getCommitment, type Commitment, type TermExtras } from './entitlements.js';
+import {
+  computeTermExtras,
+  getCommitment,
+  type Commitment,
+  type TermExtras,
+} from './entitlements.js';
 
 /**
  * What the subscriber owes, has spent, and has left.
@@ -71,7 +76,11 @@ export async function buildStatement(
     [tx.tenantId, months],
   );
 
-  const topUps = await tx.query<{ created_at: Date; amount: string; vat_invoice_id: string | null }>(
+  const topUps = await tx.query<{
+    created_at: Date;
+    amount: string;
+    vat_invoice_id: string | null;
+  }>(
     `SELECT created_at, delta::text AS amount, vat_invoice_id
      FROM wallet_ledger
      WHERE tenant_id = $1 AND reason = 'TOPUP'

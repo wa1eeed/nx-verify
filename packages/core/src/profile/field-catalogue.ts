@@ -74,7 +74,11 @@ export const FIELD_CATALOGUE: Readonly<Record<string, FieldDefinition>> = {
   'contract.capital_type': { labelAr: 'نوع رأس المال', group: 'CONTRACT' },
   'contract.cash_capital': { labelAr: 'رأس المال النقدي', group: 'CONTRACT', numeric: true },
   'contract.in_kind_capital': { labelAr: 'رأس المال العيني', group: 'CONTRACT', numeric: true },
-  'contract.profit_set_aside_pct': { labelAr: 'نسبة الاحتياطي من الأرباح', group: 'CONTRACT', numeric: true },
+  'contract.profit_set_aside_pct': {
+    labelAr: 'نسبة الاحتياطي من الأرباح',
+    group: 'CONTRACT',
+    numeric: true,
+  },
   'contract.partner_decisions': { labelAr: 'قرارات الشركاء ونسب إقرارها', group: 'CONTRACT' },
   'contract.articles_count': { labelAr: 'عدد مواد العقد', group: 'CONTRACT', numeric: true },
   'ownership.partners_total': { labelAr: 'عدد الشركاء', group: 'CONTRACT', numeric: true },
@@ -87,7 +91,11 @@ export const FIELD_CATALOGUE: Readonly<Record<string, FieldDefinition>> = {
   'governance.structure': { labelAr: 'هيكل الإدارة', group: 'GOVERNANCE' },
   'governance.managers_total': { labelAr: 'عدد المدراء', group: 'GOVERNANCE', numeric: true },
   'governance.dismissal_method': { labelAr: 'طريقة عزل المدير', group: 'GOVERNANCE' },
-  'governance.board_members': { labelAr: 'أعضاء مجلس المديرين', group: 'GOVERNANCE', numeric: true },
+  'governance.board_members': {
+    labelAr: 'أعضاء مجلس المديرين',
+    group: 'GOVERNANCE',
+    numeric: true,
+  },
 
   'address.national.city': { labelAr: 'المدينة', group: 'ADDRESS' },
   'address.national.district': { labelAr: 'الحي', group: 'ADDRESS' },
@@ -120,7 +128,13 @@ export const FIELD_CATALOGUE: Readonly<Record<string, FieldDefinition>> = {
   'bank.account_status': {
     labelAr: 'حالة الحساب',
     group: 'BANKING',
-    values: { ACTIVE: 'نشط', BLOCKED: 'محظور', INACTIVE: 'غير نشط', CLOSED: 'مغلق', DORMANT: 'راكد' },
+    values: {
+      ACTIVE: 'نشط',
+      BLOCKED: 'محظور',
+      INACTIVE: 'غير نشط',
+      CLOSED: 'مغلق',
+      DORMANT: 'راكد',
+    },
   },
   'bank.holder_name': { labelAr: 'اسم صاحب الحساب كما يظهر لدى البنك', group: 'BANKING' },
   'bank.beneficiary_name': { labelAr: 'اسم المستفيد', group: 'BANKING' },
@@ -158,7 +172,11 @@ export const FIELD_CATALOGUE: Readonly<Record<string, FieldDefinition>> = {
   'freelance.ownership': {
     labelAr: 'ملكية الوثيقة',
     group: 'FREELANCE',
-    values: { VERIFIED: 'تعود لصاحب الهوية', NOT_VERIFIED: 'لا تعود لصاحب الهوية', NOT_CHECKED: 'لم تُفحص' },
+    values: {
+      VERIFIED: 'تعود لصاحب الهوية',
+      NOT_VERIFIED: 'لا تعود لصاحب الهوية',
+      NOT_CHECKED: 'لم تُفحص',
+    },
   },
   'freelance.certificate_status': {
     labelAr: 'حالة الوثيقة',
@@ -182,7 +200,11 @@ export const FIELD_CATALOGUE: Readonly<Record<string, FieldDefinition>> = {
   'freelance.category': { labelAr: 'الفئة', group: 'FREELANCE' },
   'person.name': { labelAr: 'الاسم', group: 'FREELANCE' },
   'person.nationality': { labelAr: 'الجنسية', group: 'FREELANCE' },
-  'person.gender': { labelAr: 'الجنس', group: 'FREELANCE', values: { MALE: 'ذكر', FEMALE: 'أنثى', M: 'ذكر', F: 'أنثى' } },
+  'person.gender': {
+    labelAr: 'الجنس',
+    group: 'FREELANCE',
+    values: { MALE: 'ذكر', FEMALE: 'أنثى', M: 'ذكر', F: 'أنثى' },
+  },
   'person.national_id_expiry': { labelAr: 'انتهاء الهوية (هجري)', group: 'FREELANCE' },
   'property.status': {
     labelAr: 'حالة العقار في السجل',

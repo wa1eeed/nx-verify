@@ -7,7 +7,8 @@ import { changePasswordAction } from './actions';
 /** Never prerendered: it reads the session and writes a credential. */
 export const dynamic = 'force-dynamic';
 
-const FAILED = 'تعذّر تغيير كلمة المرور. تحقق من الحالية، ومن أن الجديدة اثنتا عشرة خانة على الأقل.';
+const FAILED =
+  'تعذّر تغيير كلمة المرور. تحقق من الحالية، ومن أن الجديدة اثنتا عشرة خانة على الأقل.';
 
 export default async function PasswordPage({
   searchParams,

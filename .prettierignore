@@ -7,3 +7,9 @@ pnpm-lock.yaml
 docs/
 README.md
 CLAUDE.md
+# The design handoff is a vendored reference: kept exactly as it was delivered.
+design_handoff_verification_platform/
+verify/check-design.mjs
+verify/shoot.mjs
+PLAN.md
+PROGRESS.md

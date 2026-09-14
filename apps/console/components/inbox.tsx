@@ -43,7 +43,11 @@ export function Inbox({
       {items.length === 0 ? (
         <EmptyState>لا شيء ينتظرك. سنخبرك حين يتغيّر شيء أو تحتاج مراجعة قراراً.</EmptyState>
       ) : (
-        <ul className="stack" data-role="inbox" style={{ gap: 'var(--s-3)', margin: 0, padding: 0 }}>
+        <ul
+          className="stack"
+          data-role="inbox"
+          style={{ gap: 'var(--s-3)', margin: 0, padding: 0 }}
+        >
           {items.map((item) => {
             const unread = seenAt === null || item.at > seenAt;
             const style = SEVERITY_STYLE[item.severity];

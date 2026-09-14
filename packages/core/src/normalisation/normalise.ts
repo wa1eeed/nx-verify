@@ -126,7 +126,11 @@ export async function normaliseRun(
           confidence: mapping.confidence,
         });
 
-        if (DISPLAY_NAME_FIELDS.has(fieldPath) && typeof match.value === 'string' && match.value.trim() !== '') {
+        if (
+          DISPLAY_NAME_FIELDS.has(fieldPath) &&
+          typeof match.value === 'string' &&
+          match.value.trim() !== ''
+        ) {
           // The name a list shows is the name the authority gave, kept current by the same
           // answer that recorded it rather than typed in by whoever created the entity.
           await tx.query(
@@ -213,7 +217,11 @@ async function attachFoundIdentifier(
     return;
   }
   try {
-    const attached = await attachIdentifier(tx, keys, { entityId: subjectEntityId, idType: type, value: raw });
+    const attached = await attachIdentifier(tx, keys, {
+      entityId: subjectEntityId,
+      idType: type,
+      value: raw,
+    });
     if (!attached.alreadyPresent) {
       result.identifiers.push({ entityId: subjectEntityId, idType: type });
     }

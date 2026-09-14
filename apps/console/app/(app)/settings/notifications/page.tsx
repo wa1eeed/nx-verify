@@ -1,6 +1,9 @@
 import type { ReactElement } from 'react';
 import { listChannels } from '@nx-verify/core';
-import { NotificationSettings, type ChannelView } from '../../../../components/notification-settings';
+import {
+  NotificationSettings,
+  type ChannelView,
+} from '../../../../components/notification-settings';
 import { query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { SETTINGS_TABS } from '../../../../components/nav';

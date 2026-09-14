@@ -27,7 +27,8 @@ import { verify } from '../verification/verify.js';
  */
 
 export type CustomerKind = 'COMPANY' | 'ESTABLISHMENT' | 'FREELANCER';
-export type ProfileSection = 'REGISTRY' | 'CONTRACT' | 'MANAGERS' | 'ADDRESS' | 'BANKING' | 'FREELANCE' | 'PROPERTY';
+export type ProfileSection =
+  'REGISTRY' | 'CONTRACT' | 'MANAGERS' | 'ADDRESS' | 'BANKING' | 'FREELANCE' | 'PROPERTY';
 
 export interface CheckDefinition {
   productCode: string;
@@ -110,7 +111,8 @@ export interface RunChecksInput {
   onlyPeople?: readonly string[];
 }
 
-export type CheckStatus = 'OK' | 'PARTIAL' | 'NOT_FOUND' | 'ERROR' | 'AWAITING' | 'SKIPPED' | 'REFUSED';
+export type CheckStatus =
+  'OK' | 'PARTIAL' | 'NOT_FOUND' | 'ERROR' | 'AWAITING' | 'SKIPPED' | 'REFUSED';
 
 export interface CheckOutcome {
   productCode: string;
@@ -164,7 +166,10 @@ export function refusalFor(error: unknown): string {
   }
 }
 
-function identifiersOf(kind: 'BUSINESS' | 'FREELANCER', identity: CustomerIdentity): IdentifierInput[] {
+function identifiersOf(
+  kind: 'BUSINESS' | 'FREELANCER',
+  identity: CustomerIdentity,
+): IdentifierInput[] {
   if (kind === 'BUSINESS') {
     return identity.unn ? [{ idType: 'UNN', value: identity.unn, isPrimary: true }] : [];
   }
@@ -239,7 +244,10 @@ async function managersOf(
   const managers: { personId: string; id: string }[] = [];
   for (const row of rows) {
     // Decrypted for the call to the authority and for nothing else.
-    const revealed = await revealIdentifier(tx, keys, row.to_entity, ['NATIONAL_ID', 'IQAMA'] as IdentifierType[]);
+    const revealed = await revealIdentifier(tx, keys, row.to_entity, [
+      'NATIONAL_ID',
+      'IQAMA',
+    ] as IdentifierType[]);
     if (revealed) {
       managers.push({ personId: row.to_entity, id: revealed.value });
     }
@@ -285,7 +293,10 @@ async function identityOf(
   };
 }
 
-export async function runChecks(deps: RunChecksDependencies, input: RunChecksInput): Promise<RunChecksResult> {
+export async function runChecks(
+  deps: RunChecksDependencies,
+  input: RunChecksInput,
+): Promise<RunChecksResult> {
   const catalogue = await deps.inTenant((tx) => listChecks(tx));
   const byCode = new Map(catalogue.map((check) => [check.productCode, check]));
   const selected = input.productCodes
@@ -298,7 +309,12 @@ export async function runChecks(deps: RunChecksDependencies, input: RunChecksInp
   // than from anything the form could have been edited to send.
   const identity: CustomerIdentity =
     entityId !== null
-      ? { ...(await deps.inTenant((tx) => identityOf(tx, deps.keys, entityId as string, input.kind))), ...input.identity }
+      ? {
+          ...(await deps.inTenant((tx) =>
+            identityOf(tx, deps.keys, entityId as string, input.kind),
+          )),
+          ...input.identity,
+        }
       : input.identity;
 
   const outcomes: CheckOutcome[] = [];
@@ -318,29 +334,42 @@ export async function runChecks(deps: RunChecksDependencies, input: RunChecksInp
 
   for (const check of selected) {
     if (check.availability !== 'AVAILABLE') {
-      outcomes.push({ productCode: check.productCode, status: 'SKIPPED', reference: null, noteAr: 'هذه العملية قادمة قريباً ولم تُفعَّل بعد.' });
+      outcomes.push({
+        productCode: check.productCode,
+        status: 'SKIPPED',
+        reference: null,
+        noteAr: 'هذه العملية قادمة قريباً ولم تُفعَّل بعد.',
+      });
       continue;
     }
 
-    const kind = entityId === null ? null : await deps.inTenant((tx) => knownKind(tx, entityId as string));
+    const kind =
+      entityId === null ? null : await deps.inTenant((tx) => knownKind(tx, entityId as string));
     if (kind !== null && !check.appliesTo.includes(kind)) {
       outcomes.push({
         productCode: check.productCode,
         status: 'SKIPPED',
         reference: null,
-        noteAr: kind === 'ESTABLISHMENT' ? 'المؤسسة الفردية لا تملك عقد تأسيس، فلم تُنفَّذ العملية ولم تُحتسب.' : 'لا تنطبق هذه العملية على هذا العميل.',
+        noteAr:
+          kind === 'ESTABLISHMENT'
+            ? 'المؤسسة الفردية لا تملك عقد تأسيس، فلم تُنفَّذ العملية ولم تُحتسب.'
+            : 'لا تنطبق هذه العملية على هذا العميل.',
       });
       continue;
     }
 
     const subject = subjectFor(check, input.kind, identity, inputs);
-    const missing = check.requiredInputs.filter((name) => name !== 'manager_id' && subject[name] === undefined);
+    const missing = check.requiredInputs.filter(
+      (name) => name !== 'manager_id' && subject[name] === undefined,
+    );
     if (missing.length > 0) {
       outcomes.push({
         productCode: check.productCode,
         status: 'SKIPPED',
         reference: null,
-        noteAr: missing.includes('iban') ? 'أدخل رقم الآيبان لتنفيذ هذه العملية.' : 'بيانات ناقصة لتنفيذ هذه العملية.',
+        noteAr: missing.includes('iban')
+          ? 'أدخل رقم الآيبان لتنفيذ هذه العملية.'
+          : 'بيانات ناقصة لتنفيذ هذه العملية.',
       });
       continue;
     }
@@ -349,8 +378,11 @@ export async function runChecks(deps: RunChecksDependencies, input: RunChecksInp
     const targets = check.requiredInputs.includes('manager_id')
       ? entityId === null
         ? []
-        : (await deps.inTenant((tx) => managersOf(tx, deps.keys, entityId as string, managerLimit))).filter(
-            (manager) => input.onlyPeople === undefined || input.onlyPeople.includes(manager.personId),
+        : (
+            await deps.inTenant((tx) => managersOf(tx, deps.keys, entityId as string, managerLimit))
+          ).filter(
+            (manager) =>
+              input.onlyPeople === undefined || input.onlyPeople.includes(manager.personId),
           )
       : [null];
 
@@ -413,7 +445,12 @@ export async function listBundleRuns(
   tx: TenantTransaction,
   bundleKey: string,
 ): Promise<{ productCode: string; status: string; reference: string | null; createdAt: Date }[]> {
-  const { rows } = await tx.query<{ product_code: string; status: string; reference: string | null; created_at: Date }>(
+  const { rows } = await tx.query<{
+    product_code: string;
+    status: string;
+    reference: string | null;
+    created_at: Date;
+  }>(
     `SELECT product_code, status, reference, created_at FROM verification_runs
      WHERE tenant_id = $1 AND bundle_key = $2
      ORDER BY created_at`,

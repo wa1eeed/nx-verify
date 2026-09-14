@@ -67,7 +67,8 @@ export const SANDBOX_TEST_CASES: readonly SandboxTestCase[] = [
     productCode: 'KYB_COMPLETE',
     scenario: 'incomplete',
     titleAr: 'استجابة ناقصة الحقول',
-    expectedAr: 'الحالة تُرجَع والاسم ورأس المال والعنوان غائبة. الحالة التي لا يعرضها أي توثيق مزوّد.',
+    expectedAr:
+      'الحالة تُرجَع والاسم ورأس المال والعنوان غائبة. الحالة التي لا يعرضها أي توثيق مزوّد.',
   },
   {
     input: 'FL-2020-00001',

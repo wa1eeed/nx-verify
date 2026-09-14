@@ -41,54 +41,56 @@ export function Portfolios({ rows }: { rows: PortfolioRowView[] }): ReactElement
         note="الكيان قد ينتمي لأكثر من مجموعة. عند تعارض مجموعتين تفوز المدة الأقصر."
       >
         <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>المحفظة</th>
-              <th>السجلات</th>
-              <th>منتهية الصلاحية</th>
-              <th>حالات مفتوحة</th>
-              <th>المراقبة</th>
-              <th>قواعد القرار</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.portfolioId}>
-                <td>{row.nameAr}</td>
-                <td>
-                  <bdi dir="ltr" className="mono">
-                    {row.entities}
-                  </bdi>
-                </td>
-                <td>
-                  <bdi dir="ltr" className="mono">
-                    {row.withExpired}
-                  </bdi>
-                </td>
-                <td>
-                  <bdi dir="ltr" className="mono">
-                    {row.openCases}
-                  </bdi>
-                </td>
-                <td className="muted">
-                  {row.monitorByDefault ? (
-                    <span data-role="monitoring">
-                      مفعّلة بسقف{' '}
-                      <bdi dir="ltr" className="mono">
-                        {((row.monitorBudget ?? 0) / 100).toFixed(2)}
-                      </bdi>{' '}
-                      ريال
-                    </span>
-                  ) : (
-                    'غير مفعّلة'
-                  )}
-                </td>
-                <td className="muted">{row.decisionRuleset ? 'خاصة بالمحفظة' : 'قواعد المنتج'}</td>
+          <table>
+            <thead>
+              <tr>
+                <th>المحفظة</th>
+                <th>السجلات</th>
+                <th>منتهية الصلاحية</th>
+                <th>حالات مفتوحة</th>
+                <th>المراقبة</th>
+                <th>قواعد القرار</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.portfolioId}>
+                  <td>{row.nameAr}</td>
+                  <td>
+                    <bdi dir="ltr" className="mono">
+                      {row.entities}
+                    </bdi>
+                  </td>
+                  <td>
+                    <bdi dir="ltr" className="mono">
+                      {row.withExpired}
+                    </bdi>
+                  </td>
+                  <td>
+                    <bdi dir="ltr" className="mono">
+                      {row.openCases}
+                    </bdi>
+                  </td>
+                  <td className="muted">
+                    {row.monitorByDefault ? (
+                      <span data-role="monitoring">
+                        مفعّلة بسقف{' '}
+                        <bdi dir="ltr" className="mono">
+                          {((row.monitorBudget ?? 0) / 100).toFixed(2)}
+                        </bdi>{' '}
+                        ريال
+                      </span>
+                    ) : (
+                      'غير مفعّلة'
+                    )}
+                  </td>
+                  <td className="muted">
+                    {row.decisionRuleset ? 'خاصة بالمحفظة' : 'قواعد المنتج'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         {rows.length === 0 ? (
           <div className="panel-body">

@@ -181,10 +181,7 @@ export async function pruneInboundEvents(
  * answers an operational question about a table that grows faster than any other and is
  * worth little after a month.
  */
-export async function pruneRequestLogs(
-  tx: TenantTransaction,
-  olderThanDays = 30,
-): Promise<number> {
+export async function pruneRequestLogs(tx: TenantTransaction, olderThanDays = 30): Promise<number> {
   return pruneApiRequests(tx, olderThanDays);
 }
 

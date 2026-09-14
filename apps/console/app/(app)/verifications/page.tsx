@@ -16,9 +16,12 @@ export default async function VerificationsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
   const params = await searchParams;
-  const product = typeof params['product'] === 'string' && params['product'] !== '' ? params['product'] : null;
+  const product =
+    typeof params['product'] === 'string' && params['product'] !== '' ? params['product'] : null;
   const status =
-    typeof params['status'] === 'string' && STATUSES.has(params['status']) ? params['status'] : null;
+    typeof params['status'] === 'string' && STATUSES.has(params['status'])
+      ? params['status']
+      : null;
   const highlight = typeof params['run'] === 'string' ? params['run'] : null;
 
   const data = await query(async (tx) => ({

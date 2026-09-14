@@ -30,18 +30,16 @@ export default async function UsagePage(): Promise<ReactElement> {
       heldHalalas: wallet.held,
       availableHalalas: wallet.available,
       isLow: wallet.isLow,
-      entitlements: entitlements.map(
-        (entry): EntitlementView => ({
-          productCode: entry.productCode,
-          nameAr: nameOf.get(entry.productCode) ?? entry.productCode,
-          allowed: entry.allowed,
-          refusal: entry.refusal,
-          quota: entry.quota,
-          used: entry.used,
-          remaining: entry.remaining,
-          negotiated: entry.negotiated,
-        }),
-      ),
+      entitlements: entitlements.map((entry): EntitlementView => ({
+        productCode: entry.productCode,
+        nameAr: nameOf.get(entry.productCode) ?? entry.productCode,
+        allowed: entry.allowed,
+        refusal: entry.refusal,
+        quota: entry.quota,
+        used: entry.used,
+        remaining: entry.remaining,
+        negotiated: entry.negotiated,
+      })),
     };
   });
 

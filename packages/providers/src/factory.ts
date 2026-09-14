@@ -55,7 +55,11 @@ export function createProviderRegistry(configs: readonly ProviderConfig[]): Prov
           ...(config.timeoutMs === undefined ? {} : { timeoutMs: config.timeoutMs }),
           ...(config.endpoints === undefined
             ? {}
-            : { endpoints: config.endpoints as ConstructorParameters<typeof LeanProvider>[0]['endpoints'] }),
+            : {
+                endpoints: config.endpoints as ConstructorParameters<
+                  typeof LeanProvider
+                >[0]['endpoints'],
+              }),
         }),
       );
       continue;
@@ -120,19 +124,21 @@ export function providerConfigFromEnv(
       return { name, kind: 'openbanking', baseUrl, authUrl };
     });
 
-  return openBankingConfigs.concat(raw
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-    .map((entry): ProviderConfig => {
-      const separator = entry.indexOf(':');
-      if (separator === -1) {
-        return { name: entry, kind: 'stub' };
-      }
-      return {
-        name: entry.slice(0, separator),
-        kind: 'http',
-        baseUrl: entry.slice(separator + 1),
-      };
-    }));
+  return openBankingConfigs.concat(
+    raw
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+      .map((entry): ProviderConfig => {
+        const separator = entry.indexOf(':');
+        if (separator === -1) {
+          return { name: entry, kind: 'stub' };
+        }
+        return {
+          name: entry.slice(0, separator),
+          kind: 'http',
+          baseUrl: entry.slice(separator + 1),
+        };
+      }),
+  );
 }

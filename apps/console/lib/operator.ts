@@ -157,7 +157,10 @@ export async function operatorQuery<T>(handler: (db: Queryable) => Promise<T>): 
   }
 }
 
-async function readOperatorCredential(): Promise<{ kind: 'token' | 'session'; value: string } | null> {
+async function readOperatorCredential(): Promise<{
+  kind: 'token' | 'session';
+  value: string;
+} | null> {
   try {
     const { cookies, headers } = await import('next/headers');
     const headerStore = await headers();

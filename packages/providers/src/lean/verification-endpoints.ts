@@ -41,7 +41,9 @@ import type { ProviderErrorCode } from '../types.js';
 type Bag = Record<string, unknown>;
 
 const asRecord = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 
 const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
@@ -102,7 +104,8 @@ function booleanOrNull(value: unknown): boolean | null {
 export function compact(bag: Bag): Bag {
   return Object.fromEntries(
     Object.entries(bag).filter(
-      ([, value]) => value !== null && value !== undefined && !(Array.isArray(value) && value.length === 0),
+      ([, value]) =>
+        value !== null && value !== undefined && !(Array.isArray(value) && value.length === 0),
     ),
   );
 }
@@ -137,7 +140,9 @@ export function companyKind(entityType: unknown): 'COMPANY' | 'ESTABLISHMENT' | 
 }
 
 /** The outcome of a verification call, read from the envelope. */
-export function verificationOutcome(payload: Readonly<Record<string, unknown>>): 'OK' | 'NOT_FOUND' | 'ERROR' {
+export function verificationOutcome(
+  payload: Readonly<Record<string, unknown>>,
+): 'OK' | 'NOT_FOUND' | 'ERROR' {
   const status = String(payload['status'] ?? '');
   if (status === 'OK') {
     return 'OK';
@@ -146,7 +151,9 @@ export function verificationOutcome(payload: Readonly<Record<string, unknown>>):
   return code === 'DATA_NOT_FOUND' ? 'NOT_FOUND' : 'ERROR';
 }
 
-export function verificationFailureCode(payload: Readonly<Record<string, unknown>>): ProviderErrorCode {
+export function verificationFailureCode(
+  payload: Readonly<Record<string, unknown>>,
+): ProviderErrorCode {
   const code = stringOrNull(asRecord(payload['status_detail'])['granular_status_code']);
   switch (code) {
     case 'BANK_ISSUE':
@@ -182,7 +189,10 @@ function nationalityOf(value: unknown): string | null {
   return text(record['type']) ?? text(record);
 }
 
-function mapManagers(value: unknown): { people: (MappedPerson & { manager_type: string | null; is_licensed: boolean | null })[]; total: number } {
+function mapManagers(value: unknown): {
+  people: (MappedPerson & { manager_type: string | null; is_licensed: boolean | null })[];
+  total: number;
+} {
   const all = asArray(value).map(asRecord);
   const people = all.flatMap((manager) => {
     const identity = asRecord(manager['identity']);
@@ -240,9 +250,15 @@ function mapParties(value: unknown): { people: Bag[]; businesses: Bag[]; total: 
   return { people, businesses, total: all.length };
 }
 
-function registryNumber(verifications: Record<string, unknown>, unifiedNumber: string | null): string | null {
+function registryNumber(
+  verifications: Record<string, unknown>,
+  unifiedNumber: string | null,
+): string | null {
   const registry = asRecord(verifications['commercial_registry']);
-  const candidates = [stringOrNull(registry['national_number']), stringOrNull(registry['registration_number'])];
+  const candidates = [
+    stringOrNull(registry['national_number']),
+    stringOrNull(registry['registration_number']),
+  ];
   return candidates.find((value) => value !== null && value !== unifiedNumber) ?? null;
 }
 
@@ -254,7 +270,10 @@ function corporateBody(type: 'FULL' | 'BASIC' | 'CONTRACT' | 'ADDRESS') {
   });
 }
 
-export function mapCorporateFull(payload: Readonly<Record<string, unknown>>, input: Readonly<Record<string, unknown>> = {}): Bag {
+export function mapCorporateFull(
+  payload: Readonly<Record<string, unknown>>,
+  input: Readonly<Record<string, unknown>> = {},
+): Bag {
   const v = asRecord(payload['verifications']);
   const unn = stringOrNull(input['unn']);
   const managers = mapManagers(asRecord(v['management'])['managers']);
@@ -301,7 +320,10 @@ export function mapCorporateFull(payload: Readonly<Record<string, unknown>>, inp
   });
 }
 
-export function mapCorporateContract(payload: Readonly<Record<string, unknown>>, input: Readonly<Record<string, unknown>> = {}): Bag {
+export function mapCorporateContract(
+  payload: Readonly<Record<string, unknown>>,
+  input: Readonly<Record<string, unknown>> = {},
+): Bag {
   const v = asRecord(payload['verifications']);
   const management = asRecord(v['management']);
   const managers = mapManagers(management['managers']);
@@ -319,9 +341,11 @@ export function mapCorporateContract(payload: Readonly<Record<string, unknown>>,
     management_structure: text(management['structure_name']),
     dismissal_method: text(management['dismissal_method']),
     capital: numberOrNull(v['commercial_registration_capital']),
-    capital_type: text(contribution['type']) ?? text(contribution) ?? text(stock['type']) ?? text(stock),
+    capital_type:
+      text(contribution['type']) ?? text(contribution) ?? text(stock['type']) ?? text(stock),
     cash_capital: numberOrNull(contribution['cash_capital']) ?? numberOrNull(stock['cash_capital']),
-    in_kind_capital: numberOrNull(contribution['in_kind_capital']) ?? numberOrNull(stock['in_kind_capital']),
+    in_kind_capital:
+      numberOrNull(contribution['in_kind_capital']) ?? numberOrNull(stock['in_kind_capital']),
     profit_set_aside_pct: numberOrNull(setAside['percentage']),
     directors_board_members: numberOrNull(asRecord(management['directors_board'])['member_count']),
     partner_decisions: asArray(v['partner_decision'])
@@ -345,7 +369,9 @@ export function mapCorporateAddress(payload: Readonly<Record<string, unknown>>):
   const v = asRecord(payload['verifications']);
   const addresses = asArray(v['addresses']).map(asRecord);
   const primary =
-    addresses.find((address) => booleanOrNull(address['is_primary_address']) === true) ?? addresses[0] ?? {};
+    addresses.find((address) => booleanOrNull(address['is_primary_address']) === true) ??
+    addresses[0] ??
+    {};
 
   const building = stringOrNull(primary['building_number']);
   const postcode = stringOrNull(primary['post_code']);
@@ -366,11 +392,15 @@ export function mapCorporateAddress(payload: Readonly<Record<string, unknown>>):
     addresses_count: addresses.length,
     // What makes two establishments share an address: the same building, postcode and
     // additional number. Not an identifier of anybody, so it may be stored as a fact.
-    address_key: building && postcode && additional ? `${building}-${postcode}-${additional}` : null,
+    address_key:
+      building && postcode && additional ? `${building}-${postcode}-${additional}` : null,
   });
 }
 
-export function mapCorporateManager(payload: Readonly<Record<string, unknown>>, input: Readonly<Record<string, unknown>> = {}): Bag {
+export function mapCorporateManager(
+  payload: Readonly<Record<string, unknown>>,
+  input: Readonly<Record<string, unknown>> = {},
+): Bag {
   const manager = asRecord(asArray(payload['verifications'])[0]);
   const identity = asRecord(manager['identity']);
   // The identity asked about, when the answer does not repeat it.
@@ -406,12 +436,17 @@ export function mapCorporateManager(payload: Readonly<Record<string, unknown>>, 
   return compact({ managers: people, permissions_count: permissions.length });
 }
 
-export function mapFreelancer(payload: Readonly<Record<string, unknown>>, input: Readonly<Record<string, unknown>> = {}): Bag {
+export function mapFreelancer(
+  payload: Readonly<Record<string, unknown>>,
+  input: Readonly<Record<string, unknown>> = {},
+): Bag {
   const v = asRecord(payload['verifications']);
   const certificates = asArray(v['certificate']).map(asRecord);
   const asked = stringOrNull(input['certificate_number']);
   const certificate =
-    certificates.find((entry) => asked !== null && stringOrNull(entry['number']) === asked) ?? certificates[0] ?? {};
+    certificates.find((entry) => asked !== null && stringOrNull(entry['number']) === asked) ??
+    certificates[0] ??
+    {};
   const speciality = asRecord(certificate['speciality']);
 
   return compact({
@@ -428,7 +463,10 @@ export function mapFreelancer(payload: Readonly<Record<string, unknown>>, input:
   });
 }
 
-export function mapIbanVerification(payload: Readonly<Record<string, unknown>>, input: Readonly<Record<string, unknown>> = {}): Bag {
+export function mapIbanVerification(
+  payload: Readonly<Record<string, unknown>>,
+  input: Readonly<Record<string, unknown>> = {},
+): Bag {
   const v = asRecord(payload['verifications']);
   const verified = booleanOrNull(v['iban_ownership_verified']);
   const matching = asRecord(v['matching']);
@@ -448,11 +486,15 @@ export function mapIbanVerification(payload: Readonly<Record<string, unknown>>, 
     // The same answers again under the names the account entity's mappings read, because a
     // mapping is keyed on its source and one source cannot feed two entities.
     account_bank: text(v['bank_name']),
-    account_ownership: verified === true ? 'MATCH' : matchType === 'PARTIAL' ? 'PARTIAL' : 'NO_MATCH',
+    account_ownership:
+      verified === true ? 'MATCH' : matchType === 'PARTIAL' ? 'PARTIAL' : 'NO_MATCH',
   });
 }
 
-export function mapBeneficiaryName(payload: Readonly<Record<string, unknown>>, input: Readonly<Record<string, unknown>> = {}): Bag {
+export function mapBeneficiaryName(
+  payload: Readonly<Record<string, unknown>>,
+  input: Readonly<Record<string, unknown>> = {},
+): Bag {
   const v = asRecord(payload['verifications']);
   return compact({
     beneficiary_name: stringOrNull(v['beneficiary_name']),
@@ -474,7 +516,9 @@ export function ibanAuthority(payload: Readonly<Record<string, unknown>>): strin
   }
 }
 
-function ibanIdentifications(input: Readonly<Record<string, unknown>>): { type: string; value: string }[] {
+function ibanIdentifications(
+  input: Readonly<Record<string, unknown>>,
+): { type: string; value: string }[] {
   const identifications: { type: string; value: string }[] = [];
   const push = (type: string, key: string): void => {
     const value = stringOrNull(input[key]);
@@ -522,7 +566,8 @@ export const LEAN_VERIFICATION_ENDPOINTS: Readonly<Record<string, LeanEndpointMa
       identifications: [
         { type: 'UNIFIED_NUMBER', value: String(input['unn'] ?? '') },
         {
-          type: personIdentifierType(input['manager_id']) === 'IQAMA' ? 'RESIDENT_ID' : 'NATIONAL_ID',
+          type:
+            personIdentifierType(input['manager_id']) === 'IQAMA' ? 'RESIDENT_ID' : 'NATIONAL_ID',
           value: String(input['manager_id'] ?? ''),
         },
       ],

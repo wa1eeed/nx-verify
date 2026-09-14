@@ -11,7 +11,12 @@ export const RESULT_COOKIE = 'nx_checks_result';
 
 export interface StoredResult {
   bundle: string;
-  outcomes: { productCode: string; status: CheckOutcome['status']; noteAr: string | null; reference: string | null }[];
+  outcomes: {
+    productCode: string;
+    status: CheckOutcome['status'];
+    noteAr: string | null;
+    reference: string | null;
+  }[];
 }
 
 export async function readStoredResult(bundle: string | null): Promise<StoredResult | null> {

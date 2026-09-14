@@ -38,7 +38,8 @@ export default async function OperatorIntegrationPage({
   }));
 
   const store = secretStoreFromEnv();
-  const ref = data.connection?.credentialRef ?? `kms://providers/${PRIMARY_PROVIDER}/${environment}`;
+  const ref =
+    data.connection?.credentialRef ?? `kms://providers/${PRIMARY_PROVIDER}/${environment}`;
   // Described, never fetched for display: the screen learns which fields are set and a
   // fingerprint of each, and no value reaches the page.
   const credential = store.describe ? await store.describe(ref).catch(() => null) : null;
@@ -55,8 +56,9 @@ export default async function OperatorIntegrationPage({
     authUrl: data.connection?.authUrl ?? defaults.authUrl,
     credential,
     webhook,
-    callbackUrl:
-      data.connection?.callbackSlug ? `${publicBaseUrl}/v1/callbacks/${data.connection.callbackSlug}` : null,
+    callbackUrl: data.connection?.callbackSlug
+      ? `${publicBaseUrl}/v1/callbacks/${data.connection.callbackSlug}`
+      : null,
     callbackHeader: data.connection?.callbackHeader ?? 'x-nx-provider-signature',
     callbackAlgorithm: data.connection?.callbackAlgorithm ?? 'sha256',
     lastTest:
@@ -71,16 +73,26 @@ export default async function OperatorIntegrationPage({
       at: change.at,
       operatorId: change.operatorId,
       action: change.action,
-      fields: Array.isArray(change.metadata['fields']) ? (change.metadata['fields'] as string[]) : [],
+      fields: Array.isArray(change.metadata['fields'])
+        ? (change.metadata['fields'] as string[])
+        : [],
     })),
     secretsWritable: store.writable,
-    notice: params['saved'] !== undefined ? 'saved' : params['tested'] !== undefined ? 'tested' : null,
-    error: errorParam !== null && ERRORS.has(errorParam) ? (errorParam as IntegrationView['error']) : null,
+    notice:
+      params['saved'] !== undefined ? 'saved' : params['tested'] !== undefined ? 'tested' : null,
+    error:
+      errorParam !== null && ERRORS.has(errorParam)
+        ? (errorParam as IntegrationView['error'])
+        : null,
   };
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={INTEGRATION_TABS} current="/operator/integration" label="أقسام الربط التقني" />
+      <SectionTabs
+        tabs={INTEGRATION_TABS}
+        current="/operator/integration"
+        label="أقسام الربط التقني"
+      />
       <OperatorIntegration
         view={view}
         saveAction={saveIntegrationAction}

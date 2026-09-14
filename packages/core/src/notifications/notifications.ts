@@ -151,10 +151,7 @@ export interface AddChannelInput {
   verified?: boolean;
 }
 
-export async function addChannel(
-  tx: TenantTransaction,
-  input: AddChannelInput,
-): Promise<string> {
+export async function addChannel(tx: TenantTransaction, input: AddChannelInput): Promise<string> {
   const { rows } = await tx
     .query<{ id: string }>(
       `INSERT INTO notification_channels (tenant_id, kind, address, display_name, verified_at)
@@ -257,7 +254,11 @@ export async function queueNotifications(
 ): Promise<string[]> {
   const message = renderMessage(input.eventType, input.consoleUrl ?? consoleUrlFromEnv());
 
-  const { rows } = await tx.query<{ id: string; channel_id: string; min_severity: NotificationSeverity }>(
+  const { rows } = await tx.query<{
+    id: string;
+    channel_id: string;
+    min_severity: NotificationSeverity;
+  }>(
     `SELECT r.id, r.channel_id, r.min_severity
      FROM notification_rules r
      JOIN notification_channels c ON c.tenant_id = r.tenant_id AND c.id = r.channel_id
@@ -407,7 +408,14 @@ export async function queueNotificationTo(
      WHERE c.tenant_id = $1 AND c.id = $2 AND c.status = 'active'
        AND c.verified_at IS NOT NULL
      RETURNING id`,
-    [tx.tenantId, input.channelId, input.eventType, message.severity, message.subject, message.body],
+    [
+      tx.tenantId,
+      input.channelId,
+      input.eventType,
+      message.severity,
+      message.subject,
+      message.body,
+    ],
   );
   return rows[0]?.id ?? null;
 }

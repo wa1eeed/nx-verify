@@ -152,8 +152,7 @@ export function Entity360({
   const groups = groupFields(fields, changedPaths);
   const openGroup = groups.find((group) => group.group === tab) ?? groups[0];
   const verifiedAt = fields.reduce<Date | null>(
-    (latest, field) =>
-      latest === null || field.observedAt > latest ? field.observedAt : latest,
+    (latest, field) => (latest === null || field.observedAt > latest ? field.observedAt : latest),
     null,
   );
 
@@ -162,7 +161,10 @@ export function Entity360({
       <section className="card stack" data-role="header" style={{ gap: 'var(--s-4)' }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
           <h1 style={{ margin: 0 }}>{header.displayName ?? 'بلا اسم'}</h1>
-          <span className="badge" style={{ borderColor: 'var(--line-strong)', color: 'var(--ink-soft)' }}>
+          <span
+            className="badge"
+            style={{ borderColor: 'var(--line-strong)', color: 'var(--ink-soft)' }}
+          >
             {header.entityType}
           </span>
         </div>
@@ -208,7 +210,11 @@ export function Entity360({
           </div>
         </div>
 
-        <div className="grid" data-role="indicators" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+        <div
+          className="grid"
+          data-role="indicators"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}
+        >
           <div className="stat">
             <span className="stat-label">حقول موثّقة</span>
             <strong className="stat-value">
@@ -336,15 +342,29 @@ export function Entity360({
               {group.label}
               <span className="muted">
                 {' '}
-                (<bdi dir="ltr" className="mono">{group.fields.length}</bdi>)
+                (
+                <bdi dir="ltr" className="mono">
+                  {group.fields.length}
+                </bdi>
+                )
               </span>
               {/* A group that should not be skipped says so on the tab itself, and the
                   two states keep their own colours here as everywhere else. */}
               {group.changed > 0 ? (
-                <span className="tab-dot" data-kind="changed" data-role="tab-changed" aria-label="تغيّر مرصود" />
+                <span
+                  className="tab-dot"
+                  data-kind="changed"
+                  data-role="tab-changed"
+                  aria-label="تغيّر مرصود"
+                />
               ) : null}
               {group.expired > 0 ? (
-                <span className="tab-dot" data-kind="expired" data-role="tab-expired" aria-label="منتهي الصلاحية" />
+                <span
+                  className="tab-dot"
+                  data-kind="expired"
+                  data-role="tab-expired"
+                  aria-label="منتهي الصلاحية"
+                />
               ) : null}
             </a>
           ))}
@@ -385,48 +405,48 @@ export function Entity360({
       {relations.length > 0 ? (
         <Panel title="شبكة العلاقات" aside="داخل هذا المستأجر وحده" role="relations">
           <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>العلاقة</th>
-                <th>الطرف الآخر</th>
-                <th>مرتبط بـ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {relations.map((relation) => (
-                <tr
-                  key={`${relation.relType}-${relation.otherEntityId}`}
-                  data-signal={relation.linkedCount >= 3 ? 'high' : 'normal'}
-                >
-                  <td>{RELATION_LABELS[relation.relType] ?? relation.relType}</td>
-                  <td>
-                    <a href={`/customers/${relation.otherEntityId}`}>
-                      {relation.otherName ?? 'بلا اسم'}
-                    </a>
-                  </td>
-                  <td>
-                    <bdi dir="ltr" className="mono">
-                      {relation.linkedCount}
-                    </bdi>{' '}
-                    {relation.linkedCount >= 3 ? (
-                      <span
-                        className="badge"
-                        data-kind="change"
-                        style={{
-                          color: 'var(--changed-fg)',
-                          background: 'var(--changed-bg)',
-                          borderColor: 'var(--changed-line)',
-                        }}
-                      >
-                        إشارة شبكة
-                      </span>
-                    ) : null}
-                  </td>
+            <table>
+              <thead>
+                <tr>
+                  <th>العلاقة</th>
+                  <th>الطرف الآخر</th>
+                  <th>مرتبط بـ</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {relations.map((relation) => (
+                  <tr
+                    key={`${relation.relType}-${relation.otherEntityId}`}
+                    data-signal={relation.linkedCount >= 3 ? 'high' : 'normal'}
+                  >
+                    <td>{RELATION_LABELS[relation.relType] ?? relation.relType}</td>
+                    <td>
+                      <a href={`/customers/${relation.otherEntityId}`}>
+                        {relation.otherName ?? 'بلا اسم'}
+                      </a>
+                    </td>
+                    <td>
+                      <bdi dir="ltr" className="mono">
+                        {relation.linkedCount}
+                      </bdi>{' '}
+                      {relation.linkedCount >= 3 ? (
+                        <span
+                          className="badge"
+                          data-kind="change"
+                          style={{
+                            color: 'var(--changed-fg)',
+                            background: 'var(--changed-bg)',
+                            borderColor: 'var(--changed-line)',
+                          }}
+                        >
+                          إشارة شبكة
+                        </span>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           <p className="panel-body faint" style={{ paddingBlockStart: 0 }}>
             لا تجميع عبر العملاء، وهو حظر تعاقدي وتقني معاً.

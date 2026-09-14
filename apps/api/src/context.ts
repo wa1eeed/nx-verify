@@ -90,7 +90,8 @@ export function buildContext(options: BuildContextOptions = {}): AppContext {
     registry,
     secrets,
     evidence: options.evidence ?? new InMemoryEvidenceStore(),
-    publicBaseUrl: options.publicBaseUrl ?? process.env['NX_PUBLIC_BASE_URL'] ?? 'https://verify.nx.sa',
+    publicBaseUrl:
+      options.publicBaseUrl ?? process.env['NX_PUBLIC_BASE_URL'] ?? 'https://verify.nx.sa',
     withTenant: (tenantId, handler) => withTenant(pool, tenantId, handler),
     withoutTenant: (handler) => withoutTenant(pool, handler),
     registryFor: async (environment) => {

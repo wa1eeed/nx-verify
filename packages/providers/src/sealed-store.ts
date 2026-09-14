@@ -143,10 +143,14 @@ export class SealedFileSecretStore implements SecretStore {
       parsed = JSON.parse(await readFile(this.#path, 'utf8')) as SealedFile;
     } catch {
       // Named by its path, never by its contents.
-      throw new NxError('NX-5001', { detail: `the sealed secret file at ${this.#path} is not readable` });
+      throw new NxError('NX-5001', {
+        detail: `the sealed secret file at ${this.#path} is not readable`,
+      });
     }
     if (parsed.format !== FORMAT || typeof parsed.entries !== 'object' || parsed.entries === null) {
-      throw new NxError('NX-5001', { detail: `the sealed secret file at ${this.#path} has an unknown format` });
+      throw new NxError('NX-5001', {
+        detail: `the sealed secret file at ${this.#path} has an unknown format`,
+      });
     }
 
     this.#cache = { mtimeMs: info.mtimeMs, size: info.size, file: parsed };
@@ -170,7 +174,9 @@ export class SealedFileSecretStore implements SecretStore {
     } catch {
       // A wrong key, a tampered entry and an entry moved under another reference all land
       // here, and all three get the same answer.
-      throw new NxError('NX-5001', { detail: `the secret behind reference ${ref} could not be opened` });
+      throw new NxError('NX-5001', {
+        detail: `the secret behind reference ${ref} could not be opened`,
+      });
     }
   }
 
@@ -254,7 +260,9 @@ export class LayeredSecretStore implements SecretStore {
   put(ref: string, material: Record<string, string>): Promise<void> {
     const target = this.#stores.find((store) => store.writable && store.put);
     if (!target?.put) {
-      return Promise.reject(new NxError('NX-4031', { detail: 'no store in this deployment accepts writes' }));
+      return Promise.reject(
+        new NxError('NX-4031', { detail: 'no store in this deployment accepts writes' }),
+      );
     }
     return target.put(ref, material);
   }

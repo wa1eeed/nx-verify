@@ -52,8 +52,7 @@ export async function issueApiKey(tx: TenantTransaction, input: IssueKeyInput): 
   if (workspace.length === 0) {
     throw new NxError('NX-4041', { detail: 'no such workspace' });
   }
-  const environment: 'sandbox' | 'live' =
-    workspace[0]?.sandbox_of === null ? 'live' : 'sandbox';
+  const environment: 'sandbox' | 'live' = workspace[0]?.sandbox_of === null ? 'live' : 'sandbox';
   // The prefix is part of the key, so a customer can match a console row to a key they
   // hold without either of us handling the whole value.
   const secret = `nx_${environment === 'live' ? 'live' : 'test'}_${randomBytes(KEY_BYTES).toString('base64url')}`;

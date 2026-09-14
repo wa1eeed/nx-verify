@@ -133,7 +133,8 @@ export async function recordInboundEvent(
   const envelope = asRecord(input.parsed);
 
   const externalId = firstString(envelope, ['id', 'event_id', 'eventId', 'message_id']) ?? digest;
-  const eventType = firstString(envelope, ['type', 'event_type', 'eventType', 'event']) ?? 'unknown';
+  const eventType =
+    firstString(envelope, ['type', 'event_type', 'eventType', 'event']) ?? 'unknown';
 
   // What the event is about, which is what a waiting run recognises it by. Stored as a
   // digest: the provider's handle for an entity belongs to them and to the customer, and

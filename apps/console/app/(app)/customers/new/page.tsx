@@ -28,7 +28,10 @@ export default async function NewCustomerPage({
   const data = await query(async (tx) => {
     const catalogue = await listChecks(tx);
     const offered = checksFor(catalogue, kind === 'freelancer' ? 'FREELANCER' : 'BUSINESS');
-    const quote = await quoteChecks(tx, offered.map((check) => check.productCode));
+    const quote = await quoteChecks(
+      tx,
+      offered.map((check) => check.productCode),
+    );
     return { catalogue, offered, quote, sandbox: await isSandbox(tx) };
   });
 
@@ -38,12 +41,17 @@ export default async function NewCustomerPage({
   const checks: CheckOption[] = data.offered.map((check) => {
     const line = priceOf.get(check.productCode);
     const disabledReasonAr =
-      check.availability !== 'AVAILABLE' ? 'قريباً' : line && !line.allowed ? (line.refusalAr ?? 'غير متاحة') : null;
+      check.availability !== 'AVAILABLE'
+        ? 'قريباً'
+        : line && !line.allowed
+          ? (line.refusalAr ?? 'غير متاحة')
+          : null;
     return {
       productCode: check.productCode,
       nameAr: check.nameAr,
       // The section is named only where the check's own name does not already say it.
-      sectionAr: SECTION_TITLES[check.section] === check.nameAr ? '' : SECTION_TITLES[check.section],
+      sectionAr:
+        SECTION_TITLES[check.section] === check.nameAr ? '' : SECTION_TITLES[check.section],
       unitPriceHalalas: line?.unitPriceHalalas ?? null,
       // Everything available is ticked, apart from the account holder's name: it is a second
       // question about the same account, and a full verification should not ask it twice.
@@ -67,12 +75,21 @@ export default async function NewCustomerPage({
         bundle: randomUUID(),
         error: typeof params['error'] === 'string' ? params['error'] : null,
         results: stored
-          ? stored.outcomes.map((outcome) => ({ ...outcome, nameAr: nameOf.get(outcome.productCode) ?? outcome.productCode }))
+          ? stored.outcomes.map((outcome) => ({
+              ...outcome,
+              nameAr: nameOf.get(outcome.productCode) ?? outcome.productCode,
+            }))
           : null,
         isSandbox: data.sandbox,
         samples: VERIFICATION_SANDBOX_CASES.filter((sample) =>
-          kind === 'freelancer' ? sample.productCode === 'FREELANCE_CERTIFICATE' : sample.productCode === 'CR_FULL',
-        ).map((sample) => ({ input: sample.input, titleAr: sample.titleAr, expectedAr: sample.expectedAr })),
+          kind === 'freelancer'
+            ? sample.productCode === 'FREELANCE_CERTIFICATE'
+            : sample.productCode === 'CR_FULL',
+        ).map((sample) => ({
+          input: sample.input,
+          titleAr: sample.titleAr,
+          expectedAr: sample.expectedAr,
+        })),
       }}
     />
   );

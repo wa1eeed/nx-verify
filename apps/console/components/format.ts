@@ -59,11 +59,21 @@ export function sinceAr(date: Date, now: Date = new Date()): string {
     return 'الآن';
   }
   if (minutes < 60) {
-    return minutes <= 2 ? 'منذ دقيقتين' : minutes <= 10 ? `منذ ${minutes} دقائق` : `منذ ${minutes} دقيقة`;
+    return minutes <= 2
+      ? 'منذ دقيقتين'
+      : minutes <= 10
+        ? `منذ ${minutes} دقائق`
+        : `منذ ${minutes} دقيقة`;
   }
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
-    return hours === 1 ? 'منذ ساعة' : hours === 2 ? 'منذ ساعتين' : hours <= 10 ? `منذ ${hours} ساعات` : `منذ ${hours} ساعة`;
+    return hours === 1
+      ? 'منذ ساعة'
+      : hours === 2
+        ? 'منذ ساعتين'
+        : hours <= 10
+          ? `منذ ${hours} ساعات`
+          : `منذ ${hours} ساعة`;
   }
   const days = Math.floor(hours / 24);
   return `منذ ${daysAr(days)}`;

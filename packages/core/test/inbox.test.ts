@@ -117,7 +117,9 @@ describe('the notification centre', () => {
   });
 
   it('warns on a low balance and not on a healthy one', async () => {
-    await withTenant(db.appPool, tenant.tenantId, (tx) => topUp(tx, { amount: 1_000_00, vatInvoiceId: 'INV-INBOX' }));
+    await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      topUp(tx, { amount: 1_000_00, vatInvoiceId: 'INV-INBOX' }),
+    );
     const healthy = await withTenant(db.appPool, tenant.tenantId, (tx) => listInbox(tx));
     expect(healthy.items.map((item) => item.kind)).not.toContain('balance');
 

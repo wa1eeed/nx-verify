@@ -24,7 +24,9 @@ export default async function BillingPage({
       lines: statement.lines.map((line) => ({
         month: line.month,
         productNameAr:
-          line.productCode === null ? 'غير محدد' : (nameOf.get(line.productCode) ?? line.productCode),
+          line.productCode === null
+            ? 'غير محدد'
+            : (nameOf.get(line.productCode) ?? line.productCode),
         runs: line.runs,
         amountHalalas: line.amountHalalas,
       })),

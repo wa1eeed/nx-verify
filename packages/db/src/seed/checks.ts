@@ -65,7 +65,11 @@ function peopleMappings(stepKey: string): SeedFieldMap[] {
     { ...partner, sourcePath: '$.partners[*].name', fieldPath: 'person.name' },
     { ...partner, sourcePath: '$.partners[*].roles', fieldPath: 'partner.roles.{subject}' },
     { ...partner, sourcePath: '$.partners[*].share_count', fieldPath: 'partner.shares.{subject}' },
-    { ...partner, sourcePath: '$.partners[*].profit_pct', fieldPath: 'partner.profit_pct.{subject}' },
+    {
+      ...partner,
+      sourcePath: '$.partners[*].profit_pct',
+      fieldPath: 'partner.profit_pct.{subject}',
+    },
     { ...partnerBusiness, sourcePath: '$.partner_businesses[*].name', fieldPath: 'cr.core.name' },
     {
       ...partnerBusiness,
@@ -134,10 +138,26 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
       { stepKey: 'registry', sourcePath: '$.license_issuer', fieldPath: 'cr.license_issuer' },
       { stepKey: 'registry', sourcePath: '$.website', fieldPath: 'cr.website' },
       { stepKey: 'registry', sourcePath: '$.fiscal_year_end', fieldPath: 'cr.fiscal_year_end' },
-      { stepKey: 'registry', sourcePath: '$.partners_nationality', fieldPath: 'cr.partners_nationality' },
-      { stepKey: 'registry', sourcePath: '$.management_structure', fieldPath: 'governance.structure' },
-      { stepKey: 'registry', sourcePath: '$.managers_total', fieldPath: 'governance.managers_total' },
-      { stepKey: 'registry', sourcePath: '$.partners_total', fieldPath: 'ownership.partners_total' },
+      {
+        stepKey: 'registry',
+        sourcePath: '$.partners_nationality',
+        fieldPath: 'cr.partners_nationality',
+      },
+      {
+        stepKey: 'registry',
+        sourcePath: '$.management_structure',
+        fieldPath: 'governance.structure',
+      },
+      {
+        stepKey: 'registry',
+        sourcePath: '$.managers_total',
+        fieldPath: 'governance.managers_total',
+      },
+      {
+        stepKey: 'registry',
+        sourcePath: '$.partners_total',
+        fieldPath: 'ownership.partners_total',
+      },
       ...peopleMappings('registry'),
     ],
   },
@@ -165,20 +185,48 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     ],
     fieldMap: [
       { stepKey: 'articles', sourcePath: '$.contract_date', fieldPath: 'contract.date' },
-      { stepKey: 'articles', sourcePath: '$.contract_copy_number', fieldPath: 'contract.copy_number' },
+      {
+        stepKey: 'articles',
+        sourcePath: '$.contract_copy_number',
+        fieldPath: 'contract.copy_number',
+      },
       { stepKey: 'articles', sourcePath: '$.capital', fieldPath: 'contract.capital' },
       { stepKey: 'articles', sourcePath: '$.capital_type', fieldPath: 'contract.capital_type' },
       { stepKey: 'articles', sourcePath: '$.cash_capital', fieldPath: 'contract.cash_capital' },
-      { stepKey: 'articles', sourcePath: '$.in_kind_capital', fieldPath: 'contract.in_kind_capital' },
-      { stepKey: 'articles', sourcePath: '$.profit_set_aside_pct', fieldPath: 'contract.profit_set_aside_pct' },
-      { stepKey: 'articles', sourcePath: '$.partner_decisions', fieldPath: 'contract.partner_decisions' },
+      {
+        stepKey: 'articles',
+        sourcePath: '$.in_kind_capital',
+        fieldPath: 'contract.in_kind_capital',
+      },
+      {
+        stepKey: 'articles',
+        sourcePath: '$.profit_set_aside_pct',
+        fieldPath: 'contract.profit_set_aside_pct',
+      },
+      {
+        stepKey: 'articles',
+        sourcePath: '$.partner_decisions',
+        fieldPath: 'contract.partner_decisions',
+      },
       { stepKey: 'articles', sourcePath: '$.articles_count', fieldPath: 'contract.articles_count' },
       // Recorded under the articles' own paths even where the registry answers the same
       // question. Two sources writing one field would make every verification of either
       // look like a change whenever they differ by a day or a word.
-      { stepKey: 'articles', sourcePath: '$.management_structure', fieldPath: 'contract.management_structure' },
-      { stepKey: 'articles', sourcePath: '$.dismissal_method', fieldPath: 'contract.dismissal_method' },
-      { stepKey: 'articles', sourcePath: '$.directors_board_members', fieldPath: 'contract.board_members' },
+      {
+        stepKey: 'articles',
+        sourcePath: '$.management_structure',
+        fieldPath: 'contract.management_structure',
+      },
+      {
+        stepKey: 'articles',
+        sourcePath: '$.dismissal_method',
+        fieldPath: 'contract.dismissal_method',
+      },
+      {
+        stepKey: 'articles',
+        sourcePath: '$.directors_board_members',
+        fieldPath: 'contract.board_members',
+      },
       { stepKey: 'articles', sourcePath: '$.managers_total', fieldPath: 'contract.managers_total' },
       { stepKey: 'articles', sourcePath: '$.partners_total', fieldPath: 'contract.partners_total' },
       ...peopleMappings('articles'),
@@ -268,14 +316,30 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
       },
     ],
     fieldMap: [
-      { stepKey: 'address', sourcePath: '$.building_number', fieldPath: 'address.national.building_number' },
+      {
+        stepKey: 'address',
+        sourcePath: '$.building_number',
+        fieldPath: 'address.national.building_number',
+      },
       { stepKey: 'address', sourcePath: '$.street', fieldPath: 'address.national.street' },
       { stepKey: 'address', sourcePath: '$.district', fieldPath: 'address.national.district' },
       { stepKey: 'address', sourcePath: '$.city', fieldPath: 'address.national.city' },
-      { stepKey: 'address', sourcePath: '$.postal_code', fieldPath: 'address.national.postal_code' },
-      { stepKey: 'address', sourcePath: '$.additional_number', fieldPath: 'address.national.additional_number' },
+      {
+        stepKey: 'address',
+        sourcePath: '$.postal_code',
+        fieldPath: 'address.national.postal_code',
+      },
+      {
+        stepKey: 'address',
+        sourcePath: '$.additional_number',
+        fieldPath: 'address.national.additional_number',
+      },
       { stepKey: 'address', sourcePath: '$.region', fieldPath: 'address.national.region' },
-      { stepKey: 'address', sourcePath: '$.unit_number', fieldPath: 'address.national.unit_number' },
+      {
+        stepKey: 'address',
+        sourcePath: '$.unit_number',
+        fieldPath: 'address.national.unit_number',
+      },
       { stepKey: 'address', sourcePath: '$.address_status', fieldPath: 'address.national.status' },
       { stepKey: 'address', sourcePath: '$.addresses_count', fieldPath: 'address.national.count' },
       { stepKey: 'address', sourcePath: '$.address_key', fieldPath: 'address.national.key' },
@@ -329,7 +393,11 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
       { stepKey: 'iban', sourcePath: '$.swift_code', fieldPath: 'bank.swift_code' },
       { stepKey: 'iban', sourcePath: '$.account_status', fieldPath: 'bank.account_status' },
       { stepKey: 'iban', sourcePath: '$.holder_name', fieldPath: 'bank.holder_name' },
-      { stepKey: 'iban', sourcePath: '$.verification_method', fieldPath: 'bank.verification_method' },
+      {
+        stepKey: 'iban',
+        sourcePath: '$.verification_method',
+        fieldPath: 'bank.verification_method',
+      },
       {
         // The account as an entity of its own, keyed by the IBAN (hashed, never stored as a
         // value), so one account presented for two customers links the two.
@@ -386,7 +454,11 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
       },
     ],
     fieldMap: [
-      { stepKey: 'beneficiary', sourcePath: '$.beneficiary_name', fieldPath: 'bank.beneficiary_name' },
+      {
+        stepKey: 'beneficiary',
+        sourcePath: '$.beneficiary_name',
+        fieldPath: 'bank.beneficiary_name',
+      },
       { stepKey: 'beneficiary', sourcePath: '$.account_status', fieldPath: 'bank.account_status' },
     ],
   },
@@ -426,7 +498,11 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
       { stepKey: 'certificate', sourcePath: '$.ownership', fieldPath: 'freelance.ownership' },
       { stepKey: 'certificate', sourcePath: '$.name', fieldPath: 'person.name' },
       { stepKey: 'certificate', sourcePath: '$.gender', fieldPath: 'person.gender' },
-      { stepKey: 'certificate', sourcePath: '$.national_id_expiry', fieldPath: 'person.national_id_expiry' },
+      {
+        stepKey: 'certificate',
+        sourcePath: '$.national_id_expiry',
+        fieldPath: 'person.national_id_expiry',
+      },
       {
         stepKey: 'certificate',
         sourcePath: '$.certificate_status',
@@ -434,8 +510,16 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
         // Current until the authority's own expiry date, not an estimate.
         validUntilPath: '$.certificate_expiry_date',
       },
-      { stepKey: 'certificate', sourcePath: '$.certificate_issue_date', fieldPath: 'freelance.issue_date' },
-      { stepKey: 'certificate', sourcePath: '$.certificate_expiry_date', fieldPath: 'freelance.expiry_date' },
+      {
+        stepKey: 'certificate',
+        sourcePath: '$.certificate_issue_date',
+        fieldPath: 'freelance.issue_date',
+      },
+      {
+        stepKey: 'certificate',
+        sourcePath: '$.certificate_expiry_date',
+        fieldPath: 'freelance.expiry_date',
+      },
       { stepKey: 'certificate', sourcePath: '$.speciality', fieldPath: 'freelance.speciality' },
       { stepKey: 'certificate', sourcePath: '$.category', fieldPath: 'freelance.category' },
     ],
@@ -467,11 +551,16 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
         provider: PROVIDER,
         fallbackProvider: SANDBOX,
         endpoint: 'property_verification',
-        inputBinding: { property_number: '$.subject.property_number', owner_id: '$.subject.owner_id' },
+        inputBinding: {
+          property_number: '$.subject.property_number',
+          owner_id: '$.subject.owner_id',
+        },
         required: true,
         cacheTtlDays: 0,
       },
     ],
-    fieldMap: [{ stepKey: 'property', sourcePath: '$.property_status', fieldPath: 'property.status' }],
+    fieldMap: [
+      { stepKey: 'property', sourcePath: '$.property_status', fieldPath: 'property.status' },
+    ],
   },
 ];

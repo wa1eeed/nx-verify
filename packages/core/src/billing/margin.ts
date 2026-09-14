@@ -22,10 +22,7 @@ export interface RecordMarginInput {
   coveredByPackage?: boolean;
 }
 
-export async function recordMargin(
-  tx: TenantTransaction,
-  input: RecordMarginInput,
-): Promise<void> {
+export async function recordMargin(tx: TenantTransaction, input: RecordMarginInput): Promise<void> {
   await tx.query(
     `INSERT INTO margin_counters (tenant_id, period_start, product_code, runs,
                                   billed_halalas, provider_cost_halalas, package_runs)
@@ -98,12 +95,7 @@ export async function marginReport(
        AND ($3::uuid IS NULL OR m.tenant_id = $3)
        AND ($4::text IS NULL OR m.product_code = $4)
      ORDER BY m.period_start DESC, t.legal_name, m.product_code`,
-    [
-      query.from ?? null,
-      query.to ?? null,
-      query.tenantId ?? null,
-      query.productCode ?? null,
-    ],
+    [query.from ?? null, query.to ?? null, query.tenantId ?? null, query.productCode ?? null],
   );
 
   return rows.map((row) => {

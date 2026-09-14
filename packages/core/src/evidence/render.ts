@@ -147,11 +147,7 @@ ${
         .join('')}
     </tbody>
   </table>
-  ${
-    document.fields.length === 0
-      ? '<p class="muted">لا معلومات مثبتة في هذي العملية.</p>'
-      : ''
-  }
+  ${document.fields.length === 0 ? '<p class="muted">لا معلومات مثبتة في هذي العملية.</p>' : ''}
 </section>
 
 <section class="seal" data-role="seal">

@@ -6,7 +6,10 @@
  * it. These are the few counted nouns a customer file speaks in.
  */
 
-function counted(n: number, forms: { one: string; two: string; few: (n: number) => string; many: (n: number) => string }): string {
+function counted(
+  n: number,
+  forms: { one: string; two: string; few: (n: number) => string; many: (n: number) => string },
+): string {
   if (n === 1) {
     return forms.one;
   }

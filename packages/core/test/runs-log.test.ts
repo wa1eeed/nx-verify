@@ -29,7 +29,9 @@ describe('the verification log', () => {
     mine = await seedTenant(db.appPool, 'Mine');
     theirs = await seedTenant(db.appPool, 'Theirs');
     for (const tenant of [mine, theirs]) {
-      await preparePricedTenant(db, tenant.tenantId, { providerName: 'carrier-that-must-not-appear' });
+      await preparePricedTenant(db, tenant.tenantId, {
+        providerName: 'carrier-that-must-not-appear',
+      });
       await withTenant(db.appPool, tenant.tenantId, (tx) =>
         verify(tx, {
           productCode: 'ADDRESS_ONLY',
@@ -69,7 +71,9 @@ describe('the verification log', () => {
       listRecentRuns(tx, { productCode: 'IBAN_OWNERSHIP' }),
     );
     expect(none).toHaveLength(0);
-    const ok = await withTenant(db.appPool, mine.tenantId, (tx) => listRecentRuns(tx, { status: 'OK' }));
+    const ok = await withTenant(db.appPool, mine.tenantId, (tx) =>
+      listRecentRuns(tx, { status: 'OK' }),
+    );
     expect(ok.length).toBeLessThanOrEqual(1);
   });
 

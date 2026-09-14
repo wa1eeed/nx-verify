@@ -75,7 +75,12 @@ describe('deployment readiness', () => {
   });
 
   it('warns rather than blocks on the same two in development', async () => {
-    const report = await run({ ...PRODUCTION, NODE_ENV: 'development', NX_SECRETS_ENDPOINT: undefined, NX_KMS_ENDPOINT: undefined });
+    const report = await run({
+      ...PRODUCTION,
+      NODE_ENV: 'development',
+      NX_SECRETS_ENDPOINT: undefined,
+      NX_KMS_ENDPOINT: undefined,
+    });
     expect(find(report.checks, 'secrets').state).toBe('warn');
     expect(find(report.checks, 'keys').state).toBe('warn');
   });
@@ -147,9 +152,9 @@ describe('deployment readiness', () => {
     // The whole screen runs on the operator connection, which has no policy on any table
     // holding a subscriber's own data. If a check ever reached for one it would fail here
     // rather than in front of a customer.
-    await expect(
-      db.operatorPool.query('SELECT count(*) FROM attestations'),
-    ).rejects.toMatchObject({ code: '42501' });
+    await expect(db.operatorPool.query('SELECT count(*) FROM attestations')).rejects.toMatchObject({
+      code: '42501',
+    });
     await expect(db.operatorPool.query('SELECT count(*) FROM entities')).rejects.toMatchObject({
       code: '42501',
     });

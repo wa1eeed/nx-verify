@@ -8,7 +8,8 @@ import { DEVELOPER_TABS } from '../../../../components/nav';
 export const dynamic = 'force-dynamic';
 
 const REFUSAL_LABELS: Record<string, string> = {
-  PRODUCT_NOT_IN_PACKAGE: 'هذه الوحدة غير مشمولة في باقتك. الاشتراك بها يفتحها بلا تغيير في تكاملك.',
+  PRODUCT_NOT_IN_PACKAGE:
+    'هذه الوحدة غير مشمولة في باقتك. الاشتراك بها يفتحها بلا تغيير في تكاملك.',
   PRODUCT_DISABLED: 'هذه الوحدة معطّلة لمساحة عملك.',
   QUOTA_EXHAUSTED: 'استُنفدت حصة هذه الوحدة لهذه الدورة.',
   CAPACITY_EXHAUSTED: 'استُنفدت سعة الالتزام لهذه المدة.',

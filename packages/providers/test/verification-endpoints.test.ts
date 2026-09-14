@@ -110,7 +110,10 @@ describe('the national address answer', () => {
 
 describe('the manager authority answer', () => {
   it('lists each power with how it is exercised', () => {
-    const bag = mapCorporateManager(CORPORATE_MANAGER, { unn: UNN, manager_id: SANDBOX_MANAGER_ID });
+    const bag = mapCorporateManager(CORPORATE_MANAGER, {
+      unn: UNN,
+      manager_id: SANDBOX_MANAGER_ID,
+    });
     const [manager] = bag['managers'] as { permissions: { name: string; method: string }[] }[];
     expect(manager?.permissions.map((permission) => permission.method)).toContain('منفرداً');
     expect(bag['permissions_count']).toBeGreaterThan(0);
@@ -190,7 +193,11 @@ describe('identity by shape', () => {
 });
 
 describe('the live adapter', () => {
-  const credential = { ref: 'kms://providers/primary/sandbox', mode: 'MANAGED' as const, material: { clientId: 'id', clientSecret: 'secret' } };
+  const credential = {
+    ref: 'kms://providers/primary/sandbox',
+    mode: 'MANAGED' as const,
+    material: { clientId: 'id', clientSecret: 'secret' },
+  };
 
   function adapterAnswering(answer: Record<string, unknown>) {
     const calls: { url: string; body: unknown }[] = [];
@@ -200,7 +207,9 @@ describe('the live adapter', () => {
       authUrl: 'https://auth.sandbox.example.sa/oauth2/token',
       fetch: (url, init) => {
         if (url.endsWith('/oauth2/token')) {
-          return Promise.resolve(new Response(JSON.stringify({ access_token: 't', expires_in: 3599 }), { status: 200 }));
+          return Promise.resolve(
+            new Response(JSON.stringify({ access_token: 't', expires_in: 3599 }), { status: 200 }),
+          );
         }
         calls.push({ url, body: JSON.parse(String(init.body)) });
         return Promise.resolve(new Response(JSON.stringify(answer), { status: 200 }));
@@ -211,7 +220,11 @@ describe('the live adapter', () => {
 
   it('asks for the full registry record by unified number, in Arabic', async () => {
     const { provider, calls } = adapterAnswering(CORPORATE_FULL);
-    const result = await provider.execute({ endpoint: 'corporate_full', input: { unn: UNN }, credential });
+    const result = await provider.execute({
+      endpoint: 'corporate_full',
+      input: { unn: UNN },
+      credential,
+    });
 
     expect(calls[0]?.url).toBe('https://sandbox.example.sa/verifications/v1/corporates');
     expect(calls[0]?.body).toEqual({
@@ -242,9 +255,19 @@ describe('the live adapter', () => {
   it('answers a sandbox call and a live call with the same attestable data', async () => {
     // The live adapter is given exactly what the sandbox answers, so any difference below is
     // a difference in how the two read an answer, which is the thing that must not exist.
-    const { provider } = adapterAnswering(sandboxVerificationAnswer('corporate_full', { unn: UNN }) ?? {});
-    const live = await provider.execute({ endpoint: 'corporate_full', input: { unn: UNN }, credential });
-    const sandbox = await new StubProvider().execute({ endpoint: 'corporate_full', input: { unn: UNN }, credential });
+    const { provider } = adapterAnswering(
+      sandboxVerificationAnswer('corporate_full', { unn: UNN }) ?? {},
+    );
+    const live = await provider.execute({
+      endpoint: 'corporate_full',
+      input: { unn: UNN },
+      credential,
+    });
+    const sandbox = await new StubProvider().execute({
+      endpoint: 'corporate_full',
+      input: { unn: UNN },
+      credential,
+    });
     expect(sandbox.data).toEqual(live.data);
     expect(sandbox.authority).toBe(live.authority);
   });

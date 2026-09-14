@@ -36,7 +36,11 @@ type Action = string | ((formData: FormData) => void | Promise<void>);
 export interface CustomerFileView {
   file: CustomerFile;
   /** One key for the checklist and one per section, issued when the page was drawn. */
-  bundles: { checklist: string; sections: Readonly<Record<string, string>>; managers: Readonly<Record<string, string>> };
+  bundles: {
+    checklist: string;
+    sections: Readonly<Record<string, string>>;
+    managers: Readonly<Record<string, string>>;
+  };
   prices: Readonly<Record<string, number | null>>;
   refusals: Readonly<Record<string, string | null>>;
   fromPackage: boolean;
@@ -78,7 +82,12 @@ function StateBadge({ section, now }: { section: FileSection; now: Date }): Reac
   };
   const label = labels[section.state];
   return (
-    <span className="badge" data-tone={label.tone} data-role="section-state" data-state={section.state}>
+    <span
+      className="badge"
+      data-tone={label.tone}
+      data-role="section-state"
+      data-state={section.state}
+    >
       {label.text}
     </span>
   );
@@ -123,7 +132,11 @@ function renderValue(field: FileField): ReactNode {
               {typeof pct === 'number' ? (
                 <span className="faint">
                   {' '}
-                  (<bdi dir="ltr" className="mono">{pct}%</bdi>)
+                  (
+                  <bdi dir="ltr" className="mono">
+                    {pct}%
+                  </bdi>
+                  )
                 </span>
               ) : null}
             </li>
@@ -149,7 +162,13 @@ function renderValue(field: FileField): ReactNode {
   return value === null || value === undefined ? 'غير متوفر' : JSON.stringify(value);
 }
 
-function Fact({ field, history }: { field: FileField; history: FieldHistoryView[] | undefined }): ReactElement {
+function Fact({
+  field,
+  history,
+}: {
+  field: FileField;
+  history: FieldHistoryView[] | undefined;
+}): ReactElement {
   const wide = Array.isArray(field.value) && field.value.length > 2;
   return (
     <div
@@ -160,36 +179,53 @@ function Fact({ field, history }: { field: FileField; history: FieldHistoryView[
     >
       <dt>{field.labelAr}</dt>
       <dd>
-      <span className="fact-value">{renderValue(field)}</span>
-      <span className="fact-meta">
-        <span data-role="authority">{field.authority ?? 'بلا جهة'}</span> ·{' '}
-        <bdi dir="ltr" className="mono" data-role="observed-at">
-          {dateTime(field.observedAt)}
-        </bdi>
-        {field.freshness === 'expired' ? ' · منتهية الصلاحية' : field.freshness === 'expiring' ? ' · تقترب من الانتهاء' : ''}
-      </span>
-      {history && history.length > 0 ? (
-        <details data-role="field-history">
-          <summary className="fact-meta">القيم السابقة ({history.length})</summary>
-          <ul className="stack" style={{ gap: 2, margin: 0, paddingInlineStart: 0, listStyle: 'none' }}>
-            {history.map((entry, index) => (
-              <li key={`${entry.observedAt.toISOString()}-${index}`} className="fact-meta" data-changed={entry.changed ? 'yes' : 'no'}>
-                <bdi dir="ltr" className="mono">
-                  {isoDate(entry.observedAt)}
-                </bdi>{' '}
-                {typeof entry.value === 'string' || typeof entry.value === 'number' ? String(entry.value) : JSON.stringify(entry.value)}
-                {entry.changed ? ' · تغيّر هنا' : ''}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
+        <span className="fact-value">{renderValue(field)}</span>
+        <span className="fact-meta">
+          <span data-role="authority">{field.authority ?? 'بلا جهة'}</span> ·{' '}
+          <bdi dir="ltr" className="mono" data-role="observed-at">
+            {dateTime(field.observedAt)}
+          </bdi>
+          {field.freshness === 'expired'
+            ? ' · منتهية الصلاحية'
+            : field.freshness === 'expiring'
+              ? ' · تقترب من الانتهاء'
+              : ''}
+        </span>
+        {history && history.length > 0 ? (
+          <details data-role="field-history">
+            <summary className="fact-meta">القيم السابقة ({history.length})</summary>
+            <ul
+              className="stack"
+              style={{ gap: 2, margin: 0, paddingInlineStart: 0, listStyle: 'none' }}
+            >
+              {history.map((entry, index) => (
+                <li
+                  key={`${entry.observedAt.toISOString()}-${index}`}
+                  className="fact-meta"
+                  data-changed={entry.changed ? 'yes' : 'no'}
+                >
+                  <bdi dir="ltr" className="mono">
+                    {isoDate(entry.observedAt)}
+                  </bdi>{' '}
+                  {typeof entry.value === 'string' || typeof entry.value === 'number'
+                    ? String(entry.value)
+                    : JSON.stringify(entry.value)}
+                  {entry.changed ? ' · تغيّر هنا' : ''}
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
       </dd>
     </div>
   );
 }
 
-function LinkList({ entities }: { entities: { entityId: string; name: string | null }[] }): ReactElement {
+function LinkList({
+  entities,
+}: {
+  entities: { entityId: string; name: string | null }[];
+}): ReactElement {
   return (
     <>
       {entities.map((entity, index) => (
@@ -273,11 +309,25 @@ function ManagerCard({
                 <tr key={`${permission.name ?? ''}-${index}`}>
                   <td>
                     {permission.name}
-                    {permission.condition ? <div className="faint">{permission.condition}</div> : null}
+                    {permission.condition ? (
+                      <div className="faint">{permission.condition}</div>
+                    ) : null}
                   </td>
                   <td>{permission.method ?? 'غير محدد'}</td>
-                  <td>{permission.canIssuePoa === null ? 'غير محدد' : permission.canIssuePoa ? 'نعم' : 'لا'}</td>
-                  <td>{permission.canDelegate === null ? 'غير محدد' : permission.canDelegate ? 'نعم' : 'لا'}</td>
+                  <td>
+                    {permission.canIssuePoa === null
+                      ? 'غير محدد'
+                      : permission.canIssuePoa
+                        ? 'نعم'
+                        : 'لا'}
+                  </td>
+                  <td>
+                    {permission.canDelegate === null
+                      ? 'غير محدد'
+                      : permission.canDelegate
+                        ? 'نعم'
+                        : 'لا'}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -383,7 +433,11 @@ const OWNERSHIP: Readonly<Record<string, { text: string; tone: string }>> = {
 
 function AccountsList({ accounts }: { accounts: AccountView[] }): ReactElement {
   return (
-    <ul className="stack" style={{ gap: 'var(--s-2)', margin: 0, paddingInlineStart: 0, listStyle: 'none' }} data-role="accounts">
+    <ul
+      className="stack"
+      style={{ gap: 'var(--s-2)', margin: 0, paddingInlineStart: 0, listStyle: 'none' }}
+      data-role="accounts"
+    >
       {accounts.map((account) => (
         <li key={account.entityId} className="person-card">
           <div className="person-head">
@@ -443,7 +497,11 @@ function SectionForm({
   return (
     <form action={action} className="row" style={{ gap: 'var(--s-2)' }} data-role="section-form">
       <input type="hidden" name="entity_id" value={file.entityId} />
-      <input type="hidden" name="kind" value={file.entityType === 'FREELANCER' ? 'FREELANCER' : 'BUSINESS'} />
+      <input
+        type="hidden"
+        name="kind"
+        value={file.entityType === 'FREELANCER' ? 'FREELANCER' : 'BUSINESS'}
+      />
       <input type="hidden" name="bundle" value={bundle} />
       {runnable.map((check) => (
         <input key={check.productCode} type="hidden" name="checks" value={check.productCode} />
@@ -479,7 +537,12 @@ function SectionCard({
   const bundle = view.bundles.sections[section.section] ?? view.bundles.checklist;
   const managerCheck = file.checks.find((check) => check.productCode === 'MANAGER_AUTHORITY');
   return (
-    <section className="section-card" data-role="file-section" data-section={section.section} data-state={section.state}>
+    <section
+      className="section-card"
+      data-role="file-section"
+      data-section={section.section}
+      data-state={section.state}
+    >
       <div className="section-head">
         <div className="row" style={{ gap: 'var(--s-3)' }}>
           <h2>{section.titleAr}</h2>
@@ -517,10 +580,16 @@ function SectionCard({
           )
         ) : null}
 
-        {section.section === 'CONTRACT' && file.partners.length > 0 ? <PartnersTable partners={file.partners} /> : null}
-        {section.section === 'BANKING' && file.accounts.length > 0 ? <AccountsList accounts={file.accounts} /> : null}
+        {section.section === 'CONTRACT' && file.partners.length > 0 ? (
+          <PartnersTable partners={file.partners} />
+        ) : null}
+        {section.section === 'BANKING' && file.accounts.length > 0 ? (
+          <AccountsList accounts={file.accounts} />
+        ) : null}
 
-        {section.fields.length === 0 && section.section !== 'MANAGERS' && !(section.section === 'BANKING' && file.accounts.length > 0) ? (
+        {section.fields.length === 0 &&
+        section.section !== 'MANAGERS' &&
+        !(section.section === 'BANKING' && file.accounts.length > 0) ? (
           <p className="muted" style={{ margin: 0 }} data-role="section-empty">
             {section.state === 'NOT_FOUND'
               ? 'سألنا الجهة الرسمية ولم تجد بيانات لهذا العميل.'
@@ -534,7 +603,13 @@ function SectionCard({
   );
 }
 
-const MARKS: Readonly<Record<string, string>> = { PASS: '✓', FAIL: '✕', WARN: '!', UNKNOWN: '؟', NA: '–' };
+const MARKS: Readonly<Record<string, string>> = {
+  PASS: '✓',
+  FAIL: '✕',
+  WARN: '!',
+  UNKNOWN: '؟',
+  NA: '–',
+};
 
 function IndicatorsPanel({ file }: { file: CustomerFile }): ReactElement {
   const { assessment } = file;
@@ -551,7 +626,12 @@ function IndicatorsPanel({ file }: { file: CustomerFile }): ReactElement {
       <div className="panel-body stack" style={{ gap: 'var(--s-4)' }}>
         <ul className="indicator-list">
           {assessment.items.map((item) => (
-            <li key={item.key} className="indicator" data-state={item.state} data-indicator={item.key}>
+            <li
+              key={item.key}
+              className="indicator"
+              data-state={item.state}
+              data-indicator={item.key}
+            >
               <span className="indicator-mark" aria-hidden="true">
                 {MARKS[item.state]}
               </span>
@@ -572,9 +652,20 @@ function IndicatorsPanel({ file }: { file: CustomerFile }): ReactElement {
           ) : (
             <div data-role="signals">
               {assessment.signals.map((signal) => (
-                <div key={signal.key + signal.textAr} className="signal" data-severity={signal.severity}>
-                  <span className="badge" data-tone={signal.severity === 'HIGH' ? 'critical' : 'neutral'}>
-                    {signal.severity === 'HIGH' ? 'مرتفع' : signal.severity === 'MEDIUM' ? 'متوسط' : 'منخفض'}
+                <div
+                  key={signal.key + signal.textAr}
+                  className="signal"
+                  data-severity={signal.severity}
+                >
+                  <span
+                    className="badge"
+                    data-tone={signal.severity === 'HIGH' ? 'critical' : 'neutral'}
+                  >
+                    {signal.severity === 'HIGH'
+                      ? 'مرتفع'
+                      : signal.severity === 'MEDIUM'
+                        ? 'متوسط'
+                        : 'منخفض'}
                   </span>
                   <span>{signal.textAr}</span>
                 </div>
@@ -592,7 +683,9 @@ function IntersectionsPanel({ intersections }: { intersections: Intersection[] }
     <section className="panel" data-role="intersections">
       <div className="panel-header">
         <h2>روابط مع عملائك</h2>
-        <span className="muted">{intersections.length === 0 ? 'لا روابط' : count(intersections.length)}</span>
+        <span className="muted">
+          {intersections.length === 0 ? 'لا روابط' : count(intersections.length)}
+        </span>
       </div>
       <div className="panel-body">
         {intersections.length === 0 ? (
@@ -601,7 +694,11 @@ function IntersectionsPanel({ intersections }: { intersections: Intersection[] }
           </p>
         ) : (
           intersections.map((intersection, index) => (
-            <div key={`${intersection.kind}-${index}`} className="intersection" data-kind={intersection.kind}>
+            <div
+              key={`${intersection.kind}-${index}`}
+              className="intersection"
+              data-kind={intersection.kind}
+            >
               <span>{intersection.textAr}</span>
               <span className="muted">
                 <LinkList entities={intersection.entities} />
@@ -629,7 +726,11 @@ function VerifyPanel({ view, action }: { view: CustomerFileView; action: Action 
       sectionAr: '',
       unitPriceHalalas: view.prices[check.productCode] ?? null,
       // Ticked where the file is thin or old; left alone where it is current.
-      checked: check.productCode !== 'IBAN_BENEFICIARY_NAME' && state !== 'VERIFIED' && state !== 'EXPIRING' && !(check.section === 'BANKING' && file.accounts.length === 0),
+      checked:
+        check.productCode !== 'IBAN_BENEFICIARY_NAME' &&
+        state !== 'VERIFIED' &&
+        state !== 'EXPIRING' &&
+        !(check.section === 'BANKING' && file.accounts.length === 0),
       disabledReasonAr: check.availability !== 'AVAILABLE' ? 'قريباً' : refusal,
       noteAr: check.productCode === 'MANAGER_AUTHORITY' ? 'لكل مدير' : null,
     };
@@ -644,11 +745,25 @@ function VerifyPanel({ view, action }: { view: CustomerFileView; action: Action 
       </div>
       <form action={action} className="panel-body stack" style={{ gap: 'var(--s-3)' }}>
         <input type="hidden" name="entity_id" value={file.entityId} />
-        <input type="hidden" name="kind" value={file.entityType === 'FREELANCER' ? 'FREELANCER' : 'BUSINESS'} />
+        <input
+          type="hidden"
+          name="kind"
+          value={file.entityType === 'FREELANCER' ? 'FREELANCER' : 'BUSINESS'}
+        />
         <input type="hidden" name="bundle" value={view.bundles.checklist} />
-        <CheckList options={options} fromPackage={view.fromPackage} capacityRemaining={view.capacityRemaining} />
+        <CheckList
+          options={options}
+          fromPackage={view.fromPackage}
+          capacityRemaining={view.capacityRemaining}
+        />
         {banking ? (
-          <input name="iban" dir="ltr" className="mono" placeholder="آيبان للتحقق (اختياري)" aria-label="رقم الآيبان" />
+          <input
+            name="iban"
+            dir="ltr"
+            className="mono"
+            placeholder="آيبان للتحقق (اختياري)"
+            aria-label="رقم الآيبان"
+          />
         ) : null}
         <button type="submit" className="btn-primary" data-role="run-checks">
           تحقق من المحدد
@@ -658,7 +773,13 @@ function VerifyPanel({ view, action }: { view: CustomerFileView; action: Action 
   );
 }
 
-export function CustomerFileScreen({ view, action }: { view: CustomerFileView; action: Action }): ReactElement {
+export function CustomerFileScreen({
+  view,
+  action,
+}: {
+  view: CustomerFileView;
+  action: Action;
+}): ReactElement {
   const { file } = view;
   const assessment = file.assessment;
   return (
@@ -701,7 +822,16 @@ export function CustomerFileScreen({ view, action }: { view: CustomerFileView; a
             <span className="stat-label">حالة التحقق</span>
             <strong>{assessment.statusAr}</strong>
           </div>
-          <div className="kpi" data-tone={assessment.riskLevel === 'HIGH' ? 'critical' : assessment.riskLevel === 'LOW' ? 'fresh' : 'neutral'}>
+          <div
+            className="kpi"
+            data-tone={
+              assessment.riskLevel === 'HIGH'
+                ? 'critical'
+                : assessment.riskLevel === 'LOW'
+                  ? 'fresh'
+                  : 'neutral'
+            }
+          >
             <span className="stat-label">مستوى المخاطر</span>
             <strong data-role="risk-level">{assessment.riskLabelAr}</strong>
           </div>

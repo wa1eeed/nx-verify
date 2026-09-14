@@ -26,7 +26,9 @@ export async function createUserAction(formData: FormData): Promise<void> {
   const actor = await actingUser();
   assertRole(actor.role, canAdminister);
 
-  const email = String(formData.get('email') ?? '').trim().toLowerCase();
+  const email = String(formData.get('email') ?? '')
+    .trim()
+    .toLowerCase();
   const displayName = String(formData.get('display_name') ?? '').trim();
   const role = String(formData.get('role') ?? 'ANALYST') as UserRole;
   if (email === '' || displayName === '') {

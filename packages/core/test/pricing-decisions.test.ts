@@ -90,9 +90,12 @@ describe('the plans the platform ships with', () => {
     const payg = plans.find((plan) => plan.code === 'PAYG');
     const annual = plans.find((plan) => plan.code === 'GROWTH');
 
-    const paygPrice = payg?.products.find((p) => p.productCode === 'KYB_COMPLETE')?.unitPriceHalalas;
-    const annualPrice = annual?.products.find((p) => p.productCode === 'KYB_COMPLETE')
-      ?.unitPriceHalalas;
+    const paygPrice = payg?.products.find(
+      (p) => p.productCode === 'KYB_COMPLETE',
+    )?.unitPriceHalalas;
+    const annualPrice = annual?.products.find(
+      (p) => p.productCode === 'KYB_COMPLETE',
+    )?.unitPriceHalalas;
 
     // The ladder only makes sense in one direction, and a plan edited to break it should
     // have to break this test on purpose.

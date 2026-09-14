@@ -39,7 +39,10 @@ export interface ChecksQuote {
   walletAvailableHalalas: number;
 }
 
-export async function quoteChecks(tx: TenantTransaction, productCodes: readonly string[]): Promise<ChecksQuote> {
+export async function quoteChecks(
+  tx: TenantTransaction,
+  productCodes: readonly string[],
+): Promise<ChecksQuote> {
   const lines: CheckQuote[] = [];
   let capacityRemaining: number | null = null;
 

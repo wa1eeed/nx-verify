@@ -71,12 +71,15 @@ export function Docs({ view }: { view: DocsView }): ReactElement {
             <bdi dir="ltr" className="mono">
               retryable
             </bdi>
-            ، و<bdi dir="ltr" className="mono">request_id</bdi>. أرسل هذا الأخير مع أي سؤال
-            للدعم: به نجد النداء في ثوانٍ.
+            ، و
+            <bdi dir="ltr" className="mono">
+              request_id
+            </bdi>
+            . أرسل هذا الأخير مع أي سؤال للدعم: به نجد النداء في ثوانٍ.
           </p>
           <p className="muted" data-role="authority-note">
-            كل حقل في الاستجابة يحمل الجهة الرسمية التي أصدرته ووقت رصده. ولا تحمل
-            الاستجابة اسم أي مزوّد: الجهة هي ما يعنيك، والطريق إليها شأننا.
+            كل حقل في الاستجابة يحمل الجهة الرسمية التي أصدرته ووقت رصده. ولا تحمل الاستجابة اسم أي
+            مزوّد: الجهة هي ما يعنيك، والطريق إليها شأننا.
           </p>
         </div>
       </Panel>
@@ -101,7 +104,12 @@ export function Docs({ view }: { view: DocsView }): ReactElement {
               <span className="muted">
                 الحقول المطلوبة: {requiredFields(product.inputSchema).join('، ') || 'لا شيء'}
               </span>
-              <pre className="mono" dir="ltr" style={{ margin: 0, overflowX: 'auto' }} data-role="schema">
+              <pre
+                className="mono"
+                dir="ltr"
+                style={{ margin: 0, overflowX: 'auto' }}
+                data-role="schema"
+              >
                 {JSON.stringify(product.inputSchema, null, 2)}
               </pre>
             </div>

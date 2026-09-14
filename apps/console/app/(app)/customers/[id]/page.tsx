@@ -61,10 +61,18 @@ export default async function CustomerPage({
         const history = await getFieldHistory(tx, id, field.fieldPath);
         histories[field.fieldPath] = history
           .filter((entry) => !entry.current)
-          .map((entry) => ({ value: entry.value, authority: entry.authority, observedAt: entry.observedAt, changed: entry.changed }));
+          .map((entry) => ({
+            value: entry.value,
+            authority: entry.authority,
+            observedAt: entry.observedAt,
+            changed: entry.changed,
+          }));
       }
     }
-    const quote = await quoteChecks(tx, file.checks.map((check) => check.productCode));
+    const quote = await quoteChecks(
+      tx,
+      file.checks.map((check) => check.productCode),
+    );
     const verifications = await getVerificationHistory(tx, id);
     const products = await listProducts(tx);
     const shares = await listShares(tx, id);
@@ -92,7 +100,11 @@ export default async function CustomerPage({
 
   // Only the groups this customer has facts in are offered for sharing.
   const availableGroups = [
-    ...new Set(data.file.sections.flatMap((section) => section.fields.map((field) => fieldGroup(field.fieldPath)))),
+    ...new Set(
+      data.file.sections.flatMap((section) =>
+        section.fields.map((field) => fieldGroup(field.fieldPath)),
+      ),
+    ),
   ] as FieldGroup[];
 
   const shares: ShareRowView[] = data.shares.map((share) => ({
@@ -108,7 +120,9 @@ export default async function CustomerPage({
 
   const issued = query_['share'];
   const issuedLink =
-    typeof issued === 'string' && issued !== '' ? `${process.env['NX_CONSOLE_BASE_URL'] ?? ''}/p/${issued}` : null;
+    typeof issued === 'string' && issued !== ''
+      ? `${process.env['NX_CONSOLE_BASE_URL'] ?? ''}/p/${issued}`
+      : null;
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
@@ -121,17 +135,30 @@ export default async function CustomerPage({
           file: data.file,
           bundles: {
             checklist: randomUUID(),
-            sections: Object.fromEntries(data.file.sections.map((section) => [section.section, randomUUID()])),
-            managers: Object.fromEntries(data.file.managers.map((manager) => [manager.entityId, randomUUID()])),
+            sections: Object.fromEntries(
+              data.file.sections.map((section) => [section.section, randomUUID()]),
+            ),
+            managers: Object.fromEntries(
+              data.file.managers.map((manager) => [manager.entityId, randomUUID()]),
+            ),
           },
-          prices: Object.fromEntries(data.quote.lines.map((line) => [line.productCode, line.unitPriceHalalas])),
-          refusals: Object.fromEntries(data.quote.lines.map((line) => [line.productCode, line.allowed ? null : line.refusalAr])),
+          prices: Object.fromEntries(
+            data.quote.lines.map((line) => [line.productCode, line.unitPriceHalalas]),
+          ),
+          refusals: Object.fromEntries(
+            data.quote.lines.map((line) => [
+              line.productCode,
+              line.allowed ? null : line.refusalAr,
+            ]),
+          ),
           fromPackage: data.quote.capacityRemaining !== null && data.quote.capacityRemaining > 0,
           capacityRemaining: data.quote.capacityRemaining,
           results: stored
             ? stored.outcomes.map((outcome) => ({
                 ...outcome,
-                nameAr: data.catalogue.find((check) => check.productCode === outcome.productCode)?.nameAr ?? outcome.productCode,
+                nameAr:
+                  data.catalogue.find((check) => check.productCode === outcome.productCode)
+                    ?.nameAr ?? outcome.productCode,
               }))
             : null,
           error: typeof query_['error'] === 'string' ? query_['error'] : null,

@@ -77,7 +77,9 @@ describe('the console renders real data', () => {
 
   it('shows the customer file with its fields, their source and its history', async () => {
     const { default: EntityPage } = await import('../app/(app)/customers/[id]/page.js');
-    const html = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
+    const html = await render(
+      EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }),
+    );
 
     expect(html).toContain('شركة المثال للتجارة');
     expect(html).toContain('data-field="cr.status"');
@@ -91,7 +93,9 @@ describe('the console renders real data', () => {
 
   it('masks every identifier it shows', async () => {
     const { default: EntityPage } = await import('../app/(app)/customers/[id]/page.js');
-    const html = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
+    const html = await render(
+      EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }),
+    );
 
     // Rule 4. The full value never reaches a screen.
     expect(html).not.toContain('7001272184');
@@ -104,7 +108,9 @@ describe('the console renders real data', () => {
     const { default: EntityPage } = await import('../app/(app)/customers/[id]/page.js');
     const { default: RegistryPage } = await import('../app/(app)/customers/page.js');
 
-    const entity = await render(EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }));
+    const entity = await render(
+      EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }),
+    );
     const registry = await render(RegistryPage({ searchParams: Promise.resolve({}) }));
 
     for (const html of [entity, registry]) {
@@ -231,7 +237,9 @@ describe('the console renders real data', () => {
 
     process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
     try {
-      const html = renderToStaticMarkup(await IntegrationPage({ searchParams: Promise.resolve({ env: 'live' }) }));
+      const html = renderToStaticMarkup(
+        await IntegrationPage({ searchParams: Promise.resolve({ env: 'live' }) }),
+      );
       expect(html).toContain('data-role="credentials"');
       expect(html).toContain('بيئة الإنتاج');
       // The addresses are the data source's own hosts, so they carry its domain, and they

@@ -104,17 +104,31 @@ export function Developer({
             read a test result as a real one.
           */}
           <p className="muted" data-role="environment-note">
-            كل استجابة تحمل حقل <bdi dir="ltr" className="mono">environment</bdi> بقيمة{' '}
-            <bdi dir="ltr" className="mono">sandbox</bdi> أو{' '}
-            <bdi dir="ltr" className="mono">live</bdi>. الشكل واحد في البيئتين، والفرق في
-            هذا الحقل وفي البيانات.
+            كل استجابة تحمل حقل{' '}
+            <bdi dir="ltr" className="mono">
+              environment
+            </bdi>{' '}
+            بقيمة{' '}
+            <bdi dir="ltr" className="mono">
+              sandbox
+            </bdi>{' '}
+            أو{' '}
+            <bdi dir="ltr" className="mono">
+              live
+            </bdi>
+            . الشكل واحد في البيئتين، والفرق في هذا الحقل وفي البيانات.
           </p>
         </div>
       </Panel>
 
       {sample ? (
         <Panel title="نداء كامل" aside="انسخه وشغّله" role="snippet">
-          <pre className="panel-body mono" data-role="curl" dir="ltr" style={{ overflowX: 'auto', margin: 0 }}>
+          <pre
+            className="panel-body mono"
+            data-role="curl"
+            dir="ltr"
+            style={{ overflowX: 'auto', margin: 0 }}
+          >
             {curlFor(view.apiBaseUrl, sample.productCode, sample.input, view.isSandbox)}
           </pre>
         </Panel>
@@ -125,8 +139,8 @@ export function Developer({
           <div className="panel-body stack">
             {view.error === 'live' ? (
               <p className="sign-in-error" data-role="playground-refusal" role="alert">
-                التشغيل من هذه الصفحة متاح في بيئة الاختبار وحدها. زر يستطيع إنفاق مال
-                العميل بنقرة فضول ليس ميزة.
+                التشغيل من هذه الصفحة متاح في بيئة الاختبار وحدها. زر يستطيع إنفاق مال العميل بنقرة
+                فضول ليس ميزة.
               </p>
             ) : null}
 
@@ -182,7 +196,11 @@ export function Developer({
         </Panel>
       ) : null}
 
-      <Panel title="بيانات الاختبار المنشورة" aside={`${view.testCases.length} حالة`} role="test-cases">
+      <Panel
+        title="بيانات الاختبار المنشورة"
+        aside={`${view.testCases.length} حالة`}
+        role="test-cases"
+      >
         {view.testCases.length === 0 ? (
           <div className="panel-body">
             <EmptyState>لا حالات منشورة.</EmptyState>
@@ -240,8 +258,8 @@ export function Developer({
           </p>
           {/* Said on the screen, because it is the reason the feature is safe. */}
           <p className="muted" data-role="live-refusal">
-            مفتاح الإنتاج يتجاهل هذه الترويسة تماماً. لو احترمها لصار بإمكان المستدعي أن
-            يختار نتيجته، ولفقدت كل نتيجة من المنصة معناها.
+            مفتاح الإنتاج يتجاهل هذه الترويسة تماماً. لو احترمها لصار بإمكان المستدعي أن يختار
+            نتيجته، ولفقدت كل نتيجة من المنصة معناها.
           </p>
         </div>
       </Panel>

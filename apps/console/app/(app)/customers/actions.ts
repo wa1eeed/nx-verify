@@ -38,7 +38,10 @@ export async function startChecksAction(formData: FormData): Promise<void> {
   const kind = text(formData, 'kind') === 'FREELANCER' ? 'FREELANCER' : 'BUSINESS';
   const bundleRaw = text(formData, 'bundle');
   const bundle = UUID.test(bundleRaw) ? bundleRaw : randomUUID();
-  const checks = formData.getAll('checks').map((value) => String(value)).filter((value) => /^[A-Z][A-Z0-9_]{1,40}$/.test(value));
+  const checks = formData
+    .getAll('checks')
+    .map((value) => String(value))
+    .filter((value) => /^[A-Z][A-Z0-9_]{1,40}$/.test(value));
   const person = text(formData, 'person');
 
   const unn = text(formData, 'unn');
@@ -51,7 +54,9 @@ export async function startChecksAction(formData: FormData): Promise<void> {
     if (entityId) {
       redirect(`/customers/${entityId}?error=${error}`);
     }
-    redirect(`/customers/new?kind=${kind === 'FREELANCER' ? 'freelancer' : 'business'}&error=${error}`);
+    redirect(
+      `/customers/new?kind=${kind === 'FREELANCER' ? 'freelancer' : 'business'}&error=${error}`,
+    );
   };
 
   if (checks.length === 0) {
@@ -60,7 +65,11 @@ export async function startChecksAction(formData: FormData): Promise<void> {
   if (entityId === null && kind === 'BUSINESS' && !/^7[0-9]{9}$/.test(unn)) {
     back('unn');
   }
-  if (entityId === null && kind === 'FREELANCER' && (!/^[12][0-9]{9}$/.test(nationalId) || !/^FL-[0-9]{6,12}$/.test(certificate))) {
+  if (
+    entityId === null &&
+    kind === 'FREELANCER' &&
+    (!/^[12][0-9]{9}$/.test(nationalId) || !/^FL-[0-9]{6,12}$/.test(certificate))
+  ) {
     back('freelancer');
   }
   if (iban !== '' && !/^SA[0-9]{22}$/.test(iban)) {
@@ -101,7 +110,9 @@ export async function startChecksAction(formData: FormData): Promise<void> {
   });
 
   if (result.entityId === null) {
-    redirect(`/customers/new?kind=${kind === 'FREELANCER' ? 'freelancer' : 'business'}&ran=${bundle}`);
+    redirect(
+      `/customers/new?kind=${kind === 'FREELANCER' ? 'freelancer' : 'business'}&ran=${bundle}`,
+    );
   }
   redirect(`/customers/${result.entityId}?ran=${bundle}`);
 }

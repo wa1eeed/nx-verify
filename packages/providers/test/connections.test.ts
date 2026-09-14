@@ -1,9 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import {
-  listProviderConnections,
-  registryFor,
-  setProviderConnection,
-} from '../src/connections.js';
+import { listProviderConnections, registryFor, setProviderConnection } from '../src/connections.js';
 import { InMemorySecretStore, EnvSecretStore } from '../src/credentials.js';
 import { createTestDatabase, type TestDatabase } from '../../../test/helpers/db.js';
 

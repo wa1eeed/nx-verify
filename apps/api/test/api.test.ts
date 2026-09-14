@@ -304,7 +304,10 @@ describe('the public API', () => {
       body: { product: 'KYB_COMPLETE', subject: { unn: '7001272184' } },
     });
 
-    const document = await call('GET', `/v1/verifications/${created.json().verification_id}/document`);
+    const document = await call(
+      'GET',
+      `/v1/verifications/${created.json().verification_id}/document`,
+    );
     expect(document.statusCode).toBe(200);
     expect(document.headers['content-type']).toContain('text/html');
     expect(document.body).toContain('<html lang="ar" dir="rtl">');

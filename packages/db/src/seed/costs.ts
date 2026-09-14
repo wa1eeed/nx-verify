@@ -29,13 +29,38 @@ export interface SeedCost {
  */
 export const LEAN_COSTS: readonly SeedCost[] = [
   // The customer file checks, one call each.
-  { provider: 'lean', endpoint: 'corporate_full', unitCost: '10.00', note: 'commercial registration' },
-  { provider: 'lean', endpoint: 'corporate_contract', unitCost: '10.00', note: 'articles of association' },
-  { provider: 'lean', endpoint: 'corporate_manager', unitCost: '10.00', note: 'one manager powers' },
+  {
+    provider: 'lean',
+    endpoint: 'corporate_full',
+    unitCost: '10.00',
+    note: 'commercial registration',
+  },
+  {
+    provider: 'lean',
+    endpoint: 'corporate_contract',
+    unitCost: '10.00',
+    note: 'articles of association',
+  },
+  {
+    provider: 'lean',
+    endpoint: 'corporate_manager',
+    unitCost: '10.00',
+    note: 'one manager powers',
+  },
   { provider: 'lean', endpoint: 'corporate_address', unitCost: '2.00', note: 'national address' },
   { provider: 'lean', endpoint: 'iban_verification', unitCost: '10.00', note: 'iban ownership' },
-  { provider: 'lean', endpoint: 'iban_beneficiary_name', unitCost: '10.00', note: 'account holder name' },
-  { provider: 'lean', endpoint: 'freelancer_verification', unitCost: '10.00', note: 'freelance certificate' },
+  {
+    provider: 'lean',
+    endpoint: 'iban_beneficiary_name',
+    unitCost: '10.00',
+    note: 'account holder name',
+  },
+  {
+    provider: 'lean',
+    endpoint: 'freelancer_verification',
+    unitCost: '10.00',
+    note: 'freelance certificate',
+  },
   { provider: 'lean', endpoint: 'property_verification', unitCost: '10.00', note: 'property' },
   // Products sold through the API before the customer file.
   { provider: 'lean', endpoint: 'national_address', unitCost: '2.00', note: 'national address' },

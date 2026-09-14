@@ -2,7 +2,13 @@
 
 import { redirect } from 'next/navigation';
 import { randomUUID } from 'node:crypto';
-import { isSandbox, resolveProviders, verify, DerivedTenantKeyProvider, masterKeySourceFromEnv } from '@nx-verify/core';
+import {
+  isSandbox,
+  resolveProviders,
+  verify,
+  DerivedTenantKeyProvider,
+  masterKeySourceFromEnv,
+} from '@nx-verify/core';
 import {
   createProviderRegistry,
   createProviderStepRunner,
@@ -99,7 +105,9 @@ function subjectFor(productCode: string, input: string): Record<string, unknown>
   }
 }
 
-function identifierTypeFor(productCode: string): 'UNN' | 'IBAN' | 'FREELANCE_DOC' | 'REAL_ESTATE_NO' {
+function identifierTypeFor(
+  productCode: string,
+): 'UNN' | 'IBAN' | 'FREELANCE_DOC' | 'REAL_ESTATE_NO' {
   switch (productCode) {
     case 'IBAN_OWNERSHIP':
     case 'BANK_ACCOUNT_OWNERSHIP':

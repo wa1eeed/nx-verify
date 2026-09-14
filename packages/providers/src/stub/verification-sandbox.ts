@@ -101,7 +101,8 @@ function active(base: Payload): Payload {
 }
 
 function corporateAnswer(type: 'FULL' | 'CONTRACT' | 'ADDRESS', unn: string): Payload {
-  const base = type === 'FULL' ? CORPORATE_FULL : type === 'CONTRACT' ? CORPORATE_CONTRACT : CORPORATE_ADDRESS;
+  const base =
+    type === 'FULL' ? CORPORATE_FULL : type === 'CONTRACT' ? CORPORATE_CONTRACT : CORPORATE_ADDRESS;
   switch (unn) {
     case SANDBOX_UNN.ACTIVE:
       return type === 'ADDRESS' ? clone(base) : active(base);
@@ -218,7 +219,10 @@ export function sandboxVerificationAnswer(
     case 'corporate_manager':
       return managerAnswer(unn, String(input['manager_id'] ?? ''));
     case 'freelancer_verification':
-      return freelancerAnswer(String(input['national_id'] ?? ''), String(input['certificate_number'] ?? ''));
+      return freelancerAnswer(
+        String(input['national_id'] ?? ''),
+        String(input['certificate_number'] ?? ''),
+      );
     case 'iban_verification':
       return ibanAnswer(String(input['iban'] ?? ''));
     case 'iban_beneficiary_name':
@@ -240,20 +244,100 @@ export interface VerificationSandboxCase {
 
 /** The published table of sandbox cases for the verification products. */
 export const VERIFICATION_SANDBOX_CASES: readonly VerificationSandboxCase[] = [
-  { input: SANDBOX_UNN.ACTIVE, productCode: 'CR_FULL', titleAr: 'شركة قائمة', expectedAr: 'سجل فعّال، بمدير وشريك ونشاطين' },
-  { input: SANDBOX_UNN.SUSPENDED, productCode: 'CR_FULL', titleAr: 'سجل موقوف', expectedAr: 'الحالة معلق، ويشارك الشركة القائمة مديرها' },
-  { input: SANDBOX_UNN.ESTABLISHMENT, productCode: 'CR_FULL', titleAr: 'مؤسسة فردية', expectedAr: 'تصنيف مؤسسة، وبلا عقد تأسيس' },
-  { input: SANDBOX_UNN.IN_LIQUIDATION, productCode: 'CR_FULL', titleAr: 'شركة تحت التصفية', expectedAr: 'مؤشر مخاطر مرتفع' },
-  { input: SANDBOX_UNN.NOT_FOUND, productCode: 'CR_FULL', titleAr: 'رقم غير مسجل', expectedAr: 'لا توجد بيانات لدى الجهة' },
-  { input: SANDBOX_UNN.SOURCE_DOWN, productCode: 'CR_FULL', titleAr: 'تعذّر الوصول للمصدر', expectedAr: 'خطأ بلا رسم، ويمكن إعادة المحاولة' },
-  { input: SANDBOX_UNN.ACTIVE, productCode: 'ARTICLES_OF_ASSOCIATION', titleAr: 'عقد تأسيس', expectedAr: 'الشركاء وحصصهم وقرارات الشركاء' },
-  { input: SANDBOX_UNN.ACTIVE, productCode: 'NATIONAL_ADDRESS', titleAr: 'عنوان وطني', expectedAr: 'مبنى وشارع وحي ورمز بريدي' },
-  { input: `${SANDBOX_UNN.ACTIVE} + ${SANDBOX_MANAGER_ID}`, productCode: 'MANAGER_AUTHORITY', titleAr: 'صلاحيات مدير', expectedAr: 'إصدار توكيل منفرداً، وتوقيع العقود مجتمعين' },
-  { input: `${SANDBOX_FREELANCER.NATIONAL_ID} + ${SANDBOX_FREELANCER.ACTIVE}`, productCode: 'FREELANCE_CERTIFICATE', titleAr: 'وثيقة سارية', expectedAr: 'ملكية الوثيقة موثّقة، والحالة سارية' },
-  { input: `${SANDBOX_FREELANCER.NATIONAL_ID} + ${SANDBOX_FREELANCER.EXPIRED}`, productCode: 'FREELANCE_CERTIFICATE', titleAr: 'وثيقة منتهية', expectedAr: 'الحالة منتهية' },
-  { input: `${SANDBOX_FREELANCER.OTHER_PERSON_ID} + ${SANDBOX_FREELANCER.ACTIVE}`, productCode: 'FREELANCE_CERTIFICATE', titleAr: 'هوية لا تملك الوثيقة', expectedAr: 'ملكية الوثيقة غير موثّقة' },
-  { input: SANDBOX_IBAN.MATCH, productCode: 'IBAN_VERIFICATION', titleAr: 'آيبان مطابق', expectedAr: 'مطابق، والحساب نشط' },
-  { input: SANDBOX_IBAN.OTHER_NAME, productCode: 'IBAN_VERIFICATION', titleAr: 'آيبان باسم آخر', expectedAr: 'تطابق جزئي في الاسم' },
-  { input: SANDBOX_IBAN.BLOCKED, productCode: 'IBAN_VERIFICATION', titleAr: 'حساب موقوف', expectedAr: 'غير مطابق، والحساب محظور' },
-  { input: SANDBOX_IBAN.UNSUPPORTED_BANK, productCode: 'IBAN_VERIFICATION', titleAr: 'بنك غير مدعوم', expectedAr: 'خطأ بلا رسم' },
+  {
+    input: SANDBOX_UNN.ACTIVE,
+    productCode: 'CR_FULL',
+    titleAr: 'شركة قائمة',
+    expectedAr: 'سجل فعّال، بمدير وشريك ونشاطين',
+  },
+  {
+    input: SANDBOX_UNN.SUSPENDED,
+    productCode: 'CR_FULL',
+    titleAr: 'سجل موقوف',
+    expectedAr: 'الحالة معلق، ويشارك الشركة القائمة مديرها',
+  },
+  {
+    input: SANDBOX_UNN.ESTABLISHMENT,
+    productCode: 'CR_FULL',
+    titleAr: 'مؤسسة فردية',
+    expectedAr: 'تصنيف مؤسسة، وبلا عقد تأسيس',
+  },
+  {
+    input: SANDBOX_UNN.IN_LIQUIDATION,
+    productCode: 'CR_FULL',
+    titleAr: 'شركة تحت التصفية',
+    expectedAr: 'مؤشر مخاطر مرتفع',
+  },
+  {
+    input: SANDBOX_UNN.NOT_FOUND,
+    productCode: 'CR_FULL',
+    titleAr: 'رقم غير مسجل',
+    expectedAr: 'لا توجد بيانات لدى الجهة',
+  },
+  {
+    input: SANDBOX_UNN.SOURCE_DOWN,
+    productCode: 'CR_FULL',
+    titleAr: 'تعذّر الوصول للمصدر',
+    expectedAr: 'خطأ بلا رسم، ويمكن إعادة المحاولة',
+  },
+  {
+    input: SANDBOX_UNN.ACTIVE,
+    productCode: 'ARTICLES_OF_ASSOCIATION',
+    titleAr: 'عقد تأسيس',
+    expectedAr: 'الشركاء وحصصهم وقرارات الشركاء',
+  },
+  {
+    input: SANDBOX_UNN.ACTIVE,
+    productCode: 'NATIONAL_ADDRESS',
+    titleAr: 'عنوان وطني',
+    expectedAr: 'مبنى وشارع وحي ورمز بريدي',
+  },
+  {
+    input: `${SANDBOX_UNN.ACTIVE} + ${SANDBOX_MANAGER_ID}`,
+    productCode: 'MANAGER_AUTHORITY',
+    titleAr: 'صلاحيات مدير',
+    expectedAr: 'إصدار توكيل منفرداً، وتوقيع العقود مجتمعين',
+  },
+  {
+    input: `${SANDBOX_FREELANCER.NATIONAL_ID} + ${SANDBOX_FREELANCER.ACTIVE}`,
+    productCode: 'FREELANCE_CERTIFICATE',
+    titleAr: 'وثيقة سارية',
+    expectedAr: 'ملكية الوثيقة موثّقة، والحالة سارية',
+  },
+  {
+    input: `${SANDBOX_FREELANCER.NATIONAL_ID} + ${SANDBOX_FREELANCER.EXPIRED}`,
+    productCode: 'FREELANCE_CERTIFICATE',
+    titleAr: 'وثيقة منتهية',
+    expectedAr: 'الحالة منتهية',
+  },
+  {
+    input: `${SANDBOX_FREELANCER.OTHER_PERSON_ID} + ${SANDBOX_FREELANCER.ACTIVE}`,
+    productCode: 'FREELANCE_CERTIFICATE',
+    titleAr: 'هوية لا تملك الوثيقة',
+    expectedAr: 'ملكية الوثيقة غير موثّقة',
+  },
+  {
+    input: SANDBOX_IBAN.MATCH,
+    productCode: 'IBAN_VERIFICATION',
+    titleAr: 'آيبان مطابق',
+    expectedAr: 'مطابق، والحساب نشط',
+  },
+  {
+    input: SANDBOX_IBAN.OTHER_NAME,
+    productCode: 'IBAN_VERIFICATION',
+    titleAr: 'آيبان باسم آخر',
+    expectedAr: 'تطابق جزئي في الاسم',
+  },
+  {
+    input: SANDBOX_IBAN.BLOCKED,
+    productCode: 'IBAN_VERIFICATION',
+    titleAr: 'حساب موقوف',
+    expectedAr: 'غير مطابق، والحساب محظور',
+  },
+  {
+    input: SANDBOX_IBAN.UNSUPPORTED_BANK,
+    productCode: 'IBAN_VERIFICATION',
+    titleAr: 'بنك غير مدعوم',
+    expectedAr: 'خطأ بلا رسم',
+  },
 ];

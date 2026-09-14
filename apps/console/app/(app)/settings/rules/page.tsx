@@ -1,6 +1,10 @@
 import type { ReactElement } from 'react';
 import { listRulesets, simulateRuleset } from '@nx-verify/core';
-import { RulesStudio, describeCondition, type RuleRowView } from '../../../../components/rules-studio';
+import {
+  RulesStudio,
+  describeCondition,
+  type RuleRowView,
+} from '../../../../components/rules-studio';
 import { query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { SETTINGS_TABS } from '../../../../components/nav';

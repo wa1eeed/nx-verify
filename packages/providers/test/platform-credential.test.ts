@@ -95,7 +95,9 @@ describe('the platform credential', () => {
 
   it('says there is no binding when the platform has no connection either', async () => {
     await expect(
-      withTenant(db.appPool, sandbox.tenantId, (tx) => resolveCredential(tx, secrets, 'unconnected')),
+      withTenant(db.appPool, sandbox.tenantId, (tx) =>
+        resolveCredential(tx, secrets, 'unconnected'),
+      ),
     ).rejects.toMatchObject({ code: 'NX-4041' });
   });
 

@@ -39,7 +39,6 @@ export interface FieldHistoryView {
   changed: boolean;
 }
 
-
 /**
  * One table of labels, in the domain.
  *

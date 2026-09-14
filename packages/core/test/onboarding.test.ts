@@ -181,9 +181,7 @@ describe('onboarding cases', () => {
       }),
     );
 
-    const after = await withTenant(db.appPool, tenant.tenantId, (tx) =>
-      getCase(tx, opened.caseId),
-    );
+    const after = await withTenant(db.appPool, tenant.tenantId, (tx) => getCase(tx, opened.caseId));
     const waived = after?.steps.find((step) => step.stepKey === 'address');
     expect(waived?.status).toBe('WAIVED');
     expect(waived?.waiveReason).toBe('DOCUMENT_ON_FILE');
@@ -202,7 +200,9 @@ describe('onboarding cases', () => {
   });
 
   it('opens a review queue item when a file needs a person', async () => {
-    const queue = await withTenant(db.appPool, tenant.tenantId, (tx) => listQueue(tx, { limit: 50 }));
+    const queue = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listQueue(tx, { limit: 50 }),
+    );
     // Every file that went to review put work in front of somebody: a review nobody is
     // given is a review nobody does.
     expect(queue.length).toBeGreaterThan(0);

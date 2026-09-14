@@ -55,7 +55,9 @@ export function registerCallbackRoutes(app: FastifyInstance, context: AppContext
         // Our own misconfiguration, and it is ours to fix rather than the caller's. It
         // must not read as a rejected signature, or an operator will spend the outage
         // looking at the provider's dashboard.
-        throw new NxError('NX-5001', { detail: 'the callback secret is not set for this provider' });
+        throw new NxError('NX-5001', {
+          detail: 'the callback secret is not set for this provider',
+        });
       }
 
       if (!verifyProviderSignature(secret, body, signature, target.algorithm)) {

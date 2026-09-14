@@ -76,7 +76,13 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
             </a>
           ))}
         </nav>
-        <form method="get" action="/customers" className="row" style={{ gap: 'var(--s-2)' }} role="search">
+        <form
+          method="get"
+          action="/customers"
+          className="row"
+          style={{ gap: 'var(--s-2)' }}
+          role="search"
+        >
           {view.filter !== 'all' ? <input type="hidden" name="kind" value={view.filter} /> : null}
           <input
             name="q"
@@ -91,11 +97,17 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
         </form>
       </div>
 
-      <Panel title={tabs.find((tab) => tab.filter === view.filter)?.label ?? 'الكل'} aside={`${view.rows.length}`} role="customers">
+      <Panel
+        title={tabs.find((tab) => tab.filter === view.filter)?.label ?? 'الكل'}
+        aside={`${view.rows.length}`}
+        role="customers"
+      >
         {view.rows.length === 0 ? (
           <div className="panel-body">
             <EmptyState>
-              {view.search !== '' ? 'لا عميل يطابق هذا البحث.' : 'لا عملاء بعد. أضف أول عميل وتحقق منه من زر «عميل جديد».'}
+              {view.search !== ''
+                ? 'لا عميل يطابق هذا البحث.'
+                : 'لا عملاء بعد. أضف أول عميل وتحقق منه من زر «عميل جديد».'}
             </EmptyState>
           </div>
         ) : (
@@ -127,7 +139,11 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
                         <span className="faint">لم يُتحقق بعد</span>
                       )}
                       {row.expiredFacts > 0 ? (
-                        <span className="badge" data-tone="expired" style={{ marginInlineStart: 6 }}>
+                        <span
+                          className="badge"
+                          data-tone="expired"
+                          style={{ marginInlineStart: 6 }}
+                        >
                           معلومات منتهية
                         </span>
                       ) : null}

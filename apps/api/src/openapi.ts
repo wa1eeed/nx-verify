@@ -204,7 +204,10 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
             'Opens a file for a journey and runs every check it requires, applies the workspace decision rules, and returns the outcome with what is still outstanding. One call rather than two, because a customer onboarding a merchant wants an answer and not a handle.',
           responses: {
             '201': { description: 'The file and its outcome' },
-            '403': { description: 'A module in this journey is not in your package', content: jsonError(errorSchema) },
+            '403': {
+              description: 'A module in this journey is not in your package',
+              content: jsonError(errorSchema),
+            },
           },
         },
         get: {

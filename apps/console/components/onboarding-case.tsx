@@ -121,7 +121,10 @@ export function OnboardingCaseView({ view }: { view: CaseDetailView }): ReactEle
           </strong>
           {view.clientRef ? (
             <span className="stat-hint">
-              مرجعكم: <bdi dir="ltr" className="mono">{view.clientRef}</bdi>
+              مرجعكم:{' '}
+              <bdi dir="ltr" className="mono">
+                {view.clientRef}
+              </bdi>
             </span>
           ) : null}
         </article>
@@ -202,13 +205,19 @@ export function OnboardingCaseView({ view }: { view: CaseDetailView }): ReactEle
               </thead>
               <tbody>
                 {view.actions.map((action) => (
-                  <tr key={`${action.actionKey}-${action.at.toISOString()}`} data-role="case-action">
+                  <tr
+                    key={`${action.actionKey}-${action.at.toISOString()}`}
+                    data-role="case-action"
+                  >
                     <td>{action.actionKey}</td>
                     <td>{action.actionType === 'WEBHOOK' ? 'نداء نظامكم' : 'تنبيه'}</td>
                     <td>{caseStatusLabel(action.outcome)}</td>
                     <td>
                       {action.delivered ? (
-                        <span className="badge" style={{ borderColor: 'var(--fresh-line)', color: 'var(--fresh-fg)' }}>
+                        <span
+                          className="badge"
+                          style={{ borderColor: 'var(--fresh-line)', color: 'var(--fresh-fg)' }}
+                        >
                           في طابور التسليم
                         </span>
                       ) : (

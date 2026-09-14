@@ -78,9 +78,7 @@ export function SignIn({ error, passwordAction, ssoAction }: SignInProps): React
       <hr className="sign-in-divider" />
 
       <form action={ssoAction} className="stack" data-role="sso-form">
-        <p className="muted">
-          إن كانت شركتك تستخدم دليلاً موحّداً، ادخل بريد العمل وسنحوّلك إليه.
-        </p>
+        <p className="muted">إن كانت شركتك تستخدم دليلاً موحّداً، ادخل بريد العمل وسنحوّلك إليه.</p>
         <label htmlFor="sso-email">بريد العمل</label>
         <input
           id="sso-email"

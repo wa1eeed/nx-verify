@@ -43,7 +43,11 @@ export function caseStatusLabel(status: string): string {
 export function StatusBadge({ status }: { status: string }): ReactElement {
   const style =
     status === 'APPROVED'
-      ? { borderColor: 'var(--fresh-line)', color: 'var(--fresh-fg)', background: 'var(--fresh-bg)' }
+      ? {
+          borderColor: 'var(--fresh-line)',
+          color: 'var(--fresh-fg)',
+          background: 'var(--fresh-bg)',
+        }
       : status === 'REJECTED'
         ? {
             borderColor: 'var(--critical-line)',
@@ -123,7 +127,11 @@ export function OnboardingList({ cases }: { cases: CaseRowView[] }): ReactElemen
               </thead>
               <tbody>
                 {cases.map((row) => (
-                  <tr key={row.caseId} data-role="case-row" data-overdue={row.overdue ? 'true' : 'false'}>
+                  <tr
+                    key={row.caseId}
+                    data-role="case-row"
+                    data-overdue={row.overdue ? 'true' : 'false'}
+                  >
                     <td>
                       <a href={`/verifications/onboarding/${row.caseId}`}>
                         <bdi dir="ltr" className="mono">

@@ -62,7 +62,11 @@ export default async function OperatorPackagesPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={PRICING_TABS} current="/operator/packages" label="أقسام الباقات والأسعار" />
+      <SectionTabs
+        tabs={PRICING_TABS}
+        current="/operator/packages"
+        label="أقسام الباقات والأسعار"
+      />
       <OperatorPackages
         packages={packages}
         subscribers={subscribers}

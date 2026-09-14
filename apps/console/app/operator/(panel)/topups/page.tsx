@@ -28,10 +28,7 @@ export default async function OperatorTopUpsPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <PageHeader
-        title="الحوالات"
-        subtitle="طلبات شحن الرصيد بانتظار تأكيد وصول الحوالة."
-      />
+      <PageHeader title="الحوالات" subtitle="طلبات شحن الرصيد بانتظار تأكيد وصول الحوالة." />
       <PendingTopUps
         pending={view}
         confirmAction={confirmTopUpAction}

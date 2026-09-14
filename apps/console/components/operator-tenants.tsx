@@ -28,7 +28,13 @@ export interface TenantRowView {
   hasSandbox: boolean;
 }
 
-function TermCell({ termEnd, daysLeft }: { termEnd: Date | null; daysLeft: number | null }): ReactElement {
+function TermCell({
+  termEnd,
+  daysLeft,
+}: {
+  termEnd: Date | null;
+  daysLeft: number | null;
+}): ReactElement {
   if (termEnd === null || daysLeft === null) {
     return <span className="muted">بلا مدة</span>;
   }
@@ -50,13 +56,7 @@ function TermCell({ termEnd, daysLeft }: { termEnd: Date | null; daysLeft: numbe
   );
 }
 
-function CapacityCell({
-  used,
-  included,
-}: {
-  used: number;
-  included: number | null;
-}): ReactElement {
+function CapacityCell({ used, included }: { used: number; included: number | null }): ReactElement {
   if (included === null) {
     return (
       <span>
@@ -80,7 +80,11 @@ function CapacityCell({
         </bdi>
       </span>
       <span className="meter" aria-hidden="true">
-        <span className="meter-fill" style={{ width: `${Math.round(share * 100)}%` }} data-full={share >= 0.8 ? 'yes' : 'no'} />
+        <span
+          className="meter-fill"
+          style={{ width: `${Math.round(share * 100)}%` }}
+          data-full={share >= 0.8 ? 'yes' : 'no'}
+        />
       </span>
     </span>
   );
@@ -128,7 +132,10 @@ export function OperatorTenants({ rows }: { rows: TenantRowView[] }): ReactEleme
                       <TermCell termEnd={row.termEnd} daysLeft={row.daysLeft} />
                     </td>
                     <td>
-                      <CapacityCell used={row.transactionsUsed} included={row.includedTransactions} />
+                      <CapacityCell
+                        used={row.transactionsUsed}
+                        included={row.includedTransactions}
+                      />
                     </td>
                     <td>
                       <bdi dir="ltr" className="mono">
@@ -217,14 +224,19 @@ export function OperatorTenantDetail({ view }: { view: TenantDetailView }): Reac
             </span>
           ) : null}
         </article>
-        <article className="stat" {...(view.daysLeft !== null && view.daysLeft < 0 ? { 'data-tone': 'critical' } : {})}>
+        <article
+          className="stat"
+          {...(view.daysLeft !== null && view.daysLeft < 0 ? { 'data-tone': 'critical' } : {})}
+        >
           <span className="stat-label">تنتهي</span>
           <strong className="stat-value" style={{ fontSize: '18px' }}>
             <bdi dir="ltr" className="mono">
               {view.termEnd ? isoDate(view.termEnd) : 'بلا مدة'}
             </bdi>
           </strong>
-          {view.daysLeft !== null ? <span className="stat-hint">{termPhrase(view.daysLeft)}</span> : null}
+          {view.daysLeft !== null ? (
+            <span className="stat-hint">{termPhrase(view.daysLeft)}</span>
+          ) : null}
         </article>
         <article className="stat">
           <span className="stat-label">العمليات المتبقية</span>

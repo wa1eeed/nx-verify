@@ -9,7 +9,11 @@ import {
   resolveCredential,
   secretStoreFromEnv,
 } from '../packages/providers/src/index.js';
-import { SANDBOX_FREELANCER, SANDBOX_IBAN, SANDBOX_UNN } from '../packages/providers/src/stub/verification-sandbox.js';
+import {
+  SANDBOX_FREELANCER,
+  SANDBOX_IBAN,
+  SANDBOX_UNN,
+} from '../packages/providers/src/stub/verification-sandbox.js';
 
 /**
  * Fills a workspace with customers from the published test data, through the same path a
@@ -30,28 +34,72 @@ async function main(): Promise<void> {
   const secrets = secretStoreFromEnv();
   try {
     const sandbox = await withTenant(pool, tenantId, async (tx) => {
-      const { rows } = await tx.query<{ is_sandbox: boolean }>(`SELECT sandbox_of IS NOT NULL AS is_sandbox FROM tenants WHERE id = $1`, [tenantId]);
+      const { rows } = await tx.query<{ is_sandbox: boolean }>(
+        `SELECT sandbox_of IS NOT NULL AS is_sandbox FROM tenants WHERE id = $1`,
+        [tenantId],
+      );
       return rows[0]?.is_sandbox ?? false;
     });
-    const registry = await withTenant(pool, tenantId, (tx) => registryFor(tx, sandbox ? 'sandbox' : 'live'));
+    const registry = await withTenant(pool, tenantId, (tx) =>
+      registryFor(tx, sandbox ? 'sandbox' : 'live'),
+    );
     const deps = {
-      inTenant: <T>(work: (tx: Parameters<typeof resolveProviders>[0]) => Promise<T>) => withTenant(pool, tenantId, work),
+      inTenant: <T>(work: (tx: Parameters<typeof resolveProviders>[0]) => Promise<T>) =>
+        withTenant(pool, tenantId, work),
       keys,
       runStepFor: (tx: Parameters<typeof resolveProviders>[0]) =>
         createProviderStepRunner({
           registry,
           candidatesFor: (step) =>
-            resolveProviders(tx, { endpoint: step.endpoint, declaredProvider: step.provider, declaredFallback: step.fallbackProvider }),
+            resolveProviders(tx, {
+              endpoint: step.endpoint,
+              declaredProvider: step.provider,
+              declaredFallback: step.fallbackProvider,
+            }),
           credentialFor: (name, ref) => resolveCredential(tx, secrets, name, ref),
         }),
     };
 
     const plans = [
-      { kind: 'BUSINESS' as const, identity: { unn: SANDBOX_UNN.ACTIVE }, checks: ['CR_FULL', 'ARTICLES_OF_ASSOCIATION', 'MANAGER_AUTHORITY', 'NATIONAL_ADDRESS', 'IBAN_VERIFICATION'], iban: SANDBOX_IBAN.MATCH },
-      { kind: 'BUSINESS' as const, identity: { unn: SANDBOX_UNN.SUSPENDED }, checks: ['CR_FULL', 'NATIONAL_ADDRESS', 'IBAN_VERIFICATION'], iban: SANDBOX_IBAN.MATCH },
-      { kind: 'BUSINESS' as const, identity: { unn: SANDBOX_UNN.ESTABLISHMENT }, checks: ['CR_FULL', 'ARTICLES_OF_ASSOCIATION', 'NATIONAL_ADDRESS'], iban: undefined },
-      { kind: 'BUSINESS' as const, identity: { unn: SANDBOX_UNN.IN_LIQUIDATION }, checks: ['CR_FULL'], iban: undefined },
-      { kind: 'FREELANCER' as const, identity: { nationalId: SANDBOX_FREELANCER.NATIONAL_ID, certificateNumber: SANDBOX_FREELANCER.ACTIVE }, checks: ['FREELANCE_CERTIFICATE', 'IBAN_VERIFICATION'], iban: SANDBOX_IBAN.OTHER_NAME },
+      {
+        kind: 'BUSINESS' as const,
+        identity: { unn: SANDBOX_UNN.ACTIVE },
+        checks: [
+          'CR_FULL',
+          'ARTICLES_OF_ASSOCIATION',
+          'MANAGER_AUTHORITY',
+          'NATIONAL_ADDRESS',
+          'IBAN_VERIFICATION',
+        ],
+        iban: SANDBOX_IBAN.MATCH,
+      },
+      {
+        kind: 'BUSINESS' as const,
+        identity: { unn: SANDBOX_UNN.SUSPENDED },
+        checks: ['CR_FULL', 'NATIONAL_ADDRESS', 'IBAN_VERIFICATION'],
+        iban: SANDBOX_IBAN.MATCH,
+      },
+      {
+        kind: 'BUSINESS' as const,
+        identity: { unn: SANDBOX_UNN.ESTABLISHMENT },
+        checks: ['CR_FULL', 'ARTICLES_OF_ASSOCIATION', 'NATIONAL_ADDRESS'],
+        iban: undefined,
+      },
+      {
+        kind: 'BUSINESS' as const,
+        identity: { unn: SANDBOX_UNN.IN_LIQUIDATION },
+        checks: ['CR_FULL'],
+        iban: undefined,
+      },
+      {
+        kind: 'FREELANCER' as const,
+        identity: {
+          nationalId: SANDBOX_FREELANCER.NATIONAL_ID,
+          certificateNumber: SANDBOX_FREELANCER.ACTIVE,
+        },
+        checks: ['FREELANCE_CERTIFICATE', 'IBAN_VERIFICATION'],
+        iban: SANDBOX_IBAN.OTHER_NAME,
+      },
     ];
 
     for (const plan of plans) {
@@ -63,7 +111,10 @@ async function main(): Promise<void> {
         bundleKey: randomUUID(),
         requestedBy: null,
       });
-      console.log(result.entityId, result.outcomes.map((outcome) => `${outcome.productCode}:${outcome.status}`).join(' '));
+      console.log(
+        result.entityId,
+        result.outcomes.map((outcome) => `${outcome.productCode}:${outcome.status}`).join(' '),
+      );
     }
   } finally {
     await pool.end();

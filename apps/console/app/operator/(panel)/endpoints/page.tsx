@@ -33,24 +33,26 @@ export default async function OperatorEndpointsPage(): Promise<ReactElement> {
   const view: EndpointsView = {
     providers: data.catalog.map((entry) => entry.code),
     required: data.required,
-    rows: data.rows.map(
-      (row): EndpointRowView => ({
-        provider: row.provider,
-        environment: row.environment,
-        endpoint: row.endpoint,
-        method: row.method,
-        path: row.path,
-        authority: row.authority,
-        dataPath: row.dataPath,
-        fieldMap: row.fieldMap,
-        bodyMap: row.bodyMap,
-      }),
-    ),
+    rows: data.rows.map((row): EndpointRowView => ({
+      provider: row.provider,
+      environment: row.environment,
+      endpoint: row.endpoint,
+      method: row.method,
+      path: row.path,
+      authority: row.authority,
+      dataPath: row.dataPath,
+      fieldMap: row.fieldMap,
+      bodyMap: row.bodyMap,
+    })),
   };
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={INTEGRATION_TABS} current="/operator/endpoints" label="أقسام الربط التقني" />
+      <SectionTabs
+        tabs={INTEGRATION_TABS}
+        current="/operator/endpoints"
+        label="أقسام الربط التقني"
+      />
       <div className="stack" style={{ gap: 'var(--s-5)' }}>
         <PageHeader
           title="خريطة نقاط النهاية"

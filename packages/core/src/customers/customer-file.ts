@@ -10,7 +10,13 @@ import {
   valueLabelAr,
   type FieldGroup,
 } from '../profile/field-catalogue.js';
-import { checksFor, listChecks, type CheckDefinition, type CustomerKind, type ProfileSection } from './checks.js';
+import {
+  checksFor,
+  listChecks,
+  type CheckDefinition,
+  type CustomerKind,
+  type ProfileSection,
+} from './checks.js';
 import { assessCustomer, type Assessment, type FactView } from './indicators.js';
 import { businesses, otherBusinesses, otherCustomers } from './arabic.js';
 
@@ -55,7 +61,15 @@ const SECTION_OF_GROUP: Readonly<Record<FieldGroup, ProfileSection | null>> = {
   OTHER: null,
 };
 
-const SECTION_ORDER: readonly ProfileSection[] = ['REGISTRY', 'FREELANCE', 'CONTRACT', 'MANAGERS', 'ADDRESS', 'BANKING', 'PROPERTY'];
+const SECTION_ORDER: readonly ProfileSection[] = [
+  'REGISTRY',
+  'FREELANCE',
+  'CONTRACT',
+  'MANAGERS',
+  'ADDRESS',
+  'BANKING',
+  'PROPERTY',
+];
 
 export const KIND_LABELS: Readonly<Record<CustomerKind, string>> = {
   COMPANY: 'شركة',
@@ -77,7 +91,8 @@ export interface FileField {
   changed: boolean;
 }
 
-export type SectionState = 'VERIFIED' | 'EXPIRING' | 'EXPIRED' | 'CHANGED' | 'NOT_VERIFIED' | 'NOT_FOUND' | 'FAILED';
+export type SectionState =
+  'VERIFIED' | 'EXPIRING' | 'EXPIRED' | 'CHANGED' | 'NOT_VERIFIED' | 'NOT_FOUND' | 'FAILED';
 
 export interface LastRun {
   productCode: string;
@@ -187,7 +202,9 @@ export interface CustomerFile {
 }
 
 function asStrings(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string')
+    : [];
 }
 
 function asPermissions(value: unknown): Permission[] | null {
@@ -195,7 +212,9 @@ function asPermissions(value: unknown): Permission[] | null {
     return null;
   }
   return value
-    .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object')
+    .filter(
+      (entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object',
+    )
     .map((entry) => ({
       name: typeof entry['name'] === 'string' ? entry['name'] : null,
       method: typeof entry['method'] === 'string' ? entry['method'] : null,
@@ -277,7 +296,12 @@ async function coLinked(
   if (targets.length === 0) {
     return result;
   }
-  const { rows } = await tx.query<{ target: string; entity_id: string; name: string | null; entity_type: string }>(
+  const { rows } = await tx.query<{
+    target: string;
+    entity_id: string;
+    name: string | null;
+    entity_type: string;
+  }>(
     `SELECT r.to_entity AS target, e.id AS entity_id, e.display_name AS name, e.entity_type
      FROM entity_relations r
      JOIN entities e ON e.tenant_id = r.tenant_id AND e.id = r.from_entity
@@ -304,13 +328,19 @@ async function profilesOf(
   if (entityIds.length === 0) {
     return result;
   }
-  const { rows } = await tx.query<{ entity_id: string; field_path: string; value: unknown; observed_at: Date }>(
+  const { rows } = await tx.query<{
+    entity_id: string;
+    field_path: string;
+    value: unknown;
+    observed_at: Date;
+  }>(
     `SELECT entity_id, field_path, value, observed_at FROM entity_profile
      WHERE tenant_id = $1 AND entity_id = ANY($2::uuid[])`,
     [tx.tenantId, [...entityIds]],
   );
   for (const row of rows) {
-    const fields = result.get(row.entity_id) ?? new Map<string, { value: unknown; observedAt: Date }>();
+    const fields =
+      result.get(row.entity_id) ?? new Map<string, { value: unknown; observedAt: Date }>();
     fields.set(row.field_path, { value: row.value, observedAt: row.observed_at });
     result.set(row.entity_id, fields);
   }
@@ -344,10 +374,18 @@ export async function getCustomerFile(
   const catalogue = await listChecks(tx);
   const kind = kindOf(entity.entityType, profile);
   const isFreelancer = entity.entityType === 'FREELANCER';
-  const offered =
-    isFreelancer ? checksFor(catalogue, 'FREELANCER') : entity.entityType === 'BUSINESS' ? checksFor(catalogue, kind ?? 'BUSINESS') : [];
+  const offered = isFreelancer
+    ? checksFor(catalogue, 'FREELANCER')
+    : entity.entityType === 'BUSINESS'
+      ? checksFor(catalogue, kind ?? 'BUSINESS')
+      : [];
 
-  const { rows: runRows } = await tx.query<{ product_code: string; status: string; reference: string | null; created_at: Date }>(
+  const { rows: runRows } = await tx.query<{
+    product_code: string;
+    status: string;
+    reference: string | null;
+    created_at: Date;
+  }>(
     `SELECT DISTINCT ON (product_code) product_code, status, reference, created_at
      FROM verification_runs
      WHERE tenant_id = $1 AND entity_id = $2
@@ -355,7 +393,15 @@ export async function getCustomerFile(
     [tx.tenantId, entityId],
   );
   const lastRuns = new Map(
-    runRows.map((row) => [row.product_code, { productCode: row.product_code, status: row.status, reference: row.reference, at: row.created_at }]),
+    runRows.map((row) => [
+      row.product_code,
+      {
+        productCode: row.product_code,
+        status: row.status,
+        reference: row.reference,
+        at: row.created_at,
+      },
+    ]),
   );
 
   const { rows: changeRows } = await tx.query<{ field_path: string }>(
@@ -381,12 +427,18 @@ export async function getCustomerFile(
 
   const sectionsPresent = new Set<ProfileSection>([
     ...offered.map((check) => check.section),
-    ...fields.map((field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)]).filter((section): section is ProfileSection => section !== null),
+    ...fields
+      .map((field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)])
+      .filter((section): section is ProfileSection => section !== null),
   ]);
 
-  const sections: FileSection[] = SECTION_ORDER.filter((section) => sectionsPresent.has(section)).map((section) => {
+  const sections: FileSection[] = SECTION_ORDER.filter((section) =>
+    sectionsPresent.has(section),
+  ).map((section) => {
     const sectionChecks = offered.filter((check) => check.section === section);
-    const sectionFields = fields.filter((field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)] === section);
+    const sectionFields = fields.filter(
+      (field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)] === section,
+    );
     const lastRun =
       sectionChecks
         .map((check) => lastRuns.get(check.productCode))
@@ -404,17 +456,30 @@ export async function getCustomerFile(
 
   // The people and accounts around this customer, and the other customers they lead to.
   const relations = await relationsOf(tx, entityId);
-  const managerIds = relations.filter((row) => row.rel_type === 'MANAGES' && row.direction === 'out').map((row) => row.other);
+  const managerIds = relations
+    .filter((row) => row.rel_type === 'MANAGES' && row.direction === 'out')
+    .map((row) => row.other);
   const partnerRows = relations.filter((row) => row.rel_type === 'OWNS' && row.direction === 'out');
-  const accountIds = relations.filter((row) => row.rel_type === 'HOLDS_ACCOUNT' && row.direction === 'out').map((row) => row.other);
+  const accountIds = relations
+    .filter((row) => row.rel_type === 'HOLDS_ACCOUNT' && row.direction === 'out')
+    .map((row) => row.other);
 
-  const related = await profilesOf(tx, [...new Set([...managerIds, ...partnerRows.map((row) => row.other), ...accountIds])]);
+  const related = await profilesOf(tx, [
+    ...new Set([...managerIds, ...partnerRows.map((row) => row.other), ...accountIds]),
+  ]);
   const sharedManagers = await coLinked(tx, 'MANAGES', managerIds, entityId);
-  const sharedPartners = await coLinked(tx, 'OWNS', partnerRows.map((row) => row.other), entityId);
+  const sharedPartners = await coLinked(
+    tx,
+    'OWNS',
+    partnerRows.map((row) => row.other),
+    entityId,
+  );
   const sharedAccounts = await coLinked(tx, 'HOLDS_ACCOUNT', accountIds, entityId);
 
   const managers: ManagerView[] = [];
-  for (const row of relations.filter((relation) => relation.rel_type === 'MANAGES' && relation.direction === 'out')) {
+  for (const row of relations.filter(
+    (relation) => relation.rel_type === 'MANAGES' && relation.direction === 'out',
+  )) {
     const facts = related.get(row.other) ?? new Map<string, { value: unknown; observedAt: Date }>();
     const permissions = facts.get(`manager.permissions.${entityId}`);
     managers.push({
@@ -425,8 +490,13 @@ export async function getCustomerFile(
       positions: asStrings(facts.get(`manager.positions.${entityId}`)?.value),
       permissions: permissions ? asPermissions(permissions.value) : null,
       permissionsCheckedAt: permissions?.observedAt ?? null,
-      observedAt: facts.get(`manager.positions.${entityId}`)?.observedAt ?? facts.get('person.name')?.observedAt ?? null,
-      alsoManages: (sharedManagers.get(row.other) ?? []).filter((entry) => entry.entityType === 'BUSINESS'),
+      observedAt:
+        facts.get(`manager.positions.${entityId}`)?.observedAt ??
+        facts.get('person.name')?.observedAt ??
+        null,
+      alsoManages: (sharedManagers.get(row.other) ?? []).filter(
+        (entry) => entry.entityType === 'BUSINESS',
+      ),
       isCustomer: row.entity_type === 'FREELANCER',
     });
   }
@@ -439,7 +509,12 @@ export async function getCustomerFile(
       entityId: row.other,
       name: row.name,
       kind: isBusiness ? 'BUSINESS' : 'PERSON',
-      maskedId: await maskedPrimary(tx, keys, row.other, isBusiness ? ['CR', 'UNN'] : ['NATIONAL_ID', 'IQAMA']),
+      maskedId: await maskedPrimary(
+        tx,
+        keys,
+        row.other,
+        isBusiness ? ['CR', 'UNN'] : ['NATIONAL_ID', 'IQAMA'],
+      ),
       roles: asStrings(facts.get(`partner.roles.${entityId}`)?.value),
       shares: numberOrNull(facts.get(`partner.shares.${entityId}`)?.value),
       profitPct: numberOrNull(facts.get(`partner.profit_pct.${entityId}`)?.value),
@@ -520,7 +595,11 @@ export async function getCustomerFile(
       kind: 'SHARED_ADDRESS',
       textAr: `العنوان الوطني نفسه مسجل باسم ${otherBusinesses(addressRows.length)} من عملائك`,
       via: null,
-      entities: addressRows.map((row) => ({ entityId: row.entity_id, name: row.name, entityType: row.entity_type })),
+      entities: addressRows.map((row) => ({
+        entityId: row.entity_id,
+        name: row.name,
+        entityType: row.entity_type,
+      })),
     });
   }
   // A person's own file: the companies they act for, from those companies' records.
@@ -530,7 +609,11 @@ export async function getCustomerFile(
       kind: 'MANAGES',
       textAr: `مدير في ${businesses(managesIn.length)} من عملائك`,
       via: null,
-      entities: managesIn.map((row) => ({ entityId: row.other, name: row.name, entityType: row.entity_type })),
+      entities: managesIn.map((row) => ({
+        entityId: row.other,
+        name: row.name,
+        entityType: row.entity_type,
+      })),
     });
   }
   const ownsIn = relations.filter((row) => row.rel_type === 'OWNS' && row.direction === 'in');
@@ -539,12 +622,19 @@ export async function getCustomerFile(
       kind: 'PARTNER_IN',
       textAr: `شريك في ${businesses(ownsIn.length)} من عملائك`,
       via: null,
-      entities: ownsIn.map((row) => ({ entityId: row.other, name: row.name, entityType: row.entity_type })),
+      entities: ownsIn.map((row) => ({
+        entityId: row.other,
+        name: row.name,
+        entityType: row.entity_type,
+      })),
     });
   }
 
   const facts = new Map<string, FactView>(
-    profile.map((field) => [field.fieldPath, { value: field.value, freshness: field.freshness, observedAt: field.observedAt }]),
+    profile.map((field) => [
+      field.fieldPath,
+      { value: field.value, freshness: field.freshness, observedAt: field.observedAt },
+    ]),
   );
   const assessment = assessCustomer({
     kind,
@@ -566,12 +656,25 @@ export async function getCustomerFile(
   const certificate = facts.get('freelance.certificate_status');
   const status = isFreelancer
     ? {
-        textAr: certificate ? (valueLabelAr('freelance.certificate_status', certificate.value) ?? String(certificate.value)) : null,
-        tone: certificate === undefined ? ('neutral' as const) : certificate.value === 'ACTIVE' ? ('fresh' as const) : ('critical' as const),
+        textAr: certificate
+          ? (valueLabelAr('freelance.certificate_status', certificate.value) ??
+            String(certificate.value))
+          : null,
+        tone:
+          certificate === undefined
+            ? ('neutral' as const)
+            : certificate.value === 'ACTIVE'
+              ? ('fresh' as const)
+              : ('critical' as const),
       }
     : {
         textAr: typeof statusText === 'string' ? statusText : null,
-        tone: statusCode === undefined ? ('neutral' as const) : statusCode === 1 ? ('fresh' as const) : ('critical' as const),
+        tone:
+          statusCode === undefined
+            ? ('neutral' as const)
+            : statusCode === 1
+              ? ('fresh' as const)
+              : ('critical' as const),
       };
 
   const lastVerifiedAt = profile.reduce<Date | null>(
@@ -581,7 +684,10 @@ export async function getCustomerFile(
   const nextReviewAt = profile
     .filter((field) => field.effectiveUntil !== null && field.freshness !== 'permanent')
     .reduce<Date | null>(
-      (soonest, field) => (field.effectiveUntil !== null && (soonest === null || field.effectiveUntil < soonest) ? field.effectiveUntil : soonest),
+      (soonest, field) =>
+        field.effectiveUntil !== null && (soonest === null || field.effectiveUntil < soonest)
+          ? field.effectiveUntil
+          : soonest,
       null,
     );
 
@@ -590,8 +696,18 @@ export async function getCustomerFile(
     entityType: entity.entityType,
     displayName: entity.displayName,
     kind,
-    kindLabelAr: kind ? KIND_LABELS[kind] : entity.entityType === 'BUSINESS' ? 'منشأة' : entity.entityType === 'PERSON' ? 'شخص' : 'حساب',
-    identifiers: identifiers.map((identifier) => ({ idType: identifier.idType, masked: identifier.masked, isPrimary: identifier.isPrimary })),
+    kindLabelAr: kind
+      ? KIND_LABELS[kind]
+      : entity.entityType === 'BUSINESS'
+        ? 'منشأة'
+        : entity.entityType === 'PERSON'
+          ? 'شخص'
+          : 'حساب',
+    identifiers: identifiers.map((identifier) => ({
+      idType: identifier.idType,
+      masked: identifier.masked,
+      isPrimary: identifier.isPrimary,
+    })),
     status,
     sections,
     managers,
@@ -601,7 +717,10 @@ export async function getCustomerFile(
     intersections,
     lastVerifiedAt,
     nextReviewAt,
-    completeness: assessment.applicable === 0 ? 0 : Math.round((assessment.passed / assessment.applicable) * 100),
+    completeness:
+      assessment.applicable === 0
+        ? 0
+        : Math.round((assessment.passed / assessment.applicable) * 100),
     openChanges: changedPaths.size,
     checks: offered,
   };

@@ -63,7 +63,10 @@ export default async function CustomersPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <PageHeader title="السجلات المرتبطة" subtitle={`${view.labelAr} التي ظهرت داخل ملفات عملائك. اضغط أي صف لفتح ملفه.`} />
+      <PageHeader
+        title="السجلات المرتبطة"
+        subtitle={`${view.labelAr} التي ظهرت داخل ملفات عملائك. اضغط أي صف لفتح ملفه.`}
+      />
       <nav className="muted" aria-label="مسار الصفحة">
         <a href="/customers">العملاء</a> / السجلات المرتبطة
       </nav>

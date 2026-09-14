@@ -142,9 +142,7 @@ export class Scheduler {
   async #runOnce(job: JobDefinition, tenantId: string): Promise<JobRun> {
     try {
       const runner =
-        job.role === 'retention'
-          ? this.#options.runInTenantAsRetention
-          : this.#options.runInTenant;
+        job.role === 'retention' ? this.#options.runInTenantAsRetention : this.#options.runInTenant;
       if (!runner) {
         throw new Error(
           `job ${job.name} needs the retention role and no retention connection is configured`,

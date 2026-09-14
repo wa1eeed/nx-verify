@@ -260,7 +260,10 @@ export class HttpSecretStore implements SecretStore {
   readonly #token: string;
   readonly #fetch: SecretFetcher;
   readonly #cacheMs: number;
-  readonly #cache = new Map<string, { material: Readonly<Record<string, string>>; expiresAt: number }>();
+  readonly #cache = new Map<
+    string,
+    { material: Readonly<Record<string, string>>; expiresAt: number }
+  >();
   readonly #now: () => number;
 
   constructor(options: {
@@ -275,8 +278,7 @@ export class HttpSecretStore implements SecretStore {
     this.#cacheMs = (options.cacheSeconds ?? 60) * 1000;
     this.#now = options.now ?? Date.now;
     this.#fetch =
-      options.fetcher ??
-      ((url, init) => fetch(url, init) as unknown as ReturnType<SecretFetcher>);
+      options.fetcher ?? ((url, init) => fetch(url, init) as unknown as ReturnType<SecretFetcher>);
   }
 
   static fromEnv(env: Readonly<Record<string, string | undefined>> = process.env): HttpSecretStore {

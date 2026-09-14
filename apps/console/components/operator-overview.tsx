@@ -90,7 +90,11 @@ export function OperatorOverview({ view }: { view: OperatorOverviewView }): Reac
         </article>
       </section>
 
-      <Panel title="يحتاج متابعة" aside={attention === 0 ? 'لا شيء' : `${attention}`} role="attention">
+      <Panel
+        title="يحتاج متابعة"
+        aside={attention === 0 ? 'لا شيء' : `${attention}`}
+        role="attention"
+      >
         {attention === 0 ? (
           <div className="panel-body">
             <EmptyState>لا اشتراك ينتهي قريباً، ولا رصيد منخفض، ولا حوالة تنتظر.</EmptyState>
@@ -116,7 +120,8 @@ export function OperatorOverview({ view }: { view: OperatorOverviewView }): Reac
             ))}
             {view.renewalsDue.map((row) => (
               <li key={`renewal-${row.tenantId}`} data-kind="renewal">
-                <SubscriberLink row={row} /> <span className="muted">{termPhrase(row.daysLeft ?? 0)}</span>
+                <SubscriberLink row={row} />{' '}
+                <span className="muted">{termPhrase(row.daysLeft ?? 0)}</span>
               </li>
             ))}
             {view.lowBalance.map((row) => (

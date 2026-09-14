@@ -43,10 +43,7 @@ export async function isSandbox(tx: TenantTransaction): Promise<boolean> {
  * Used by provisioning and by the operator panel. A subscriber never needs this: they are
  * in one workspace or the other, and the key they used decided which.
  */
-export async function findSandboxOf(
-  operator: Queryable,
-  tenantId: string,
-): Promise<string | null> {
+export async function findSandboxOf(operator: Queryable, tenantId: string): Promise<string | null> {
   const { rows } = await operator.query<{ id: string }>(
     `SELECT id FROM tenants WHERE sandbox_of = $1`,
     [tenantId],

@@ -73,7 +73,9 @@ export function Dashboard({ view }: { view: DashboardView }): ReactElement {
       />
 
       {quiet ? (
-        <EmptyState>لا شيء يحتاج قراراً الآن. لا مراجعات مفتوحة، ولا تغيّرات، ولا بيانات منتهية.</EmptyState>
+        <EmptyState>
+          لا شيء يحتاج قراراً الآن. لا مراجعات مفتوحة، ولا تغيّرات، ولا بيانات منتهية.
+        </EmptyState>
       ) : null}
 
       <section className="grid" data-role="tiles">

@@ -235,7 +235,8 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     // Named rather than folded into the unit price, so the buyer can see what the
     // platform costs and what a verification costs and argue with each separately.
     platformFeeHalalas: 12_000_00,
-    descriptionAr: 'كل ما في الأساسية، مع ملكية الآيبان وتأكيد الحساب البنكي ومطابقة الاسم والمراقبة المستمرة.',
+    descriptionAr:
+      'كل ما في الأساسية، مع ملكية الآيبان وتأكيد الحساب البنكي ومطابقة الاسم والمراقبة المستمرة.',
     termMonths: 12,
     commitmentCreditsHalalas: 54_000_00,
     setupFeeHalalas: 3_000_00,
@@ -287,7 +288,8 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     nameEn: 'Enterprise',
     billingModel: 'ANNUAL',
     includedTransactions: null,
-    descriptionAr: 'كل وحدات التحقق بلا حدود عدّ، بما فيها إثبات الدخل، بالتزام أربعة وعشرين شهراً بلا رسم تأسيس ودعم مخصّص.',
+    descriptionAr:
+      'كل وحدات التحقق بلا حدود عدّ، بما فيها إثبات الدخل، بالتزام أربعة وعشرين شهراً بلا رسم تأسيس ودعم مخصّص.',
     termMonths: 24,
     commitmentCreditsHalalas: 240_000_00,
     setupFeeHalalas: 0,

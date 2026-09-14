@@ -83,7 +83,9 @@ export class KmsMasterKeySource implements MasterKeySource {
    * The ciphertexts are safe to put in configuration, which is the whole point of the
    * envelope: they are useless to anyone who cannot call the service.
    */
-  static fromEnv(env: Readonly<Record<string, string | undefined>> = process.env): KmsMasterKeySource {
+  static fromEnv(
+    env: Readonly<Record<string, string | undefined>> = process.env,
+  ): KmsMasterKeySource {
     const endpoint = env['NX_KMS_ENDPOINT'];
     const token = env['NX_KMS_TOKEN'];
     const keys = env['NX_KMS_KEYS'];
@@ -92,7 +94,10 @@ export class KmsMasterKeySource implements MasterKeySource {
     }
 
     const ciphertexts: Record<number, string> = {};
-    for (const entry of keys.split(',').map((value) => value.trim()).filter(Boolean)) {
+    for (const entry of keys
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)) {
       const separator = entry.indexOf(':');
       if (separator === -1) {
         throw new Error('NX_KMS_KEYS entries must be <version>:<ciphertext>');

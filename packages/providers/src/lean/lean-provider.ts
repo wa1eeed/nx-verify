@@ -34,7 +34,10 @@ export interface LeanEndpointMapping {
    * input is passed too, because some answers only make sense beside the question: which
    * certificate was asked about, which of two registry numbers is the one we sent.
    */
-  map: (payload: Record<string, unknown>, input: Readonly<Record<string, unknown>>) => Record<string, unknown>;
+  map: (
+    payload: Record<string, unknown>,
+    input: Readonly<Record<string, unknown>>,
+  ) => Record<string, unknown>;
   /** Reads the upstream's own status vocabulary. */
   outcome?: (payload: Record<string, unknown>) => 'OK' | 'NOT_FOUND' | 'ERROR' | 'AWAITING';
   /**
@@ -221,7 +224,8 @@ export class LeanProvider implements VerificationProvider {
     this.endpoints = Object.keys(this.#mappings);
     this.#fetch = options.fetch ?? ((url, init) => fetch(url, init));
     this.#timeoutMs = options.timeoutMs ?? 20_000;
-    this.#tokens = options.tokens ?? new TokenCache({ ...(options.fetch ? { fetch: options.fetch } : {}) });
+    this.#tokens =
+      options.tokens ?? new TokenCache({ ...(options.fetch ? { fetch: options.fetch } : {}) });
   }
 
   async execute(request: ProviderRequest): Promise<ProviderResult> {
@@ -327,27 +331,62 @@ export class LeanProvider implements VerificationProvider {
     const latencyMs = Date.now() - started;
 
     if (response.status === 401 || response.status === 403) {
-      return { outcome: 'ERROR', authority: null, data: null, latencyMs, errorCode: 'AUTH', retryable: false };
+      return {
+        outcome: 'ERROR',
+        authority: null,
+        data: null,
+        latencyMs,
+        errorCode: 'AUTH',
+        retryable: false,
+      };
     }
     if (response.status === 429) {
-      return { outcome: 'ERROR', authority: null, data: null, latencyMs, errorCode: 'RATE_LIMIT', retryable: true };
+      return {
+        outcome: 'ERROR',
+        authority: null,
+        data: null,
+        latencyMs,
+        errorCode: 'RATE_LIMIT',
+        retryable: true,
+      };
     }
     if (response.status === 404) {
       return { outcome: 'NOT_FOUND', authority: mapping.authority, data: null, latencyMs };
     }
     if (response.status >= 500) {
-      return { outcome: 'ERROR', authority: null, data: null, latencyMs, errorCode: 'UPSTREAM', retryable: true };
+      return {
+        outcome: 'ERROR',
+        authority: null,
+        data: null,
+        latencyMs,
+        errorCode: 'UPSTREAM',
+        retryable: true,
+      };
     }
 
     let payload: Record<string, unknown>;
     try {
       payload = asRecord(await response.json());
     } catch {
-      return { outcome: 'ERROR', authority: null, data: null, latencyMs, errorCode: 'MALFORMED', retryable: false };
+      return {
+        outcome: 'ERROR',
+        authority: null,
+        data: null,
+        latencyMs,
+        errorCode: 'MALFORMED',
+        retryable: false,
+      };
     }
 
     if (response.status >= 400) {
-      return { outcome: 'ERROR', authority: null, data: null, latencyMs, errorCode: 'UPSTREAM', retryable: false };
+      return {
+        outcome: 'ERROR',
+        authority: null,
+        data: null,
+        latencyMs,
+        errorCode: 'UPSTREAM',
+        retryable: false,
+      };
     }
 
     const outcome = mapping.outcome?.(payload) ?? 'OK';
@@ -379,7 +418,12 @@ export class LeanProvider implements VerificationProvider {
       };
     }
     if (outcome !== 'OK') {
-      return { outcome, authority: mapping.authorityFor?.(payload) ?? mapping.authority, data: null, latencyMs };
+      return {
+        outcome,
+        authority: mapping.authorityFor?.(payload) ?? mapping.authority,
+        data: null,
+        latencyMs,
+      };
     }
 
     return {

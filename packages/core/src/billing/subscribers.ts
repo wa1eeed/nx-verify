@@ -145,7 +145,9 @@ export async function getSubscriberDetail(
   options: { now?: Date } = {},
 ): Promise<SubscriberDetail | null> {
   const now = options.now ?? new Date();
-  const { rows } = await operator.query<SubscriberRowData & { created_at: Date; platform_fee_halalas: number | null }>(
+  const { rows } = await operator.query<
+    SubscriberRowData & { created_at: Date; platform_fee_halalas: number | null }
+  >(
     `SELECT s.*, t.created_at, c.platform_fee_halalas
      FROM (${SUBSCRIBER_SELECT} AND t.id = $1) s
      JOIN tenants t ON t.id = s.id
@@ -280,14 +282,15 @@ export async function platformOverview(
   return {
     subscribers: subscribers.length,
     renewalsDue: subscribers
-      .filter((row) => row.daysLeft !== null && row.daysLeft >= 0 && row.daysLeft <= RENEWAL_WINDOW_DAYS)
+      .filter(
+        (row) => row.daysLeft !== null && row.daysLeft >= 0 && row.daysLeft <= RENEWAL_WINDOW_DAYS,
+      )
       .sort((left, right) => (left.daysLeft ?? 0) - (right.daysLeft ?? 0)),
     lapsed: subscribers.filter((row) => row.daysLeft !== null && row.daysLeft < 0),
     lowBalance: subscribers.filter((row) => row.lowBalance),
     nearCapacity: subscribers.filter(
       (row) =>
-        row.includedTransactions !== null &&
-        row.transactionsUsed >= row.includedTransactions * 0.8,
+        row.includedTransactions !== null && row.transactionsUsed >= row.includedTransactions * 0.8,
     ),
     pendingTopUps: Number(pending[0]?.count ?? 0),
     month: {

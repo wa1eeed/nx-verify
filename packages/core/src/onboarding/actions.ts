@@ -35,10 +35,7 @@ export interface DefineActionInput {
   seq?: number;
 }
 
-export async function defineAction(
-  tx: TenantTransaction,
-  input: DefineActionInput,
-): Promise<void> {
+export async function defineAction(tx: TenantTransaction, input: DefineActionInput): Promise<void> {
   if ((input.type === 'WEBHOOK') === (input.endpointId === undefined)) {
     throw new NxError('NX-4001', {
       detail: 'a webhook action names an endpoint and a notify action names a channel',

@@ -12,7 +12,13 @@ import {
 } from '../../../test/helpers/db';
 import { FakeIdp } from '../../../test/helpers/idp';
 import { SignIn } from '../components/sign-in';
-import { SIGN_IN_FAILED, finishSso, sessionCookie, signInWithPassword, startSso } from '../lib/auth';
+import {
+  SIGN_IN_FAILED,
+  finishSso,
+  sessionCookie,
+  signInWithPassword,
+  startSso,
+} from '../lib/auth';
 import { closePool } from '../lib/context';
 
 /**

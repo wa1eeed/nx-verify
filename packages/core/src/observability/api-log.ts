@@ -111,10 +111,7 @@ export async function listApiRequests(
  * Kept separate from the retention policy for attestations, which answers a legal question
  * rather than an operational one.
  */
-export async function pruneApiRequests(
-  tx: TenantTransaction,
-  olderThanDays = 30,
-): Promise<number> {
+export async function pruneApiRequests(tx: TenantTransaction, olderThanDays = 30): Promise<number> {
   const { rowCount } = await tx.query(
     `DELETE FROM api_requests
      WHERE tenant_id = $1 AND created_at < now() - make_interval(days => $2)`,

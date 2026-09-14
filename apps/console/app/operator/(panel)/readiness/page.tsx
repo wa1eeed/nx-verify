@@ -23,7 +23,8 @@ function definedMigrations(): number {
   // Resolved from the working directory rather than from import.meta.url, because the
   // bundler tries to resolve a URL built from the latter at build time and cannot resolve
   // a directory. This path is computed at request time and it leaves it alone.
-  const dir = process.env['NX_MIGRATIONS_DIR'] ?? resolve(process.cwd(), '../../packages/db/migrations');
+  const dir =
+    process.env['NX_MIGRATIONS_DIR'] ?? resolve(process.cwd(), '../../packages/db/migrations');
   try {
     return readdirSync(dir).filter((file) => file.endsWith('.up.sql')).length;
   } catch {
@@ -52,7 +53,11 @@ export default async function OperatorReadinessPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={INTEGRATION_TABS} current="/operator/readiness" label="أقسام الربط التقني" />
+      <SectionTabs
+        tabs={INTEGRATION_TABS}
+        current="/operator/readiness"
+        label="أقسام الربط التقني"
+      />
       <div className="stack" style={{ gap: 'var(--s-5)' }}>
         <PageHeader
           title="جاهزية النشر"

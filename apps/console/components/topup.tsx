@@ -72,7 +72,12 @@ export function TopUpPanel({
           }}
         >
           <span className="stat-label">الرقم المرجعي للحوالة</span>
-          <strong className="mono" dir="ltr" style={{ fontSize: '24px' }} data-role="topup-reference">
+          <strong
+            className="mono"
+            dir="ltr"
+            style={{ fontSize: '24px' }}
+            data-role="topup-reference"
+          >
             {issued.reference}
           </strong>
           <span>

@@ -36,7 +36,11 @@ describe('customer file checks', () => {
   const keys = testKeys();
   const fixture = providerFixture();
 
-  const run = (productCode: string, subject: Record<string, unknown>, identifiers: { idType: string; value: string }[]) =>
+  const run = (
+    productCode: string,
+    subject: Record<string, unknown>,
+    identifiers: { idType: string; value: string }[],
+  ) =>
     withTenant(db.appPool, tenant.tenantId, (tx) =>
       verify(tx, {
         productCode,
@@ -63,41 +67,55 @@ describe('customer file checks', () => {
   });
 
   it('fills the basic section from the registry, with the classification and the name', async () => {
-    const result = await run('CR_FULL', { unn: SANDBOX_UNN.ACTIVE }, [{ idType: 'UNN', value: SANDBOX_UNN.ACTIVE }]);
+    const result = await run('CR_FULL', { unn: SANDBOX_UNN.ACTIVE }, [
+      { idType: 'UNN', value: SANDBOX_UNN.ACTIVE },
+    ]);
     expect(result.status).toBe('OK');
     companyId = result.entityId ?? '';
 
-    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) => getEntityProfile(tx, companyId));
+    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getEntityProfile(tx, companyId),
+    );
     const value = (path: string) => profile.find((field) => field.fieldPath === path)?.value;
     expect(value('cr.core.name')).toBe('شركة اختبار للتجارة');
     expect(value('cr.kind')).toBe('COMPANY');
     expect(value('cr.status')).toBe('فعال');
-    expect(profile.find((field) => field.fieldPath === 'cr.status')?.authority).toBe('وزارة التجارة');
+    expect(profile.find((field) => field.fieldPath === 'cr.status')?.authority).toBe(
+      'وزارة التجارة',
+    );
 
     // The list shows the name the registry gave, kept current by the answer that gave it.
     const { rows } = await withTenant(db.appPool, tenant.tenantId, (tx) =>
-      tx.query<{ display_name: string }>(`SELECT display_name FROM entities WHERE tenant_id = $1 AND id = $2`, [
-        tx.tenantId,
-        companyId,
-      ]),
+      tx.query<{ display_name: string }>(
+        `SELECT display_name FROM entities WHERE tenant_id = $1 AND id = $2`,
+        [tx.tenantId, companyId],
+      ),
     );
     expect(rows[0]?.display_name).toBe('شركة اختبار للتجارة');
   });
 
   it('attaches the registration number as an identifier, never as a value', async () => {
-    const identifiers = await withTenant(db.appPool, tenant.tenantId, (tx) => listIdentifiers(tx, keys, companyId));
+    const identifiers = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listIdentifiers(tx, keys, companyId),
+    );
     expect(identifiers.map((identifier) => identifier.idType).sort()).toEqual(['CR', 'UNN']);
-    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) => getEntityProfile(tx, companyId));
+    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getEntityProfile(tx, companyId),
+    );
     expect(JSON.stringify(profile)).not.toContain('1010711252');
   });
 
   it('makes each manager a person linked to the company, with positions held there', async () => {
-    const relations = await withTenant(db.appPool, tenant.tenantId, (tx) => getRelations(tx, companyId));
+    const relations = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getRelations(tx, companyId),
+    );
     const manages = relations.filter((relation) => relation.relType === 'MANAGES');
     expect(manages.length).toBeGreaterThan(0);
 
     const personId = manages[0]?.toEntity ?? '';
-    const person = await withTenant(db.appPool, tenant.tenantId, (tx) => getEntityProfile(tx, personId));
+    const person = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getEntityProfile(tx, personId),
+    );
     const paths = person.map((field) => field.fieldPath);
     expect(paths).toContain('person.name');
     // True of this person in this company only, so the path carries the company.
@@ -105,19 +123,25 @@ describe('customer file checks', () => {
   });
 
   it('links two companies through the manager they share', async () => {
-    const result = await run('CR_FULL', { unn: SANDBOX_UNN.SUSPENDED }, [{ idType: 'UNN', value: SANDBOX_UNN.SUSPENDED }]);
+    const result = await run('CR_FULL', { unn: SANDBOX_UNN.SUSPENDED }, [
+      { idType: 'UNN', value: SANDBOX_UNN.SUSPENDED },
+    ]);
     suspendedId = result.entityId ?? '';
     expect(suspendedId).not.toBe(companyId);
 
-    const first = await withTenant(db.appPool, tenant.tenantId, (tx) => getRelations(tx, companyId));
-    const second = await withTenant(db.appPool, tenant.tenantId, (tx) => getRelations(tx, suspendedId));
+    const first = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getRelations(tx, companyId),
+    );
+    const second = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getRelations(tx, suspendedId),
+    );
     const people = (edges: typeof first) =>
       new Set(edges.filter((edge) => edge.relType === 'MANAGES').map((edge) => edge.toEntity));
     const shared = [...people(first)].filter((id) => people(second).has(id));
     expect(shared.length).toBeGreaterThan(0);
   });
 
-  it('records a manager\'s powers in that company from the manager check', async () => {
+  it("records a manager's powers in that company from the manager check", async () => {
     const result = await run(
       'MANAGER_AUTHORITY',
       { unn: SANDBOX_UNN.ACTIVE, manager_id: SANDBOX_MANAGER_ID },
@@ -126,12 +150,20 @@ describe('customer file checks', () => {
     expect(result.status).toBe('OK');
     expect(result.entityId).toBe(companyId);
 
-    const relations = await withTenant(db.appPool, tenant.tenantId, (tx) => getRelations(tx, companyId));
-    const personIds = relations.filter((relation) => relation.relType === 'MANAGES').map((relation) => relation.toEntity);
+    const relations = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getRelations(tx, companyId),
+    );
+    const personIds = relations
+      .filter((relation) => relation.relType === 'MANAGES')
+      .map((relation) => relation.toEntity);
     let found = false;
     for (const personId of personIds) {
-      const profile = await withTenant(db.appPool, tenant.tenantId, (tx) => getEntityProfile(tx, personId));
-      const powers = profile.find((field) => field.fieldPath === `manager.permissions.${companyId}`);
+      const profile = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+        getEntityProfile(tx, personId),
+      );
+      const powers = profile.find(
+        (field) => field.fieldPath === `manager.permissions.${companyId}`,
+      );
       if (powers) {
         found = true;
         expect(Array.isArray(powers.value)).toBe(true);
@@ -141,12 +173,18 @@ describe('customer file checks', () => {
   });
 
   it('fills the address section and keys it for comparison', async () => {
-    await run('NATIONAL_ADDRESS', { unn: SANDBOX_UNN.ACTIVE }, [{ idType: 'UNN', value: SANDBOX_UNN.ACTIVE }]);
-    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) => getEntityProfile(tx, companyId));
+    await run('NATIONAL_ADDRESS', { unn: SANDBOX_UNN.ACTIVE }, [
+      { idType: 'UNN', value: SANDBOX_UNN.ACTIVE },
+    ]);
+    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getEntityProfile(tx, companyId),
+    );
     const paths = profile.map((field) => field.fieldPath);
     expect(paths).toContain('address.national.city');
     expect(paths).toContain('address.national.key');
-    expect(profile.find((field) => field.fieldPath === 'address.national.city')?.authority).toBe('العنوان الوطني');
+    expect(profile.find((field) => field.fieldPath === 'address.national.city')?.authority).toBe(
+      'العنوان الوطني',
+    );
   });
 
   it('answers not found for the articles of a sole establishment', async () => {
@@ -165,29 +203,40 @@ describe('customer file checks', () => {
     );
     expect(result.status).toBe('OK');
 
-    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) => getEntityProfile(tx, companyId));
+    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getEntityProfile(tx, companyId),
+    );
     expect(profile.find((field) => field.fieldPath === 'bank.iban_ownership')?.value).toBe('MATCH');
 
-    const relations = await withTenant(db.appPool, tenant.tenantId, (tx) => getRelations(tx, companyId));
+    const relations = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getRelations(tx, companyId),
+    );
     const account = relations.find((relation) => relation.relType === 'HOLDS_ACCOUNT');
     expect(account).toBeDefined();
     const accountProfile = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       getEntityProfile(tx, account?.toEntity ?? ''),
     );
-    expect(accountProfile.map((field) => field.fieldPath)).toContain(`account.ownership.${companyId}`);
+    expect(accountProfile.map((field) => field.fieldPath)).toContain(
+      `account.ownership.${companyId}`,
+    );
   });
 
   it('makes a freelancer a customer, current until the certificate expires', async () => {
     const result = await run(
       'FREELANCE_CERTIFICATE',
-      { national_id: SANDBOX_FREELANCER.NATIONAL_ID, certificate_number: SANDBOX_FREELANCER.ACTIVE },
+      {
+        national_id: SANDBOX_FREELANCER.NATIONAL_ID,
+        certificate_number: SANDBOX_FREELANCER.ACTIVE,
+      },
       [
         { idType: 'NATIONAL_ID', value: SANDBOX_FREELANCER.NATIONAL_ID },
         { idType: 'FREELANCE_DOC', value: SANDBOX_FREELANCER.ACTIVE },
       ],
     );
     expect(result.status).toBe('OK');
-    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) => getEntityProfile(tx, result.entityId ?? ''));
+    const profile = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getEntityProfile(tx, result.entityId ?? ''),
+    );
     const status = profile.find((field) => field.fieldPath === 'freelance.certificate_status');
     expect(status?.value).toBe('ACTIVE');
     // The authority's own expiry, not an estimate from a policy.
@@ -203,8 +252,15 @@ describe('customer file checks', () => {
   });
 
   it('stores no identifier in clear anywhere', async () => {
-    for (const value of [SANDBOX_MANAGER_ID, '1010711252', SANDBOX_IBAN.MATCH, SANDBOX_FREELANCER.NATIONAL_ID]) {
-      const hits = await withTenant(db.migratorPool, tenant.tenantId, (tx) => scanForPlaintext(tx, value));
+    for (const value of [
+      SANDBOX_MANAGER_ID,
+      '1010711252',
+      SANDBOX_IBAN.MATCH,
+      SANDBOX_FREELANCER.NATIONAL_ID,
+    ]) {
+      const hits = await withTenant(db.migratorPool, tenant.tenantId, (tx) =>
+        scanForPlaintext(tx, value),
+      );
       expect(hits, value).toEqual([]);
     }
   });

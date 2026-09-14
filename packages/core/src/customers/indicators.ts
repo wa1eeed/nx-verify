@@ -118,12 +118,24 @@ function businessItems(input: AssessmentInput): Indicator[] {
       key: 'articles',
       labelAr: 'عقد التأسيس موثّق',
       state: input.kind === 'ESTABLISHMENT' ? 'NA' : contract ? 'PASS' : 'UNKNOWN',
-      detailAr: input.kind === 'ESTABLISHMENT' ? 'لا ينطبق على المؤسسة الفردية.' : contract ? null : 'لم يُتحقق من عقد التأسيس بعد.',
+      detailAr:
+        input.kind === 'ESTABLISHMENT'
+          ? 'لا ينطبق على المؤسسة الفردية.'
+          : contract
+            ? null
+            : 'لم يُتحقق من عقد التأسيس بعد.',
     },
     {
       key: 'managers_authority',
       labelAr: 'صلاحيات المدراء مثبتة',
-      state: knownManagers === 0 ? 'UNKNOWN' : managersChecked === knownManagers ? 'PASS' : managersChecked > 0 ? 'WARN' : 'UNKNOWN',
+      state:
+        knownManagers === 0
+          ? 'UNKNOWN'
+          : managersChecked === knownManagers
+            ? 'PASS'
+            : managersChecked > 0
+              ? 'WARN'
+              : 'UNKNOWN',
       detailAr:
         knownManagers === 0
           ? 'لا يُعرف المدراء بعد.'
@@ -135,7 +147,12 @@ function businessItems(input: AssessmentInput): Indicator[] {
       key: 'national_address',
       labelAr: 'العنوان الوطني موثّق',
       state: address === undefined ? 'UNKNOWN' : address.freshness === 'expired' ? 'WARN' : 'PASS',
-      detailAr: address === undefined ? 'لم يُتحقق من العنوان بعد.' : address.freshness === 'expired' ? 'تجاوز مدة صلاحيته.' : null,
+      detailAr:
+        address === undefined
+          ? 'لم يُتحقق من العنوان بعد.'
+          : address.freshness === 'expired'
+            ? 'تجاوز مدة صلاحيته.'
+            : null,
     },
     bankItem(ownership, fact(input, 'bank.account_status')),
   ];
@@ -143,7 +160,12 @@ function businessItems(input: AssessmentInput): Indicator[] {
 
 function bankItem(ownership: FactView | undefined, accountStatus: FactView | undefined): Indicator {
   if (ownership === undefined) {
-    return { key: 'bank_account', labelAr: 'الحساب البنكي يعود للعميل', state: 'UNKNOWN', detailAr: 'لم يُتحقق من أي حساب بنكي بعد.' };
+    return {
+      key: 'bank_account',
+      labelAr: 'الحساب البنكي يعود للعميل',
+      state: 'UNKNOWN',
+      detailAr: 'لم يُتحقق من أي حساب بنكي بعد.',
+    };
   }
   if (ownership.value === 'MATCH') {
     const active = accountStatus === undefined || accountStatus.value === 'ACTIVE';
@@ -158,7 +180,10 @@ function bankItem(ownership: FactView | undefined, accountStatus: FactView | und
     key: 'bank_account',
     labelAr: 'الحساب البنكي يعود للعميل',
     state: ownership.value === 'PARTIAL' ? 'WARN' : 'FAIL',
-    detailAr: ownership.value === 'PARTIAL' ? 'تطابق جزئي بين الاسم واسم صاحب الحساب.' : 'الحساب مسجل باسم آخر.',
+    detailAr:
+      ownership.value === 'PARTIAL'
+        ? 'تطابق جزئي بين الاسم واسم صاحب الحساب.'
+        : 'الحساب مسجل باسم آخر.',
   };
 }
 
@@ -170,12 +195,24 @@ function freelancerItems(input: AssessmentInput): Indicator[] {
       key: 'certificate_owned',
       labelAr: 'الوثيقة تعود لصاحب الهوية',
       state: ownership === undefined ? 'UNKNOWN' : ownership.value === 'VERIFIED' ? 'PASS' : 'FAIL',
-      detailAr: ownership === undefined ? 'لم يُتحقق من الوثيقة بعد.' : ownership.value === 'VERIFIED' ? null : 'رقم الوثيقة لا يعود لهذه الهوية.',
+      detailAr:
+        ownership === undefined
+          ? 'لم يُتحقق من الوثيقة بعد.'
+          : ownership.value === 'VERIFIED'
+            ? null
+            : 'رقم الوثيقة لا يعود لهذه الهوية.',
     },
     {
       key: 'certificate_active',
       labelAr: 'وثيقة العمل الحر سارية',
-      state: status === undefined ? 'UNKNOWN' : status.value === 'ACTIVE' ? (status.freshness === 'expired' ? 'FAIL' : 'PASS') : 'FAIL',
+      state:
+        status === undefined
+          ? 'UNKNOWN'
+          : status.value === 'ACTIVE'
+            ? status.freshness === 'expired'
+              ? 'FAIL'
+              : 'PASS'
+            : 'FAIL',
       detailAr:
         status === undefined
           ? null
@@ -193,16 +230,28 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
   const signals: RiskSignal[] = [];
   const status = fact(input, 'cr.status_code');
   if (status !== undefined && status.value !== 1) {
-    signals.push({ key: 'registry_inactive', severity: 'HIGH', textAr: `السجل التجاري غير فعّال: ${String(fact(input, 'cr.status')?.value ?? '')}.` });
+    signals.push({
+      key: 'registry_inactive',
+      severity: 'HIGH',
+      textAr: `السجل التجاري غير فعّال: ${String(fact(input, 'cr.status')?.value ?? '')}.`,
+    });
   }
   if (fact(input, 'cr.in_liquidation')?.value === true) {
     signals.push({ key: 'liquidation', severity: 'HIGH', textAr: 'المنشأة في مرحلة التصفية.' });
   }
   const ownership = fact(input, 'bank.iban_ownership')?.value;
   if (ownership === 'NO_MATCH') {
-    signals.push({ key: 'iban_mismatch', severity: 'HIGH', textAr: 'الحساب البنكي المقدَّم مسجل باسم آخر.' });
+    signals.push({
+      key: 'iban_mismatch',
+      severity: 'HIGH',
+      textAr: 'الحساب البنكي المقدَّم مسجل باسم آخر.',
+    });
   } else if (ownership === 'PARTIAL') {
-    signals.push({ key: 'iban_partial', severity: 'MEDIUM', textAr: 'تطابق جزئي فقط بين اسم العميل واسم صاحب الحساب.' });
+    signals.push({
+      key: 'iban_partial',
+      severity: 'MEDIUM',
+      textAr: 'تطابق جزئي فقط بين اسم العميل واسم صاحب الحساب.',
+    });
   }
   const account = fact(input, 'bank.account_status')?.value;
   if (account !== undefined && account !== 'ACTIVE') {
@@ -210,17 +259,29 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
   }
   const certificate = fact(input, 'freelance.certificate_status')?.value;
   if (certificate !== undefined && certificate !== 'ACTIVE') {
-    signals.push({ key: 'certificate_inactive', severity: 'HIGH', textAr: 'وثيقة العمل الحر غير سارية.' });
+    signals.push({
+      key: 'certificate_inactive',
+      severity: 'HIGH',
+      textAr: 'وثيقة العمل الحر غير سارية.',
+    });
   }
   if (fact(input, 'freelance.ownership')?.value === 'NOT_VERIFIED') {
-    signals.push({ key: 'certificate_not_owned', severity: 'HIGH', textAr: 'وثيقة العمل الحر لا تعود لصاحب الهوية.' });
+    signals.push({
+      key: 'certificate_not_owned',
+      severity: 'HIGH',
+      textAr: 'وثيقة العمل الحر لا تعود لصاحب الهوية.',
+    });
   }
 
   const issued = fact(input, 'cr.issue_date')?.value;
   if (typeof issued === 'string') {
     const age = daysBetween(new Date(issued), input.now);
     if (age >= 0 && age < 180) {
-      signals.push({ key: 'new_business', severity: 'LOW', textAr: `منشأة حديثة التأسيس: صدر سجلها قبل ${daysCount(age)}.` });
+      signals.push({
+        key: 'new_business',
+        severity: 'LOW',
+        textAr: `منشأة حديثة التأسيس: صدر سجلها قبل ${daysCount(age)}.`,
+      });
     }
   }
 
@@ -269,7 +330,9 @@ export function assessCustomer(input: AssessmentInput): Assessment {
 
   // The anchor fact of a file: the registration for a business, the certificate for a
   // freelancer. Until it has been checked there is nothing to rate.
-  const anchor = input.isFreelancer ? fact(input, 'freelance.certificate_status') : fact(input, 'cr.status_code');
+  const anchor = input.isFreelancer
+    ? fact(input, 'freelance.certificate_status')
+    : fact(input, 'cr.status_code');
 
   const riskLevel: RiskLevel = signals.some((signal) => signal.severity === 'HIGH')
     ? 'HIGH'
@@ -285,7 +348,13 @@ export function assessCustomer(input: AssessmentInput): Assessment {
     items,
     passed,
     applicable,
-    statusAr: failed ? 'لم يجتز التحقق' : passed === applicable && applicable > 0 ? 'موثّق' : passed > 0 ? 'موثّق جزئياً' : 'غير موثّق',
+    statusAr: failed
+      ? 'لم يجتز التحقق'
+      : passed === applicable && applicable > 0
+        ? 'موثّق'
+        : passed > 0
+          ? 'موثّق جزئياً'
+          : 'غير موثّق',
     statusTone: failed ? 'critical' : passed === applicable && applicable > 0 ? 'fresh' : 'neutral',
     riskLevel,
     riskLabelAr: RISK_LABELS[riskLevel],

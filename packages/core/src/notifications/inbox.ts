@@ -12,13 +12,7 @@ import type { TenantTransaction } from '@nx-verify/db';
  * test for adding a source is whether a person would want to be interrupted for it.
  */
 
-export type InboxKind =
-  | 'change'
-  | 'review'
-  | 'overdue'
-  | 'balance'
-  | 'awaiting'
-  | 'share_opened';
+export type InboxKind = 'change' | 'review' | 'overdue' | 'balance' | 'awaiting' | 'share_opened';
 
 export interface InboxItem {
   id: string;
@@ -185,10 +179,7 @@ export async function markInboxSeen(
   ]);
 }
 
-export async function inboxSeenAt(
-  tx: TenantTransaction,
-  userId: string,
-): Promise<Date | null> {
+export async function inboxSeenAt(tx: TenantTransaction, userId: string): Promise<Date | null> {
   const { rows } = await tx.query<{ notifications_seen_at: Date | null }>(
     `SELECT notifications_seen_at FROM users WHERE tenant_id = $1 AND id = $2`,
     [tx.tenantId, userId],

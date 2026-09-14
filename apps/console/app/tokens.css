@@ -1200,7 +1200,9 @@ button.link {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--paper);
-  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+  transition:
+    border-color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
 }
 
 .check-item:has(input:checked) {
@@ -1330,7 +1332,9 @@ button.link {
   text-decoration: none;
   color: var(--ink);
   background: var(--paper);
-  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+  transition:
+    border-color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
 }
 
 .kind-option:hover {

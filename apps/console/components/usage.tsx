@@ -81,9 +81,7 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
           {view.includedTransactions === null ? (
             <span className="stat-hint">الرصيد وحده هو الحد</span>
           ) : (
-            <span className="stat-hint">
-              من {view.includedTransactions} عملية في هذه المدة
-            </span>
+            <span className="stat-hint">من {view.includedTransactions} عملية في هذه المدة</span>
           )}
         </article>
 
@@ -95,7 +93,10 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
             </bdi>
           </strong>
           <span className="stat-hint">
-            محجوز لعمليات جارية: <bdi dir="ltr" className="mono">{riyals(view.heldHalalas)}</bdi>
+            محجوز لعمليات جارية:{' '}
+            <bdi dir="ltr" className="mono">
+              {riyals(view.heldHalalas)}
+            </bdi>
           </span>
         </article>
 
@@ -108,7 +109,10 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
           </strong>
           {view.termEnd ? (
             <span className="stat-hint">
-              حتى <bdi dir="ltr" className="mono">{view.termEnd.toISOString().slice(0, 10)}</bdi>
+              حتى{' '}
+              <bdi dir="ltr" className="mono">
+                {view.termEnd.toISOString().slice(0, 10)}
+              </bdi>
             </span>
           ) : null}
         </article>

@@ -49,7 +49,8 @@ export interface SeedProduct {
   /** Ruleset code, resolved to its id at seed time. */
   decisionRuleset?: string;
   /** The section of a customer file this product fills. Absent for API only products. */
-  profileSection?: 'REGISTRY' | 'CONTRACT' | 'MANAGERS' | 'ADDRESS' | 'BANKING' | 'FREELANCE' | 'PROPERTY';
+  profileSection?:
+    'REGISTRY' | 'CONTRACT' | 'MANAGERS' | 'ADDRESS' | 'BANKING' | 'FREELANCE' | 'PROPERTY';
   /** The kinds of customer the check is offered for. Required with a section. */
   appliesTo?: ('COMPANY' | 'ESTABLISHMENT' | 'FREELANCER')[];
   checkOrder?: number;
@@ -425,7 +426,11 @@ const API_PRODUCTS: readonly SeedProduct[] = [
       },
     ],
     fieldMap: [
-      { stepKey: 'certificate', sourcePath: '$.certificate_status', fieldPath: 'freelance.document' },
+      {
+        stepKey: 'certificate',
+        sourcePath: '$.certificate_status',
+        fieldPath: 'freelance.document',
+      },
       { stepKey: 'certificate', sourcePath: '$.activity', fieldPath: 'freelance.activity' },
       { stepKey: 'certificate', sourcePath: '$.expiry_date', fieldPath: 'freelance.expires_on' },
     ],

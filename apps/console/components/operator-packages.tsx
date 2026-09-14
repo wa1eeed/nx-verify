@@ -133,7 +133,11 @@ export function OperatorPackages({
                   const enabled = included?.enabled === true;
 
                   return (
-                    <tr key={product.code} data-role="package-product" data-enabled={String(enabled)}>
+                    <tr
+                      key={product.code}
+                      data-role="package-product"
+                      data-enabled={String(enabled)}
+                    >
                       <td>{product.nameAr}</td>
                       <td>
                         {enabled ? (
@@ -249,7 +253,11 @@ export function OperatorPackages({
                             {override.enabled === true ? 'مفعّلة استثناءً' : 'معطّلة استثناءً'}
                             <form action={setOverrideAction} className="inline">
                               <input type="hidden" name="tenant_id" value={row.tenantId} />
-                              <input type="hidden" name="product_code" value={override.productCode} />
+                              <input
+                                type="hidden"
+                                name="product_code"
+                                value={override.productCode}
+                              />
                               <input type="hidden" name="enabled" value="" />
                               <button type="submit" className="link" data-role="clear-override">
                                 {' '}
@@ -261,7 +269,11 @@ export function OperatorPackages({
                       </ul>
                     )}
 
-                    <form action={setOverrideAction} className="row" style={{ marginBlockStart: 'var(--s-2)' }}>
+                    <form
+                      action={setOverrideAction}
+                      className="row"
+                      style={{ marginBlockStart: 'var(--s-2)' }}
+                    >
                       <input type="hidden" name="tenant_id" value={row.tenantId} />
                       <select name="product_code" aria-label="وحدة" style={{ width: 'auto' }}>
                         {allProducts.map((product) => (

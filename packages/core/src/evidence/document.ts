@@ -51,7 +51,6 @@ export interface EvidenceDocument {
   verifyUrl: string;
 }
 
-
 const STATUS_LABELS: Record<string, string> = {
   OK: 'مكتمل',
   PARTIAL: 'مكتمل جزئياً',

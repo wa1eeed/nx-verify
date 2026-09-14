@@ -27,7 +27,9 @@ const STATUS: Readonly<Record<CheckResultView['status'], { label: string; tone: 
 };
 
 export function CheckResults({ results }: { results: CheckResultView[] }): ReactElement {
-  const done = results.filter((result) => result.status === 'OK' || result.status === 'PARTIAL').length;
+  const done = results.filter(
+    (result) => result.status === 'OK' || result.status === 'PARTIAL',
+  ).length;
   return (
     <section className="result-banner" data-role="check-results" role="status">
       <strong>
@@ -43,7 +45,12 @@ export function CheckResults({ results }: { results: CheckResultView[] }): React
       </strong>
       <ul>
         {results.map((result, index) => (
-          <li key={`${result.productCode}-${index}`} className="row" data-status={result.status} style={{ gap: 'var(--s-2)' }}>
+          <li
+            key={`${result.productCode}-${index}`}
+            className="row"
+            data-status={result.status}
+            style={{ gap: 'var(--s-2)' }}
+          >
             <span className="badge" data-tone={STATUS[result.status].tone}>
               {STATUS[result.status].label}
             </span>

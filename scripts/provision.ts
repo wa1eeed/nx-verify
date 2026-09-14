@@ -135,7 +135,9 @@ async function main(): Promise<void> {
             try {
               await client.query('BEGIN');
               await client.query('SET LOCAL ROLE nx_migrator');
-              await applyDefaultPriceSeed({ query: (text, values) => client.query(text, values as unknown[] | undefined) });
+              await applyDefaultPriceSeed({
+                query: (text, values) => client.query(text, values as unknown[] | undefined),
+              });
               await client.query('COMMIT');
             } catch (error) {
               await client.query('ROLLBACK');
@@ -164,7 +166,9 @@ async function main(): Promise<void> {
           await operator.end();
         }
 
-        console.log(`products, packages, providers and costs seeded, steps pointing at provider ${provider}`);
+        console.log(
+          `products, packages, providers and costs seeded, steps pointing at provider ${provider}`,
+        );
         return;
       }
 
@@ -179,7 +183,9 @@ async function main(): Promise<void> {
             try {
               await client.query('BEGIN');
               await client.query('SET LOCAL ROLE nx_migrator');
-              await applyDefaultPriceSeed({ query: (text, values) => client.query(text, values as unknown[] | undefined) });
+              await applyDefaultPriceSeed({
+                query: (text, values) => client.query(text, values as unknown[] | undefined),
+              });
               await client.query('COMMIT');
             } catch (error) {
               await client.query('ROLLBACK');
@@ -253,7 +259,9 @@ async function main(): Promise<void> {
       case 'key:issue': {
         const tenantId = required(flags, 'tenant');
         const name = required(flags, 'name');
-        const scopes = (flags['scopes'] ?? DEFAULT_SCOPES.join(',')).split(',').map((s) => s.trim());
+        const scopes = (flags['scopes'] ?? DEFAULT_SCOPES.join(','))
+          .split(',')
+          .map((s) => s.trim());
         const issued = await withTenant(pool, tenantId, (tx) => issueApiKey(tx, { name, scopes }));
         console.log(`key id: ${issued.id}`);
         secret('api key', issued.secret);
@@ -368,7 +376,9 @@ async function main(): Promise<void> {
             try {
               await client.query('BEGIN');
               await client.query('SET LOCAL ROLE nx_migrator');
-              await applyDefaultPriceSeed({ query: (text, values) => client.query(text, values as unknown[] | undefined) });
+              await applyDefaultPriceSeed({
+                query: (text, values) => client.query(text, values as unknown[] | undefined),
+              });
               await client.query('COMMIT');
             } catch (error) {
               await client.query('ROLLBACK');
@@ -459,10 +469,11 @@ async function main(): Promise<void> {
           }
 
           await withTenant(pool, sandboxId, (tx) =>
-            tx.query(
-              `INSERT INTO tenants (id, legal_name, slug) VALUES ($1, $2, $3)`,
-              [sandboxId, `${owner.legal_name} (Sandbox)`, `${owner.slug}-sandbox`],
-            ),
+            tx.query(`INSERT INTO tenants (id, legal_name, slug) VALUES ($1, $2, $3)`, [
+              sandboxId,
+              `${owner.legal_name} (Sandbox)`,
+              `${owner.slug}-sandbox`,
+            ]),
           );
           // The link and the plan are written by the operator: a workspace must not be
           // able to declare itself a sandbox, nor to choose the plan it runs on.
@@ -504,7 +515,9 @@ async function main(): Promise<void> {
         });
 
         console.log(`sandbox: ${sandboxId}`);
-        console.log('issue its key with: pnpm provision key:issue --tenant ' + sandboxId + ' --name sandbox');
+        console.log(
+          'issue its key with: pnpm provision key:issue --tenant ' + sandboxId + ' --name sandbox',
+        );
         return;
       }
 

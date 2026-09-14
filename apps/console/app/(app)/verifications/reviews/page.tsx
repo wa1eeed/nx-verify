@@ -42,7 +42,11 @@ export default async function QueuePage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={VERIFICATION_TABS} current="/verifications/reviews" label="أقسام عمليات التحقق" />
+      <SectionTabs
+        tabs={VERIFICATION_TABS}
+        current="/verifications/reviews"
+        label="أقسام عمليات التحقق"
+      />
       <ReviewQueue rows={rows} />
     </div>
   );

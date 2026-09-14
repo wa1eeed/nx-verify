@@ -37,7 +37,10 @@ describe('the subscribers, as the operator sees them', () => {
     db = await createTestDatabase();
     renewing = await seedTenant(db.appPool, 'Renewing Soon Co');
     lapsed = await seedTenant(db.appPool, 'Lapsed Co');
-    await preparePricedTenant(db, renewing.tenantId, { packageCode: 'ESSENTIAL', balanceHalalas: 900_00 });
+    await preparePricedTenant(db, renewing.tenantId, {
+      packageCode: 'ESSENTIAL',
+      balanceHalalas: 900_00,
+    });
     await preparePricedTenant(db, lapsed.tenantId, { packageCode: 'PAYG' });
 
     // A sandbox workspace belongs to a subscriber and is not a second customer.

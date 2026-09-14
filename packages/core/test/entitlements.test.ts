@@ -82,9 +82,7 @@ describe('packages and entitlement', () => {
     );
 
   it('tells a subscriber what they committed to, and calls it that', async () => {
-    const commitment = await withTenant(db.appPool, starter.tenantId, (tx) =>
-      getCommitment(tx),
-    );
+    const commitment = await withTenant(db.appPool, starter.tenantId, (tx) => getCommitment(tx));
     expect(commitment?.packageCode).toBe('ESSENTIAL');
     expect(commitment?.supportTier).toBe('STANDARD');
     // A term, not a month: docs/01-blueprint.md section 9 opens by saying do not call
@@ -114,7 +112,9 @@ describe('packages and entitlement', () => {
     // is the component that grows revenue without consumption growing.
     expect(extras?.chargeableSeats).toBe(0);
     expect(extras?.seatChargeHalalas).toBe(0);
-    expect(extras?.portfolios).toBe(extras?.chargeablePortfolios ?? 0 ? extras?.portfolios : extras?.portfolios);
+    expect(extras?.portfolios).toBe(
+      (extras?.chargeablePortfolios ?? 0) ? extras?.portfolios : extras?.portfolios,
+    );
   });
 
   it('charges nothing for re-verifying the same entity inside the plan window', async () => {

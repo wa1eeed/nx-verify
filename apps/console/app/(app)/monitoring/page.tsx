@@ -14,7 +14,9 @@ export default async function MonitoringPage(): Promise<ReactElement> {
     const changes = await listChangeEvents(tx, { openOnly: true, limit: 100 });
     const expiring = await findExpiringFields(tx, 500);
 
-    const ids = [...new Set([...changes.map((row) => row.entityId), ...expiring.map((row) => row.entityId)])];
+    const ids = [
+      ...new Set([...changes.map((row) => row.entityId), ...expiring.map((row) => row.entityId)]),
+    ];
     const { rows: names } = ids.length
       ? await tx.query<{ id: string; display_name: string | null }>(
           `SELECT id, display_name FROM entities WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,

@@ -103,8 +103,7 @@ describe('the MCP server', () => {
     await db.close();
   });
 
-  const toolsOf = (options?: { spendCeiling?: number }) =>
-    createTools(client, options ?? {});
+  const toolsOf = (options?: { spendCeiling?: number }) => createTools(client, options ?? {});
 
   const call = async (
     tools: ReturnType<typeof createTools>,
@@ -121,7 +120,9 @@ describe('the MCP server', () => {
   const balance = () => withTenant(db.appPool, tenant.tenantId, (tx) => getWallet(tx));
 
   it('offers reading and one paid action, and nothing that configures the platform', () => {
-    const names = toolsOf().tools.map((tool) => tool.name).sort();
+    const names = toolsOf()
+      .tools.map((tool) => tool.name)
+      .sort();
     expect(names).toEqual([
       'check_evidence',
       'get_entity_profile',
@@ -145,9 +146,11 @@ describe('the MCP server', () => {
     }
 
     // Exactly one tool spends.
-    expect(toolsOf().tools.filter((tool) => tool.writes).map((tool) => tool.name)).toEqual([
-      'run_verification',
-    ]);
+    expect(
+      toolsOf()
+        .tools.filter((tool) => tool.writes)
+        .map((tool) => tool.name),
+    ).toEqual(['run_verification']);
   });
 
   it('quotes a product before anything is spent', async () => {

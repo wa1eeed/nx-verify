@@ -95,7 +95,8 @@ const ENTITLEMENT_SQL = `
 
 function decide(row: EntitlementRow): Entitlement {
   const used = row.used ?? 0;
-  const negotiated = row.override_enabled !== null || row.override_quota !== null || row.override_price !== null;
+  const negotiated =
+    row.override_enabled !== null || row.override_quota !== null || row.override_price !== null;
 
   const capacity = row.included_transactions;
   const capacityUsed = row.transactions_used ?? 0;

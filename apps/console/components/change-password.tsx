@@ -38,10 +38,24 @@ export function ChangePassword({ error, forced, action }: ChangePasswordProps): 
 
       <form action={action} className="stack">
         <label htmlFor="current">كلمة المرور الحالية</label>
-        <input id="current" name="current" type="password" required autoComplete="current-password" dir="ltr" />
+        <input
+          id="current"
+          name="current"
+          type="password"
+          required
+          autoComplete="current-password"
+          dir="ltr"
+        />
 
         <label htmlFor="next">كلمة المرور الجديدة</label>
-        <input id="next" name="next" type="password" required autoComplete="new-password" dir="ltr" />
+        <input
+          id="next"
+          name="next"
+          type="password"
+          required
+          autoComplete="new-password"
+          dir="ltr"
+        />
         <p className="muted">اثنتا عشرة خانة على الأقل. عبارة تذكرها خير من كلمة معقّدة تنساها.</p>
 
         <button type="submit" className="btn-primary" data-role="change-password-submit">

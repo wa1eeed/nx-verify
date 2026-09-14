@@ -54,10 +54,7 @@ export {
   hashValue,
   recordAttestation,
 } from './repositories/attestations.js';
-export type {
-  FieldHistoryEntry,
-  VerificationInHistory,
-} from './repositories/attestations.js';
+export type { FieldHistoryEntry, VerificationInHistory } from './repositories/attestations.js';
 export type {
   AttestationTimelineEntry,
   RecordAttestationInput,
@@ -306,12 +303,7 @@ export {
   revokeShare,
   shareTokensMatch,
 } from './profile/shares.js';
-export type {
-  CreateShareInput,
-  CreatedShare,
-  ResolvedShare,
-  ShareRow,
-} from './profile/shares.js';
+export type { CreateShareInput, CreatedShare, ResolvedShare, ShareRow } from './profile/shares.js';
 export type { TrustBand, TrustBandView } from './monitoring/trust-band.js';
 export type { EntityScore, ScoreComponent } from './monitoring/scoring.js';
 export {
