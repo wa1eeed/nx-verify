@@ -80,13 +80,15 @@ export async function marginReport(
     tenant_id: string;
     legal_name: string;
     product_code: string;
-    period_start: Date;
+    period_start: string;
     runs: number;
     package_runs: number;
     billed_halalas: string;
     provider_cost_halalas: string;
   }>(
-    `SELECT m.tenant_id, t.legal_name, m.product_code, m.period_start, m.runs,
+    // The month as text, read back as its first day in UTC: a date column read into a
+    // JavaScript Date lands on local midnight, which east of Greenwich is the month before.
+    `SELECT m.tenant_id, t.legal_name, m.product_code, m.period_start::text AS period_start, m.runs,
             m.package_runs, m.billed_halalas::text, m.provider_cost_halalas::text
      FROM margin_counters m
      JOIN tenants t ON t.id = m.tenant_id
@@ -105,7 +107,7 @@ export async function marginReport(
       tenantId: row.tenant_id,
       tenantName: row.legal_name,
       productCode: row.product_code,
-      periodStart: row.period_start,
+      periodStart: new Date(`${row.period_start}T00:00:00Z`),
       runs: row.runs,
       packageRuns: row.package_runs,
       billedHalalas: billed,

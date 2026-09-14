@@ -68,6 +68,15 @@ describe('the margin report', () => {
     }
   });
 
+  it('dates each row to the first of its month in UTC, whatever the server time zone', async () => {
+    const [row] = await marginReport(db.operatorPool);
+    const { rows } = await db.operatorPool.query<{ month: string }>(
+      `SELECT to_char(date_trunc('month', now()), 'YYYY-MM') AS month`,
+    );
+    // Read as local midnight, a date east of Greenwich would print as the month before.
+    expect(row?.periodStart.toISOString().slice(0, 10)).toBe(`${rows[0]?.month}-01`);
+  });
+
   it('shows work the package covered as earning nothing this month', async () => {
     const rows = await marginReport(db.operatorPool, { tenantId: two.tenantId });
     const row = rows[0];

@@ -110,6 +110,7 @@ export function OperatorPackages({
       {packages.map((plan) => (
         <Panel
           key={plan.code}
+          id={plan.code}
           title={`${plan.nameAr} (${plan.code})`}
           aside={`${billingLabel(plan.billingModel)} · ${plan.termMonths} شهراً`}
           role="package"

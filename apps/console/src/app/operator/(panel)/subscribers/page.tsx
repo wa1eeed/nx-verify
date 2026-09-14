@@ -1,34 +1,37 @@
 import type { ReactElement } from 'react';
-import { listSubscriberSummaries } from '@nx-verify/core';
-import { OperatorTenants } from '../../../../components/operator-tenants';
-import { operatorQuery, requireOperator } from '../../../../lib/operator';
+import { EXPIRING_WINDOW_DAYS, listPlans, operatorCan, subscribersBoard } from '@nx-verify/core';
+import { AdminSubscribers } from '../../../../components/admin-subscribers';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { SUBSCRIBER_TABS } from '../../../../components/operator-shell';
+import { currentOperator, operatorQuery } from '../../../../lib/operator';
+import { createSubscriberAction } from './actions';
 
-/** Never prerendered, and refuses to render without an operator sign in. */
+/** Never prerendered, and refuses to render without a sign in. */
 export const dynamic = 'force-dynamic';
 
-export default async function OperatorTenantsPage(): Promise<ReactElement> {
-  await requireOperator();
-  const rows = await operatorQuery((db) => listSubscriberSummaries(db));
+/**
+ * The subscribers and their balances (handoff screen 06).
+ *
+ * Read on the operator connection from commercial rows and monthly counters only (ADR-118).
+ */
+export default async function OperatorSubscribersPage(): Promise<ReactElement> {
+  const operator = await currentOperator();
+  const data = await operatorQuery(async (db) => ({
+    board: await subscribersBoard(db),
+    plans: await listPlans(db),
+  }));
 
   return (
-    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+    <div className="admin-screen">
       <SectionTabs tabs={SUBSCRIBER_TABS} current="/operator/subscribers" label="أقسام المشتركين" />
-      <OperatorTenants
-        rows={rows.map((row) => ({
-          tenantId: row.tenantId,
-          legalName: row.legalName,
-          slug: row.slug,
-          packageNameAr: row.packageNameAr,
-          termEnd: row.termEnd,
-          daysLeft: row.daysLeft,
-          includedTransactions: row.includedTransactions,
-          transactionsUsed: row.transactionsUsed,
-          availableHalalas: row.availableHalalas,
-          lowBalance: row.lowBalance,
-          hasSandbox: row.hasSandbox,
-        }))}
+      <AdminSubscribers
+        view={{
+          board: data.board,
+          expiringWindowDays: EXPIRING_WINDOW_DAYS,
+          canManage: operatorCan(operator.role, 'subscribers'),
+          plans: data.plans.map((plan) => ({ code: plan.code, nameAr: plan.nameAr })),
+        }}
+        createAction={createSubscriberAction}
       />
     </div>
   );

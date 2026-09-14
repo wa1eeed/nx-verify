@@ -9,27 +9,23 @@ import { operatorQuery, requireOperator } from '../../../../lib/operator';
  */
 export const dynamic = 'force-dynamic';
 
-const PRODUCT_NAMES: Record<string, string> = {
-  ADDRESS_ONLY: 'التحقق من العنوان الوطني',
-  KYB_COMPLETE: 'التحقق الشامل من المنشأة',
-  AOA_ONLY: 'عقد التأسيس',
-  MANAGER_PERMISSIONS: 'صلاحيات المدير',
-  FREELANCER_CERTIFICATE: 'وثيقة العمل الحر',
-  IBAN_OWNERSHIP: 'ملكية الآيبان',
-  NAME_MATCH: 'مطابقة الاسم',
-  BANK_ACCOUNT_OWNERSHIP: 'تأكيد الحساب البنكي',
-  INCOME_VERIFICATION: 'إثبات الدخل',
-  PROPERTY_DEED: 'الصك العقاري',
-};
-
 export default async function OperatorMarginPage(): Promise<ReactElement> {
   await requireOperator();
 
-  const rows = await operatorQuery((db) => marginReport(db));
+  // Names from the catalogue, which is rows rather than code (rule 8), so a check added
+  // tomorrow is named here without a release.
+  const { rows, names } = await operatorQuery(async (db) => ({
+    rows: await marginReport(db),
+    names: new Map(
+      (
+        await db.query<{ code: string; name_ar: string }>(`SELECT code, name_ar FROM products`)
+      ).rows.map((product) => [product.code, product.name_ar]),
+    ),
+  }));
 
   const view: MarginRowView[] = rows.map((row) => ({
     tenantName: row.tenantName,
-    productNameAr: PRODUCT_NAMES[row.productCode] ?? row.productCode,
+    productNameAr: names.get(row.productCode) ?? row.productCode,
     periodStart: row.periodStart,
     runs: row.runs,
     packageRuns: row.packageRuns,

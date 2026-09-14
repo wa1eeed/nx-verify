@@ -3,7 +3,13 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { HomeOverview, HomeRun } from '@nx-verify/core';
 
 import { HomeScreen } from '../src/components/home';
-import { greetingAr, packageLine, performanceAr, updatedAr } from '../src/components/home/model';
+import {
+  costAr,
+  greetingAr,
+  packageLine,
+  performanceAr,
+  updatedAr,
+} from '../src/components/home/model';
 
 /**
  * Handoff phase 5: the subscriber's home screen, screen 01.
@@ -188,5 +194,16 @@ describe('the home screen of screen 01', () => {
 
   it('writes no em dash anywhere', () => {
     expect(html).not.toContain(String.fromCharCode(0x2014));
+  });
+
+  it('says what paid for an operation a package or a bundle covered, rather than a zero', () => {
+    expect(costAr(run({ runId: 'p', chargeSource: 'PACKAGE', billedHalalas: 0 }))).toEqual({
+      riyals: null,
+      wordsAr: 'من الباقة',
+    });
+    expect(costAr(run({ runId: 'b', chargeSource: 'BUNDLE', billedHalalas: 0 }))).toEqual({
+      riyals: null,
+      wordsAr: 'من الحزمة',
+    });
   });
 });

@@ -105,12 +105,14 @@ export async function listProductPricing(
   const daysThisMonth = (now.getTime() - monthStart.getTime()) / 86_400_000;
   const daysPrevious = (monthStart.getTime() - previousStart.getTime()) / 86_400_000;
   const share = Math.max(0, Math.min(1, (30 - daysThisMonth) / daysPrevious));
+  // The month as text: a date column read into a JavaScript Date lands on local midnight, which
+  // east of Greenwich is the last day of the month before.
   const { rows: counters } = await db.query<{
     product_code: string;
-    period_start: Date;
+    period_start: string;
     runs: string;
   }>(
-    `SELECT product_code, period_start, sum(runs)::text AS runs
+    `SELECT product_code, period_start::text AS period_start, sum(runs)::text AS runs
      FROM margin_counters
      WHERE period_start >= $1::date
      GROUP BY product_code, period_start`,
@@ -118,7 +120,7 @@ export async function listProductPricing(
   );
   const runs = new Map<string, number>();
   for (const counter of counters) {
-    const current = new Date(counter.period_start).getTime() >= monthStart.getTime();
+    const current = counter.period_start >= monthStart.toISOString().slice(0, 10);
     runs.set(
       counter.product_code,
       (runs.get(counter.product_code) ?? 0) + Number(counter.runs) * (current ? 1 : share),

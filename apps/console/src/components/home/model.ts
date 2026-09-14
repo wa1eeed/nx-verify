@@ -89,13 +89,19 @@ export function customerAr(run: HomeRun): string {
   return run.entityType === 'FREELANCER' ? `${name} · عامل حر` : name;
 }
 
-/** What an operation cost: riyals before VAT, the package, or nothing for a call that failed. */
+/**
+ * What an operation cost: riyals before VAT, the package or a bundle that paid for it, or nothing
+ * for a call that failed.
+ */
 export function costAr(run: HomeRun): { riyals: string | null; wordsAr: string | null } {
   if (run.status === 'ERROR' || run.status === 'PENDING' || run.status === 'AWAITING') {
     return { riyals: null, wordsAr: '·' };
   }
   if (run.chargeSource === 'PACKAGE') {
     return { riyals: null, wordsAr: 'من الباقة' };
+  }
+  if (run.chargeSource === 'BUNDLE') {
+    return { riyals: null, wordsAr: 'من الحزمة' };
   }
   if (run.chargeSource === 'FREE') {
     return { riyals: null, wordsAr: 'دون رسوم' };

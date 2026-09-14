@@ -118,6 +118,8 @@ docker compose run --rm --no-deps api pnpm provision provider:callback \
 
 ### ٥. أنشئ أول مساحة عمل ومفاتيحها
 
+من لوحة الإدارة: «المشتركون» ثم «مشترك جديد» ينشئ مساحة العمل ومسؤولها بكلمة مرور مؤقتة تظهر مرة واحدة، ويضعها على الباقة المختارة (ADR-118). ومن الطرفية، للأتمتة أو قبل أن يكون للوحة مالك:
+
 ```bash
 docker compose run --rm --no-deps api pnpm provision tenant:create \
   --name "شركة العميل" --slug acme --admin-email admin@acme.sa

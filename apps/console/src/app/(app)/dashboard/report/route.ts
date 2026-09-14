@@ -22,6 +22,7 @@ const STATUS_AR: Readonly<Record<string, string>> = {
 
 const SOURCE_AR: Readonly<Record<string, string>> = {
   PACKAGE: 'من الباقة',
+  BUNDLE: 'من الحزمة',
   WALLET: 'من الرصيد',
   FREE: 'دون رسوم',
 };

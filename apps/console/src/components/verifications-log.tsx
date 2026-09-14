@@ -222,6 +222,8 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
                     <td>
                       {row.chargeSource === 'PACKAGE' ? (
                         <span className="muted">من الباقة</span>
+                      ) : row.chargeSource === 'BUNDLE' ? (
+                        <span className="muted">من الحزمة</span>
                       ) : row.chargeSource === 'FREE' || row.billedHalalas === null ? (
                         <span className="muted">بلا رسم</span>
                       ) : (

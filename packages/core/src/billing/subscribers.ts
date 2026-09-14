@@ -26,6 +26,8 @@ export interface SubscriberSummary {
   slug: string;
   packageCode: string | null;
   packageNameAr: string | null;
+  /** PAYG, MONTHLY or ANNUAL: a plan paid per operation has no term to run out. */
+  billingModel: string | null;
   status: string | null;
   termStart: Date | null;
   termEnd: Date | null;
@@ -48,6 +50,7 @@ interface SubscriberRowData {
   slug: string;
   package_code: string | null;
   package_name_ar: string | null;
+  billing_model: string | null;
   status: string | null;
   term_start: Date | null;
   term_end: Date | null;
@@ -61,7 +64,8 @@ interface SubscriberRowData {
 
 const SUBSCRIBER_SELECT = `
   SELECT t.id, t.legal_name, t.slug,
-         c.package_code, p.name_ar AS package_name_ar, c.status, c.term_start, c.term_end,
+         c.package_code, p.name_ar AS package_name_ar, p.billing_model, c.status,
+         c.term_start, c.term_end,
          c.included_transactions, c.transactions_used,
          w.balance::text AS balance, w.held::text AS held, w.low_threshold::text AS low_threshold,
          EXISTS (SELECT 1 FROM tenants s WHERE s.sandbox_of = t.id) AS has_sandbox
@@ -83,6 +87,7 @@ function toSummary(row: SubscriberRowData, now: Date): SubscriberSummary {
     slug: row.slug,
     packageCode: row.package_code,
     packageNameAr: row.package_name_ar,
+    billingModel: row.billing_model,
     status: row.status,
     termStart: row.term_start,
     termEnd: row.term_end,
@@ -129,6 +134,16 @@ export interface SubscriberTopUp {
   status: 'REQUESTED' | 'CONFIRMED' | 'REJECTED';
   requestedAt: Date;
   settledAt: Date | null;
+  /** The bundle the transfer buys, or null for credit in riyals. */
+  bundleCode: string | null;
+}
+
+export interface SubscriberBundle {
+  bundleCode: string;
+  operations: number;
+  used: number;
+  grantedAt: Date;
+  expiresAt: Date;
 }
 
 export interface SubscriberDetail extends SubscriberSummary {
@@ -137,6 +152,8 @@ export interface SubscriberDetail extends SubscriberSummary {
   /** Usage since the term started, by service, from the counters. */
   usage: ProductUsage[];
   topUps: SubscriberTopUp[];
+  /** Bundles bought, newest first, spent or lapsed included. */
+  bundles: SubscriberBundle[];
 }
 
 export async function getSubscriberDetail(
@@ -187,11 +204,27 @@ export async function getSubscriberDetail(
     status: SubscriberTopUp['status'];
     requested_at: Date;
     settled_at: Date | null;
+    bundle_code: string | null;
   }>(
-    `SELECT reference, amount::text AS amount, status, requested_at, settled_at
+    `SELECT reference, amount::text AS amount, status, requested_at, settled_at, bundle_code
      FROM topup_requests
      WHERE tenant_id = $1
      ORDER BY requested_at DESC
+     LIMIT 20`,
+    [tenantId],
+  );
+
+  const { rows: bundles } = await operator.query<{
+    bundle_code: string;
+    operations: number;
+    used: number;
+    granted_at: Date;
+    expires_at: Date;
+  }>(
+    `SELECT bundle_code, operations, used, granted_at, expires_at
+     FROM bundle_grants
+     WHERE tenant_id = $1
+     ORDER BY granted_at DESC
      LIMIT 20`,
     [tenantId],
   );
@@ -214,6 +247,14 @@ export async function getSubscriberDetail(
       status: line.status,
       requestedAt: line.requested_at,
       settledAt: line.settled_at,
+      bundleCode: line.bundle_code,
+    })),
+    bundles: bundles.map((line) => ({
+      bundleCode: line.bundle_code,
+      operations: line.operations,
+      used: line.used,
+      grantedAt: line.granted_at,
+      expiresAt: line.expires_at,
     })),
   };
 }

@@ -34,7 +34,10 @@ export function Panel({
   note,
   children,
   role,
+  id,
 }: {
+  /** An anchor another screen links to, such as a plan named on the prices screen. */
+  id?: string;
   title: string;
   aside?: ReactNode;
   /**
@@ -48,7 +51,7 @@ export function Panel({
   role?: string;
 }): ReactElement {
   return (
-    <section className="panel" {...(role ? { 'data-role': role } : {})}>
+    <section className="panel" id={id} {...(role ? { 'data-role': role } : {})}>
       <div className="panel-header">
         <h2>{title}</h2>
         {aside ? <span className="muted">{aside}</span> : null}

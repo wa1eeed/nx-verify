@@ -611,6 +611,7 @@ export {
 export type {
   PlatformOverview,
   ProductUsage,
+  SubscriberBundle,
   SubscriberDetail,
   SubscriberSummary,
   SubscriberTopUp,
@@ -785,6 +786,22 @@ export type {
   ProductPricingRow,
   SpecialPrice,
 } from './billing/pricing-admin.js';
+export {
+  EXPIRING_WINDOW_DAYS,
+  LOW_OPERATIONS_SHARE,
+  assignSubscriberPlan,
+  createSubscriber,
+  setSubscriberSuspended,
+  standingOf,
+  subscribersBoard,
+} from './billing/subscribers-board.js';
+export type {
+  NewSubscriber,
+  NewSubscriberInput,
+  SubscriberBoardRow,
+  SubscriberStanding,
+  SubscribersBoard,
+} from './billing/subscribers-board.js';
 export {
   bundleBalance,
   grantBundleForTopUp,

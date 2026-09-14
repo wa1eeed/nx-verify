@@ -267,7 +267,8 @@ describe('the console renders real data', () => {
     process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
     try {
       const list = renderToStaticMarkup(await TenantsPage());
-      expect(list).toContain('data-role="tenant-row"');
+      expect(list).toContain('data-role="subscriber-row"');
+      expect(list).toContain('data-role="subscriber-figures"');
       expect(list).toContain('شركة المثال للتجارة');
       // Commercial figures only. Nothing a subscriber verified reaches this panel.
       expect(list).not.toContain('7001272184');
@@ -277,11 +278,25 @@ describe('the console renders real data', () => {
       expect(overview).toContain('data-role="attention"');
 
       const detail = renderToStaticMarkup(
-        await TenantPage({ params: Promise.resolve({ id: tenant.tenantId }) }),
+        await TenantPage({
+          params: Promise.resolve({ id: tenant.tenantId }),
+          searchParams: Promise.resolve({}),
+        }),
       );
-      expect(detail).toContain('data-role="tenant-usage"');
+      expect(detail).toContain('data-role="subscriber-usage"');
       // The service the one verification above was billed under, by its name.
       expect(detail).toContain('التحقق الشامل للمنشأة');
+
+      const { GET: exportSubscribers } =
+        await import('../src/app/operator/(panel)/subscribers/export/route');
+      const sheet = await exportSubscribers();
+      expect(sheet.headers.get('content-type')).toContain('text/csv');
+      const text = await sheet.text();
+      expect(text).toContain('شركة المثال للتجارة');
+      expect(text).not.toContain('7001272184');
+
+      delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+      expect((await exportSubscribers()).status).toBe(401);
     } finally {
       delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
     }
