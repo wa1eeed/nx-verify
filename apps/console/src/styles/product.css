@@ -2458,9 +2458,13 @@ a.frame-brand:active {
   transition-delay: var(--delay-pending);
 }
 
+/* On the dark ground a card's colour is the ground's, so the pill takes the raised tone and a
+   hairline edge to stand off it. */
 [data-theme='dark'] .data-loader {
-  background: var(--dark-card);
+  background: var(--dark-divider);
   color: var(--color-neutral-100);
+  border: var(--size-hairline) solid var(--dark-field-border);
+  box-shadow: var(--shadow-lg);
 }
 [data-theme='dark'] .data-loader-chart {
   background: var(--color-accent-900);
