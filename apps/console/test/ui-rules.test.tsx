@@ -624,10 +624,12 @@ describe('the console shell', () => {
       ...SECTIONS.map((section) => section.href),
       ...[VERIFICATION_TABS, MONITORING_TABS, BILLING_TABS, DEVELOPER_TABS, SETTINGS_TABS].flat().map((tab) => tab.href),
     ]);
+    // Screens reached from a place's own primary button rather than from the sidebar.
+    const fromActions = new Set(['/customers/new']);
     const unreachable = pages.filter(
       (page) =>
         // A detail screen is reached from its list, and the inbox from the bell.
-        !page.includes('[') && page !== '/notifications' && !reachable.has(page),
+        !page.includes('[') && page !== '/notifications' && !fromActions.has(page) && !reachable.has(page),
     );
     expect(unreachable).toEqual([]);
   });

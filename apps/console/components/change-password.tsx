@@ -36,7 +36,7 @@ export function ChangePassword({ error, forced, action }: ChangePasswordProps): 
         </p>
       ) : null}
 
-      <form action={action} method="post" className="stack">
+      <form action={action} className="stack">
         <label htmlFor="current">كلمة المرور الحالية</label>
         <input id="current" name="current" type="password" required autoComplete="current-password" dir="ltr" />
 

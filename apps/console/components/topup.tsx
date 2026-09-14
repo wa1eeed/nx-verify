@@ -98,7 +98,7 @@ export function TopUpPanel({
         </div>
       ) : null}
 
-      <form action={requestAction} method="post" className="row" style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}>
+      <form action={requestAction} className="row" style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}>
         <label className="stack" style={{ gap: 'var(--s-1)' }}>
           <span className="stat-label">المبلغ بالريال، بلا ضريبة</span>
           <input
@@ -229,7 +229,7 @@ export function PendingTopUps({
                 </bdi>
               </td>
               <td>
-                <form action={confirmAction} method="post" className="row" style={{ gap: 'var(--s-2)' }}>
+                <form action={confirmAction} className="row" style={{ gap: 'var(--s-2)' }}>
                   <input type="hidden" name="request_id" value={request.id} />
                   <input type="hidden" name="tenant_id" value={request.tenantId} />
                   <input
@@ -244,7 +244,7 @@ export function PendingTopUps({
                     أضف للرصيد
                   </button>
                 </form>
-                <form action={rejectAction} method="post">
+                <form action={rejectAction}>
                   <input type="hidden" name="request_id" value={request.id} />
                   <input type="hidden" name="tenant_id" value={request.tenantId} />
                   <button type="submit" className="btn-secondary" data-role="reject-topup">

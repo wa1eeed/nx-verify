@@ -117,7 +117,7 @@ export function ApiKeys({
                       {key.revokedAt ? (
                         <span className="muted">ملغى</span>
                       ) : (
-                        <form action={revokeAction} method="post" className="inline">
+                        <form action={revokeAction} className="inline">
                           <input type="hidden" name="key_id" value={key.id} />
                           <button type="submit" className="link" data-role="revoke">
                             إلغاء
@@ -134,7 +134,7 @@ export function ApiKeys({
       </Panel>
 
       <Panel title="إصدار مفتاح">
-        <form action={issueAction} method="post" className="panel-body stack">
+        <form action={issueAction} className="panel-body stack">
           <label htmlFor="key-name">الاسم</label>
           <input id="key-name" name="name" required placeholder="نظام الفوترة" />
           <p className="muted">

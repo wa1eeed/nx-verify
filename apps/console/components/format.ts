@@ -51,3 +51,34 @@ export function termPhrase(daysLeft: number): string {
   }
   return daysLeft > 0 ? `تنتهي بعد ${daysAr(daysLeft)}` : `انتهت منذ ${daysAr(daysLeft)}`;
 }
+
+/** How long ago, in the words a person uses: minutes, hours, days. */
+export function sinceAr(date: Date, now: Date = new Date()): string {
+  const minutes = Math.floor((now.getTime() - date.getTime()) / 60_000);
+  if (minutes < 1) {
+    return 'الآن';
+  }
+  if (minutes < 60) {
+    return minutes <= 2 ? 'منذ دقيقتين' : minutes <= 10 ? `منذ ${minutes} دقائق` : `منذ ${minutes} دقيقة`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return hours === 1 ? 'منذ ساعة' : hours === 2 ? 'منذ ساعتين' : hours <= 10 ? `منذ ${hours} ساعات` : `منذ ${hours} ساعة`;
+  }
+  const days = Math.floor(hours / 24);
+  return `منذ ${daysAr(days)}`;
+}
+
+export function dateTime(value: Date): string {
+  return value.toISOString().slice(0, 16).replace('T', ' ');
+}
+
+/**
+ * A masked identifier, shortened for reading.
+ *
+ * The domain masks every character but the last four, which keeps an IBAN twenty bullets
+ * long. Four are enough to say "hidden", and the last four are what a person compares.
+ */
+export function shortMask(masked: string | null): string | null {
+  return masked === null ? null : masked.replace(/•{4,}/g, '••••');
+}

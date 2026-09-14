@@ -37,7 +37,7 @@ export function SignIn({ error, passwordAction, ssoAction }: SignInProps): React
         </p>
       ) : null}
 
-      <form action={passwordAction} method="post" className="stack">
+      <form action={passwordAction} className="stack">
         <label htmlFor="slug">معرّف مساحة العمل</label>
         <input
           id="slug"
@@ -77,7 +77,7 @@ export function SignIn({ error, passwordAction, ssoAction }: SignInProps): React
 
       <hr className="sign-in-divider" />
 
-      <form action={ssoAction} method="post" className="stack" data-role="sso-form">
+      <form action={ssoAction} className="stack" data-role="sso-form">
         <p className="muted">
           إن كانت شركتك تستخدم دليلاً موحّداً، ادخل بريد العمل وسنحوّلك إليه.
         </p>

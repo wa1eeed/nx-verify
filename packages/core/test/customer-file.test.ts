@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { withTenant } from '../../../packages/db/src/client.js';
 import { runChecks, type RunChecksDependencies } from '../src/customers/checks.js';
 import { getCustomerFile } from '../src/customers/customer-file.js';
+import { countCustomers, listCustomers } from '../src/customers/list.js';
 import {
   createTestDatabase,
   seedTenant,
@@ -215,5 +216,34 @@ describe('the customer file', () => {
     expect(file?.assessment.items.find((item) => item.key === 'certificate_active')?.state).toBe('PASS');
     expect(file?.sections.map((section) => section.section)).toContain('FREELANCE');
     expect(file?.status.tone).toBe('fresh');
+  });
+
+  it('lists customers, not the people and accounts inside their files', async () => {
+    const rows = await withTenant(db.appPool, tenant.tenantId, (tx) => listCustomers(tx, keys));
+    expect(rows.every((row) => row.entityType === 'BUSINESS' || row.entityType === 'FREELANCER')).toBe(true);
+    const company = rows.find((row) => row.entityId === companyId);
+    expect(company?.kind).toBe('COMPANY');
+    expect(company?.statusText).toBe('فعال');
+    expect(company?.statusTone).toBe('fresh');
+
+    const counts = await withTenant(db.appPool, tenant.tenantId, (tx) => countCustomers(tx));
+    expect(counts.companies).toBeGreaterThanOrEqual(2);
+    expect(counts.establishments).toBe(1);
+    expect(counts.freelancers).toBe(1);
+  });
+
+  it('finds a customer by number through its keyed hash, and by part of its name', async () => {
+    const byNumber = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listCustomers(tx, keys, { search: SANDBOX_UNN.ACTIVE }),
+    );
+    expect(byNumber.map((row) => row.entityId)).toEqual([companyId]);
+
+    const byName = await withTenant(db.appPool, tenant.tenantId, (tx) => listCustomers(tx, keys, { search: 'موقوفة' }));
+    expect(byName).toHaveLength(1);
+
+    const establishments = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listCustomers(tx, keys, { kind: 'ESTABLISHMENT' }),
+    );
+    expect(establishments.map((row) => row.kind)).toEqual(['ESTABLISHMENT']);
   });
 });

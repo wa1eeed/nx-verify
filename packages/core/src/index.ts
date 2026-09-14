@@ -670,3 +670,7 @@ export type {
   Permission,
   SectionState,
 } from './customers/customer-file.js';
+export { quoteChecks } from './customers/quote.js';
+export type { CheckQuote, ChecksQuote } from './customers/quote.js';
+export { countCustomers, listCustomers } from './customers/list.js';
+export type { CustomerCounts, CustomerFilter, CustomerRow } from './customers/list.js';

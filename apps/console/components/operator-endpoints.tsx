@@ -97,7 +97,6 @@ export function OperatorEndpoints({
                     <form
                       key={endpoint}
                       action={setEndpointAction}
-                      method="post"
                       className="row"
                       data-endpoint={endpoint}
                       style={{ gap: 'var(--s-2)', flexWrap: 'wrap', alignItems: 'flex-end' }}

@@ -130,7 +130,7 @@ export function Developer({
               </p>
             ) : null}
 
-            <form action={runAction} method="post" className="row" style={{ gap: 'var(--s-3)' }}>
+            <form action={runAction} className="row" style={{ gap: 'var(--s-3)' }}>
               <select name="product" aria-label="الوحدة" style={{ width: 'auto' }}>
                 {view.products.map((product) => (
                   <option key={product.code} value={product.code}>

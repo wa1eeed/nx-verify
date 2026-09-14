@@ -88,7 +88,7 @@ export function UserAdmin({
             يدخل ببريده وكلمة مرور مؤقتة، ويغيّرها عند أول دخول.
           </p>
         </div>
-        <form action={createAction} method="post" className="row" style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}>
+        <form action={createAction} className="row" style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}>
           <label className="stack" style={{ gap: 'var(--s-1)', flex: 1, minWidth: '200px' }}>
             <span className="stat-label">البريد</span>
             <input name="email" type="email" dir="ltr" className="mono" required />
@@ -147,7 +147,7 @@ export function UserAdmin({
                     </div>
                   </td>
                   <td>
-                    <form action={roleAction} method="post" className="row" style={{ gap: 'var(--s-2)' }}>
+                    <form action={roleAction} className="row" style={{ gap: 'var(--s-2)' }}>
                       <input type="hidden" name="user_id" value={user.userId} />
                       <select
                         name="role"
@@ -184,7 +184,7 @@ export function UserAdmin({
                         أنت
                       </span>
                     ) : lastAdmin ? null : (
-                      <form action={statusAction} method="post">
+                      <form action={statusAction}>
                         <input type="hidden" name="user_id" value={user.userId} />
                         <input
                           type="hidden"

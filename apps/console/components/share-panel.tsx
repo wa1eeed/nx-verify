@@ -86,7 +86,7 @@ export function SharePanel({
         </div>
       ) : null}
 
-      <form action={createAction} method="post" className="stack" style={{ gap: 'var(--s-3)' }}>
+      <form action={createAction} className="stack" style={{ gap: 'var(--s-3)' }}>
         <input type="hidden" name="entity_id" value={entityId} />
 
         <fieldset className="stack" style={{ gap: 'var(--s-2)', border: 0, padding: 0, margin: 0 }}>
@@ -173,7 +173,7 @@ export function SharePanel({
                   </td>
                   <td>
                     {share.state === 'live' ? (
-                      <form action={revokeAction} method="post">
+                      <form action={revokeAction}>
                         <input type="hidden" name="entity_id" value={entityId} />
                         <input type="hidden" name="share_id" value={share.shareId} />
                         <button type="submit" className="btn-secondary" data-role="revoke-share">

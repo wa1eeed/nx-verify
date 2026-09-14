@@ -1,48 +1,41 @@
+import { randomUUID } from 'node:crypto';
 import { notFound } from 'next/navigation';
 import type { ReactElement } from 'react';
 import {
-  computeScore,
-  getAttestationTimeline,
-  getEntity,
-  getEntityProfile,
+  fieldGroup,
+  getCustomerFile,
   getFieldHistory,
-  getRelations,
   getVerificationHistory,
-  listIdentifiers,
+  listChecks,
   listProducts,
+  listShares,
+  quoteChecks,
+  type FieldGroup,
 } from '@nx-verify/core';
-import { fieldGroup, listShares, type FieldGroup } from '@nx-verify/core';
 import { getKeys } from '../../../../lib/keys';
-import { Entity360 } from '../../../../components/entity-360';
+import { query } from '../../../../lib/context';
+import { readStoredResult } from '../../../../lib/check-result';
+import { CustomerFileScreen } from '../../../../components/customer-file';
 import { SharePanel, type ShareRowView } from '../../../../components/share-panel';
 import {
   VerificationHistory,
   type VerificationHistoryEntry,
 } from '../../../../components/verification-history';
+import type { FieldHistoryView } from '../../../../components/field-card';
 import { createShareAction, revokeShareAction } from './share-actions';
-import { query } from '../../../../lib/context';
+import { startChecksAction } from '../actions';
 
 /**
  * Never prerendered and never cached.
  *
- * This page reads one tenant's live data, and a build machine has no database and no
- * business holding a copy of it. Rendering it at request time is also what keeps a page
- * from showing a snapshot of somebody else's tenant after a deployment.
+ * This page reads one subscriber's live data, and a build machine has no database and no
+ * business holding a copy of it.
  */
 export const dynamic = 'force-dynamic';
 
-import type { ProfileFieldView } from '../../../../components/field-card';
-import type { TimelineEntryView, TriggeredBy } from '../../../../components/timeline';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * Entity 360 on real data.
- *
- * Identifiers are masked before they leave the query (rule 4), the provider is never
- * selected (rule 5), and each field arrives with its authority and observed_at already
- * attached, because the component will not render one without them.
- */
-
-export default async function EntityPage({
+export default async function CustomerPage({
   params,
   searchParams,
 }: {
@@ -50,147 +43,56 @@ export default async function EntityPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
   const { id } = await params;
-  // The open tab lives in the address, so a refresh, a print and a shared link all show
-  // the same part of the file.
-  const tab = (await searchParams)['tab'];
+  const query_ = await searchParams;
+  if (!UUID.test(id)) {
+    notFound();
+  }
+  const now = new Date();
 
   const data = await query(async (tx) => {
-    const entity = await getEntity(tx, id);
-    if (!entity) {
+    const file = await getCustomerFile(tx, getKeys(), id, { now });
+    if (!file) {
       return null;
     }
-
-    // Sequential, not Promise.all. These share one connection inside one transaction,
-    // and a pg client cannot serve two queries at once.
-    const profile = await getEntityProfile(tx, id);
-    const identifiers = await listIdentifiers(tx, getKeys(), id);
-    const timeline = await getAttestationTimeline(tx, id, { limit: 40 });
-
-    const { rows: triggers } = await tx.query<{ id: string; triggered_by: TriggeredBy }>(
-      `SELECT id, triggered_by FROM verification_runs WHERE tenant_id = $1`,
-      [tx.tenantId],
-    );
-
-    const score = await computeScore(tx, id);
-    const edges = await getRelations(tx, id);
-    const shares = await listShares(tx, id);
-
-    // The file over time, and the file field by field. Both are the same immutable rows
-    // read two ways: by verification for the timeline, and by field for each card.
+    // Sequential: one connection inside one transaction serves one query at a time.
+    const histories: Record<string, FieldHistoryView[]> = {};
+    for (const section of file.sections) {
+      for (const field of section.fields) {
+        const history = await getFieldHistory(tx, id, field.fieldPath);
+        histories[field.fieldPath] = history
+          .filter((entry) => !entry.current)
+          .map((entry) => ({ value: entry.value, authority: entry.authority, observedAt: entry.observedAt, changed: entry.changed }));
+      }
+    }
+    const quote = await quoteChecks(tx, file.checks.map((check) => check.productCode));
     const verifications = await getVerificationHistory(tx, id);
     const products = await listProducts(tx);
-
-    const history = new Map<string, Awaited<ReturnType<typeof getFieldHistory>>>();
-    for (const field of profile) {
-      history.set(field.fieldPath, await getFieldHistory(tx, id, field.fieldPath));
-    }
-
-    // Names and link counts for the other side of each relation. The count is what turns
-    // a list of relationships into a signal: one person signing for several companies.
-    const otherIds = edges.map((edge) =>
-      edge.fromEntity === id ? edge.toEntity : edge.fromEntity,
-    );
-    const { rows: others } = await tx.query<{
-      id: string;
-      display_name: string | null;
-      linked: string;
-    }>(
-      `SELECT e.id, e.display_name,
-              (SELECT count(DISTINCT r.from_entity)
-               FROM entity_relations r
-               WHERE r.tenant_id = e.tenant_id AND r.to_entity = e.id AND r.ended_at IS NULL
-              )::text AS linked
-       FROM entities e
-       WHERE e.tenant_id = $1 AND e.id = ANY($2::uuid[])`,
-      [tx.tenantId, otherIds],
-    );
-
-    return {
-      entity,
-      profile,
-      identifiers,
-      timeline,
-      triggers,
-      score,
-      edges,
-      others,
-      shares,
-      verifications,
-      products,
-      history,
-    };
+    const shares = await listShares(tx, id);
+    const catalogue = await listChecks(tx);
+    return { file, histories, quote, verifications, products, shares, catalogue };
   });
 
   if (!data) {
     notFound();
   }
 
-  const triggerByRun = new Map(data.triggers.map((row) => [row.id, row.triggered_by]));
+  const ran = typeof query_['ran'] === 'string' ? query_['ran'] : null;
+  const stored = await readStoredResult(ran);
+  const nameOf = new Map(data.products.map((product) => [product.code, product.nameAr]));
 
-  const fields: ProfileFieldView[] = data.profile.map((field) => ({
-    fieldPath: field.fieldPath,
-    value: field.value,
-    // A field without an authority cannot be displayed, so an empty one is named as such
-    // rather than quietly rendered blank.
-    authority: field.authority ?? 'غير محدد',
-    observedAt: field.observedAt,
-    effectiveUntil: field.effectiveUntil,
-    freshness: field.freshness,
-    confidence: field.confidence,
-    // Everything the field held before the value in force, so the card can show that a
-    // new verification added to the record rather than replacing it.
-    history: (data.history.get(field.fieldPath) ?? [])
-      .filter((entry) => !entry.current)
-      .map((entry) => ({
-        value: entry.value,
-        authority: entry.authority,
-        observedAt: entry.observedAt,
-        changed: entry.changed,
-      })),
-  }));
-
-  const productNames = new Map(data.products.map((product) => [product.code, product.nameAr]));
   const verifications: VerificationHistoryEntry[] = data.verifications.map((run) => ({
     runId: run.runId,
     reference: run.reference,
-    productNameAr: productNames.get(run.productCode) ?? run.productCode,
+    productNameAr: nameOf.get(run.productCode) ?? run.productCode,
     at: run.at,
     decision: run.decision,
     triggeredBy: run.triggeredBy,
     fields: run.fields,
   }));
 
-  const entries: TimelineEntryView[] = data.timeline.map((entry) => ({
-    attestationId: entry.attestationId,
-    fieldPath: entry.fieldPath,
-    value: entry.value,
-    authority: entry.authority ?? 'غير محدد',
-    observedAt: entry.observedAt,
-    triggeredBy: triggerByRun.get(entry.runId) ?? 'API',
-    changed: entry.supersededBy === null,
-  }));
-
-  const trackedFields = 6;
-  const otherById = new Map(
-    data.others.map((row) => [row.id, { name: row.display_name, linked: Number(row.linked) }]),
-  );
-
-  const relations = data.edges.map((edge) => {
-    const otherId = edge.fromEntity === id ? edge.toEntity : edge.fromEntity;
-    const other = otherById.get(otherId);
-    return {
-      relType: edge.relType,
-      otherEntityId: otherId,
-      otherName: other?.name ?? null,
-      direction: edge.fromEntity === id ? ('from' as const) : ('to' as const),
-      linkedCount: other?.linked ?? 0,
-    };
-  });
-
-  // Only the groups this entity has facts in are offered. Sharing an empty group promises
-  // the recipient something the link cannot deliver.
+  // Only the groups this customer has facts in are offered for sharing.
   const availableGroups = [
-    ...new Set(fields.map((field) => fieldGroup(field.fieldPath))),
+    ...new Set(data.file.sections.flatMap((section) => section.fields.map((field) => fieldGroup(field.fieldPath)))),
   ] as FieldGroup[];
 
   const shares: ShareRowView[] = data.shares.map((share) => ({
@@ -204,49 +106,48 @@ export default async function EntityPage({
     state: share.state,
   }));
 
-  // Present for exactly one render, straight after issuing. A refresh loses it, which is
-  // the point: a link that can be recovered from a page never really expires.
-  const issued = (await searchParams)['share'];
+  const issued = query_['share'];
   const issuedLink =
-    typeof issued === 'string' && issued !== ''
-      ? `${process.env['NX_CONSOLE_BASE_URL'] ?? ''}/p/${issued}`
-      : null;
+    typeof issued === 'string' && issued !== '' ? `${process.env['NX_CONSOLE_BASE_URL'] ?? ''}/p/${issued}` : null;
 
   return (
-    <>
-    <Entity360
-      {...(typeof tab === 'string' ? { tab } : {})}
-      header={{
-        entityId: id,
-        displayName: data.entity.displayName,
-        entityType: data.entity.entityType,
-        identifiers: data.identifiers.map((identifier) => ({
-          idType: identifier.idType,
-          masked: identifier.masked,
-        })),
-        score: data.score.score,
-        scoreBreakdown: data.score.breakdown.components.map((component) => ({
-          fieldPath: component.fieldPath,
-          weight: component.weight,
-          earned: component.earned,
-          freshness: component.freshness,
-        })),
-        completeness: Math.min(100, Math.round((fields.length / trackedFields) * 100)),
-      }}
-      fields={fields}
-      changes={[]}
-      timeline={entries}
-      relations={relations}
-    />
-    <VerificationHistory entries={verifications} />
-    <SharePanel
-      entityId={id}
-      availableGroups={availableGroups}
-      shares={shares}
-      issuedLink={issuedLink}
-      createAction={createShareAction}
-      revokeAction={revokeShareAction}
-    />
-    </>
+    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+      <nav className="muted" aria-label="مسار الصفحة">
+        <a href="/customers">العملاء</a> / {data.file.displayName ?? 'عميل'}
+      </nav>
+      <CustomerFileScreen
+        action={startChecksAction}
+        view={{
+          file: data.file,
+          bundles: {
+            checklist: randomUUID(),
+            sections: Object.fromEntries(data.file.sections.map((section) => [section.section, randomUUID()])),
+            managers: Object.fromEntries(data.file.managers.map((manager) => [manager.entityId, randomUUID()])),
+          },
+          prices: Object.fromEntries(data.quote.lines.map((line) => [line.productCode, line.unitPriceHalalas])),
+          refusals: Object.fromEntries(data.quote.lines.map((line) => [line.productCode, line.allowed ? null : line.refusalAr])),
+          fromPackage: data.quote.capacityRemaining !== null && data.quote.capacityRemaining > 0,
+          capacityRemaining: data.quote.capacityRemaining,
+          results: stored
+            ? stored.outcomes.map((outcome) => ({
+                ...outcome,
+                nameAr: data.catalogue.find((check) => check.productCode === outcome.productCode)?.nameAr ?? outcome.productCode,
+              }))
+            : null,
+          error: typeof query_['error'] === 'string' ? query_['error'] : null,
+          histories: data.histories,
+          now,
+        }}
+      />
+      <VerificationHistory entries={verifications} />
+      <SharePanel
+        entityId={id}
+        availableGroups={availableGroups}
+        shares={shares}
+        issuedLink={issuedLink}
+        createAction={createShareAction}
+        revokeAction={revokeShareAction}
+      />
+    </div>
   );
 }

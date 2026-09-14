@@ -54,7 +54,7 @@ export default async function OperatorLoginPage({
                   رمز الدخول غير صحيح.
                 </p>
               ) : null}
-              <form action={operatorSignInAction} method="post" className="stack">
+              <form action={operatorSignInAction} className="stack">
                 <label htmlFor="token">رمز الدخول</label>
                 <input
                   id="token"

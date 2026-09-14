@@ -1,5 +1,6 @@
 import type { Freshness } from '../repositories/profile.js';
 import type { CustomerKind } from './checks.js';
+import { daysCount, detectedChanges, otherBusinesses, otherCustomers } from './arabic.js';
 
 /**
  * The KYB and KYC indicators of a customer file, and the signals worth a person's time.
@@ -219,7 +220,7 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
   if (typeof issued === 'string') {
     const age = daysBetween(new Date(issued), input.now);
     if (age >= 0 && age < 180) {
-      signals.push({ key: 'new_business', severity: 'LOW', textAr: `منشأة حديثة التأسيس: صدر سجلها قبل ${age} يوماً.` });
+      signals.push({ key: 'new_business', severity: 'LOW', textAr: `منشأة حديثة التأسيس: صدر سجلها قبل ${daysCount(age)}.` });
     }
   }
 
@@ -228,7 +229,7 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
       signals.push({
         key: 'manager_many_companies',
         severity: 'MEDIUM',
-        textAr: `${manager.name ?? 'أحد المدراء'} يدير ${manager.otherCompanies} منشآت أخرى من عملائك.`,
+        textAr: `${manager.name ?? 'أحد المدراء'} يدير ${otherBusinesses(manager.otherCompanies)} من عملائك.`,
       });
     }
   }
@@ -236,24 +237,21 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
     signals.push({
       key: 'shared_account',
       severity: 'HIGH',
-      textAr:
-        input.accountsSharedWith === 1
-          ? 'الحساب البنكي نفسه مقدَّم لعميل آخر لديك.'
-          : `الحساب البنكي نفسه مقدَّم لـ${input.accountsSharedWith} عملاء آخرين لديك.`,
+      textAr: `الحساب البنكي نفسه مقدَّم أيضاً إلى ${otherCustomers(input.accountsSharedWith)} لديك.`,
     });
   }
   if (input.addressSharedWith >= 2) {
     signals.push({
       key: 'shared_address',
       severity: 'LOW',
-      textAr: `العنوان الوطني نفسه مسجل لـ${input.addressSharedWith} منشآت أخرى من عملائك.`,
+      textAr: `العنوان الوطني نفسه مسجل باسم ${otherBusinesses(input.addressSharedWith)} من عملائك.`,
     });
   }
   if (input.openChanges > 0) {
     signals.push({
       key: 'open_changes',
       severity: 'MEDIUM',
-      textAr: input.openChanges === 1 ? 'تغيّر مرصود لم يُطَّلع عليه بعد.' : `${input.openChanges} تغيّرات مرصودة لم يُطَّلع عليها بعد.`,
+      textAr: `${detectedChanges(input.openChanges)} بانتظار الاطلاع.`,
     });
   }
 

@@ -106,6 +106,8 @@ export interface RunChecksInput {
   requestedBy: string | null;
   /** How many managers one full verification checks at most. */
   managerLimit?: number;
+  /** Check only these managers, by entity. Absent means every known manager. */
+  onlyPeople?: readonly string[];
 }
 
 export type CheckStatus = 'OK' | 'PARTIAL' | 'NOT_FOUND' | 'ERROR' | 'AWAITING' | 'SKIPPED' | 'REFUSED';
@@ -245,6 +247,26 @@ async function managersOf(
   return managers;
 }
 
+async function latestAccountIban(
+  tx: TenantTransaction,
+  keys: TenantKeyProvider,
+  entityId: string,
+): Promise<string | null> {
+  const { rows } = await tx.query<{ to_entity: string }>(
+    `SELECT to_entity FROM entity_relations
+     WHERE tenant_id = $1 AND from_entity = $2 AND rel_type = 'HOLDS_ACCOUNT' AND ended_at IS NULL
+     ORDER BY valid_from DESC LIMIT 1`,
+    [tx.tenantId, entityId],
+  );
+  const account = rows[0]?.to_entity;
+  if (!account) {
+    return null;
+  }
+  // Decrypted for the call to the authority and for nothing else.
+  const revealed = await revealIdentifier(tx, keys, account, ['IBAN']);
+  return revealed?.value ?? null;
+}
+
 async function identityOf(
   tx: TenantTransaction,
   keys: TenantKeyProvider,
@@ -282,6 +304,18 @@ export async function runChecks(deps: RunChecksDependencies, input: RunChecksInp
   const outcomes: CheckOutcome[] = [];
   const managerLimit = input.managerLimit ?? 10;
 
+  // Re-verifying a customer's bank account needs its IBAN again. It is on file, encrypted
+  // on the account it resolved to, so a person pressing "verify again" is not asked to
+  // type it a second time. A new IBAN typed into the form wins.
+  let inputs = input.inputs;
+  const wantsIban = selected.some((check) => check.requiredInputs.includes('iban'));
+  if (wantsIban && !inputs?.iban && entityId !== null) {
+    const iban = await deps.inTenant((tx) => latestAccountIban(tx, deps.keys, entityId as string));
+    if (iban) {
+      inputs = { ...inputs, iban };
+    }
+  }
+
   for (const check of selected) {
     if (check.availability !== 'AVAILABLE') {
       outcomes.push({ productCode: check.productCode, status: 'SKIPPED', reference: null, noteAr: 'هذه العملية قادمة قريباً ولم تُفعَّل بعد.' });
@@ -299,7 +333,7 @@ export async function runChecks(deps: RunChecksDependencies, input: RunChecksInp
       continue;
     }
 
-    const subject = subjectFor(check, input.kind, identity, input.inputs);
+    const subject = subjectFor(check, input.kind, identity, inputs);
     const missing = check.requiredInputs.filter((name) => name !== 'manager_id' && subject[name] === undefined);
     if (missing.length > 0) {
       outcomes.push({
@@ -315,7 +349,9 @@ export async function runChecks(deps: RunChecksDependencies, input: RunChecksInp
     const targets = check.requiredInputs.includes('manager_id')
       ? entityId === null
         ? []
-        : await deps.inTenant((tx) => managersOf(tx, deps.keys, entityId as string, managerLimit))
+        : (await deps.inTenant((tx) => managersOf(tx, deps.keys, entityId as string, managerLimit))).filter(
+            (manager) => input.onlyPeople === undefined || input.onlyPeople.includes(manager.personId),
+          )
       : [null];
 
     if (targets.length === 0) {

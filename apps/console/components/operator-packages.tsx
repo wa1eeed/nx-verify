@@ -153,7 +153,7 @@ export function OperatorPackages({
                         </bdi>
                       </td>
                       <td>
-                        <form action={setProductAction} method="post" className="row">
+                        <form action={setProductAction} className="row">
                           <input type="hidden" name="package_code" value={plan.code} />
                           <input type="hidden" name="product_code" value={product.code} />
                           <input type="hidden" name="enabled" value={String(enabled)} />
@@ -178,7 +178,7 @@ export function OperatorPackages({
                         </form>
                       </td>
                       <td>
-                        <form action={setProductAction} method="post" className="inline">
+                        <form action={setProductAction} className="inline">
                           <input type="hidden" name="package_code" value={plan.code} />
                           <input type="hidden" name="product_code" value={product.code} />
                           <input type="hidden" name="enabled" value={enabled ? 'false' : 'true'} />
@@ -247,7 +247,7 @@ export function OperatorPackages({
                             {override.productNameAr}
                             {': '}
                             {override.enabled === true ? 'مفعّلة استثناءً' : 'معطّلة استثناءً'}
-                            <form action={setOverrideAction} method="post" className="inline">
+                            <form action={setOverrideAction} className="inline">
                               <input type="hidden" name="tenant_id" value={row.tenantId} />
                               <input type="hidden" name="product_code" value={override.productCode} />
                               <input type="hidden" name="enabled" value="" />
@@ -261,7 +261,7 @@ export function OperatorPackages({
                       </ul>
                     )}
 
-                    <form action={setOverrideAction} method="post" className="row" style={{ marginBlockStart: 'var(--s-2)' }}>
+                    <form action={setOverrideAction} className="row" style={{ marginBlockStart: 'var(--s-2)' }}>
                       <input type="hidden" name="tenant_id" value={row.tenantId} />
                       <select name="product_code" aria-label="وحدة" style={{ width: 'auto' }}>
                         {allProducts.map((product) => (
@@ -280,7 +280,7 @@ export function OperatorPackages({
                     </form>
                   </td>
                   <td>
-                    <form action={assignAction} method="post" className="row">
+                    <form action={assignAction} className="row">
                       <input type="hidden" name="tenant_id" value={row.tenantId} />
                       <select name="package_code" aria-label="باقة" style={{ width: 'auto' }}>
                         {packages.map((plan) => (

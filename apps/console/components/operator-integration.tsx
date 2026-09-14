@@ -212,7 +212,7 @@ export function OperatorIntegration({
         note="اترك أي حقل سري فارغاً لإبقاء قيمته المحفوظة. القيم تُحفظ مشفّرة في مخزن الأسرار، ولا تُكتب في قاعدة البيانات ولا تُعرض بعد حفظها."
         role="credentials"
       >
-        <form action={saveAction} method="post" className="panel-body stack" data-role="credentials-form">
+        <form action={saveAction} className="panel-body stack" data-role="credentials-form">
           <input type="hidden" name="environment" value={view.environment} />
 
           <label htmlFor="client_id">معرّف التطبيق (Application ID)</label>
@@ -260,7 +260,7 @@ export function OperatorIntegration({
       </Panel>
 
       <Panel title="اختبار الربط" aside="لا يستهلك أي عملية تحقق" role="test">
-        <form action={testAction} method="post" className="panel-body row" style={{ justifyContent: 'space-between' }}>
+        <form action={testAction} className="panel-body row" style={{ justifyContent: 'space-between' }}>
           <input type="hidden" name="environment" value={view.environment} />
           <span className="muted">يطلب رمز دخول بالبيانات المحفوظة، ولا يرسل أي بيانات عملاء.</span>
           <button type="submit" className="btn-secondary" data-role="test-connection" disabled={!configured}>
@@ -287,7 +287,7 @@ export function OperatorIntegration({
           {view.callbackUrl ? (
             <details>
               <summary className="muted">التوقيع وتجديد العنوان</summary>
-              <form action={callbackAction} method="post" className="stack" style={{ marginBlockStart: 'var(--s-3)' }}>
+              <form action={callbackAction} className="stack" style={{ marginBlockStart: 'var(--s-3)' }}>
                 <input type="hidden" name="environment" value={view.environment} />
                 <label htmlFor="callback_header">ترويسة التوقيع</label>
                 <input id="callback_header" name="callback_header" defaultValue={view.callbackHeader} dir="ltr" className="mono" />

@@ -12,6 +12,7 @@ import {
 } from '../profile/field-catalogue.js';
 import { checksFor, listChecks, type CheckDefinition, type CustomerKind, type ProfileSection } from './checks.js';
 import { assessCustomer, type Assessment, type FactView } from './indicators.js';
+import { businesses, otherBusinesses, otherCustomers } from './arabic.js';
 
 /**
  * A customer's file, as the owner described it.
@@ -480,7 +481,7 @@ export async function getCustomerFile(
     if (manager.alsoManages.length > 0) {
       intersections.push({
         kind: 'SHARED_MANAGER',
-        textAr: `${manager.name ?? 'أحد المدراء'} يدير ${manager.alsoManages.length === 1 ? 'منشأة أخرى' : `${manager.alsoManages.length} منشآت أخرى`} من عملائك`,
+        textAr: `${manager.name ?? 'أحد المدراء'} يدير أيضاً ${otherBusinesses(manager.alsoManages.length)} من عملائك`,
         via: { entityId: manager.entityId, name: manager.name, entityType: 'PERSON' },
         entities: manager.alsoManages,
       });
@@ -498,7 +499,7 @@ export async function getCustomerFile(
     if (partner.alsoOwns.length > 0) {
       intersections.push({
         kind: 'SHARED_PARTNER',
-        textAr: `${partner.name ?? 'أحد الشركاء'} شريك أيضاً في ${partner.alsoOwns.length === 1 ? 'منشأة أخرى' : `${partner.alsoOwns.length} منشآت أخرى`} من عملائك`,
+        textAr: `${partner.name ?? 'أحد الشركاء'} شريك أيضاً في ${otherBusinesses(partner.alsoOwns.length)} من عملائك`,
         via: { entityId: partner.entityId, name: partner.name, entityType: partner.kind },
         entities: partner.alsoOwns,
       });
@@ -508,7 +509,7 @@ export async function getCustomerFile(
     if (account.sharedWith.length > 0) {
       intersections.push({
         kind: 'SHARED_ACCOUNT',
-        textAr: `الحساب البنكي ${account.maskedIban ?? ''} مقدَّم أيضاً لـ${account.sharedWith.length === 1 ? 'عميل آخر' : `${account.sharedWith.length} عملاء آخرين`}`,
+        textAr: `الحساب البنكي نفسه مقدَّم أيضاً إلى ${otherCustomers(account.sharedWith.length)}`,
         via: { entityId: account.entityId, name: account.maskedIban, entityType: 'BANK_ACCOUNT' },
         entities: account.sharedWith,
       });
@@ -517,7 +518,7 @@ export async function getCustomerFile(
   if (addressRows.length > 0) {
     intersections.push({
       kind: 'SHARED_ADDRESS',
-      textAr: `العنوان الوطني نفسه مسجل لـ${addressRows.length === 1 ? 'منشأة أخرى' : `${addressRows.length} منشآت أخرى`} من عملائك`,
+      textAr: `العنوان الوطني نفسه مسجل باسم ${otherBusinesses(addressRows.length)} من عملائك`,
       via: null,
       entities: addressRows.map((row) => ({ entityId: row.entity_id, name: row.name, entityType: row.entity_type })),
     });
@@ -527,7 +528,7 @@ export async function getCustomerFile(
   if (managesIn.length > 0) {
     intersections.push({
       kind: 'MANAGES',
-      textAr: `مدير في ${managesIn.length === 1 ? 'منشأة' : `${managesIn.length} منشآت`} من عملائك`,
+      textAr: `مدير في ${businesses(managesIn.length)} من عملائك`,
       via: null,
       entities: managesIn.map((row) => ({ entityId: row.other, name: row.name, entityType: row.entity_type })),
     });
@@ -536,7 +537,7 @@ export async function getCustomerFile(
   if (ownsIn.length > 0) {
     intersections.push({
       kind: 'PARTNER_IN',
-      textAr: `شريك في ${ownsIn.length === 1 ? 'منشأة' : `${ownsIn.length} منشآت`} من عملائك`,
+      textAr: `شريك في ${businesses(ownsIn.length)} من عملائك`,
       via: null,
       entities: ownsIn.map((row) => ({ entityId: row.other, name: row.name, entityType: row.entity_type })),
     });
