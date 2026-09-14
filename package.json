@@ -21,7 +21,10 @@
     "design:shots": "node verify/shoot.mjs",
     "build:console": "pnpm --filter @nx-verify/console run build",
     "mcp": "pnpm --filter @nx-verify/mcp run start",
-    "provision": "tsx scripts/provision.ts"
+    "provision": "tsx scripts/provision.ts",
+    "design:all": "node verify/shots-all.mjs",
+    "design:compare": "node verify/compare-shots.mjs",
+    "design:responsive": "node verify/check-responsive.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
@@ -30,7 +33,9 @@
     "@types/pg": "^8.11.10",
     "eslint": "^9.17.0",
     "pg": "^8.13.1",
+    "pixelmatch": "^7",
     "playwright": "^1.63.0",
+    "pngjs": "^7",
     "prettier": "^3.4.2",
     "testcontainers": "^10.16.0",
     "tsx": "^4.19.2",
