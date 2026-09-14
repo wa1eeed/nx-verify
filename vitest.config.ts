@@ -1,9 +1,19 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   // The console is React, and its components are rendered to a string in tests so that
   // the interface rules in CLAUDE.md can be asserted rather than eyeballed.
   esbuild: { jsx: 'automatic' },
+  // The console's own alias, which the shadcn/ui components import through.
+  resolve: {
+    alias: [
+      {
+        find: /^@\//,
+        replacement: fileURLToPath(new URL('./apps/console/src/', import.meta.url)),
+      },
+    ],
+  },
   test: {
     globalSetup: ['./test/global-setup.ts'],
     include: [

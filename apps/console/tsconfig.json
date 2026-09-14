@@ -11,7 +11,14 @@
     "incremental": true,
     "resolveJsonModule": true,
     "verbatimModuleSyntax": false,
-    "plugins": [{ "name": "next" }]
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": [
     "next-env.d.ts",

@@ -20,10 +20,10 @@ export function CompletenessRing({
 }): ReactElement {
   const share = Math.min(100, Math.max(0, percent)) / 100;
   return (
-    <svg className="ring" viewBox="0 0 78 78" role="img" aria-label={label}>
-      <circle className="ring-track" cx="39" cy="39" r={RADIUS} />
+    <svg className="completeness-ring" viewBox="0 0 78 78" role="img" aria-label={label}>
+      <circle className="completeness-ring-track" cx="39" cy="39" r={RADIUS} />
       <circle
-        className="ring-fill"
+        className="completeness-ring-fill"
         cx="39"
         cy="39"
         r={RADIUS}

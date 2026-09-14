@@ -865,20 +865,20 @@ a.frame-brand:active {
   align-items: center;
   gap: var(--space-4);
 }
-.ring {
+.completeness-ring {
   flex: none;
   inline-size: var(--control-ring);
   block-size: var(--control-ring);
 }
-.ring-track,
-.ring-fill {
+.completeness-ring-track,
+.completeness-ring-fill {
   fill: none;
   stroke-width: var(--control-ring-stroke);
 }
-.ring-track {
+.completeness-ring-track {
   stroke: var(--color-neutral-300);
 }
-.ring-fill {
+.completeness-ring-fill {
   stroke: var(--color-accent-2);
   stroke-linecap: round;
 }

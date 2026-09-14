@@ -5,6 +5,9 @@ import { PRODUCT_NAME } from '../components/brand';
 import '../styles/legacy.css';
 import '../styles/organic.css';
 import '../styles/product.css';
+// Tailwind's theme and utilities, in cascade layers everything above outranks (ADR-119).
+import '../styles/tailwind.css';
+import { DirectionProvider } from '../components/shadcn/direction';
 
 export const metadata = {
   title: PRODUCT_NAME,
@@ -31,7 +34,9 @@ export default function RootLayout({ children }: { children: ReactNode }): React
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <DirectionProvider direction="rtl">{children}</DirectionProvider>
+      </body>
     </html>
   );
 }

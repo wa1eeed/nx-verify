@@ -1,0 +1,145 @@
+/*
+ * Tailwind and shadcn/ui, on the Organic tokens (ADR-119).
+ *
+ * Three decisions keep the design exactly as it was:
+ *
+ * No preflight. Tailwind's reset would restyle every heading, list, button and field the
+ * existing sheets rely on the browser for. Only the theme and the utilities are imported, and
+ * the little the shadcn components need from a reset is given to them alone, by data-slot.
+ *
+ * Layers. The utilities live in a cascade layer and the existing sheets do not, so where a
+ * class of ours and a utility meet, ours wins, as it did before Tailwind was here.
+ *
+ * No colour of its own. Every shadcn variable points at an Organic token, under the portal's
+ * light ground and again under the panel's dark one, so a component takes the ground it sits
+ * on and the palette stays the one in organic.css.
+ */
+
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+/* The panel's dark ground is an attribute, not a class. */
+@custom-variant dark (&:is([data-theme='dark'] *));
+
+@theme inline {
+  --font-sans: var(--font-product-body);
+  --font-heading: var(--font-product-heading);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* The radii the screens already use: fields and buttons are pills, cards 26 to 28. */
+  --radius-sm: var(--radius-check);
+  --radius-md: var(--radius-inset-sm);
+  --radius-lg: var(--radius-inset);
+  --radius-xl: var(--radius-inset-lg);
+  --radius-2xl: var(--radius-card);
+  --radius-3xl: var(--radius-lg);
+  --radius-4xl: var(--radius-frame);
+}
+
+/*
+ * Declared on the dark ground as well as the root: a custom property that reads another is
+ * resolved where it is declared, so a variable set once at the root would keep the light
+ * values inside the panel.
+ */
+:root,
+[data-theme='dark'] {
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-accent);
+  --primary-foreground: var(--color-bg);
+  --secondary: var(--color-neutral-100);
+  --secondary-foreground: var(--color-text);
+  --muted: var(--color-neutral-100);
+  --muted-foreground: var(--color-neutral-600);
+  --accent: var(--color-accent-100);
+  --accent-foreground: var(--color-accent-800);
+  --destructive: var(--color-accent-700);
+  --border: var(--color-divider);
+  --input: var(--color-divider);
+  --ring: var(--color-accent);
+  --chart-1: var(--color-accent);
+  --chart-2: var(--color-accent-2);
+  --chart-3: var(--color-neutral-500);
+  --chart-4: var(--color-accent-300);
+  --chart-5: var(--color-accent-2-300);
+  --sidebar: var(--color-surface);
+  --sidebar-foreground: var(--color-text);
+  --sidebar-primary: var(--color-accent);
+  --sidebar-primary-foreground: var(--color-bg);
+  --sidebar-accent: var(--color-accent-100);
+  --sidebar-accent-foreground: var(--color-accent-800);
+  --sidebar-border: var(--color-divider);
+  --sidebar-ring: var(--color-accent);
+}
+
+[data-theme='dark'] {
+  --popover: var(--dark-card);
+  --primary-foreground: var(--dark-sidebar);
+  --secondary: var(--dark-divider);
+  --secondary-foreground: var(--color-neutral-100);
+  --muted: var(--dark-divider);
+  --muted-foreground: var(--color-neutral-400);
+  --accent: var(--color-accent-900);
+  --accent-foreground: var(--color-accent-200);
+  --destructive: var(--color-accent-300);
+  --border: var(--dark-divider);
+  --input: var(--dark-field-border);
+  --sidebar: var(--dark-sidebar);
+  --sidebar-foreground: var(--color-neutral-100);
+  --sidebar-primary-foreground: var(--dark-sidebar);
+  --sidebar-accent: var(--dark-card);
+  --sidebar-accent-foreground: var(--color-neutral-100);
+  --sidebar-border: var(--dark-divider);
+}
+
+/* What the shadcn components need from a reset, given to them and to nothing else. */
+@layer base {
+  :where([data-slot]) {
+    border-style: solid;
+    border-width: 0;
+  }
+  :where(button, input, select, textarea)[data-slot] {
+    font: inherit;
+    color: inherit;
+    background-color: transparent;
+  }
+}

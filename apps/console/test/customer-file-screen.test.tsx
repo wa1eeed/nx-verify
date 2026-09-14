@@ -233,7 +233,7 @@ describe('the customer file of screen 03', () => {
   });
 
   it('draws the four figures: completeness, standing, the people, and the risk score', () => {
-    expect(html).toContain('class="ring"');
+    expect(html).toContain('class="completeness-ring"');
     expect(html).toContain('<bdi dir="ltr" class="ltr">80%</bdi>');
     expect(html).toContain(
       '<bdi dir="ltr" class="ltr">4</bdi> من <bdi dir="ltr" class="ltr">5</bdi> أقسام',
