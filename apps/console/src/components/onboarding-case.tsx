@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { PageHeader, Panel } from './page-header';
 import { StatusBadge, caseStatusLabel } from './onboarding';
@@ -80,9 +81,9 @@ export function OnboardingCaseView({ view }: { view: CaseDetailView }): ReactEle
         subtitle={`${view.journeyNameAr} · ${view.entityName ?? 'متقدّم لم يُحَل بعد'}`}
         action={
           view.entityId ? (
-            <a className="btn btn-secondary" href={`/customers/${view.entityId}`}>
+            <Link className="btn btn-secondary" href={`/customers/${view.entityId}`}>
               ملف الكيان
-            </a>
+            </Link>
           ) : undefined
         }
       />
@@ -159,11 +160,11 @@ export function OnboardingCaseView({ view }: { view: CaseDetailView }): ReactEle
                   </td>
                   <td>
                     {step.runId ? (
-                      <a href={`/verifications?run=${step.runId}`}>
+                      <Link href={`/verifications?run=${step.runId}`}>
                         <bdi dir="ltr" className="mono">
                           {step.runReference ?? 'عرض'}
                         </bdi>
-                      </a>
+                      </Link>
                     ) : (
                       <span className="muted">لا يوجد</span>
                     )}

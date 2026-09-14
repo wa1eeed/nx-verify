@@ -13,7 +13,7 @@ import {
 } from '@nx-verify/core';
 import { AdminPricing } from '../../../../components/admin-pricing';
 import { noticeAr } from '../../../../components/admin-pricing/model';
-import { currentOperator, operatorQuery } from '../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../lib/operator';
 import { operatorNameOf } from '../../../../lib/operator-names';
 import {
   addBundleAction,
@@ -38,7 +38,7 @@ export default async function OperatorPricingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
-  const operator = await currentOperator();
+  const operator = await operatorOrSignIn();
   const params = Object.fromEntries(
     Object.entries(await searchParams).filter(
       (entry): entry is [string, string] => typeof entry[1] === 'string',

@@ -10,7 +10,7 @@ import {
 import { AdminSubscriber } from '../../../../../components/admin-subscribers/detail';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { SUBSCRIBER_TABS } from '../../../../../components/operator-shell';
-import { currentOperator, operatorQuery } from '../../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
 import { assignPlanAction, setSuspendedAction } from '../actions';
 
 /** Never prerendered, and refuses to render without a sign in. */
@@ -35,7 +35,7 @@ export default async function OperatorSubscriberPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
-  const operator = await currentOperator();
+  const operator = await operatorOrSignIn();
   const { id } = await params;
   // Checked before the query, so a mistyped address is a missing page rather than a database
   // error about a malformed uuid.

@@ -9,7 +9,7 @@ import {
 } from '../../../../../components/operator-integration';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { INTEGRATION_TABS } from '../../../../../components/operator-shell';
-import { operatorQuery, requireOperator } from '../../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
 import { operatorNameOf } from '../../../../../lib/operator-names';
 import { rotateCallbackAction, saveIntegrationAction, testIntegrationAction } from './actions';
 
@@ -23,7 +23,7 @@ export default async function OperatorIntegrationPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
-  await requireOperator();
+  await operatorOrSignIn();
   const params = await searchParams;
   const environment: IntegrationEnvironment = params['env'] === 'live' ? 'live' : 'sandbox';
   const target = `${PRIMARY_PROVIDER}/${environment}`;

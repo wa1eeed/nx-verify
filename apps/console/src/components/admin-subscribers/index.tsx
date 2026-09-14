@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { Page, SubscriberBoardRow, SubscribersBoard } from '@nx-verify/core';
 import type { SearchParams } from '../../lib/pagination';
@@ -64,9 +65,14 @@ export function SubscriberRow({ row }: { row: SubscriberBoardRow }): ReactElemen
         </Tag>
       </td>
       <td>
-        <a href={`/operator/subscribers/${row.tenantId}`} className="admin-row-link" data-row-link>
+        <Link
+          prefetch={false}
+          href={`/operator/subscribers/${row.tenantId}`}
+          className="admin-row-link"
+          data-row-link
+        >
           إدارة
-        </a>
+        </Link>
       </td>
     </tr>
   );
@@ -89,7 +95,7 @@ export function AdminSubscribers({
         subtitle={activeLineAr(board.active, board.expiringSoon, view.expiringWindowDays)}
         action={
           <div className="admin-head-actions">
-            <ButtonLink href="/operator/subscribers/export" data-role="export-subscribers">
+            <ButtonLink href="/operator/subscribers/export" download data-role="export-subscribers">
               تصدير
             </ButtonLink>
             {view.canManage ? (

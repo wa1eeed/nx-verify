@@ -1,9 +1,17 @@
 import type { ReactElement, ReactNode } from 'react';
 import { OPERATOR_ROLE_LABELS, type OperatorIdentity } from '@nx-verify/core';
 import { Brand } from './brand';
-import { SectionNav, type PlaceLink } from './section-nav';
-import type { SectionTab } from './section-tabs';
+import { FrameMain } from './frame-main';
+import { OPERATOR_SECTIONS } from './operator-nav';
+import { SectionNav } from './section-nav';
 import { Button } from './ui/button';
+
+export {
+  INTEGRATION_TABS,
+  OPERATOR_SECTIONS,
+  SCREEN_LINKED_PAGES,
+  SUBSCRIBER_TABS,
+} from './operator-nav';
 
 /**
  * The frame of the administration panel (handoff screens 05 and 06).
@@ -17,36 +25,6 @@ import { Button } from './ui/button';
  * verification behave and is the data source connected, what did it earn, and who changed
  * what.
  */
-
-export const OPERATOR_SECTIONS: readonly PlaceLink[] = [
-  { href: '/operator', label: 'نظرة عامة', exact: true, icon: 'layout-dashboard' },
-  { href: '/operator/subscribers', label: 'المشتركون', icon: 'building-2' },
-  { href: '/operator/pricing', label: 'الأسعار والمنتجات', icon: 'tag' },
-  { href: '/operator/verification', label: 'إعدادات التحقق', icon: 'sliders-horizontal' },
-  { href: '/operator/reports', label: 'التقارير', icon: 'bar-chart-3' },
-  { href: '/operator/access', label: 'الصلاحيات والتدقيق', icon: 'shield' },
-];
-
-export const SUBSCRIBER_TABS: readonly SectionTab[] = [
-  { href: '/operator/subscribers', label: 'المشتركون والأرصدة' },
-  { href: '/operator/subscribers/topups', label: 'الحوالات' },
-];
-
-/** Verification settings, and the connection to the data source behind them. */
-export const INTEGRATION_TABS: readonly SectionTab[] = [
-  { href: '/operator/verification', label: 'الإعدادات' },
-  { href: '/operator/verification/integration', label: 'الربط التقني' },
-  { href: '/operator/verification/endpoints', label: 'نقاط النهاية' },
-  { href: '/operator/verification/health', label: 'صحة الخدمة' },
-  { href: '/operator/verification/readiness', label: 'جاهزية النشر' },
-];
-
-/**
- * Screens reached from a link on their place's own screen rather than from the navigation:
- * what each plan sells, opened from the plans card of screen 05.
- */
-export const SCREEN_LINKED_PAGES: readonly string[] = ['/operator/pricing/plans'];
-
 export function OperatorShell({
   operator,
   children,
@@ -85,9 +63,7 @@ export function OperatorShell({
           </div>
         </aside>
 
-        <main className="frame-main" id="main">
-          {children}
-        </main>
+        <FrameMain>{children}</FrameMain>
       </div>
     </>
   );

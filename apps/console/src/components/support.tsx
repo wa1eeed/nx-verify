@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { PageHeader, Panel } from './page-header';
 
@@ -67,8 +68,8 @@ export function Support({ view }: { view: SupportView }): ReactElement {
             . به نجد النداء في ثوانٍ بدل أن نطلب وصفه.
           </li>
           <li>
-            راجع <a href="/settings/developers/logs?failures=1">النداءات الفاشلة</a> أولاً: الرمز
-            هناك يقول ما حدث، وكثير منها يُحل بلا مراسلة.
+            راجع <Link href="/settings/developers/logs?failures=1">النداءات الفاشلة</Link> أولاً:
+            الرمز هناك يقول ما حدث، وكثير منها يُحل بلا مراسلة.
           </li>
           <li data-role="never-send">
             لا ترسل رقم هوية ولا أي معرّف لشخص أو منشأة في البريد. لا نحتاجه، ولا نحتفظ به نصاً

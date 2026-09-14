@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { marginTotals, pageMarginReport, type Page } from '@nx-verify/core';
 import { OperatorMargin, type MarginRowView } from '../../../../components/operator-margin';
-import { operatorQuery, requireOperator } from '../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../lib/operator';
 import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 
 /**
@@ -15,7 +15,7 @@ export default async function OperatorMarginPage({
 }: {
   searchParams: Promise<SearchParams>;
 }): Promise<ReactElement> {
-  await requireOperator();
+  await operatorOrSignIn();
   const params = await searchParams;
 
   // Names from the catalogue, which is rows rather than code (rule 8), so a check added

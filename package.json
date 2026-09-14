@@ -24,7 +24,8 @@
     "provision": "tsx scripts/provision.ts",
     "design:all": "node verify/shots-all.mjs",
     "design:compare": "node verify/compare-shots.mjs",
-    "design:responsive": "node verify/check-responsive.mjs"
+    "design:responsive": "node verify/check-responsive.mjs",
+    "design:navigation": "node verify/check-navigation.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

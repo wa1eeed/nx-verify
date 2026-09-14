@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type {
   CreditBundle,
@@ -267,9 +268,12 @@ export function AdminPricing({
                 return (
                   <li key={plan.code} className="admin-offer" data-role="plan">
                     <span className="admin-offer-line">
-                      <a href={`/operator/pricing/plans#${plan.code}`} className="admin-offer-link">
+                      <Link
+                        href={`/operator/pricing/plans#${plan.code}`}
+                        className="admin-offer-link"
+                      >
                         {plan.nameAr}
-                      </a>
+                      </Link>
                       <span>{lines.price}</span>
                     </span>
                     <span className="admin-offer-terms">{lines.terms}</span>
@@ -292,12 +296,12 @@ export function AdminPricing({
             <ul className="admin-offer-list">
               {view.specialPrices.map((special) => (
                 <li key={special.tenantId} className="admin-offer" data-role="special-price">
-                  <a
+                  <Link
                     href={`/operator/subscribers/${special.tenantId}`}
                     className="admin-offer-link"
                   >
                     {special.legalName}
-                  </a>
+                  </Link>
                   <span className="admin-offer-terms">{specialLineAr(special)}</span>
                 </li>
               ))}

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { LinkedRows } from './ui/linked-rows';
 import { EmptyState, PageHeader, Panel } from './page-header';
@@ -32,7 +33,7 @@ export interface OperatorOverviewView {
 }
 
 function SubscriberLink({ row }: { row: AttentionSubscriber }): ReactElement {
-  return <a href={`/operator/subscribers/${row.tenantId}`}>{row.legalName}</a>;
+  return <Link href={`/operator/subscribers/${row.tenantId}`}>{row.legalName}</Link>;
 }
 
 export function OperatorOverview({ view }: { view: OperatorOverviewView }): ReactElement {
@@ -104,11 +105,11 @@ export function OperatorOverview({ view }: { view: OperatorOverviewView }): Reac
           <ul className="panel-body stack attention-list" style={{ margin: 0 }}>
             {view.pendingTopUps > 0 ? (
               <li data-kind="topups">
-                <a href="/operator/subscribers/topups">
+                <Link href="/operator/subscribers/topups">
                   {view.pendingTopUps === 1
                     ? 'حوالة واحدة بانتظار تأكيد وصولها'
                     : `${view.pendingTopUps} حوالات بانتظار تأكيد وصولها`}
-                </a>
+                </Link>
               </li>
             ) : null}
             {view.lapsed.map((row) => (
@@ -176,9 +177,13 @@ export function OperatorOverview({ view }: { view: OperatorOverviewView }): Reac
                 {view.busiest.map((row) => (
                   <tr key={row.tenantId} data-href={`/operator/subscribers/${row.tenantId}`}>
                     <td>
-                      <a href={`/operator/subscribers/${row.tenantId}`} data-row-link>
+                      <Link
+                        prefetch={false}
+                        href={`/operator/subscribers/${row.tenantId}`}
+                        data-row-link
+                      >
                         {row.legalName}
-                      </a>
+                      </Link>
                     </td>
                     <td>
                       <bdi dir="ltr" className="mono">

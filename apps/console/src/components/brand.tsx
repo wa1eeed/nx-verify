@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 
 /**
@@ -30,8 +31,8 @@ export function Brand({
   return href === undefined ? (
     <div className="frame-brand">{content}</div>
   ) : (
-    <a className="frame-brand" href={href}>
+    <Link className="frame-brand" href={href}>
       {content}
-    </a>
+    </Link>
   );
 }

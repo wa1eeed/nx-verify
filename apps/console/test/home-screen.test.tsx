@@ -126,8 +126,10 @@ describe('the home screen of screen 01', () => {
     const start = /data-role="quick-start-card"[\s\S]*?<\/form>/.exec(html)?.[0] ?? '';
     expect(start).toContain('ابدأ تحققاً جديداً');
     expect(start).toContain('aria-label="رقم السجل التجاري أو رقم الهوية"');
-    // The form opens the request screen and sends nothing: the field has no name.
-    expect(start).toContain('action="/verifications/new" method="get"');
+    // The form opens the request screen and sends nothing: the field has no name. It is a GET
+    // the router makes without reloading the page, so it carries no method of its own.
+    expect(start).toContain('action="/verifications/new"');
+    expect(start).not.toMatch(/method="post"/i);
     expect(start).not.toMatch(/<input[^>]*name=/);
     expect(start).toMatch(/type="submit" class="btn btn-primary"[^>]*>متابعة/);
   });

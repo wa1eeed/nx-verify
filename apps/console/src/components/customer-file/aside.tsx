@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { Assessment, CustomerFile } from '@nx-verify/core';
 import { dateAr, timeOfDay } from '../format';
@@ -127,7 +128,7 @@ export function IntersectionsCard({ file }: { file: CustomerFile }): ReactElemen
                 {intersection.entities.map((entity, position) => (
                   <span key={entity.entityId}>
                     {position > 0 ? '، ' : ''}
-                    <a href={`/customers/${entity.entityId}`}>{entity.name ?? 'بلا اسم'}</a>
+                    <Link href={`/customers/${entity.entityId}`}>{entity.name ?? 'بلا اسم'}</Link>
                   </span>
                 ))}
               </span>

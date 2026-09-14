@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { ApiLogTallies, Page } from '@nx-verify/core';
 import { ListPagination } from './ui/pagination';
@@ -74,21 +75,21 @@ export function ApiLog({
       </section>
 
       <nav className="tabs" aria-label="تصفية">
-        <a
+        <Link
           className="tab"
           href="/settings/developers/logs"
           {...(failuresOnly ? {} : { 'aria-current': 'page' as const })}
         >
           الكل
-        </a>
-        <a
+        </Link>
+        <Link
           className="tab"
           href="/settings/developers/logs?failures=1"
           {...(failuresOnly ? { 'aria-current': 'page' as const } : {})}
           data-role="failures-filter"
         >
           ما فشل فقط
-        </a>
+        </Link>
       </nav>
 
       <Panel title="النداءات" aside="الأحدث أولاً">

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { CustomerSummary, Page } from '@nx-verify/core';
 import type { SearchParams } from '../lib/pagination';
@@ -151,7 +152,7 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
 
       {view.searchedByNumber ? (
         <p className="customers-searched" data-role="searched-by-number">
-          نتائج البحث بالرقم · <a href={href(view.filter, view.alertsOnly, '')}>عرض الكل</a>
+          نتائج البحث بالرقم · <Link href={href(view.filter, view.alertsOnly, '')}>عرض الكل</Link>
         </p>
       ) : null}
 
@@ -223,13 +224,14 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
                     </td>
                     <td>{row.lastVerifiedAt ? dayMonthAr(row.lastVerifiedAt) : '·'}</td>
                     <td>
-                      <a
+                      <Link
+                        prefetch={false}
                         href={`/customers/${row.entityId}`}
                         className="customers-open"
                         data-row-link
                       >
                         فتح الملف
-                      </a>
+                      </Link>
                     </td>
                   </tr>
                 ))}

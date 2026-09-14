@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { FreshnessBadge } from '../../../../components/freshness';
 import { TrustChip } from '../../../../components/trust-dial';
@@ -48,14 +49,14 @@ export default async function RelationsPage({
       {/* The saved views are a strip that scrolls, not a wall of buttons that wraps. */}
       <nav className="tabs" aria-label="العروض المحفوظة">
         {SAVED_VIEWS.map((saved) => (
-          <a
+          <Link
             key={saved.key}
             href={`/customers/relations?view=${saved.key}`}
             className="tab"
             aria-current={saved.key === view.key ? 'page' : undefined}
           >
             {saved.labelAr}
-          </a>
+          </Link>
         ))}
       </nav>
 
@@ -87,9 +88,9 @@ export default async function RelationsPage({
               {page.rows.map((row) => (
                 <tr key={row.entityId} data-href={`/customers/${row.entityId}`}>
                   <td>
-                    <a href={`/customers/${row.entityId}`} data-row-link>
+                    <Link prefetch={false} href={`/customers/${row.entityId}`} data-row-link>
                       {row.displayName ?? 'بلا اسم'}
-                    </a>
+                    </Link>
                   </td>
                   <td>{row.fieldCount}</td>
                   <td>

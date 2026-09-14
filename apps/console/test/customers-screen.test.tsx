@@ -110,10 +110,10 @@ describe('the customers of screen 04', () => {
   it('filters by kind in neutral tags with the open one in the accent, and alerts in outline', () => {
     expect(html).toMatch(/class="tag tag-accent tag-link"[^>]*aria-current="true"[^>]*>الكل · /);
     expect(html).toMatch(
-      /href="\/customers\?kind=COMPANY" class="tag tag-neutral tag-link"[^>]*>شركات · /,
+      /<a class="tag tag-neutral tag-link"[^>]*href="\/customers\?kind=COMPANY"[^>]*>شركات · /,
     );
     expect(html).toMatch(
-      /href="\/customers\?alerts=1" class="tag tag-outline tag-link"[^>]*>تنبيهات مفتوحة · /,
+      /<a class="tag tag-outline tag-link"[^>]*href="\/customers\?alerts=1"[^>]*>تنبيهات مفتوحة · /,
     );
     const alerts = render({ alertsOnly: true });
     expect(alerts).toMatch(
@@ -167,9 +167,8 @@ describe('the customers of screen 04', () => {
     expect(html).toContain('<tbody class="linked-rows">');
     const first = row(html, '11111111-1111-4111-8111-111111111111');
     expect(first).toContain('data-href="/customers/11111111-1111-4111-8111-111111111111"');
-    expect(first).toMatch(
-      /<a[^>]*href="\/customers\/11111111-1111-4111-8111-111111111111"[^>]*data-row-link="true"/,
-    );
+    const link = /<a [^>]*data-row-link="true"[^>]*>/.exec(first)?.[0] ?? '';
+    expect(link).toContain('href="/customers/11111111-1111-4111-8111-111111111111"');
   });
 
   it('pages a long list and keeps the filters in every page link', () => {

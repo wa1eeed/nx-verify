@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { InboxItem } from '@nx-verify/core';
 import { EmptyState, PageHeader } from './page-header';
@@ -58,7 +59,7 @@ export function Inbox({
             const style = SEVERITY_STYLE[item.severity];
             return (
               <li key={item.id} style={{ listStyle: 'none' }}>
-                <a
+                <Link
                   className="card row"
                   href={item.href}
                   data-role="inbox-item"
@@ -91,7 +92,7 @@ export function Inbox({
                       {item.at.toISOString().slice(0, 10)}
                     </bdi>
                   </div>
-                </a>
+                </Link>
               </li>
             );
           })}
@@ -109,7 +110,7 @@ export function Inbox({
  */
 export function InboxBell({ unread }: { unread: number }): ReactElement {
   return (
-    <a
+    <Link
       className="inbox-bell"
       href="/customers/alerts"
       data-role="inbox-bell"
@@ -124,6 +125,6 @@ export function InboxBell({ unread }: { unread: number }): ReactElement {
           </bdi>
         </span>
       ) : null}
-    </a>
+    </Link>
   );
 }

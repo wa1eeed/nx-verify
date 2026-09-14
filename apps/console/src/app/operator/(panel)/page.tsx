@@ -1,13 +1,13 @@
 import type { ReactElement } from 'react';
 import { platformOverview } from '@nx-verify/core';
 import { OperatorOverview, type AttentionSubscriber } from '../../../components/operator-overview';
-import { operatorQuery, requireOperator } from '../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../lib/operator';
 
 /** Never prerendered, and refuses to render without an operator sign in. */
 export const dynamic = 'force-dynamic';
 
 export default async function OperatorOverviewPage(): Promise<ReactElement> {
-  await requireOperator();
+  await operatorOrSignIn();
   const overview = await operatorQuery((db) => platformOverview(db));
 
   const pick = (row: AttentionSubscriber): AttentionSubscriber => ({

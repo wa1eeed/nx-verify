@@ -10,9 +10,9 @@ import { AdminAccess } from '../../../../components/admin-access';
 import { AUDIT_SCOPES, auditScopeOf } from '../../../../components/admin-access/model';
 import {
   OPERATOR_SESSION_HOURS,
-  TOKEN_OPERATOR,
-  currentOperator,
+  operatorOrSignIn,
   operatorQuery,
+  TOKEN_OPERATOR,
 } from '../../../../lib/operator';
 import { operatorNameOf } from '../../../../lib/operator-names';
 import { pageRequestFrom } from '../../../../lib/pagination';
@@ -49,7 +49,7 @@ export default async function OperatorAccessPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
-  const operator = await currentOperator();
+  const operator = await operatorOrSignIn();
   const params = await searchParams;
   const scope = auditScopeOf(typeof params['scope'] === 'string' ? params['scope'] : undefined);
   const actions = AUDIT_SCOPES.find((entry) => entry.key === scope)?.actions ?? [];

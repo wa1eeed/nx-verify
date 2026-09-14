@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // A build run only to check the console can write somewhere else, so it never replaces the
+  // output of a development server running from this folder.
+  distDir: process.env.NX_CONSOLE_DIST_DIR || '.next',
   // The console reads the database directly through the workspace packages, so they are
   // compiled from source rather than expected to ship a build.
   transpilePackages: ['@nx-verify/core', '@nx-verify/db'],

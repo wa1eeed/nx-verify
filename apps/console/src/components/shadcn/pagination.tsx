@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { cn } from 'cn';
 
 import { Button } from '@/components/shadcn/button';
-import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from 'lucide-react';
+// The system's icons, at its stroke, rather than the library's own (CLAUDE.md, icons).
+import { Icon } from '@/components/ui/icon';
 
 function Pagination({ className, ...props }: React.ComponentProps<'nav'>) {
   return (
@@ -68,7 +69,9 @@ function PaginationPrevious({
       className={cn('ps-1.5!', className)}
       {...props}
     >
-      <ChevronLeftIcon data-icon="inline-start" className="rtl:rotate-180" />
+      <span data-icon="inline-start" className="inline-flex rtl:rotate-180">
+        <Icon name="chevron-left" size={16} />
+      </span>
       <span className="hidden sm:block">{text}</span>
     </PaginationLink>
   );
@@ -87,7 +90,9 @@ function PaginationNext({
       {...props}
     >
       <span className="hidden sm:block">{text}</span>
-      <ChevronRightIcon data-icon="inline-end" className="rtl:rotate-180" />
+      <span data-icon="inline-end" className="inline-flex rtl:rotate-180">
+        <Icon name="chevron-right" size={16} />
+      </span>
     </PaginationLink>
   );
 }
@@ -103,7 +108,7 @@ function PaginationEllipsis({ className, ...props }: React.ComponentProps<'span'
       )}
       {...props}
     >
-      <MoreHorizontalIcon />
+      <Icon name="more-horizontal" size={16} />
       <span className="sr-only">More pages</span>
     </span>
   );

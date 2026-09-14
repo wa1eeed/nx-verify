@@ -3,6 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { withTenant } from '../../../packages/db/src/client';
 import { verify } from '../../../packages/core/src/verification/verify';
 import { setTenantTtl } from '../../../packages/core/src/repositories/freshness';
+import { createUser } from '../../../packages/core/src/auth/users';
+import { markInboxSeen } from '../../../packages/core/src/notifications/inbox';
+import { openCase } from '../../../packages/core/src/review/queue';
 import {
   createTestDatabase,
   seedTenant,
@@ -235,7 +238,11 @@ describe('the console renders real data', () => {
     process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
     process.env['NX_OPERATOR_DATABASE_URL'] = db.operatorConnectionString;
 
-    await expect(IntegrationPage({ searchParams: Promise.resolve({}) })).rejects.toThrow();
+    // A screen sends a visitor with no sign in to the sign in page, even when the move came
+    // from inside the panel and its layout did not render again (unit C4).
+    await expect(IntegrationPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
+      'NEXT_REDIRECT',
+    );
 
     process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
     try {
@@ -262,7 +269,9 @@ describe('the console renders real data', () => {
     process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
     process.env['NX_OPERATOR_DATABASE_URL'] = db.operatorConnectionString;
     delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
-    await expect(TenantsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow();
+    await expect(TenantsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
+      'NEXT_REDIRECT',
+    );
 
     process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
     try {
@@ -310,7 +319,9 @@ describe('the console renders real data', () => {
     process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
     process.env['NX_OPERATOR_DATABASE_URL'] = db.operatorConnectionString;
     delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
-    await expect(PricingPage({ searchParams: Promise.resolve({}) })).rejects.toThrow();
+    await expect(PricingPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
+      'NEXT_REDIRECT',
+    );
 
     process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
     try {
@@ -361,5 +372,56 @@ describe('the console renders real data', () => {
     // People carry none of the business fields, so the gap section has something to say.
     expect(html).toContain('data-role="completeness"');
     expect(html).toContain('بلا حالة السجل التجاري');
+  });
+
+  it('reads the sidebar facts again for the browser, from what the person has seen', async () => {
+    // A move inside the console does not render the layout again, so the sidebar asks for
+    // its count and balance itself (unit C4).
+    const { GET } = await import('../src/app/(app)/frame-facts/route');
+    const userId = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      createUser(tx, { email: 'frame-facts@example.com', displayName: 'مستخدم', role: 'ADMIN' }),
+    );
+    const run = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      verify(tx, {
+        productCode: 'KYB_COMPLETE',
+        subject: { unn: '7001272184', manager: { id: '1098765432', id_type: 'NATIONAL_ID' } },
+        subjectIdentifiers: [
+          { idType: 'UNN', value: '7001272184', isPrimary: true },
+          { idType: 'CR', value: '1010478213' },
+        ],
+        subjectDisplayName: 'شركة المثال للتجارة',
+        triggeredBy: 'CONSOLE',
+        modeAtExecution: 'BYOC',
+        runStep: fixture.runnerFor(tx),
+        keys,
+      }),
+    );
+    await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      openCase(tx, { entityId, runId: run.runId, reasonCodes: ['TEST'] }),
+    );
+
+    const read = async (): Promise<{ unread: number; balance: { kind: string } | null }> => {
+      const response = await GET();
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(response.headers.get('content-type')).toContain('application/json');
+      return (await response.json()) as { unread: number; balance: { kind: string } | null };
+    };
+
+    process.env['NX_CONSOLE_USER_ID'] = userId;
+    try {
+      // Seen after everything there is: nothing is new.
+      await withTenant(db.appPool, tenant.tenantId, (tx) =>
+        markInboxSeen(tx, userId, new Date(Date.now() + 86_400_000)),
+      );
+      const caughtUp = await read();
+      expect(caughtUp.unread).toBe(0);
+      expect(['operations', 'wallet']).toContain(caughtUp.balance?.kind);
+
+      // Never seen: the open review above is new, and so is everything else.
+      await withTenant(db.appPool, tenant.tenantId, (tx) => markInboxSeen(tx, userId, new Date(0)));
+      expect((await read()).unread).toBeGreaterThanOrEqual(1);
+    } finally {
+      delete process.env['NX_CONSOLE_USER_ID'];
+    }
   });
 });

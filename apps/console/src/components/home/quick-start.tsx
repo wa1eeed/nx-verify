@@ -1,5 +1,6 @@
 'use client';
 
+import Form from 'next/form';
 import { useState, type ReactElement } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -10,8 +11,9 @@ import { Input } from '../ui/input';
  * The number travels to the next screen in this tab's session storage, not in the address:
  * a national ID in a link is a national ID in the browser's history, in a proxy's log and in
  * whatever the link is pasted into (rule 4). The field has no name, so the form itself sends
- * nothing: it only opens the request screen, which reads the number once and clears it. A
- * browser without script still reaches that screen, with the field empty.
+ * nothing: it only opens the request screen, which reads the number once and clears it. The
+ * router opens it without reloading the page (unit C4), and a browser without script still
+ * reaches that screen by a plain GET, with the field empty.
  */
 
 export const HANDOFF_KEY = 'nx-request-number';
@@ -31,10 +33,9 @@ export function QuickStart(): ReactElement {
   }
 
   return (
-    <form
+    <Form
       className="home-start-form"
       action="/verifications/new"
-      method="get"
       onSubmit={handOver}
       data-role="quick-start-form"
     >
@@ -50,6 +51,6 @@ export function QuickStart(): ReactElement {
       <Button type="submit" variant="primary" iconEnd="arrow-left" data-role="quick-start">
         متابعة
       </Button>
-    </form>
+    </Form>
   );
 }

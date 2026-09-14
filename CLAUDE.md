@@ -147,7 +147,8 @@ test/guards/
 - الأيقونات: Lucide بـ `stroke-width: 2.75`، 14–17px.
 - الاتجاه: `dir="rtl"`، رؤوس الجداول محاذاة يميناً، الآيبان `direction: ltr`.
 - كل عنصر تفاعلي: hover بتعبئة من سلّم الأكسنت + `:active` بدرجة أعمق + `:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px }`.
-- الانتقالات 120–180ms على الألوان فقط.
+- الانتقالات 120–180ms على الألوان فقط. **الاستثناء الوحيد مؤشرات التحميل (ADR-120):** شريط التقدم أعلى النافذة، ومؤشر البيانات في الإطار، والضوء المار على أشكال التحميل، بقيم من توكنات `organic.css`، وتتوقف كلها مع `prefers-reduced-motion`.
+- **التنقل عبر الموجّه (ADR-120):** رابط الشاشة `Link` أو `ButtonLink` أو `TagLink` لا `<a href>`، ورابط الملف `ButtonLink download`. وكل شاشة تتحقق من الجلسة بنفسها (`query()` في البوابة و`operatorOrSignIn()` في اللوحة)، لأن الـlayout لا يُعاد تنفيذه عند الانتقال.
 - ابنِ طبقة مكوّنات أساسية أولاً (`Button`, `Tag`, `Input`, `Segmented`, `Card`, `Table`, `Dialog`) مطابقة لفئات النظام، ثم استخدمها في كل الشاشات: لا أزرار أو وسوم مخصّصة داخل الشاشات.
 - **shadcn/ui هي مكتبة المكوّنات المعتمدة (ADR-119)**، على Base UI وTailwind v4 وبدعم RTL. مكوّناتها الأولية في `src/components/shadcn` وتصل إليها الشاشات عبر طبقة المكوّنات في `src/components/ui` لا مباشرة. متغيرات ثيمها كلها مربوطة بتوكنات Organic في `src/styles/tailwind.css`، وأصناف Tailwind لا تُكتب إلا بأسماء هذا الثيم، ولا reset من Tailwind (preflight) لأنه يغيّر ما بُني. أي مكوّن يُضاف بالـCLI يُراجَع ليطابق هذه القواعد قبل الالتزام.
 - **أي تغيير في الواجهة لا يُفترض أن يحرّك التصميم** يُثبت بلقطات قبل وبعد: `pnpm design:all <dir>` ثم `pnpm design:compare <before> <after>`.

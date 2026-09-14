@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement, ReactNode } from 'react';
 import {
   type CustomerFile,
@@ -296,7 +297,7 @@ function LinkList({
       {entities.map((entity, index) => (
         <span key={entity.entityId}>
           {index > 0 ? '، ' : ''}
-          <a href={`/customers/${entity.entityId}`}>{entity.name ?? 'بلا اسم'}</a>
+          <Link href={`/customers/${entity.entityId}`}>{entity.name ?? 'بلا اسم'}</Link>
         </span>
       ))}
     </>
@@ -348,7 +349,7 @@ function ManagersTable({
                 ) : null}
                 {manager.isCustomer ? (
                   <span className="file-cell-note">
-                    <a href={`/customers/${manager.entityId}`}>عميل لديك كعامل حر</a>
+                    <Link href={`/customers/${manager.entityId}`}>عميل لديك كعامل حر</Link>
                   </span>
                 ) : null}
               </td>
@@ -452,9 +453,9 @@ function PartnersTable({ partners }: { partners: PartnerView[] }): ReactElement 
               {partner.kind === 'PERSON' ? (
                 <StateTag state="VERIFIED">مُتحقق</StateTag>
               ) : partner.hasOwnFile ? (
-                <a href={`/customers/${partner.entityId}`}>
+                <Link href={`/customers/${partner.entityId}`}>
                   <StateTag state="VERIFIED">مُتحقق</StateTag>
-                </a>
+                </Link>
               ) : (
                 <StateTag state="CONFLICT">كيان مالك · يحتاج KYB منفصل</StateTag>
               )}

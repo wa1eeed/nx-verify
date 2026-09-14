@@ -364,6 +364,21 @@ textarea.input { min-height: 90px; resize: vertical; }
   /* Motion: colour only, between 120 and 180ms. */
   --duration-color: 150ms;
 
+  /* Loading, the one exception to colour-only motion (ADR-120), and still for a person who
+     asked for less motion: the bar along the top of the window, the data loader's chart, and
+     the light that passes over a screen's loading shapes. */
+  --control-nav-progress: 3px;
+  --control-loader-chart: 34px;
+  --control-loader-bar: 3px;
+  --gap-loader-bars: 2.5px;
+  --pad-loader-chart: 9px;
+  --duration-progress: 260ms;
+  --duration-loader-wave: 1150ms;
+  --duration-loader-sweep: 1700ms;
+  --delay-loader: 160ms;
+  --delay-pending: 120ms;
+  --opacity-pending: 0.55;
+
   /* The product's faces. Caprasimo and Figtree carry no Arabic, so the README names
      these in their place, with the originals kept as the fallback. */
   --font-product-heading: "Baloo Bhaijaan 2", "Caprasimo", system-ui, sans-serif;

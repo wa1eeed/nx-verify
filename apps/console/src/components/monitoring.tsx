@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { Page } from '@nx-verify/core';
 import { LinkedRows } from './ui/linked-rows';
@@ -92,9 +93,9 @@ export function Monitoring({
                     data-href={`/customers/${change.entityId}`}
                   >
                     <td>
-                      <a href={`/customers/${change.entityId}`} data-row-link>
+                      <Link prefetch={false} href={`/customers/${change.entityId}`} data-row-link>
                         {change.entityName ?? 'بلا اسم'}
-                      </a>
+                      </Link>
                     </td>
                     <td>
                       {fieldLabel(change.fieldPath)}
@@ -147,9 +148,9 @@ export function Monitoring({
                     data-href={`/customers/${customer.entityId}`}
                   >
                     <td>
-                      <a href={`/customers/${customer.entityId}`} data-row-link>
+                      <Link prefetch={false} href={`/customers/${customer.entityId}`} data-row-link>
                         {customer.entityName ?? 'بلا اسم'}
-                      </a>
+                      </Link>
                     </td>
                     <td>
                       <span className="row" style={{ gap: 'var(--s-2)' }}>

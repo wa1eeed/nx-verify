@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { EmptyState, PageHeader, Panel } from './page-header';
 
@@ -74,9 +75,9 @@ export function Developer({
             : 'أنت في بيئة الإنتاج. للتجربة استخدم مفتاح الاختبار والبيانات الجاهزة أدناه.'
         }
         action={
-          <a className="btn btn-primary" href="/settings/developers">
+          <Link className="btn btn-primary" href="/settings/developers">
             إصدار مفتاح
-          </a>
+          </Link>
         }
       />
 

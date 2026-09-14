@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { subscriberHealth } from '@nx-verify/core';
 import { OperatorHealth, type HealthRowView } from '../../../../../components/operator-health';
-import { operatorQuery, requireOperator } from '../../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { INTEGRATION_TABS } from '../../../../../components/operator-shell';
 
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 const WINDOW_HOURS = 24;
 
 export default async function OperatorHealthPage(): Promise<ReactElement> {
-  await requireOperator();
+  await operatorOrSignIn();
 
   const rows = await operatorQuery((db) => subscriberHealth(db, { windowHours: WINDOW_HOURS }));
 

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactElement } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CustomerKind } from '@nx-verify/core';
@@ -545,12 +546,12 @@ export function NewRequestScreen({
             {draft !== null ? (
               <>
                 {' '}
-                <a href="/verifications/new">طلب جديد</a>
+                <Link href="/verifications/new">طلب جديد</Link>
               </>
             ) : lookup?.status === 'FOUND' && lookup.entityId !== null ? (
               <>
                 {' '}
-                <a href={`/customers/${lookup.entityId}`}>فتح الملف</a>
+                <Link href={`/customers/${lookup.entityId}`}>فتح الملف</Link>
               </>
             ) : null}
           </p>

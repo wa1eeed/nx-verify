@@ -1,4 +1,11 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactElement, ReactNode } from 'react';
+import Link from 'next/link';
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  ComponentProps,
+  ReactElement,
+  ReactNode,
+} from 'react';
 import { classes } from './classes';
 import { Icon, type IconName } from './icon';
 
@@ -95,26 +102,53 @@ export function Button({
 }
 
 export type ButtonLinkProps = ButtonLook &
-  Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'children' | 'className' | 'style' | 'href'> & {
+  Omit<
+    AnchorHTMLAttributes<HTMLAnchorElement>,
+    'children' | 'className' | 'style' | 'href' | 'download'
+  > & {
     href: string;
+    /**
+     * A file rather than a screen, such as «تصدير التقرير». The browser fetches it itself: the
+     * router neither moves to it nor fetches it ahead, which for an export would build it.
+     */
+    download?: boolean | undefined;
   };
 
-/** A link that goes somewhere, drawn as a button: «تحقق جديد» opens a screen, it submits nothing. */
+/**
+ * A link that goes somewhere, drawn as a button: «تحقق جديد» opens a screen, it submits nothing.
+ * The move stays inside the console, without reloading the page (unit C4).
+ */
 export function ButtonLink({
   variant = 'secondary',
   icon,
   iconEnd,
   block,
+  wide,
   href,
+  download = false,
   children,
   ...rest
 }: ButtonLinkProps): ReactElement {
-  return (
-    <a {...rest} href={href} className={buttonClass(variant, { block })}>
-      <Content icon={icon} iconEnd={iconEnd}>
-        {children}
-      </Content>
+  const className = buttonClass(variant, { block, wide });
+  const content = (
+    <Content icon={icon} iconEnd={iconEnd}>
+      {children}
+    </Content>
+  );
+  return download ? (
+    <a {...rest} href={href} download className={className}>
+      {content}
     </a>
+  ) : (
+    // The anchor attributes a screen passes are the ones Link forwards to its anchor; the cast
+    // only reconciles how the two type an optional handler.
+    <Link
+      {...(rest as Omit<ComponentProps<typeof Link>, 'href'>)}
+      href={href}
+      className={className}
+    >
+      {content}
+    </Link>
   );
 }
 

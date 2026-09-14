@@ -91,7 +91,9 @@ describe('Button', () => {
         تحقق جديد
       </ButtonLink>,
     );
-    expect(markup).toMatch(/^<a href="\/verifications\/new" class="btn btn-primary">/);
+    // The router's link renders the anchor, so the order of its attributes is its own.
+    expect(markup).toMatch(/^<a [^>]*href="\/verifications\/new"/);
+    expect(markup).toMatch(/^<a [^>]*class="btn btn-primary"/);
     expect(markup).not.toContain('<button');
   });
 

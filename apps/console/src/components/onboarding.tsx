@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { CaseTallies, Page } from '@nx-verify/core';
 import { LinkedRows } from './ui/linked-rows';
@@ -85,9 +86,9 @@ export function OnboardingList({
         title="التأهيل"
         subtitle="ملفات العملاء الجدد: ما فُحص، وما تبقّى، وأين وصل كل ملف."
         action={
-          <a className="btn btn-primary" href="/verifications/onboarding/new">
+          <Link className="btn btn-primary" href="/verifications/onboarding/new">
             فتح ملف
-          </a>
+          </Link>
         }
       />
 
@@ -146,11 +147,15 @@ export function OnboardingList({
                     data-href={`/verifications/onboarding/${row.caseId}`}
                   >
                     <td>
-                      <a href={`/verifications/onboarding/${row.caseId}`} data-row-link>
+                      <Link
+                        prefetch={false}
+                        href={`/verifications/onboarding/${row.caseId}`}
+                        data-row-link
+                      >
                         <bdi dir="ltr" className="mono">
                           {row.reference}
                         </bdi>
-                      </a>
+                      </Link>
                     </td>
                     <td>{row.journeyNameAr}</td>
                     <td>{row.entityName ?? <span className="muted">لم يُحَل بعد</span>}</td>

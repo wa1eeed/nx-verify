@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { SpecialPrice, SubscriberBoardRow, SubscriberDetail } from '@nx-verify/core';
 import { PageHeader } from '../page-header';
@@ -168,9 +169,9 @@ export function AdminSubscriber({
               ? 'لا سعر خاص لهذا المشترك. تُضاف الأسعار الخاصة من «الأسعار والمنتجات».'
               : specialLineAr(view.specialPrice)}
           </p>
-          <a href="/operator/pricing" className="admin-row-link">
+          <Link href="/operator/pricing" className="admin-row-link">
             الأسعار والمنتجات
-          </a>
+          </Link>
         </Card>
       </div>
 

@@ -1,3 +1,5 @@
+import Form from 'next/form';
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { Page } from '@nx-verify/core';
 import { EmptyState, PageHeader, Panel } from './page-header';
@@ -100,9 +102,9 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
             : 'كل عملية تحقق تمت على عملائك، بمرجعها ونتيجتها ورسمها.'
         }
         action={
-          <a className="btn btn-primary" href="/verifications/new">
+          <Link className="btn btn-primary" href="/verifications/new">
             تحقق جديد
-          </a>
+          </Link>
         }
       />
 
@@ -115,7 +117,7 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
             </bdi>
           </strong>
         </article>
-        <a className="stat stat-link" href="/customers/reviews">
+        <Link className="stat stat-link" href="/customers/reviews">
           <span className="stat-label">تحتاج قراراً</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
@@ -123,7 +125,7 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
             </bdi>
           </strong>
           <span className="stat-hint">افتح قائمة المراجعة</span>
-        </a>
+        </Link>
         <article className="stat" {...(view.counts.failed > 0 ? { 'data-tone': 'critical' } : {})}>
           <span className="stat-label">تعذّر تنفيذها</span>
           <strong className="stat-value">
@@ -136,8 +138,7 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
       </section>
 
       <Panel title="السجل" aside={`${count(view.page.total)} عملية`} role="runs">
-        <form
-          method="get"
+        <Form
           action={failedOnly ? '/verifications/failed' : '/verifications'}
           className="panel-body row"
           style={{ gap: 'var(--s-3)' }}
@@ -173,7 +174,7 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
           <button type="submit" className="btn btn-secondary">
             تصفية
           </button>
-        </form>
+        </Form>
 
         {view.page.total === 0 ? (
           <div className="panel-body">
@@ -209,9 +210,9 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
                     </td>
                     <td>
                       {row.entityId ? (
-                        <a href={`/customers/${row.entityId}`} data-row-link>
+                        <Link prefetch={false} href={`/customers/${row.entityId}`} data-row-link>
                           {row.entityName ?? 'بلا اسم'}
-                        </a>
+                        </Link>
                       ) : (
                         <span className="faint">لم يُحدَّد</span>
                       )}

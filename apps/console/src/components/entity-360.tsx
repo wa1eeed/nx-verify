@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import {
   FIELD_GROUP_LABELS,
@@ -332,7 +333,7 @@ export function Entity360({
       {groups.length > 0 ? (
         <nav className="tabs" data-role="profile-tabs" aria-label="مجموعات الحقائق">
           {groups.map((group) => (
-            <a
+            <Link
               key={group.group}
               className="tab"
               href={`/customers/${header.entityId}?tab=${group.group}`}
@@ -366,7 +367,7 @@ export function Entity360({
                   aria-label="منتهي الصلاحية"
                 />
               ) : null}
-            </a>
+            </Link>
           ))}
         </nav>
       ) : null}
@@ -421,9 +422,9 @@ export function Entity360({
                   >
                     <td>{RELATION_LABELS[relation.relType] ?? relation.relType}</td>
                     <td>
-                      <a href={`/customers/${relation.otherEntityId}`}>
+                      <Link href={`/customers/${relation.otherEntityId}`}>
                         {relation.otherName ?? 'بلا اسم'}
-                      </a>
+                      </Link>
                     </td>
                     <td>
                       <bdi dir="ltr" className="mono">
@@ -463,12 +464,12 @@ export function Entity360({
         >
           تحديث التحقق
         </button>
-        <a className="btn btn-secondary" href={`/customers/${header.entityId}/evidence`}>
+        <Link className="btn btn-secondary" href={`/customers/${header.entityId}/evidence`}>
           ملف الدليل
-        </a>
-        <a className="btn btn-secondary" href={`/customers/${header.entityId}/monitor`}>
+        </Link>
+        <Link className="btn btn-secondary" href={`/customers/${header.entityId}/monitor`}>
           تفعيل المراقبة
-        </a>
+        </Link>
       </section>
     </div>
   );

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement, ReactNode } from 'react';
 
 /**
@@ -54,14 +55,14 @@ export function TagLink({
   children: ReactNode;
 }): ReactElement {
   return (
-    <a
+    <Link
       href={href}
       className={`tag tag-${tone} tag-link`}
       data-role={role}
       {...(current ? { 'aria-current': 'true' as const } : {})}
     >
       {children}
-    </a>
+    </Link>
   );
 }
 

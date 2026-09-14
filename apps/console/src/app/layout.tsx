@@ -8,6 +8,7 @@ import '../styles/product.css';
 // Tailwind's theme and utilities, in cascade layers everything above outranks (ADR-119).
 import '../styles/tailwind.css';
 import { DirectionProvider } from '../components/shadcn/direction';
+import { NavigationProgress } from '../components/navigation-progress';
 
 export const metadata = {
   title: PRODUCT_NAME,
@@ -19,6 +20,9 @@ export const metadata = {
  *
  * Full RTL, set at the root rather than patched per component, and the two faces the design
  * names: Baloo Bhaijaan 2 for headings and buttons, IBM Plex Sans Arabic for everything else.
+ *
+ * The progress bar sits here, above every group, because a move from the sign in page to the
+ * frame is as much a wait as a move inside it (unit C4).
  *
  * The furniture lives one level down, in separate groups. A person who is signed in gets the
  * frame; a person who is not gets a bare page, because navigation to screens they cannot open
@@ -35,7 +39,10 @@ export default function RootLayout({ children }: { children: ReactNode }): React
         />
       </head>
       <body>
-        <DirectionProvider direction="rtl">{children}</DirectionProvider>
+        <DirectionProvider direction="rtl">
+          <NavigationProgress />
+          {children}
+        </DirectionProvider>
       </body>
     </html>
   );

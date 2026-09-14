@@ -7,7 +7,7 @@ import {
   type EndpointRowView,
   type EndpointsView,
 } from '../../../../../components/operator-endpoints';
-import { operatorQuery, requireOperator } from '../../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
 import { setEndpointAction } from './actions';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { INTEGRATION_TABS } from '../../../../../components/operator-shell';
@@ -16,7 +16,7 @@ import { INTEGRATION_TABS } from '../../../../../components/operator-shell';
 export const dynamic = 'force-dynamic';
 
 export default async function OperatorEndpointsPage(): Promise<ReactElement> {
-  await requireOperator();
+  await operatorOrSignIn();
 
   const data = await operatorQuery(async (db) => {
     const catalog = await listCatalog(db);

@@ -1,15 +1,8 @@
 import type { ReactElement, ReactNode } from 'react';
-import {
-  bundleBalance,
-  getCommitment,
-  getWallet,
-  inboxSeenAt,
-  listInbox,
-  sandboxLink,
-} from '@nx-verify/core';
+import { sandboxLink } from '@nx-verify/core';
 import { Shell } from '../../components/shell';
-import { balanceOf } from '../../lib/balance';
 import { actingUser, query } from '../../lib/context';
+import { readFrameFacts } from '../../lib/frame-facts';
 
 /**
  * The frame, with the facts it needs on every screen.
@@ -18,6 +11,10 @@ import { actingUser, query } from '../../lib/context';
  * count sits on the customers place, and the balance sits at the foot of the sidebar. They
  * are read here rather than inside the frame, so the frame stays renderable without a
  * database.
+ *
+ * A move inside the console does not render this again, so the sidebar reads its count and
+ * balance again by itself once the move settles (unit C4). Every screen also checks the
+ * session for itself, through query, rather than trusting this layout to have done it.
  */
 export default async function AppLayout({
   children,
@@ -25,18 +22,14 @@ export default async function AppLayout({
   children: ReactNode;
 }): Promise<ReactElement> {
   const user = await actingUser();
-  const { workspace, unread, balance } = await query(async (tx) => {
+  const { workspace, facts } = await query(async (tx) => ({
     // Sequential: one connection, one transaction, one query at a time.
-    const workspace = await sandboxLink(tx);
-    const unread = (await listInbox(tx, { seenAt: await inboxSeenAt(tx, user.userId) })).unread;
-    const commitment = await getCommitment(tx);
-    const bundles = await bundleBalance(tx);
-    const wallet = await getWallet(tx);
-    return { workspace, unread, balance: balanceOf(commitment, bundles, wallet.available) };
-  });
+    workspace: await sandboxLink(tx),
+    facts: await readFrameFacts(tx, user.userId),
+  }));
 
   return (
-    <Shell isSandbox={workspace.isSandbox} unread={unread} balance={balance}>
+    <Shell isSandbox={workspace.isSandbox} unread={facts.unread} balance={facts.balance}>
       {children}
     </Shell>
   );

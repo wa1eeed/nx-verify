@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactElement } from 'react';
 import { Icon, type IconName } from './ui/icon';
@@ -52,7 +53,7 @@ export function SectionNav({
       {sections.map((section) => {
         const count = counts[section.href] ?? 0;
         return (
-          <a
+          <Link
             key={section.href}
             href={section.href}
             className="frame-nav-item"
@@ -68,7 +69,7 @@ export function SectionNav({
                 <span className="visually-hidden"> جديد</span>
               </span>
             ) : null}
-          </a>
+          </Link>
         );
       })}
     </nav>

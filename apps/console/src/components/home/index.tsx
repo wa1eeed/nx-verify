@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { LinkedRows } from '../ui/linked-rows';
 import type { HomeOverview } from '@nx-verify/core';
@@ -77,7 +78,7 @@ export function HomeScreen({ overview, now }: { overview: HomeOverview; now: Dat
           <p className="page-subtitle">{updatedAr(overview.dataUpdatedAt, now)}</p>
         </div>
         <div className="page-head-actions">
-          <ButtonLink href="/dashboard/report" icon="download" data-role="export-report">
+          <ButtonLink href="/dashboard/report" icon="download" download data-role="export-report">
             تصدير التقرير
           </ButtonLink>
           <ButtonLink
@@ -120,7 +121,7 @@ export function HomeScreen({ overview, now }: { overview: HomeOverview; now: Dat
               </p>
               <p className="home-package-value">لا باقة مفعّلة</p>
               <p className="home-stat-line" data-tone="fresh">
-                <a href="/billing">الاشتراك والرصيد</a>
+                <Link href="/billing">الاشتراك والرصيد</Link>
               </p>
             </>
           ) : (
@@ -153,9 +154,9 @@ export function HomeScreen({ overview, now }: { overview: HomeOverview; now: Dat
         <Card as="section" label="أحدث عمليات التحقق" role="recent-runs">
           <div className="home-card-head">
             <CardTitle as="h2">أحدث عمليات التحقق</CardTitle>
-            <a href="/verifications" className="home-card-link">
+            <Link href="/verifications" className="home-card-link">
               عرض السجل كاملاً
-            </a>
+            </Link>
           </div>
           {overview.recent.length === 0 ? (
             <p className="home-empty" data-role="empty-state">
@@ -184,13 +185,14 @@ export function HomeScreen({ overview, now }: { overview: HomeOverview; now: Dat
                     >
                       <td>
                         {run.entityId ? (
-                          <a
+                          <Link
+                            prefetch={false}
                             href={`/customers/${run.entityId}`}
                             className="row-link-quiet"
                             data-row-link
                           >
                             {customerAr(run)}
-                          </a>
+                          </Link>
                         ) : (
                           customerAr(run)
                         )}

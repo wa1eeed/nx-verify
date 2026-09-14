@@ -10,7 +10,7 @@ import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { AdminSubscribers } from '../../../../components/admin-subscribers';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { SUBSCRIBER_TABS } from '../../../../components/operator-shell';
-import { currentOperator, operatorQuery } from '../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../lib/operator';
 import { createSubscriberAction } from './actions';
 
 /** Never prerendered, and refuses to render without a sign in. */
@@ -26,7 +26,7 @@ export default async function OperatorSubscribersPage({
 }: {
   searchParams: Promise<SearchParams>;
 }): Promise<ReactElement> {
-  const operator = await currentOperator();
+  const operator = await operatorOrSignIn();
   const params = await searchParams;
   const data = await operatorQuery(async (db) => ({
     board: await subscribersBoard(db),

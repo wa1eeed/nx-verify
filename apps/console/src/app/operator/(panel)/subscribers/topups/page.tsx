@@ -6,7 +6,7 @@ import {
   bundleLabelOf,
   type PendingTopUpView,
 } from '../../../../../components/topup';
-import { operatorQuery, requireOperator } from '../../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
 import { confirmTopUpAction, rejectTopUpAction } from './actions';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { SUBSCRIBER_TABS } from '../../../../../components/operator-shell';
@@ -15,7 +15,7 @@ import { SUBSCRIBER_TABS } from '../../../../../components/operator-shell';
 export const dynamic = 'force-dynamic';
 
 export default async function OperatorTopUpsPage(): Promise<ReactElement> {
-  await requireOperator();
+  await operatorOrSignIn();
 
   const pending = await operatorQuery((db) => listPendingTopUps(db));
 

@@ -5,7 +5,7 @@ import { checkReadiness } from '@nx-verify/core';
 import { secretStoreFromEnv } from '@nx-verify/providers';
 import { PageHeader } from '../../../../../components/page-header';
 import { OperatorReadiness } from '../../../../../components/operator-readiness';
-import { operatorQuery, requireOperator } from '../../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { INTEGRATION_TABS } from '../../../../../components/operator-shell';
 
@@ -35,7 +35,7 @@ function definedMigrations(): number {
 }
 
 export default async function OperatorReadinessPage(): Promise<ReactElement> {
-  await requireOperator();
+  await operatorOrSignIn();
 
   const defined = definedMigrations();
   const report = await operatorQuery(async (db) => {

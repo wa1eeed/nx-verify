@@ -6,7 +6,7 @@ import {
   type PackageView,
   type SubscriberView,
 } from '../../../../../components/operator-packages';
-import { operatorQuery, requireOperator } from '../../../../../lib/operator';
+import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
 import { assignPackageAction, setOverrideAction, setProductAction } from './actions';
 
 /**
@@ -16,7 +16,7 @@ import { assignPackageAction, setOverrideAction, setProductAction } from './acti
 export const dynamic = 'force-dynamic';
 
 export default async function OperatorPlansPage(): Promise<ReactElement> {
-  await requireOperator();
+  await operatorOrSignIn();
 
   const data = await operatorQuery(async (db) => ({
     packages: await listPackagesForOperator(db),

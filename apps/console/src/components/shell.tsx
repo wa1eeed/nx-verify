@@ -1,7 +1,8 @@
 import type { ReactElement, ReactNode } from 'react';
-import { BalanceCard, type BalanceView } from './balance-card';
+import type { BalanceView } from './balance-card';
 import { Brand } from './brand';
-import { Nav } from './nav';
+import { FrameFactsProvider, LiveBalance, LiveNav } from './frame-facts';
+import { FrameMain } from './frame-main';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';
 
@@ -10,7 +11,8 @@ import { Icon } from './ui/icon';
  *
  * Presentation only, and that is deliberate: the layout above it reads which workspace this
  * is and what is left in its balance, and this renders it. Keeping the queries out means the
- * frame can be rendered and asserted without a database.
+ * frame can be rendered and asserted without a database. The count and the balance it is
+ * given are the first page's; the sidebar keeps them current after that (unit C4).
  *
  * The rounded frame on the canvas, the sidebar on the start side with the brand, the places
  * and the balance at its foot, and the content beside it. A skip link comes first, because
@@ -39,27 +41,29 @@ export function Shell({
 
       <div className="frame" data-surface="portal">
         <aside className="frame-sidebar">
-          <div className="frame-sidebar-inner">
-            <Brand href="/dashboard" />
-            <Nav alerts={unread} />
+          <FrameFactsProvider initial={{ unread, balance }}>
+            <div className="frame-sidebar-inner">
+              <Brand href="/dashboard" />
+              <LiveNav />
 
-            <div className="frame-sidebar-foot">
-              {balance === null ? null : <BalanceCard balance={balance} />}
-              <div className="frame-account">
-                <span data-role="environment-name">
-                  {isSandbox ? 'بيئة الاختبار' : 'بيئة الإنتاج'}
-                </span>
-                <form action="/logout" method="post" className="inline">
-                  <Button type="submit" variant="ghost" data-role="sign-out">
-                    خروج
-                  </Button>
-                </form>
+              <div className="frame-sidebar-foot">
+                <LiveBalance />
+                <div className="frame-account">
+                  <span data-role="environment-name">
+                    {isSandbox ? 'بيئة الاختبار' : 'بيئة الإنتاج'}
+                  </span>
+                  <form action="/logout" method="post" className="inline">
+                    <Button type="submit" variant="ghost" data-role="sign-out">
+                      خروج
+                    </Button>
+                  </form>
+                </div>
               </div>
             </div>
-          </div>
+          </FrameFactsProvider>
         </aside>
 
-        <main className="frame-main" id="main">
+        <FrameMain>
           {isSandbox ? (
             <p className="sandbox-note" data-role="sandbox-banner" role="status">
               <Icon name="info" size={15} />
@@ -67,7 +71,7 @@ export function Shell({
             </p>
           ) : null}
           {children}
-        </main>
+        </FrameMain>
       </div>
     </>
   );
