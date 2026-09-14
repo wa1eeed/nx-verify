@@ -166,8 +166,17 @@ export class Scheduler {
     }
   }
 
+  /**
+   * Runs the loop until stopped.
+   *
+   * The loop's timer holds the process open, and it has to: it is the only thing the worker
+   * is for. An unreferenced timer let node exit as soon as the first sweep finished and the
+   * pool went idle, so every job ran once at startup and never again, with an exit code of
+   * zero that told nobody. A stop clears the timer and the loop does not set another, so
+   * once the run in flight finishes nothing is left holding the process.
+   */
   start(): void {
-    if (this.#timer) {
+    if (this.#timer || this.#stopped) {
       return;
     }
     const tickMs = this.#options.tickMs ?? 5_000;
@@ -175,14 +184,10 @@ export class Scheduler {
       void this.tick().finally(() => {
         if (!this.#stopped) {
           this.#timer = setTimeout(loop, tickMs);
-          // The loop must not hold the process open on its own: a stop that is waiting
-          // for a run to finish should still let node exit when it does.
-          this.#timer.unref();
         }
       });
     };
     this.#timer = setTimeout(loop, 0);
-    this.#timer.unref();
   }
 
   /** Stops before the next job and lets the one in flight finish. */

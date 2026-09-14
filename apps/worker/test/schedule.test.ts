@@ -1,4 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { withTenant } from '../../../packages/db/src/client.js';
 import {
   createTestDatabase,
@@ -279,4 +282,34 @@ describe('the worker scheduler', () => {
     // Nothing runs after a stop.
     expect(await scheduler.tick()).toEqual([]);
   });
+
+  it('keeps the worker process alive while it runs, and lets it exit once stopped', async () => {
+    // A real process: the defect this guards against was node exiting with code zero after
+    // the first sweep, which no in-process test can see.
+    const tsx = createRequire(import.meta.url).resolve('tsx');
+    const child = spawn(
+      process.execPath,
+      ['--import', tsx, join(__dirname, 'fixtures', 'scheduler-process.ts')],
+      { stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    let output = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    const exited = new Promise<number | null>((resolve) => child.on('exit', resolve));
+
+    const deadline = Date.now() + 15_000;
+    while (!output.includes('started') && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    expect(output).toContain('started');
+
+    // Well past the first sweep and several ticks: an unreferenced loop would be gone.
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    expect(child.exitCode).toBeNull();
+
+    child.kill('SIGTERM');
+    expect(await exited).toBe(0);
+    expect(output).toContain('stopped');
+  }, 30_000);
 });
