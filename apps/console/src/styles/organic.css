@@ -255,3 +255,67 @@ textarea.input { min-height: 90px; resize: vertical; }
 .btn, .tag, .seg, .input { border-radius: 999px; }
 .input { padding-inline: 14px; }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NX Trust product tokens, appended to the Organic sheet and never mixed into
+   it. Every value the handoff README gives in pixels or hex that the sheet
+   above does not carry lives here, so no component or screen writes a raw
+   value (CLAUDE.md, design rules). Nothing above this block is changed.
+   ══════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Radii the screens use beyond --radius-sm/md/lg. */
+  --radius-check: 6px;
+  --radius-inset-sm: 14px;
+  --radius-inset: 18px;
+  --radius-inset-lg: 20px;
+  --radius-card: 26px;
+  --radius-frame: 32px;
+
+  /* The frame and its sidebar (README, shared frame template). */
+  --layout-sidebar: 244px;
+  --layout-sidebar-pad: 24px 18px;
+  --layout-nav-gap: 6px;
+  --layout-nav-item-pad: 11px 15px;
+  --layout-nav-item-gap: 11px;
+  --layout-content-pad: 32px 36px;
+  --layout-content-gap: 26px;
+  --layout-grid-gap: 16px;
+
+  /* Card and row padding, per screen spec. */
+  --pad-stat: 20px 22px;
+  --pad-section: 22px 24px;
+  --pad-table-card: 12px 24px 20px;
+  --pad-product-row: 18px 26px;
+
+  /* Controls the sheet does not size. */
+  --control-check: 18px;
+  --control-border: 1.5px;
+
+  /* Motion: colour only, between 120 and 180ms. */
+  --duration-color: 150ms;
+
+  /* The product's faces. Caprasimo and Figtree carry no Arabic, so the README names
+     these in their place, with the originals kept as the fallback. */
+  --font-product-heading: "Baloo Bhaijaan 2", "Caprasimo", system-ui, sans-serif;
+  --font-product-heading-weight: 700;
+  --font-product-body: "IBM Plex Sans Arabic", "Figtree", system-ui, sans-serif;
+
+  /* Type sizes the screens use beyond the sheet's own (README, fonts). */
+  --text-caption: 11.5px;
+  --text-small: 12px;
+  --text-body-sm: 13.5px;
+  --text-value: 14.5px;
+  --text-title-lg: 18.5px;
+  --text-stat: 30px;
+  --text-stat-lg: 34px;
+
+  /* The administration panel's dark ground (README, screens 05 and 06). */
+  --dark-sidebar: #25221d;
+  --dark-card: #2b2823;
+  --dark-field: #211e1a;
+  --dark-field-border: #4a463d;
+  --dark-divider: #3a362f;
+  --dark-attention: #3a2a1c;
+  --dark-critical: #4a2a24;
+  --dark-critical-text: #ffd9cc;
+}

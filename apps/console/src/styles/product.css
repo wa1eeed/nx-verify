@@ -1,0 +1,375 @@
+/*
+ * NX Trust on the Organic system.
+ *
+ * First the handoff prototype's own overrides, carried over as they are: the product's
+ * Arabic faces in place of Caprasimo and Figtree, table headers aligned to the start of
+ * the line, and links in the accent's deep step. Then what the Organic sheet does not
+ * carry: pressed states it leaves out, the checkbox, field hints and errors, the numeric
+ * input, card variants, the native dialog, and the dark ground of the administration
+ * panel. Every value is a token from organic.css; nothing here is a raw colour, radius
+ * or shadow.
+ */
+
+/* ── type ─────────────────────────────────────────────────────────────── */
+
+body {
+  font-family: var(--font-product-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.card-title,
+.btn,
+.dialog-title,
+.nav-brand {
+  font-family: var(--font-product-heading);
+  font-weight: var(--font-product-heading-weight);
+  /* Arabic is cursive: tracking pulls joined letters apart. */
+  letter-spacing: 0;
+}
+
+a {
+  color: var(--color-accent-700);
+}
+a:hover {
+  color: var(--color-accent);
+}
+a:active {
+  color: var(--color-accent-800);
+}
+
+.ltr {
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── motion: colour only ──────────────────────────────────────────────── */
+
+a,
+.btn,
+.tag,
+.input,
+.seg-opt,
+.radio .dot,
+.check .box {
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--duration-color);
+  transition-timing-function: ease-out;
+}
+
+/* ── buttons ──────────────────────────────────────────────────────────── */
+
+.btn[aria-busy='true'] {
+  cursor: progress;
+}
+
+/* ── tags ─────────────────────────────────────────────────────────────── */
+
+.tag {
+  white-space: nowrap;
+}
+.tag-critical {
+  background: var(--color-accent-200);
+  color: var(--color-accent-900);
+}
+
+/* ── forms ────────────────────────────────────────────────────────────── */
+
+.field-hint,
+.field-error {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-caption);
+}
+.field-hint {
+  color: var(--color-neutral-600);
+}
+.field-error {
+  color: var(--color-accent-700);
+}
+
+.input::placeholder {
+  color: var(--color-neutral-500);
+}
+.input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.input[aria-invalid='true'] {
+  border-color: var(--color-accent-700);
+}
+/* Numbers, identifiers and IBANs are typed left to right and sit where the Arabic
+   around them ends (README, direction). */
+.input-ltr {
+  direction: ltr;
+  text-align: right;
+}
+
+/* The sheet hides the native input absolutely; anchor it to its own control so that
+   focusing it never scrolls the page somewhere else. */
+.radio,
+.seg-opt,
+.check {
+  position: relative;
+}
+
+.radio:active .dot {
+  border-color: var(--color-accent-700);
+}
+.radio:has(input:disabled) {
+  cursor: not-allowed;
+}
+.radio input:disabled + .dot {
+  opacity: 0.45;
+}
+
+/* The sheet draws the segment divider on the left, which in a right to left row lands on
+   the outer edge. The logical side keeps it between the options in both directions. */
+.seg-opt + .seg-opt {
+  border-left: 0;
+  border-inline-start: 1px solid var(--color-divider);
+}
+.seg-opt:has(input:checked):hover {
+  background: var(--color-accent-600);
+}
+.seg-opt:not(:has(input:checked)):active {
+  background: color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+.seg-opt:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* The checkbox of screen 02: an 18px box, filled with the accent and a check when on. */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: 14px;
+}
+.check input {
+  position: absolute;
+  opacity: 0;
+  inline-size: 0;
+  block-size: 0;
+  pointer-events: none;
+}
+.check .box {
+  inline-size: var(--control-check);
+  block-size: var(--control-check);
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: var(--control-border) solid var(--color-divider);
+  border-radius: var(--radius-check);
+  background: var(--color-bg);
+  color: var(--color-bg);
+}
+.check .box svg {
+  visibility: hidden;
+}
+.check:hover .box {
+  border-color: var(--color-accent);
+  background: var(--color-accent-100);
+}
+.check:active .box {
+  background: var(--color-accent-200);
+}
+.check input:checked + .box {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+.check input:checked + .box svg {
+  visibility: visible;
+}
+.check:hover input:checked + .box {
+  border-color: var(--color-accent-600);
+  background: var(--color-accent-600);
+}
+.check:active input:checked + .box {
+  border-color: var(--color-accent-700);
+  background: var(--color-accent-700);
+}
+.check input:focus-visible + .box {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.check:has(input:disabled) {
+  cursor: not-allowed;
+}
+.check input:disabled + .box {
+  opacity: 0.45;
+}
+.check:has(input:disabled):hover .box {
+  border-color: var(--color-divider);
+  background: var(--color-bg);
+}
+
+/* ── cards ────────────────────────────────────────────────────────────── */
+
+/* The sheet rounds cards to 1.15 of the large radius; the screens ask for 26 to 28px. */
+.card {
+  border-radius: var(--radius-lg);
+}
+.card-title {
+  margin: 0;
+}
+.card-panel {
+  padding: var(--pad-section);
+}
+.card-stat {
+  padding: var(--pad-stat);
+  border-radius: var(--radius-card);
+}
+.card-tone-ground {
+  background: var(--color-bg);
+}
+.card-tone-accent {
+  background: var(--color-accent-100);
+}
+.card-tone-accent-2 {
+  background: var(--color-accent-2-100);
+}
+.card-tone-attention {
+  background: var(--color-accent-100);
+  color: var(--color-accent-700);
+}
+
+/* ── tables ───────────────────────────────────────────────────────────── */
+
+.table-scroll {
+  overflow-x: auto;
+}
+.table th {
+  text-align: start;
+}
+
+/* ── dialog ───────────────────────────────────────────────────────────── */
+
+/* The native dialog is the backdrop: it brings focus trapping, Escape and the top layer.
+   Its browser defaults are cleared so the sheet's backdrop class draws it. */
+dialog.dialog-backdrop {
+  inline-size: auto;
+  block-size: auto;
+  max-inline-size: none;
+  max-block-size: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
+}
+dialog.dialog-backdrop:not([open]) {
+  display: none;
+}
+dialog.dialog-backdrop::backdrop {
+  background: transparent;
+}
+/* The title is a heading for screen readers; the dialog's own gap spaces it. */
+.dialog-title {
+  margin: 0;
+}
+
+/* ── the administration panel's dark ground ───────────────────────────── */
+
+/* README, screen 05: the panel is dark on purpose, so staff never mistake it for a
+   subscriber's portal. The Organic roles are re-pointed inside the panel only. */
+[data-theme='dark'] {
+  --color-bg: var(--color-neutral-900);
+  --color-surface: var(--dark-card);
+  --color-text: var(--color-neutral-100);
+  --color-divider: var(--dark-field-border);
+  --color-accent: var(--color-accent-400);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+[data-theme='dark'] a {
+  color: var(--color-accent-300);
+}
+[data-theme='dark'] a:hover {
+  color: var(--color-accent-200);
+}
+[data-theme='dark'] a:active {
+  color: var(--color-accent-400);
+}
+
+[data-theme='dark'] .btn-primary {
+  color: var(--dark-sidebar);
+}
+[data-theme='dark'] .btn-primary:hover {
+  background: var(--color-accent-300);
+}
+[data-theme='dark'] .btn-primary:active {
+  background: var(--color-accent-500);
+}
+
+[data-theme='dark'] .input {
+  background: var(--dark-field);
+  border-color: var(--dark-field-border);
+}
+[data-theme='dark'] .input::placeholder {
+  color: var(--color-neutral-600);
+}
+
+[data-theme='dark'] .table th,
+[data-theme='dark'] .table td {
+  border-bottom-color: var(--dark-divider);
+}
+[data-theme='dark'] .table th {
+  color: var(--color-neutral-400);
+}
+
+[data-theme='dark'] .tag-accent {
+  background: var(--color-accent-800);
+  color: var(--color-accent-200);
+}
+[data-theme='dark'] .tag-accent-2 {
+  background: var(--color-accent-2-800);
+  color: var(--color-accent-2-200);
+}
+[data-theme='dark'] .tag-neutral {
+  background: var(--dark-divider);
+  color: var(--color-neutral-200);
+}
+[data-theme='dark'] .tag-critical {
+  background: var(--dark-critical);
+  color: var(--dark-critical-text);
+}
+
+[data-theme='dark'] .check .box {
+  background: var(--dark-field);
+}
+[data-theme='dark'] .check input:checked + .box {
+  color: var(--dark-sidebar);
+}
+[data-theme='dark'] .field-hint {
+  color: var(--color-neutral-400);
+}
+[data-theme='dark'] .field-error {
+  color: var(--color-accent-300);
+}
+
+/* A tinted card keeps its role on the dark ground: the light tints would sit under light
+   text and the words would disappear. */
+[data-theme='dark'] .card-tone-accent {
+  background: var(--color-accent-900);
+}
+[data-theme='dark'] .card-tone-accent-2 {
+  background: var(--color-accent-2-900);
+}
+[data-theme='dark'] .card-tone-attention {
+  background: var(--dark-attention);
+  color: var(--color-accent-300);
+}
