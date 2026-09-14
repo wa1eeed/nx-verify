@@ -37,6 +37,11 @@ export interface Entitlement {
   negotiated: boolean;
   /** Transactions left in the term's capacity. Null when the plan sells no capacity. */
   capacityRemaining: number | null;
+  /**
+   * A discount on every product agreed for this subscriber, in percent. It applies where no
+   * price was written for the product itself.
+   */
+  discountPct: number | null;
   periodStart: Date | null;
   periodEnd: Date | null;
 }
@@ -57,6 +62,7 @@ interface EntitlementRow {
   included_transactions: number | null;
   transactions_used: number | null;
   overage_allowed: boolean | null;
+  discount_pct: string | null;
 }
 
 /**
@@ -78,8 +84,10 @@ const ENTITLEMENT_SQL = `
          u.used,
          s.included_transactions,
          s.transactions_used,
-         pk.overage_allowed
+         pk.overage_allowed,
+         d.discount_pct::text AS discount_pct
   FROM products p
+  LEFT JOIN tenant_price_discounts d ON d.tenant_id = $1
   LEFT JOIN tenant_commitments s ON s.tenant_id = $1
   LEFT JOIN packages pk ON pk.code = s.package_code
   LEFT JOIN package_products pp
@@ -104,6 +112,8 @@ function decide(row: EntitlementRow): Entitlement {
 
   const base: Omit<Entitlement, 'allowed' | 'refusal' | 'remaining'> = {
     capacityRemaining,
+    discountPct:
+      row.override_price === null && row.discount_pct !== null ? Number(row.discount_pct) : null,
     productCode: row.product_code,
     packageCode: row.package_code,
     quota: row.override_quota ?? row.package_quota,
@@ -158,6 +168,17 @@ function decide(row: EntitlementRow): Entitlement {
     refusal: null,
     remaining: base.quota === null ? null : Math.max(0, base.quota - used),
   };
+}
+
+/**
+ * The price a run is charged at, before VAT: a price written for this subscriber or plan, or
+ * the list price, less any discount agreed on every product.
+ */
+export function chargedUnitPrice(entitlement: Entitlement, listPriceHalalas: number): number {
+  const price = entitlement.unitPriceHalalas ?? listPriceHalalas;
+  return entitlement.discountPct === null
+    ? price
+    : Math.round((price * (100 - entitlement.discountPct)) / 100);
 }
 
 export async function resolveEntitlement(

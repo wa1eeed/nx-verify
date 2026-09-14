@@ -113,8 +113,8 @@ export interface CloseRunInput {
   charges?: ReadonlyMap<string, number>;
   billedAmount?: number;
   providerCost?: number;
-  /** Where this run was paid from: the package's capacity, the wallet, or nowhere. */
-  chargeSource?: 'PACKAGE' | 'WALLET' | 'FREE';
+  /** Where this run was paid from: the package's capacity, a bundle, the wallet, or nowhere. */
+  chargeSource?: 'PACKAGE' | 'BUNDLE' | 'WALLET' | 'FREE';
 }
 
 /**

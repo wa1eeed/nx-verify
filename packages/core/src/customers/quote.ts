@@ -1,7 +1,12 @@
 import type { TenantTransaction } from '@nx-verify/db';
-import { resolveEntitlement, type EntitlementRefusal } from '../billing/entitlements.js';
+import {
+  chargedUnitPrice,
+  resolveEntitlement,
+  type EntitlementRefusal,
+} from '../billing/entitlements.js';
 import { resolvePrice } from '../billing/price-book.js';
 import { getWallet } from '../billing/wallet.js';
+import { bundleBalance } from '../billing/bundles.js';
 
 /**
  * What ticking these checks will cost, said before anyone presses verify.
@@ -34,7 +39,10 @@ export interface CheckQuote {
 
 export interface ChecksQuote {
   lines: CheckQuote[];
-  /** Operations left in the package this term. Null when the plan sells no capacity. */
+  /**
+   * Operations that pay before the wallet does: what is left in the package this term and in
+   * the subscriber's bundles. Null when neither sells any.
+   */
   capacityRemaining: number | null;
   walletAvailableHalalas: number;
 }
@@ -53,12 +61,13 @@ export async function quoteChecks(
       continue;
     }
     capacityRemaining = entitlement.capacityRemaining;
-    let unitPriceHalalas = entitlement.unitPriceHalalas;
-    if (unitPriceHalalas === null) {
-      unitPriceHalalas = await resolvePrice(tx, productCode)
-        .then((price) => price.unitPrice)
-        .catch(() => null);
-    }
+    const listPrice =
+      entitlement.unitPriceHalalas === null
+        ? await resolvePrice(tx, productCode)
+            .then((price) => price.unitPrice)
+            .catch(() => null)
+        : entitlement.unitPriceHalalas;
+    const unitPriceHalalas = listPrice === null ? null : chargedUnitPrice(entitlement, listPrice);
     lines.push({
       productCode,
       allowed: entitlement.allowed,
@@ -68,5 +77,11 @@ export async function quoteChecks(
   }
 
   const wallet = await getWallet(tx).catch(() => null);
-  return { lines, capacityRemaining, walletAvailableHalalas: wallet?.available ?? 0 };
+  const bundles = (await bundleBalance(tx)).operations;
+  return {
+    lines,
+    capacityRemaining:
+      capacityRemaining === null && bundles === 0 ? null : (capacityRemaining ?? 0) + bundles,
+    walletAvailableHalalas: wallet?.available ?? 0,
+  };
 }

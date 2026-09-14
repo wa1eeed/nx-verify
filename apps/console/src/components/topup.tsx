@@ -18,6 +18,8 @@ export interface TopUpRowView {
   requestedAt: Date;
   vatInvoiceId: string | null;
   note: string | null;
+  /** «حزمة 500 عملية» when the transfer buys a bundle; null for credit in riyals. */
+  bundleLabel?: string | null;
 }
 
 export interface BankDetails {
@@ -31,6 +33,17 @@ const STATUS_LABELS: Record<TopUpRowView['status'], string> = {
   CONFIRMED: 'أُضيف للرصيد',
   REJECTED: 'لم يُقبل',
 };
+
+/** «حزمة 500 عملية», from a bundle's code, or null for credit in riyals. */
+export function bundleLabelOf(bundleCode: string | null): string | null {
+  if (bundleCode === null) {
+    return null;
+  }
+  const operations = Number(bundleCode.replace(/^BUNDLE_/, ''));
+  return Number.isInteger(operations) && operations > 0
+    ? `حزمة ${new Intl.NumberFormat('en-US').format(operations)} عملية`
+    : 'حزمة رصيد';
+}
 
 function riyals(halalas: number): string {
   return (halalas / 100).toFixed(2);
@@ -148,7 +161,17 @@ export function TopUpPanel({
                       {riyals(request.totalWithVatHalalas)}
                     </bdi>
                   </td>
-                  <td>{STATUS_LABELS[request.status]}</td>
+                  <td>
+                    {request.bundleLabel && request.status === 'CONFIRMED'
+                      ? `أُضيفت ${request.bundleLabel}`
+                      : STATUS_LABELS[request.status]}
+                    {request.bundleLabel && request.status !== 'CONFIRMED' ? (
+                      <span className="muted" data-role="topup-bundle">
+                        {' '}
+                        · {request.bundleLabel}
+                      </span>
+                    ) : null}
+                  </td>
                   <td>
                     {request.vatInvoiceId ? (
                       <bdi dir="ltr" className="mono">
@@ -217,7 +240,15 @@ export function PendingTopUps({
         <tbody>
           {pending.map((request) => (
             <tr key={request.id}>
-              <td>{request.tenantName}</td>
+              <td>
+                {request.tenantName}
+                {request.bundleLabel ? (
+                  <span className="muted" data-role="topup-bundle">
+                    {' '}
+                    · {request.bundleLabel}
+                  </span>
+                ) : null}
+              </td>
               <td>
                 <bdi dir="ltr" className="mono">
                   {request.reference}

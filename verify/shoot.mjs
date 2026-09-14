@@ -9,12 +9,13 @@
  * NX Trust: the routes below are this console's (PLAN.md, section 4). Three additions to
  * the delivered script, all optional through the environment:
  *   PW_CHANNEL=chrome        use the installed Chrome instead of a downloaded Chromium
- *   NX_OPERATOR_TOKEN=...    sign in to the administration panel with a session cookie
- *                            derived the way the console derives it, never the token itself
+ *   NX_OPERATOR_TOKEN=...    open the administration panel as the deployment, by sending the
+ *                            token in its header on this console's /operator requests only.
+ *                            The console accepts that outside production alone (ADR-117);
+ *                            staff in a deployment sign in with their own accounts
  *   CUSTOMER_ID=<uuid>       the customer file to shoot; otherwise the first one listed
  */
 import { chromium } from "playwright";
-import { createHmac } from "node:crypto";
 import { mkdirSync } from "node:fs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
@@ -36,9 +37,14 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1000
 
 const token = process.env.NX_OPERATOR_TOKEN;
 if (token) {
-  const expires = Date.now() + 60 * 60 * 1000;
-  const mac = createHmac("sha256", token).update(`nx-operator-session/v1|${expires}`).digest("base64url");
-  await context.addCookies([{ name: "nx_operator", value: `v1.${expires}.${mac}`, url: `${BASE}/operator` }]);
+  // Scoped to this console's panel, so the token never travels with a request to anywhere
+  // else the page loads from, fonts included.
+  await context.route(`${BASE}/operator/**`, (route) =>
+    route.continue({ headers: { ...route.request().headers(), "x-nx-operator-token": token } })
+  );
+  await context.route(`${BASE}/operator`, (route) =>
+    route.continue({ headers: { ...route.request().headers(), "x-nx-operator-token": token } })
+  );
 }
 
 const page = await context.newPage();

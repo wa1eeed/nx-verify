@@ -131,6 +131,7 @@ function fileWith(sections: FileSection[]): CustomerFile {
     kyc: { verified: 2, total: 3, lineAr: 'مدير مفوّض واحد بانتظار التحقق' },
     openChanges: 0,
     checks: [CR, ADDRESS, IBAN],
+    nameMatchThresholdPct: 85,
   };
 }
 

@@ -116,8 +116,8 @@ cat <<SUMMARY
 مفتاح الإنتاج: $KEY
 مفتاح الاختبار: $SANDBOX_KEY
 
-لوحة المشغّل:  $CONSOLE/operator/connections
-رمز المشغّل:   ضعه في ترويسة x-nx-operator-token أو كعكة nx_operator
+لوحة الإدارة:  $CONSOLE/operator/login
+رمز النشر:     يُطلب مرة واحدة لإنشاء حساب المالك، ثم يدخل الفريق بحساباتهم
 
 للإيقاف:       docker compose down -v
 SUMMARY

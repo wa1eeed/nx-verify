@@ -1624,3 +1624,369 @@ a.frame-brand:active {
   font-size: var(--text-label);
   white-space: nowrap;
 }
+
+/* ── notices, switches and lists: controls the later screens need ─────── */
+
+/* A sentence about what just happened: sage when something was done, the accent when it
+   was refused. */
+.notice {
+  margin: 0;
+  padding: var(--pad-note);
+  border-radius: var(--radius-inset);
+  font-size: var(--text-body-sm);
+}
+.notice-done {
+  background: var(--color-accent-2-100);
+  color: var(--color-accent-2-800);
+}
+.notice-refused {
+  background: var(--color-accent-100);
+  color: var(--color-accent-700);
+}
+[data-theme='dark'] .notice-done {
+  background: var(--color-accent-2-900);
+  color: var(--color-accent-2-200);
+}
+[data-theme='dark'] .notice-refused {
+  background: var(--dark-attention);
+  color: var(--color-accent-300);
+}
+
+/* A tag that switches: the checkbox is hidden inside it, and the tag answers for it. */
+.tag-toggle {
+  position: relative;
+  cursor: pointer;
+}
+.tag-toggle input {
+  position: absolute;
+  opacity: 0;
+  inline-size: 0;
+  block-size: 0;
+  pointer-events: none;
+}
+.tag-toggle.tag-accent-2:hover {
+  background: var(--color-accent-2-200);
+}
+.tag-toggle.tag-accent:hover {
+  background: var(--color-accent-200);
+}
+.tag-toggle.tag-neutral:hover {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+}
+.tag-toggle:active,
+.tag-toggle.tag-accent:active {
+  background: var(--color-accent-300);
+}
+.tag-toggle:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+[data-theme='dark'] .tag-toggle.tag-accent-2:hover {
+  background: var(--color-accent-2-700);
+}
+[data-theme='dark'] .tag-toggle.tag-accent:hover {
+  background: var(--color-accent-700);
+}
+[data-theme='dark'] .tag-toggle.tag-neutral:hover {
+  background: var(--color-accent-900);
+  color: var(--color-accent-200);
+}
+[data-theme='dark'] .tag-toggle:active,
+[data-theme='dark'] .tag-toggle.tag-accent:active {
+  background: var(--color-accent-600);
+}
+
+/* A choice from a list: the field's pill, with a chevron drawn at the end of the line. */
+.select {
+  position: relative;
+  display: block;
+}
+.select .input {
+  appearance: none;
+  padding-inline-end: var(--space-8);
+  cursor: pointer;
+}
+.select .input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.select-chevron {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--space-3);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  color: var(--color-neutral-600);
+}
+[data-theme='dark'] .select-chevron {
+  color: var(--color-neutral-400);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+[data-theme='dark'] .field > label {
+  color: var(--color-neutral-400);
+}
+
+/* ── the administration panel: signing in ─────────────────────────────── */
+
+.operator-door {
+  inline-size: min(var(--layout-door), 100%);
+}
+.operator-door .card {
+  gap: var(--space-4);
+}
+.operator-door-head .page-subtitle {
+  margin-block-start: var(--space-1);
+}
+.operator-door-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Who is signed in: their name over their role. */
+.frame-account-name {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-hairline);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.frame-account-role {
+  font-size: var(--text-caption);
+  font-weight: 400;
+  color: var(--color-neutral-600);
+}
+[data-theme='dark'] .frame-account-role {
+  color: var(--color-neutral-400);
+}
+
+/* ── the administration panel: prices and products (screen 05) ────────── */
+
+.admin-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-content-gap);
+}
+.admin-head-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+}
+.admin-card-title {
+  font-size: var(--text-card-title);
+}
+.admin-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--pad-admin-card);
+  padding-block-end: var(--space-1);
+}
+.admin-card-note {
+  margin: 0;
+  font-size: var(--text-note);
+  color: var(--color-neutral-600);
+}
+.admin-table {
+  padding: var(--pad-admin-card);
+  padding-block-start: 0;
+}
+.admin-price-field .input {
+  inline-size: var(--layout-price-field);
+}
+.admin-margin {
+  color: var(--color-accent-2-700);
+}
+.admin-margin[data-tone='thin'] {
+  color: var(--color-accent-700);
+}
+.admin-empty {
+  margin: 0;
+  padding: var(--pad-admin-card);
+  font-size: var(--text-body-sm);
+  color: var(--color-neutral-600);
+}
+.admin-offers .admin-empty {
+  padding: 0;
+}
+
+/* Bundles, plans and special prices, side by side. */
+.admin-offers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--gap-admin-offers);
+}
+.admin-offers .card {
+  gap: 0;
+}
+.admin-offer-title {
+  font-size: var(--text-offer-title);
+  margin-block-end: var(--space-1);
+}
+.admin-offers .admin-card-note {
+  margin-block-end: var(--space-3);
+}
+.admin-offer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-admin-list);
+  font-size: var(--text-body-sm);
+}
+.admin-offer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-hairline);
+  padding: var(--pad-offer);
+  border-radius: var(--radius-inset);
+  background: var(--color-bg);
+}
+.admin-offer-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.admin-offer-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.admin-offer-terms {
+  font-size: var(--text-caption);
+  color: var(--color-neutral-600);
+}
+.admin-offer-link,
+.admin-offer-link:hover,
+.admin-offer-link:active,
+[data-theme='dark'] .admin-offer-link,
+[data-theme='dark'] .admin-offer-link:hover,
+[data-theme='dark'] .admin-offer-link:active {
+  color: inherit;
+  text-decoration: none;
+}
+.admin-offer-link:hover {
+  text-decoration: underline;
+  text-underline-offset: var(--offset-underline);
+}
+.admin-offer-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.admin-discount {
+  color: var(--color-accent-2-700);
+}
+.admin-inline-form {
+  display: inline-flex;
+  margin: 0;
+}
+/* Taking a bundle off sale is rare, so its control stays quiet until it is pointed at. */
+.admin-offer .btn-icon {
+  inline-size: var(--control-indicator);
+  block-size: var(--control-indicator);
+  color: var(--color-neutral-500);
+}
+.admin-offer .btn-icon:hover,
+.admin-offer .btn-icon:focus-visible {
+  color: var(--color-accent);
+}
+.admin-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* The roles, under the staff table: what each may change. */
+.admin-roles {
+  list-style: none;
+  margin: 0;
+  padding: var(--pad-admin-card);
+  padding-block-start: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1) var(--gap-admin-fields);
+  font-size: var(--text-note);
+  color: var(--color-neutral-600);
+}
+[data-theme='dark'] .admin-roles {
+  color: var(--color-neutral-400);
+}
+[data-theme='dark'] .admin-roles strong {
+  color: var(--color-neutral-200);
+}
+
+/* «إعدادات التحقق»: four figures, then the sections each kind of file needs. */
+.admin-settings-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--gap-admin-fields);
+  margin-block-start: var(--space-3);
+}
+.admin-divider {
+  border: 0;
+  block-size: var(--size-hairline);
+  margin: var(--space-admin-divider) 0;
+  background: var(--color-divider);
+}
+.admin-sections {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-admin-fields);
+  font-size: var(--text-body-sm);
+}
+.admin-sections-heading {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.admin-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-admin-tags);
+}
+.admin-tag-slot {
+  display: contents;
+}
+
+[data-theme='dark'] .admin-card-note,
+[data-theme='dark'] .admin-empty,
+[data-theme='dark'] .admin-offer-terms,
+[data-theme='dark'] .admin-sections-heading {
+  color: var(--color-neutral-400);
+}
+[data-theme='dark'] .admin-margin,
+[data-theme='dark'] .admin-discount {
+  color: var(--color-accent-2-300);
+}
+[data-theme='dark'] .admin-margin[data-tone='thin'] {
+  color: var(--color-accent-300);
+}
+[data-theme='dark'] .admin-offer {
+  background: var(--dark-field);
+}
+[data-theme='dark'] .admin-divider {
+  background: var(--dark-divider);
+}
+
+@media (max-width: 1100px) {
+  .admin-offers,
+  .admin-sections {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-settings-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

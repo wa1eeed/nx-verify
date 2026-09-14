@@ -5,6 +5,7 @@ import {
   Building2,
   ChartColumn,
   Check,
+  ChevronDown,
   Clock,
   Download,
   Info,
@@ -54,6 +55,7 @@ export const ICONS = {
   // Past the handoff's list: glyphs the controls themselves need.
   minus: Minus,
   search: Search,
+  'chevron-down': ChevronDown,
   x: X,
 } as const satisfies Record<string, LucideIcon>;
 

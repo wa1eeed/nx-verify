@@ -1,73 +1,96 @@
 import type { ReactElement } from 'react';
-import { listPackagesForOperator, listSubscribers } from '@nx-verify/core';
-import { SEED_PRODUCTS } from '@nx-verify/db';
 import {
-  OperatorPackages,
-  type PackageView,
-  type SubscriberView,
-} from '../../../../components/operator-packages';
-import { operatorQuery, requireOperator } from '../../../../lib/operator';
-import { assignPackageAction, setOverrideAction, setProductAction } from './actions';
+  MINIMUM_MARGIN_PCT,
+  getPlatformSettings,
+  listCreditBundles,
+  listOperatorAudit,
+  listPlans,
+  listProductPricing,
+  listSettableSections,
+  listSpecialPrices,
+  listSubscribers,
+  operatorCan,
+} from '@nx-verify/core';
+import { AdminPricing } from '../../../../components/admin-pricing';
+import { noticeAr } from '../../../../components/admin-pricing/model';
+import { currentOperator, operatorQuery } from '../../../../lib/operator';
+import { operatorNameOf } from '../../../../lib/operator-names';
+import {
+  addBundleAction,
+  addPlanAction,
+  retireBundleAction,
+  savePricingAction,
+  setSpecialPriceAction,
+} from './actions';
 
-/** Never prerendered, and refuses to render without an operator token. */
+/** Never prerendered, and refuses to render without a sign in. */
 export const dynamic = 'force-dynamic';
 
-export default async function OperatorPackagesPage(): Promise<ReactElement> {
-  await requireOperator();
+/**
+ * The prices and products of the platform (handoff screen 05).
+ *
+ * Everything is read on the operator connection: the catalogue and its costs, the monthly
+ * counters every subscriber's use is summed into, and the commercial rows staff set. Nothing a
+ * subscriber verified reaches this screen.
+ */
+export default async function OperatorPricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<ReactElement> {
+  const operator = await currentOperator();
+  const params = Object.fromEntries(
+    Object.entries(await searchParams).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
+  );
 
   const data = await operatorQuery(async (db) => ({
-    packages: await listPackagesForOperator(db),
+    products: await listProductPricing(db),
+    bundles: await listCreditBundles(db),
+    plans: await listPlans(db),
+    specialPrices: await listSpecialPrices(db),
+    settings: await getPlatformSettings(db),
+    sections: await listSettableSections(db),
     subscribers: await listSubscribers(db),
-    // The catalogue is read from the seed rather than from the products table, because
-    // the operator connection has no business reading a subscriber scoped table and the
-    // catalogue is the same for everyone.
-    products: SEED_PRODUCTS.map((product) => ({ code: product.code, nameAr: product.nameAr })),
+    lastChange: (
+      await listOperatorAudit(db, { targetPrefixes: ['pricing:', 'settings:'], limit: 1 })
+    )[0],
   }));
 
-  const nameOf = new Map(data.products.map((product) => [product.code, product.nameAr]));
-
-  const packages: PackageView[] = data.packages.map((plan) => ({
-    code: plan.code,
-    nameAr: plan.nameAr,
-    billingModel: plan.billingModel,
-    termMonths: plan.termMonths,
-    includedTransactions: plan.includedTransactions,
-    platformFeeHalalas: plan.platformFeeHalalas,
-    status: plan.status,
-    products: plan.products.map((product) => ({
-      productCode: product.productCode,
-      productNameAr: nameOf.get(product.productCode) ?? product.productCode,
-      enabled: product.enabled,
-      monthlyQuota: product.monthlyQuota,
-      unitPriceHalalas: product.unitPriceHalalas,
-    })),
-  }));
-
-  const subscribers: SubscriberView[] = data.subscribers.map((row) => ({
-    tenantId: row.tenantId,
-    legalName: row.legalName,
-    slug: row.slug,
-    isSandbox: row.isSandbox,
-    packageCode: row.packageCode,
-    includedTransactions: row.includedTransactions,
-    transactionsUsed: row.transactionsUsed,
-    overrides: row.overrides.map((override) => ({
-      productCode: override.productCode,
-      productNameAr: nameOf.get(override.productCode) ?? override.productCode,
-      enabled: override.enabled,
-    })),
-  }));
+  const nameOf = new Map(data.products.map((product) => [product.productCode, product.nameAr]));
 
   return (
-    <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <OperatorPackages
-        packages={packages}
-        subscribers={subscribers}
-        allProducts={data.products}
-        setProductAction={setProductAction}
-        setOverrideAction={setOverrideAction}
-        assignAction={assignPackageAction}
-      />
-    </div>
+    <AdminPricing
+      view={{
+        canEditPricing: operatorCan(operator.role, 'pricing'),
+        canEditSettings: operatorCan(operator.role, 'settings'),
+        lastChange:
+          data.lastChange === undefined
+            ? null
+            : { byName: operatorNameOf(data.lastChange), at: data.lastChange.at },
+        notice: noticeAr(params, (code) => nameOf.get(code) ?? code),
+        products: data.products,
+        bundles: data.bundles,
+        plans: data.plans,
+        specialPrices: data.specialPrices,
+        settings: data.settings,
+        sections: data.sections,
+        subscribers: data.subscribers
+          .filter((subscriber) => !subscriber.isSandbox)
+          .map((subscriber) => ({
+            tenantId: subscriber.tenantId,
+            legalName: subscriber.legalName,
+          })),
+        minimumMarginPct: MINIMUM_MARGIN_PCT,
+      }}
+      actions={{
+        save: savePricingAction,
+        addBundle: addBundleAction,
+        retireBundle: retireBundleAction,
+        addPlan: addPlanAction,
+        setSpecialPrice: setSpecialPriceAction,
+      }}
+    />
   );
 }

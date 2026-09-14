@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { setProviderEndpoint } from '@nx-verify/providers';
-import { operatorQuery, requireOperator } from '../../../../../lib/operator';
+import { operatorQuery, requireOperatorPermission } from '../../../../../lib/operator';
 
 /**
  * Saving one endpoint of one provider in one environment.
@@ -25,7 +25,7 @@ function parsePairs(raw: string): Record<string, string> {
 }
 
 export async function setEndpointAction(formData: FormData): Promise<void> {
-  await requireOperator();
+  await requireOperatorPermission('integration');
 
   const path = String(formData.get('path') ?? '').trim();
   const provider = String(formData.get('provider') ?? '');

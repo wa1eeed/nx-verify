@@ -17,6 +17,6 @@ export default async function OperatorPanelLayout({
 }: {
   children: ReactNode;
 }): Promise<ReactElement> {
-  const operatorId = await operatorOrSignIn();
-  return <OperatorShell operatorId={operatorId}>{children}</OperatorShell>;
+  const operator = await operatorOrSignIn();
+  return <OperatorShell operator={operator}>{children}</OperatorShell>;
 }

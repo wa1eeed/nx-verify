@@ -1,7 +1,14 @@
 import type { ReactElement, ReactNode } from 'react';
-import { getCommitment, getWallet, inboxSeenAt, listInbox, sandboxLink } from '@nx-verify/core';
+import {
+  bundleBalance,
+  getCommitment,
+  getWallet,
+  inboxSeenAt,
+  listInbox,
+  sandboxLink,
+} from '@nx-verify/core';
 import { Shell } from '../../components/shell';
-import type { BalanceView } from '../../components/balance-card';
+import { balanceOf } from '../../lib/balance';
 import { actingUser, query } from '../../lib/context';
 
 /**
@@ -23,8 +30,9 @@ export default async function AppLayout({
     const workspace = await sandboxLink(tx);
     const unread = (await listInbox(tx, { seenAt: await inboxSeenAt(tx, user.userId) })).unread;
     const commitment = await getCommitment(tx);
+    const bundles = await bundleBalance(tx);
     const wallet = await getWallet(tx);
-    return { workspace, unread, balance: balanceOf(commitment, wallet.available) };
+    return { workspace, unread, balance: balanceOf(commitment, bundles, wallet.available) };
   });
 
   return (
@@ -32,22 +40,4 @@ export default async function AppLayout({
       {children}
     </Shell>
   );
-}
-
-/**
- * Operations while a package counts them, riyals otherwise (decision 3 in PLAN.md): the
- * package is spent first and the wallet pays what goes past it.
- */
-function balanceOf(
-  commitment: Awaited<ReturnType<typeof getCommitment>>,
-  walletAvailableHalalas: number,
-): BalanceView {
-  if (commitment !== null && commitment.includedTransactions !== null) {
-    return {
-      kind: 'operations',
-      included: commitment.includedTransactions,
-      remaining: Math.max(0, commitment.includedTransactions - commitment.transactionsUsed),
-    };
-  }
-  return { kind: 'wallet', availableHalalas: walletAvailableHalalas };
 }

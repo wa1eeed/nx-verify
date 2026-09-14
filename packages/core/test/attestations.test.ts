@@ -129,8 +129,9 @@ describe('recording attestations and reading the profile', () => {
     expect(byPath.get('property.deed')).toBe('fresh');
     // No expiry given, but cr.status has a TTL, so it ages from observed_at.
     expect(byPath.get('cr.status')).toBe('fresh');
-    // No expiry and no TTL. Nothing ages it, so it stays permanent.
-    expect(byPath.get('manager.core')).toBe('permanent');
+    // No expiry and no policy: the platform's result validity ages it (ADR-117), and it
+    // was read a moment ago.
+    expect(byPath.get('manager.core')).toBe('fresh');
   });
 
   it('leaves valid_until stored but ages TTL driven fields from observed_at', async () => {
@@ -143,9 +144,13 @@ describe('recording attestations and reading the profile', () => {
     // observed_at plus the TTL in force right now, computed on read and never stored.
     expect(crStatus?.effectiveUntil?.getTime()).toBeGreaterThan(Date.now());
 
+    // No policy names it, so the platform's result validity is the TTL in force, computed
+    // on read like any other.
     const managerCore = profile.find((field) => field.fieldPath === 'manager.core');
-    expect(managerCore?.ttlDays).toBeNull();
-    expect(managerCore?.effectiveUntil).toBeNull();
+    expect(managerCore?.ttlDays).toBe(90);
+    expect(managerCore?.effectiveUntil?.getTime()).toBe(
+      (managerCore?.observedAt.getTime() ?? 0) + 90 * 24 * HOUR,
+    );
   });
 
   it('never exposes the provider through the profile or the timeline', async () => {

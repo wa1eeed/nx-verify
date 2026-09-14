@@ -287,6 +287,44 @@ describe('the console renders real data', () => {
     }
   });
 
+  it('shows the prices, the settings and the team of the panel, and names no data source', async () => {
+    const { default: PricingPage } = await import('../src/app/operator/(panel)/pricing/page');
+    const { default: SettingsPage } = await import('../src/app/operator/(panel)/verification/page');
+    const { default: AccessPage } = await import('../src/app/operator/(panel)/access/page');
+
+    process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
+    process.env['NX_OPERATOR_DATABASE_URL'] = db.operatorConnectionString;
+    delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+    await expect(PricingPage({ searchParams: Promise.resolve({}) })).rejects.toThrow();
+
+    process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
+    try {
+      const pricing = await render(PricingPage({ searchParams: Promise.resolve({ saved: '1' }) }));
+      expect(pricing).toContain('data-role="price-table"');
+      expect(pricing).toContain('data-role="bundle"');
+      expect(pricing).toContain('data-role="verification-settings"');
+      expect(pricing).toContain('حُفظت التغييرات.');
+      // The settings as the migration seeded them.
+      expect(pricing).toMatch(
+        /name="result_validity_days"[^>]*value="90 يوماً"|value="90 يوماً"[^>]*name="result_validity_days"/,
+      );
+
+      const settings = await render(SettingsPage({ searchParams: Promise.resolve({}) }));
+      expect(settings).toContain('data-role="save-settings"');
+      expect(settings).toContain('الأقسام المطلوبة · شركة');
+
+      const access = await render(AccessPage({ searchParams: Promise.resolve({}) }));
+      expect(access).toContain('data-role="staff"');
+      expect(access).toContain('data-role="audit"');
+
+      for (const html of [pricing, settings, access]) {
+        expect(html).not.toContain(PROVIDER_NAME);
+      }
+    } finally {
+      delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
+    }
+  });
+
   it('names no provider on a subscriber screen even while the operator panel does', async () => {
     const { default: RegistryPage } = await import('../src/app/(app)/customers/page');
     const { default: DashboardPage } = await import('../src/app/(app)/dashboard/page');

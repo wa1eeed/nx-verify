@@ -12,6 +12,7 @@ import {
   type LastRun,
 } from './customer-file.js';
 import type { RiskLevel, Standing } from './indicators.js';
+import { getPlatformSettings, layoutsOf, listSectionRequirements } from '../settings/platform.js';
 import { listCustomers, type CustomerFilter } from './list.js';
 
 /**
@@ -81,6 +82,8 @@ export async function summarizeCustomers(
   }
   const ids = customers.map((customer) => customer.entityId);
   const catalogue = await listChecks(tx);
+  const settings = await getPlatformSettings(tx);
+  const layouts = layoutsOf(await listSectionRequirements(tx));
 
   const { rows: entityRows } = await tx.query<{ id: string; first_seen_at: Date }>(
     `SELECT id, first_seen_at FROM entities WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
@@ -320,6 +323,8 @@ export async function summarizeCustomers(
 
     const changedPaths = new Set((changes.get(id) ?? []).map((row) => row.field_path));
     const standing = fileStandingOf({
+      settings,
+      layouts,
       entityType: customer.entityType as EntityType,
       profile,
       changedPaths,

@@ -1,7 +1,11 @@
 import type { ReactElement } from 'react';
 import { listPendingTopUps } from '@nx-verify/core';
 import { PageHeader } from '../../../../../components/page-header';
-import { PendingTopUps, type PendingTopUpView } from '../../../../../components/topup';
+import {
+  PendingTopUps,
+  bundleLabelOf,
+  type PendingTopUpView,
+} from '../../../../../components/topup';
 import { operatorQuery, requireOperator } from '../../../../../lib/operator';
 import { confirmTopUpAction, rejectTopUpAction } from './actions';
 import { SectionTabs } from '../../../../../components/section-tabs';
@@ -26,6 +30,7 @@ export default async function OperatorTopUpsPage(): Promise<ReactElement> {
     requestedAt: request.requestedAt,
     vatInvoiceId: request.vatInvoiceId,
     note: request.note,
+    bundleLabel: bundleLabelOf(request.bundleCode),
   }));
 
   return (

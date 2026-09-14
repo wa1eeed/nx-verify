@@ -1,6 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
 import {
-  NAME_MATCH_THRESHOLD_PCT,
   type CustomerFile,
   type FileField,
   type FileSection,
@@ -511,10 +510,10 @@ function BankFields({
             field={{ ...score, labelAr: 'مطابقة الاسم' }}
             section={section}
             history={undefined}
-            alert={pct < NAME_MATCH_THRESHOLD_PCT}
+            alert={pct < file.nameMatchThresholdPct}
             valueOverride={
               <>
-                {pct >= NAME_MATCH_THRESHOLD_PCT ? 'مطابق ' : 'تطابق جزئي '}
+                {pct >= file.nameMatchThresholdPct ? 'مطابق ' : 'تطابق جزئي '}
                 <Ltr>{pct}%</Ltr>
               </>
             }

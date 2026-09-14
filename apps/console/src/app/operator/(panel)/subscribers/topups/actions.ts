@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { withTenant } from '@nx-verify/db';
 import { confirmTopUp, rejectTopUp } from '@nx-verify/core';
 import { getPool } from '../../../../../lib/context';
-import { requireOperator } from '../../../../../lib/operator';
+import { requireOperatorPermission } from '../../../../../lib/operator';
 
 /**
  * Settling a transfer.
@@ -19,7 +19,7 @@ import { requireOperator } from '../../../../../lib/operator';
  */
 
 export async function confirmTopUpAction(formData: FormData): Promise<void> {
-  const operatorId = await requireOperator();
+  const { id: operatorId } = await requireOperatorPermission('subscribers');
 
   const requestId = String(formData.get('request_id') ?? '');
   const tenantId = String(formData.get('tenant_id') ?? '');
@@ -36,7 +36,7 @@ export async function confirmTopUpAction(formData: FormData): Promise<void> {
 }
 
 export async function rejectTopUpAction(formData: FormData): Promise<void> {
-  const operatorId = await requireOperator();
+  const { id: operatorId } = await requireOperatorPermission('subscribers');
 
   const requestId = String(formData.get('request_id') ?? '');
   const tenantId = String(formData.get('tenant_id') ?? '');

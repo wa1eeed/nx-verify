@@ -22,6 +22,7 @@ import {
   type RunChecksDependencies,
 } from './checks.js';
 import { getCustomerFile } from './customer-file.js';
+import { getPlatformSettings } from '../settings/platform.js';
 
 /**
  * A verification request, and running it in the background (handoff screen 02).
@@ -189,8 +190,10 @@ function offeredCodes(
     .map((check) => check.productCode);
 }
 
-function attemptsAllowed(value: number | undefined): number {
-  return Math.min(5, Math.max(1, Math.trunc(value ?? 2)));
+/** The attempts a check gets: what the caller says, or the platform's setting (screen 05). */
+async function attemptsAllowed(tx: TenantTransaction, value: number | undefined): Promise<number> {
+  const attempts = value ?? (await getPlatformSettings(tx)).maxAttempts;
+  return Math.min(5, Math.max(1, Math.trunc(attempts)));
 }
 
 async function queueChecks(
@@ -306,7 +309,7 @@ export async function createRequest(
   }
 
   if (!draft) {
-    await queueChecks(tx, requestId, productCodes, attemptsAllowed(input.maxAttempts));
+    await queueChecks(tx, requestId, productCodes, await attemptsAllowed(tx, input.maxAttempts));
   }
   return { requestId, status: draft ? 'DRAFT' : 'QUEUED', entityId, created: true };
 }
@@ -399,7 +402,7 @@ export async function submitDraft(
      WHERE tenant_id = $1 AND id = $2`,
     [tx.tenantId, requestId],
   );
-  await queueChecks(tx, requestId, codes, attemptsAllowed(changes.maxAttempts));
+  await queueChecks(tx, requestId, codes, await attemptsAllowed(tx, changes.maxAttempts));
   return { requestId, status: 'QUEUED', entityId: row.entity_id, created: true };
 }
 

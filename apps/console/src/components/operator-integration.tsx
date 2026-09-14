@@ -35,7 +35,8 @@ export interface IntegrationView {
   callbackHeader: string;
   callbackAlgorithm: 'sha256' | 'sha512';
   lastTest: { at: Date; ok: boolean; detail: string } | null;
-  changes: { at: Date; operatorId: string; action: string; fields: string[] }[];
+  /** Who made each change, by name (ADR-117). */
+  changes: { at: Date; byName: string; action: string; fields: string[] }[];
   secretsWritable: boolean;
   /** Set straight after an action, for one render. */
   notice: 'saved' | 'tested' | null;
@@ -398,11 +399,7 @@ export function OperatorIntegration({
                         </span>
                       ) : null}
                     </td>
-                    <td>
-                      <bdi dir="ltr" className="mono muted">
-                        {change.operatorId}
-                      </bdi>
-                    </td>
+                    <td>{change.byName}</td>
                   </tr>
                 ))}
               </tbody>

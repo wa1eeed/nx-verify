@@ -18,6 +18,13 @@ import {
   type ProfileSection,
 } from './checks.js';
 import { assessCustomer, type Assessment, type FactView, type Indicator } from './indicators.js';
+import {
+  DEFAULT_PLATFORM_SETTINGS,
+  getPlatformSettings,
+  layoutsOf,
+  listSectionRequirements,
+  type Layouts,
+} from '../settings/platform.js';
 import { businesses, otherBusinesses, otherCustomers } from './arabic.js';
 
 /**
@@ -108,6 +115,25 @@ const LAYOUTS: Readonly<
     ['BANKING', 'REQUIRED'],
   ],
 };
+
+/**
+ * The layouts from the settings, with the one for a business whose kind is not known yet:
+ * a company's sections, with those that depend on the kind left optional.
+ */
+function withBusinessLayout(
+  layouts: Layouts,
+): Readonly<
+  Record<CustomerKind | 'BUSINESS', readonly (readonly [ProfileSection, SectionRequirement])[]>
+> {
+  return {
+    ...layouts,
+    BUSINESS: layouts.COMPANY.map(([section, requirement]) =>
+      section === 'CONTRACT' || section === 'MANAGERS'
+        ? ([section, requirement === 'NOT_APPLICABLE' ? requirement : 'OPTIONAL'] as const)
+        : ([section, requirement] as const),
+    ),
+  };
+}
 
 /** The name-match share below which an account holder's name is a conflict (screen 05). */
 export const NAME_MATCH_THRESHOLD_PCT = 85;
@@ -297,6 +323,8 @@ export interface CustomerFile {
   openChanges: number;
   /** Checks this customer is offered, whether or not they have run. */
   checks: CheckDefinition[];
+  /** The name match an account needs to count as the customer's (screen 05). */
+  nameMatchThresholdPct: number;
 }
 
 function asStrings(value: unknown): string[] {
@@ -365,6 +393,9 @@ function sectionStateOf(
     managers: number;
     managersChecked: number;
     managersCheckedAt: Date | null;
+    /** How early a registry about to lapse is flagged (screen 05). */
+    registryAlertDays: number;
+    now: Date;
   },
 ): { state: SectionState; issueAr: string | null } {
   if (draft.requirement === 'NOT_APPLICABLE') {
@@ -404,6 +435,21 @@ function sectionStateOf(
     return { state: 'EXPIRED', issueAr: null };
   }
   if (draft.fields.some((field) => field.freshness === 'expiring')) {
+    return { state: 'EXPIRING', issueAr: null };
+  }
+  // The registry is flagged as early as the platform says (screen 05), for the facts that
+  // stay current longer than that window: a status checked weekly would otherwise be flagged
+  // from the day it was read.
+  const window = context.registryAlertDays * 86_400_000;
+  if (
+    draft.section === 'REGISTRY' &&
+    draft.fields.some(
+      (field) =>
+        field.effectiveUntil !== null &&
+        field.effectiveUntil.getTime() - field.observedAt.getTime() > window &&
+        field.effectiveUntil.getTime() - context.now.getTime() <= window,
+    )
+  ) {
     return { state: 'EXPIRING', issueAr: null };
   }
   return { state: 'VERIFIED', issueAr: null };
@@ -591,6 +637,10 @@ export interface FileBasis {
   addressSharedWith: number;
   catalogue: readonly CheckDefinition[];
   now: Date;
+  /** The platform's settings (screen 05). The shipped defaults when absent. */
+  settings?: { nameMatchThresholdPct: number; registryAlertDays: number } | undefined;
+  /** Which sections each kind of file has, from the settings. The shipped layouts when absent. */
+  layouts?: Layouts | undefined;
 }
 
 export interface FileStanding {
@@ -640,10 +690,11 @@ export function fileStandingOf(basis: FileBasis): FileStanding {
 
   // Which sections this file has, in order. A customer of a known kind has its layout; a
   // related record opened on its own has the sections its facts fall in.
+  const layouts = basis.layouts === undefined ? LAYOUTS : withBusinessLayout(basis.layouts);
   const layout: readonly (readonly [ProfileSection, SectionRequirement])[] = isFreelancer
-    ? LAYOUTS.FREELANCER
+    ? layouts.FREELANCER
     : basis.entityType === 'BUSINESS'
-      ? LAYOUTS[kind ?? 'BUSINESS']
+      ? layouts[kind ?? 'BUSINESS']
       : SECTION_ORDER.filter((section) =>
           fields.some((field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)] === section),
         ).map((section) => [section, 'OPTIONAL'] as const);
@@ -711,6 +762,8 @@ export function fileStandingOf(basis: FileBasis): FileStanding {
     accountsSharedWith: basis.accountsSharedWith,
     addressSharedWith: basis.addressSharedWith,
     openChanges: basis.changedPaths.size,
+    nameMatchThresholdPct:
+      basis.settings?.nameMatchThresholdPct ?? DEFAULT_PLATFORM_SETTINGS.nameMatchThresholdPct,
     now: basis.now,
   };
   // The indicators decide which sections are in conflict, and the sections still missing
@@ -730,6 +783,9 @@ export function fileStandingOf(basis: FileBasis): FileStanding {
           .map((manager) => manager.permissionsCheckedAt)
           .filter((at): at is Date => at !== null)
           .sort((left, right) => right.getTime() - left.getTime())[0] ?? null,
+      registryAlertDays:
+        basis.settings?.registryAlertDays ?? DEFAULT_PLATFORM_SETTINGS.registryAlertDays,
+      now: basis.now,
     });
     const observedAt =
       draft.section === 'MANAGERS'
@@ -1004,7 +1060,11 @@ export async function getCustomerFile(
     });
   }
 
+  const settings = await getPlatformSettings(tx);
+  const layouts = layoutsOf(await listSectionRequirements(tx));
   const standing = fileStandingOf({
+    settings,
+    layouts,
     entityType: entity.entityType,
     profile,
     changedPaths,
@@ -1112,5 +1172,6 @@ export async function getCustomerFile(
         },
     openChanges: changedPaths.size,
     checks: standing.offered,
+    nameMatchThresholdPct: settings.nameMatchThresholdPct,
   };
 }

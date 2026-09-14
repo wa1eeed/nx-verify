@@ -1,5 +1,11 @@
 import { createHmac } from 'node:crypto';
 import { createPool, type Queryable } from '@nx-verify/db';
+import {
+  getOperatorAccount,
+  operatorCan,
+  type OperatorIdentity,
+  type OperatorPermission,
+} from '@nx-verify/core';
 import type pg from 'pg';
 
 /**
@@ -9,10 +15,10 @@ import type pg from 'pg';
  * customer must never learn which provider serves them, and the only way to be sure of
  * that is for the screens that name providers to be unreachable from a customer session.
  *
- * So this uses its own connection, as its own database role, behind its own token. It
+ * So this uses its own connection, as its own database role, behind its own sign in. It
  * shares no session, no pool and no page with the tenant console. A bug in a tenant
  * screen cannot reach a provider name, because the code that reads them cannot run
- * without an operator token and an operator connection.
+ * without a member of staff signed in and an operator connection.
  */
 
 let pool: pg.Pool | undefined;
@@ -38,10 +44,10 @@ export async function closeOperatorPool(): Promise<void> {
 
 export const OPERATOR_COOKIE = 'nx_operator';
 
-/** How long a sign in to the panel lasts before the token is asked for again. */
+/** How long a sign in to the panel lasts before the password is asked for again. */
 export const OPERATOR_SESSION_HOURS = 8;
 
-const SESSION_LABEL = 'nx-operator-session/v1';
+const SESSION_LABEL = 'nx-operator-session/v2';
 
 /** Whether this deployment has a panel at all. Without a token nobody can sign in. */
 export function operatorPanelEnabled(
@@ -52,38 +58,45 @@ export function operatorPanelEnabled(
 }
 
 /**
- * The cookie value for a signed in operator.
+ * The cookie value for a member of staff who signed in.
  *
- * Derived from the token and never the token itself. A browser holding the raw token
- * holds something that works for ever and from anywhere; this holds a value that stops
- * working at its expiry, and every one of them stops working the moment the token is
- * rotated, which is what signing everybody out needs to mean.
+ * It names the account and when the sign in ends, sealed with the deployment's token. The
+ * browser never holds the token, a value stops working at its expiry, rotating the token
+ * signs everybody out, and disabling an account signs that person out at their next request,
+ * because the account is read back on every one.
  */
-export function operatorSessionValue(token: string, expiresAtMs: number): string {
+export function operatorSessionValue(
+  token: string,
+  accountId: string,
+  expiresAtMs: number,
+): string {
   const mac = createHmac('sha256', token)
-    .update(`${SESSION_LABEL}|${expiresAtMs}`)
+    .update(`${SESSION_LABEL}|${accountId}|${expiresAtMs}`)
     .digest('base64url');
-  return `v1.${expiresAtMs}.${mac}`;
+  return `v2.${accountId}.${expiresAtMs}.${mac}`;
 }
 
-export function verifyOperatorSession(
+/** The account a session value names, when the value is ours and has not expired. */
+export function readOperatorSession(
   token: string,
   value: string,
   nowMs: number = Date.now(),
-): boolean {
-  const [version, expires, mac] = value.split('.');
-  if (version !== 'v1' || !expires || !mac) {
-    return false;
+): string | null {
+  const [version, accountId, expires, mac] = value.split('.');
+  if (version !== 'v2' || !accountId || !expires || !mac || !/^[0-9a-f-]{36}$/i.test(accountId)) {
+    return null;
   }
   const expiresAt = Number(expires);
   if (!Number.isSafeInteger(expiresAt) || expiresAt <= nowMs) {
-    return false;
+    return null;
   }
   // A value claiming to last longer than any sign in can was not issued by us.
   if (expiresAt - nowMs > OPERATOR_SESSION_HOURS * 3_600_000 + 60_000) {
-    return false;
+    return null;
   }
-  return timingSafeEquals(value, operatorSessionValue(token, expiresAt));
+  return timingSafeEquals(value, operatorSessionValue(token, accountId, expiresAt))
+    ? accountId
+    : null;
 }
 
 /** Compares a presented token with the configured one, in constant time. */
@@ -98,31 +111,61 @@ export function operatorTokenMatches(
   return timingSafeEquals(presented, expected);
 }
 
+/** The deployment's token acting for a script or a test: an owner with no name. */
+export const TOKEN_OPERATOR: OperatorIdentity = {
+  id: 'nx-staff:token',
+  displayName: 'مفتاح النشر',
+  role: 'OWNER',
+};
+
 /**
- * Refuses unless an operator is signed in.
+ * Who is acting in the panel, or a refusal.
  *
- * Two ways in. A script or a test presents the token itself in a header; a person signs
- * in once and carries a derived session cookie. Both are checked in constant time, and a
- * refusal throws rather than returning false, so a caller cannot forget to check it.
+ * Staff sign in as themselves and carry a session naming their account, which is read back
+ * on every request and must still be active. The token itself stands in for a person only
+ * outside production, for the scripts, tests and screenshots that have no account to sign in
+ * with; in a deployment it makes the first owner and nothing else (PLAN.md, decision 5). A
+ * refusal throws rather than returning, so a caller cannot forget to check it.
  */
-export async function requireOperator(): Promise<string> {
+export async function currentOperator(): Promise<OperatorIdentity> {
   const expected = process.env['NX_OPERATOR_TOKEN'];
   if (!expected || expected.length < 24) {
     throw new Error('NX_OPERATOR_TOKEN is not set, or is too short to be one');
   }
 
   const presented = await readOperatorCredential();
-  const allowed =
-    presented !== null &&
-    (presented.kind === 'token'
-      ? timingSafeEquals(presented.value, expected)
-      : verifyOperatorSession(expected, presented.value));
-
-  if (!allowed) {
-    throw new Error('operator access requires a valid token');
+  if (
+    presented.token !== null &&
+    process.env['NODE_ENV'] !== 'production' &&
+    timingSafeEquals(presented.token, expected)
+  ) {
+    return TOKEN_OPERATOR;
   }
+  const accountId =
+    presented.session === null ? null : readOperatorSession(expected, presented.session);
+  if (accountId !== null) {
+    const account = await operatorQuery((db) => getOperatorAccount(db, accountId));
+    if (account !== null && account.status === 'ACTIVE') {
+      return { id: account.id, displayName: account.displayName, role: account.role };
+    }
+  }
+  throw new Error('operator access requires a signed in member of staff');
+}
 
-  return process.env['NX_OPERATOR_ID'] ?? 'nx-staff:unknown';
+/** The acting operator's id, for the functions that record who did something. */
+export async function requireOperator(): Promise<string> {
+  return (await currentOperator()).id;
+}
+
+/** The acting operator, who must hold this permission. */
+export async function requireOperatorPermission(
+  permission: OperatorPermission,
+): Promise<OperatorIdentity> {
+  const identity = await currentOperator();
+  if (!operatorCan(identity.role, permission)) {
+    throw new Error(`the ${identity.role} role may not change ${permission}`);
+  }
+  return identity;
 }
 
 /**
@@ -131,18 +174,18 @@ export async function requireOperator(): Promise<string> {
  * The redirect happens outside the try, because a redirect in Next is thrown and a catch
  * around it would swallow it.
  */
-export async function operatorOrSignIn(): Promise<string> {
-  let operatorId: string | null = null;
+export async function operatorOrSignIn(): Promise<OperatorIdentity> {
+  let identity: OperatorIdentity | null = null;
   try {
-    operatorId = await requireOperator();
+    identity = await currentOperator();
   } catch {
-    operatorId = null;
+    identity = null;
   }
-  if (operatorId === null) {
+  if (identity === null) {
     const { redirect } = await import('next/navigation');
     return redirect('/operator/login') as never;
   }
-  return operatorId;
+  return identity;
 }
 
 /** Runs a query as the operator role, which crosses tenants for configuration only. */
@@ -157,24 +200,56 @@ export async function operatorQuery<T>(handler: (db: Queryable) => Promise<T>): 
   }
 }
 
+/**
+ * The same, in one transaction: a save that changes several prices changes all of them or
+ * none, so a refusal halfway down a table never leaves half a price list behind.
+ */
+export async function operatorTransaction<T>(handler: (db: Queryable) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const result = await handler({
+      query: (text, values) => client.query(text, values as unknown[] | undefined),
+    });
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** Starts a member of staff's sign in: the cookie, scoped to the panel's own path. */
+export async function startOperatorSession(accountId: string): Promise<void> {
+  const token = process.env['NX_OPERATOR_TOKEN'];
+  if (!token || token.length < 24) {
+    throw new Error('NX_OPERATOR_TOKEN is not set, or is too short to be one');
+  }
+  const { cookies } = await import('next/headers');
+  const expiresAt = Date.now() + OPERATOR_SESSION_HOURS * 3_600_000;
+  (await cookies()).set(OPERATOR_COOKIE, operatorSessionValue(token, accountId, expiresAt), {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: process.env['NODE_ENV'] === 'production',
+    path: '/operator',
+    expires: new Date(expiresAt),
+  });
+}
+
 async function readOperatorCredential(): Promise<{
-  kind: 'token' | 'session';
-  value: string;
-} | null> {
+  token: string | null;
+  session: string | null;
+}> {
   try {
     const { cookies, headers } = await import('next/headers');
-    const headerStore = await headers();
-    const fromHeader = headerStore.get('x-nx-operator-token');
-    if (fromHeader) {
-      return { kind: 'token', value: fromHeader };
-    }
-    const cookieStore = await cookies();
-    const session = cookieStore.get(OPERATOR_COOKIE)?.value;
-    return session ? { kind: 'session', value: session } : null;
+    const token = (await headers()).get('x-nx-operator-token');
+    const session = (await cookies()).get(OPERATOR_COOKIE)?.value;
+    return { token: token || null, session: session || null };
   } catch {
     // Outside a request. Expected in tests and during a build.
-    const override = process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
-    return override ? { kind: 'token', value: override } : null;
+    return { token: process.env['NX_OPERATOR_TOKEN_OVERRIDE'] || null, session: null };
   }
 }
 

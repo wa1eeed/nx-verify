@@ -59,6 +59,36 @@ async function derive(password: string, salt: Buffer, params: ScryptParams): Pro
   });
 }
 
+/** A password sealed for storage: the hash, its salt, and the work it was made with. */
+export interface SealedPassword {
+  hash: Buffer;
+  salt: Buffer;
+  params: ScryptParams;
+}
+
+/** Seals a password the way every credential here is sealed, for a table of its own. */
+export async function sealPassword(password: string): Promise<SealedPassword> {
+  assertPasswordAcceptable(password);
+  const salt = randomBytes(SALT_BYTES);
+  return { hash: await derive(password, salt, DEFAULT_PARAMS), salt, params: DEFAULT_PARAMS };
+}
+
+/**
+ * Whether a password matches a sealed one, in constant time. With nothing sealed, the same
+ * work is still spent, so an unknown account answers as slowly as a known one.
+ */
+export async function passwordMatches(
+  password: string,
+  sealed: SealedPassword | null,
+): Promise<boolean> {
+  if (sealed === null) {
+    await derive(password, randomBytes(SALT_BYTES), DEFAULT_PARAMS);
+    return false;
+  }
+  const candidate = await derive(password, sealed.salt, sealed.params);
+  return candidate.length === sealed.hash.length && timingSafeEqual(candidate, sealed.hash);
+}
+
 export interface PasswordRequirements {
   minLength: number;
 }

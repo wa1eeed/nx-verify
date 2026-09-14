@@ -187,13 +187,14 @@ describe('guard 07: a TTL change is inert', () => {
       }),
     );
 
-    // No TTL exists for freelance.document, and none is needed: the document carries its
-    // own expiry, which is five days away, so the field is expiring rather than fresh.
+    // No policy names freelance.document, so only the platform's result validity would
+    // age it (ADR-117). The document carries its own expiry, five days away, and that wins:
+    // the field is expiring on the authority's date, not ninety days from when it was read.
     const profile = await withTenant(db.appPool, docTenant.tenantId, (tx) =>
       getEntityProfile(tx, docTenant.entityId),
     );
     const field = profile.find((entry) => entry.fieldPath === 'freelance.document');
     expect(field?.freshness).toBe('expiring');
-    expect(field?.ttlDays).toBeNull();
+    expect(field?.effectiveUntil?.getTime()).toBe(expiry.getTime());
   });
 });

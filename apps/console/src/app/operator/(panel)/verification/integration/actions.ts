@@ -11,7 +11,7 @@ import {
   setProviderConnection,
   testClientCredentials,
 } from '@nx-verify/providers';
-import { operatorQuery, requireOperator } from '../../../../../lib/operator';
+import { operatorQuery, requireOperatorPermission } from '../../../../../lib/operator';
 
 /**
  * Saving and testing the connection to the data source, from the panel.
@@ -49,7 +49,7 @@ function validUrl(value: string, environment: Environment): boolean {
 }
 
 export async function saveIntegrationAction(formData: FormData): Promise<void> {
-  const operatorId = await requireOperator();
+  const { id: operatorId } = await requireOperatorPermission('integration');
   const environment = environmentOf(formData);
 
   const clientId = String(formData.get('client_id') ?? '').trim();
@@ -136,7 +136,7 @@ export async function saveIntegrationAction(formData: FormData): Promise<void> {
 }
 
 export async function testIntegrationAction(formData: FormData): Promise<void> {
-  const operatorId = await requireOperator();
+  const { id: operatorId } = await requireOperatorPermission('integration');
   const environment = environmentOf(formData);
 
   const connection = await operatorQuery(async (db) =>
@@ -174,7 +174,7 @@ export async function testIntegrationAction(formData: FormData): Promise<void> {
 }
 
 export async function rotateCallbackAction(formData: FormData): Promise<void> {
-  const operatorId = await requireOperator();
+  const { id: operatorId } = await requireOperatorPermission('integration');
   const environment = environmentOf(formData);
   const header = String(formData.get('callback_header') ?? '')
     .trim()

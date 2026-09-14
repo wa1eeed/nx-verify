@@ -323,6 +323,18 @@ textarea.input { min-height: 90px; resize: vertical; }
   --layout-search: 320px;
   --layout-bar: 70px;
 
+  /* Screen 05, the administration panel's prices and settings. */
+  --layout-price-field: 92px;
+  --layout-door: 416px;
+  --pad-admin-card: 22px 26px;
+  --pad-offer: 12px 14px;
+  --gap-admin-offers: 18px;
+  --gap-admin-fields: 20px;
+  --gap-admin-list: 10px;
+  --gap-admin-tags: 8px;
+  --space-admin-divider: 22px;
+  --text-offer-title: 17px;
+
   /* Controls the sheet does not size. */
   --size-hairline: 1px;
   --gap-hairline: 2px;

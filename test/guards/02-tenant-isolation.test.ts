@@ -256,6 +256,16 @@ describe('guard 02: tenant isolation', () => {
               // read their own bank statement aloud. It says what the subscriber bought
               // and carries nothing about whom they verified.
               'topup_requests',
+              // A bundle a subscriber bought and how much of it is spent: an operation
+              // count and a date, granted when staff confirm the transfer that paid for it.
+              // It carries nothing about whom the operations were spent on.
+              'bundle_grants',
+              // A negotiated discount on every product: what the subscriber pays, and
+              // nothing about what they verified.
+              'tenant_price_discounts',
+              // The default price list, and only it: the panel's policy reaches rows with no
+              // tenant, so a price negotiated for one subscriber stays behind t_isolation.
+              'price_book',
             ],
             `${table}: nx_operator must not reach subscriber data`,
           ).toContain(table);

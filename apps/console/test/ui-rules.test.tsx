@@ -27,6 +27,7 @@ import {
   INTEGRATION_TABS,
   OPERATOR_SECTIONS,
   OperatorShell,
+  SCREEN_LINKED_PAGES,
   SUBSCRIBER_TABS,
 } from '../src/components/operator-shell';
 import { OnboardingList } from '../src/components/onboarding';
@@ -687,12 +688,20 @@ describe('the console shell', () => {
 
 describe('the administration panel', () => {
   const html = renderToStaticMarkup(
-    <OperatorShell operatorId="nx-staff:demo">{null}</OperatorShell>,
+    <OperatorShell operator={{ id: 'staff-1', displayName: 'وليد الغامدي', role: 'PRICING' }}>
+      {null}
+    </OperatorShell>,
   );
 
   it('is dark, so staff never mistake it for a subscriber portal (screen 05)', () => {
     expect(html).toContain('data-theme="dark"');
     expect(html).toContain('أدمن');
+  });
+
+  it('names who is signed in and their role, never their address', () => {
+    expect(html).toContain('وليد الغامدي');
+    expect(html).toContain('التسعير');
+    expect(html).not.toContain('staff-1');
   });
 
   it('lists the six places of the handoff and none of the portal', () => {
@@ -726,13 +735,18 @@ describe('the administration panel', () => {
     const reachable = new Set([
       ...OPERATOR_SECTIONS.map((section) => section.href),
       ...[SUBSCRIBER_TABS, INTEGRATION_TABS].flat().map((tab) => tab.href),
+      ...SCREEN_LINKED_PAGES,
     ]);
     const unreachable = pages.filter((page) => !page.includes('[') && !reachable.has(page));
     expect(unreachable).toEqual([]);
   });
 
   it('keeps every tab inside the place it belongs to', () => {
-    for (const tab of [...SUBSCRIBER_TABS, ...INTEGRATION_TABS]) {
+    for (const tab of [
+      ...SUBSCRIBER_TABS,
+      ...INTEGRATION_TABS,
+      ...SCREEN_LINKED_PAGES.map((href) => ({ href })),
+    ]) {
       const owners = OPERATOR_SECTIONS.filter((section) => isInSection(tab.href, section));
       expect(
         owners.map((owner) => owner.label),
@@ -2110,7 +2124,7 @@ describe('the integration screen in the administration panel', () => {
     changes: [
       {
         at: new Date('2026-09-12T08:30:00Z'),
-        operatorId: 'nx-staff:waleed',
+        byName: 'وليد الغامدي',
         action: 'credentials.saved',
         fields: ['clientSecret'],
       },
@@ -2172,9 +2186,9 @@ describe('the integration screen in the administration panel', () => {
     expect(html).toContain('disabled=""');
   });
 
-  it('records who changed which field, never the value', () => {
+  it('records who changed which field, by name, never the value', () => {
     const html = render();
-    expect(html).toContain('nx-staff:waleed');
+    expect(html).toContain('وليد الغامدي');
     expect(html).toContain('حُفظت بيانات الربط');
     expect(html).toContain('السر');
   });

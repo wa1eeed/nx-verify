@@ -23,12 +23,17 @@ import { resolvePrice } from '../billing/price-book.js';
 import { recordMargin } from '../billing/margin.js';
 import {
   assertEntitled,
+  chargedUnitPrice,
   getCommitment,
   isFreeReverification,
   recordUsage,
   resolveEntitlement,
 } from '../billing/entitlements.js';
 import { hold, releaseHold, settle } from '../billing/wallet.js';
+import { returnBundleOperation, takeBundleOperation } from '../billing/bundles.js';
+
+/** Where a run is paid from: the package's operations, a bundle, the wallet, or nowhere. */
+type ChargeSource = 'PACKAGE' | 'BUNDLE' | 'WALLET' | 'FREE';
 import { toPublicResults, type PublicResults } from '../public-view.js';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
 import { loadWait, markResumed, openWaits } from './waits.js';
@@ -167,10 +172,10 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
    * are stored, shown on an operator screen, and never charged, which is worse than not
    * having them.
    */
-  const listPrice =
-    entitlement.unitPriceHalalas === null
-      ? bookPrice
-      : { ...bookPrice, unitPrice: entitlement.unitPriceHalalas };
+  const listPrice = {
+    ...bookPrice,
+    unitPrice: chargedUnitPrice(entitlement, bookPrice.unitPrice),
+  };
 
   // Practice four in the blueprint's competitive list: re-verifying the same entity with
   // the same product inside the plan's window costs nothing. It is priced at zero rather
@@ -195,18 +200,25 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
    * A package sells capacity and a wallet holds credit. A run inside the capacity was
    * bought when the commitment was signed, so it moves no money: charging the wallet as
    * well would make the customer pay for it twice, and the package a limit rather than a
-   * purchase. Past the capacity, or with no capacity at all, the wallet pays.
+   * purchase. Past the capacity, a bundle's operations pay (PLAN.md, decision 3), and with
+   * neither, the wallet.
    */
   const withinCapacity =
     commitment !== null &&
     commitment.includedTransactions !== null &&
     commitment.transactionsUsed < commitment.includedTransactions;
 
-  const chargeSource: 'PACKAGE' | 'WALLET' | 'FREE' = free
+  // Taken now and given back if the run turns out to cost nothing, so two runs at once
+  // cannot both spend a bundle's last operation.
+  const bundleGrant = free || withinCapacity ? null : await takeBundleOperation(tx);
+
+  const chargeSource: ChargeSource = free
     ? 'FREE'
     : withinCapacity
       ? 'PACKAGE'
-      : 'WALLET';
+      : bundleGrant !== null
+        ? 'BUNDLE'
+        : 'WALLET';
 
   // The price is still computed and still recorded, whoever pays: a statement that cannot
   // say what a package covered is a statement that cannot show what the package is worth.
@@ -234,6 +246,9 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
      * rather than promised.
      */
     await releaseHold(tx, runId, reserved);
+    if (bundleGrant !== null) {
+      await returnBundleOperation(tx, bundleGrant);
+    }
     const reference = await closeRun(tx, {
       runId,
       status: 'AWAITING',
@@ -284,6 +299,7 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     outcome,
     price,
     chargeSource,
+    bundleGrant,
     reserved,
     keys: input.keys,
     clientRef: input.clientRef ?? null,
@@ -301,7 +317,9 @@ interface ConcludeInput {
   subject: string;
   outcome: Awaited<ReturnType<typeof executeProduct>>;
   price: Awaited<ReturnType<typeof resolvePrice>>;
-  chargeSource: 'PACKAGE' | 'WALLET' | 'FREE';
+  chargeSource: ChargeSource;
+  /** The bundle an operation was taken from, when a bundle pays. */
+  bundleGrant: string | null;
   reserved: number;
   keys: TenantKeyProvider;
   clientRef: string | null;
@@ -320,6 +338,12 @@ async function concludeRun(tx: TenantTransaction, input: ConcludeInput): Promise
 
   const breakdown = computeBilling(outcome.steps, price);
   const charges = new Map(breakdown.steps.map((step) => [step.stepKey, step.amount]));
+
+  // A run that cost nothing, a call that failed or a step that was skipped, gives the
+  // bundle's operation back: a failed operation is never counted (guard 04).
+  if (input.bundleGrant !== null && breakdown.total === 0) {
+    await returnBundleOperation(tx, input.bundleGrant);
+  }
 
   const reference = await closeRun(tx, {
     runId,
@@ -403,7 +427,7 @@ async function concludeRun(tx: TenantTransaction, input: ConcludeInput): Promise
       (total, step) => total + Math.round((step.providerCost ?? 0) * 100),
       0,
     ),
-    coveredByPackage: chargeSource === 'PACKAGE',
+    coveredByPackage: chargeSource === 'PACKAGE' || chargeSource === 'BUNDLE',
   });
 
   // Announced here rather than by the caller, so that a run started by a monitor, a
@@ -475,17 +499,19 @@ export async function resumeRun(
   assertEntitled(entitlement);
 
   const bookPrice = await resolvePrice(tx, product.code, { contractId: input.contractId ?? null });
-  const price =
-    entitlement.unitPriceHalalas === null
-      ? bookPrice
-      : { ...bookPrice, unitPrice: entitlement.unitPriceHalalas };
+  const price = { ...bookPrice, unitPrice: chargedUnitPrice(entitlement, bookPrice.unitPrice) };
 
   const commitment = await getCommitment(tx);
   const withinCapacity =
     commitment !== null &&
     commitment.includedTransactions !== null &&
     commitment.transactionsUsed < commitment.includedTransactions;
-  const chargeSource: 'PACKAGE' | 'WALLET' = withinCapacity ? 'PACKAGE' : 'WALLET';
+  const bundleGrant = withinCapacity ? null : await takeBundleOperation(tx);
+  const chargeSource: ChargeSource = withinCapacity
+    ? 'PACKAGE'
+    : bundleGrant !== null
+      ? 'BUNDLE'
+      : 'WALLET';
 
   const reserved = chargeSource === 'WALLET' ? maximumCharge(price) : 0;
   await hold(tx, reserved);
@@ -509,6 +535,9 @@ export async function resumeRun(
     // is left to its original deadline rather than extended, so a provider that keeps
     // sending nothing useful cannot keep a run open for ever.
     await releaseHold(tx, wait.runId, reserved);
+    if (bundleGrant !== null) {
+      await returnBundleOperation(tx, bundleGrant);
+    }
     await tx.query(`UPDATE run_waits SET status = 'WAITING', resolved_at = NULL WHERE id = $1`, [
       wait.waitId,
     ]);
@@ -524,6 +553,7 @@ export async function resumeRun(
     outcome,
     price,
     chargeSource,
+    bundleGrant,
     reserved,
     keys: input.keys,
     clientRef: stored.clientRef ?? null,

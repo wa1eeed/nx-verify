@@ -1,10 +1,7 @@
 import type { ReactElement } from 'react';
 import { PRIMARY_CONNECTION_DEFAULTS, PRIMARY_PROVIDER } from '@nx-verify/db';
-import {
-  listOperatorChanges,
-  listProviderConnections,
-  secretStoreFromEnv,
-} from '@nx-verify/providers';
+import { listOperatorAudit } from '@nx-verify/core';
+import { listProviderConnections, secretStoreFromEnv } from '@nx-verify/providers';
 import {
   OperatorIntegration,
   type IntegrationEnvironment,
@@ -13,6 +10,7 @@ import {
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { INTEGRATION_TABS } from '../../../../../components/operator-shell';
 import { operatorQuery, requireOperator } from '../../../../../lib/operator';
+import { operatorNameOf } from '../../../../../lib/operator-names';
 import { rotateCallbackAction, saveIntegrationAction, testIntegrationAction } from './actions';
 
 /** Never prerendered, and refuses to render without an operator sign in. */
@@ -34,7 +32,7 @@ export default async function OperatorIntegrationPage({
     connection: (await listProviderConnections(db)).find(
       (row) => row.provider === PRIMARY_PROVIDER && row.environment === environment,
     ),
-    changes: await listOperatorChanges(db, target, 10),
+    changes: await listOperatorAudit(db, { targetPrefixes: [target], limit: 10 }),
   }));
 
   const store = secretStoreFromEnv();
@@ -71,7 +69,7 @@ export default async function OperatorIntegrationPage({
         : null,
     changes: data.changes.map((change) => ({
       at: change.at,
-      operatorId: change.operatorId,
+      byName: operatorNameOf(change),
       action: change.action,
       fields: Array.isArray(change.metadata['fields'])
         ? (change.metadata['fields'] as string[])

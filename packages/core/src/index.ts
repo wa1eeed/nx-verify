@@ -722,6 +722,78 @@ export type {
   TenantPreferences,
 } from './customers/requests.js';
 export { quoteChecks } from './customers/quote.js';
+export {
+  countOperatorAccounts,
+  authenticateOperator,
+  createFirstOwner,
+  createOperatorAccount,
+  getOperatorAccount,
+  listOperatorAccounts,
+  operatorCan,
+  setOperatorPassword,
+  updateOperatorAccount,
+  OPERATOR_ROLES,
+  OPERATOR_ROLE_LABELS,
+} from './operators/accounts.js';
+export type {
+  CreateOperatorInput,
+  OperatorAccount,
+  OperatorIdentity,
+  OperatorPermission,
+  OperatorRole,
+  OperatorStatus,
+} from './operators/accounts.js';
+export { listOperatorAudit, recordOperatorAudit } from './operators/audit.js';
+export type { OperatorAuditEntry, OperatorAuditRow } from './operators/audit.js';
+export {
+  DEFAULT_PLATFORM_SETTINGS,
+  getPlatformSettings,
+  layoutsOf,
+  listSectionRequirements,
+  listSettableSections,
+  setPlatformSettings,
+  setSectionRequirement,
+} from './settings/platform.js';
+export type {
+  Layouts,
+  PlatformSettings,
+  PlatformSettingsChange,
+  Requirement,
+  SectionRequirementRow,
+  SettableSection,
+} from './settings/platform.js';
+export {
+  MINIMUM_MARGIN_PCT,
+  addCreditBundle,
+  addPlan,
+  listCreditBundles,
+  listPlans,
+  listProductPricing,
+  listSpecialPrices,
+  retireCreditBundle,
+  setListPrice,
+  setProductOnSale,
+  setSpecialPrice,
+  setTenantDiscount,
+} from './billing/pricing-admin.js';
+export type {
+  BundleInput,
+  CreditBundle,
+  PlanInput,
+  PlanSummary,
+  PriceChange,
+  ProductPricingRow,
+  SpecialPrice,
+} from './billing/pricing-admin.js';
+export {
+  bundleBalance,
+  grantBundleForTopUp,
+  listAvailableBundles,
+  requestBundle,
+  returnBundleOperation,
+  takeBundleOperation,
+} from './billing/bundles.js';
+export type { AvailableBundle, BundleBalance } from './billing/bundles.js';
 export type { CheckQuote, ChecksQuote } from './customers/quote.js';
 export {
   countCustomers,

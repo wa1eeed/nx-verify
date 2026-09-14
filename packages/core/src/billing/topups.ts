@@ -2,6 +2,7 @@ import type { Queryable, TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { halalasToDecimalString, riyalsToHalalas, vatOn } from './money.js';
 import { topUp } from './wallet.js';
+import { grantBundleForTopUp } from './bundles.js';
 
 /**
  * Putting money in, and confirming it arrived.
@@ -27,6 +28,8 @@ export interface TopUpRequest {
   settledAt: Date | null;
   vatInvoiceId: string | null;
   note: string | null;
+  /** The bundle this transfer buys, or null for credit in riyals. */
+  bundleCode: string | null;
 }
 
 const MINIMUM_HALALAS = 100_00;
@@ -100,6 +103,7 @@ export async function requestTopUp(
     settledAt: null,
     vatInvoiceId: null,
     note: input.note ?? null,
+    bundleCode: null,
   };
 }
 
@@ -113,8 +117,10 @@ export async function listTopUpRequests(tx: TenantTransaction): Promise<TopUpReq
     settled_at: Date | null;
     vat_invoice_id: string | null;
     note: string | null;
+    bundle_code: string | null;
   }>(
-    `SELECT id, reference, amount, status, requested_at, settled_at, vat_invoice_id, note
+    `SELECT id, reference, amount, status, requested_at, settled_at, vat_invoice_id, note,
+            bundle_code
      FROM topup_requests WHERE tenant_id = $1 ORDER BY requested_at DESC`,
     [tx.tenantId],
   );
@@ -145,9 +151,10 @@ export async function listPendingTopUps(operator: Queryable): Promise<PendingTop
     settled_at: Date | null;
     vat_invoice_id: string | null;
     note: string | null;
+    bundle_code: string | null;
   }>(
     `SELECT r.id, r.tenant_id, t.legal_name, r.reference, r.amount, r.status,
-            r.requested_at, r.settled_at, r.vat_invoice_id, r.note
+            r.requested_at, r.settled_at, r.vat_invoice_id, r.note, r.bundle_code
      FROM topup_requests r
      JOIN tenants t ON t.id = r.tenant_id
      WHERE r.status = 'REQUESTED'
@@ -200,12 +207,14 @@ export async function confirmTopUp(
     settled_at: Date | null;
     vat_invoice_id: string | null;
     note: string | null;
+    bundle_code: string | null;
   }>(
     `UPDATE topup_requests
      SET status = 'CONFIRMED', settled_at = now(), settled_by = $3, vat_invoice_id = $4,
          note = coalesce($5, note)
      WHERE tenant_id = $1 AND id = $2 AND status = 'REQUESTED'
-     RETURNING id, reference, amount, status, requested_at, settled_at, vat_invoice_id, note`,
+     RETURNING id, reference, amount, status, requested_at, settled_at, vat_invoice_id, note,
+               bundle_code`,
     [tx.tenantId, input.requestId, input.settledBy, vatInvoiceId, input.note ?? null],
   );
 
@@ -216,7 +225,16 @@ export async function confirmTopUp(
     });
   }
 
-  await topUp(tx, { amount: riyalsToHalalas(row.amount), vatInvoiceId });
+  // A transfer that bought a bundle grants its operations; any other credits the wallet.
+  if (row.bundle_code !== null) {
+    await grantBundleForTopUp(tx, {
+      topupRequestId: row.id,
+      bundleCode: row.bundle_code,
+      grantedBy: input.settledBy,
+    });
+  } else {
+    await topUp(tx, { amount: riyalsToHalalas(row.amount), vatInvoiceId });
+  }
   return toRequest(row);
 }
 
@@ -244,6 +262,7 @@ function toRequest(row: {
   settled_at: Date | null;
   vat_invoice_id: string | null;
   note: string | null;
+  bundle_code?: string | null;
 }): TopUpRequest {
   const amountHalalas = riyalsToHalalas(row.amount);
   return {
@@ -256,5 +275,6 @@ function toRequest(row: {
     settledAt: row.settled_at,
     vatInvoiceId: row.vat_invoice_id,
     note: row.note,
+    bundleCode: row.bundle_code ?? null,
   };
 }

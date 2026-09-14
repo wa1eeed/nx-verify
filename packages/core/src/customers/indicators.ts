@@ -86,7 +86,29 @@ export interface AssessmentInput {
   openChanges: number;
   /** The required sections of the file that are not complete yet, by title. */
   incompleteSections?: readonly string[];
+  /** The name match an account needs to count as the customer's (screen 05). 85 when absent. */
+  nameMatchThresholdPct?: number;
   now: Date;
+}
+
+/**
+ * Whether the account holder is the customer, with the platform's threshold applied.
+ *
+ * The authority says match, partial or no match, and gives the share of the name that
+ * matched. The share is held to the threshold staff set: under it the account is a partial
+ * match whatever the label, and at or over it a match. An account in another name stays one.
+ */
+function bankOwnershipOf(input: AssessmentInput): FactView | undefined {
+  const ownership = fact(input, 'bank.iban_ownership');
+  if (ownership === undefined || ownership.value === 'NO_MATCH') {
+    return ownership;
+  }
+  const raw = fact(input, 'bank.match_score')?.value;
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+    return ownership;
+  }
+  const pct = raw <= 1 ? raw * 100 : raw;
+  return { ...ownership, value: pct >= (input.nameMatchThresholdPct ?? 85) ? 'MATCH' : 'PARTIAL' };
 }
 
 /** The handoff's words for the score's level: «درجة المخاطر» is feminine. */
@@ -155,7 +177,7 @@ function businessItems(input: AssessmentInput): Indicator[] {
 
   const contract = [...input.facts.keys()].some((path) => path.startsWith('contract.'));
   const address = fact(input, 'address.national.city');
-  const ownership = fact(input, 'bank.iban_ownership');
+  const ownership = bankOwnershipOf(input);
   const knownManagers = input.managers.length;
   const managersChecked = input.managers.filter((manager) => manager.hasPermissions).length;
 
@@ -292,7 +314,7 @@ function freelancerItems(input: AssessmentInput): Indicator[] {
               ? 'انتهى تاريخ الوثيقة.'
               : null,
     },
-    bankItem(fact(input, 'bank.iban_ownership'), fact(input, 'bank.account_status')),
+    bankItem(bankOwnershipOf(input), fact(input, 'bank.account_status')),
   ];
 }
 
@@ -309,7 +331,7 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
   if (fact(input, 'cr.in_liquidation')?.value === true) {
     signals.push({ key: 'liquidation', severity: 'HIGH', textAr: 'المنشأة في مرحلة التصفية.' });
   }
-  const ownership = fact(input, 'bank.iban_ownership')?.value;
+  const ownership = bankOwnershipOf(input)?.value;
   if (ownership === 'NO_MATCH') {
     signals.push({
       key: 'iban_mismatch',

@@ -612,6 +612,75 @@ ALTER TABLE price_book ADD CONSTRAINT ck_margin CHECK (unit_price > 0);
 
 **٦. الضريبة تستحق عند الشحن لا عند الاستهلاك.** صف `TOPUP` يحمل `vat_invoice_id`، وصفوف `CHARGE` لا تحمله. لا تصدر فاتورة ضريبية ثانية عند الاستهلاك.
 
+### لوحة الإدارة: الفريق والإعدادات والحزم (الترحيل 0047، ADR-117)
+
+ما يضبطه فريق الإدارة في الشاشة 05، على اتصال `nx_operator` وحده. لا جدول هنا يحمل اعتماداً (القاعدة 10): كلمة مرور العضو مختومة بـscrypt كما تُختم كلمات مرور المشتركين.
+
+```sql
+CREATE TABLE operator_accounts (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email           text NOT NULL,          -- فريد بلا اعتبار لحالة الأحرف
+  display_name    text NOT NULL,          -- الاسم الذي يظهر في «آخر تعديل بواسطة»
+  role            text NOT NULL,          -- OWNER | PRICING | SUPPORT | READ_ONLY
+  password_hash   bytea NOT NULL,
+  password_salt   bytea NOT NULL,
+  password_params jsonb NOT NULL,
+  status          text NOT NULL DEFAULT 'ACTIVE',   -- ACTIVE | DISABLED
+  failed_attempts int NOT NULL DEFAULT 0,           -- الخامسة تقفل الحساب ربع ساعة
+  locked_until    timestamptz,
+  last_sign_in_at timestamptz,
+  created_by      uuid REFERENCES operator_accounts(id)
+);
+
+CREATE TABLE platform_settings (          -- صف واحد
+  max_attempts             int NOT NULL DEFAULT 2,    -- 1 إلى 5، ولا محاولة تُحتسب
+  result_validity_days     int NOT NULL DEFAULT 90,   -- صلاحية كل حقل لا تسمّيه سياسة
+  name_match_threshold_pct int NOT NULL DEFAULT 85,   -- حد تطابق اسم صاحب الحساب
+  registry_alert_days      int NOT NULL DEFAULT 30,   -- التنبيه قبل انتهاء السجل
+  updated_by               text
+);
+
+CREATE TABLE section_requirements (
+  kind        text NOT NULL,   -- COMPANY | ESTABLISHMENT | FREELANCER
+  section     text NOT NULL,   -- REGISTRY | CONTRACT | MANAGERS | ADDRESS | BANKING | FREELANCE | PROPERTY
+  requirement text NOT NULL,   -- REQUIRED | OPTIONAL | NOT_APPLICABLE، والسجل مطلوب دائماً
+  position    int NOT NULL,
+  PRIMARY KEY (kind, section)
+);
+
+CREATE TABLE credit_bundles (
+  code            text PRIMARY KEY,        -- BUNDLE_<operations>
+  operations      int NOT NULL,
+  price_halalas   bigint NOT NULL,         -- بلا ضريبة، والعملية لا تنزل عن أغلى تكلفة
+  validity_months int NOT NULL DEFAULT 12,
+  status          text NOT NULL DEFAULT 'active'   -- active | retired
+);
+
+CREATE TABLE bundle_grants (               -- RLS: t_isolation، وقراءة للوحة
+  id               uuid PRIMARY KEY,
+  tenant_id        uuid NOT NULL,
+  bundle_code      text NOT NULL REFERENCES credit_bundles(code),
+  operations       int NOT NULL,
+  used             int NOT NULL DEFAULT 0,   -- بين صفر وoperations
+  price_halalas    bigint NOT NULL,
+  expires_at       timestamptz NOT NULL,
+  topup_request_id uuid UNIQUE,              -- حوالة واحدة تمنح حزمة واحدة مهما أُكّدت
+  granted_by       text NOT NULL
+);
+
+CREATE TABLE tenant_price_discounts (      -- RLS: t_isolation، وإدارة للوحة
+  tenant_id    uuid PRIMARY KEY,
+  discount_pct numeric(5,2) NOT NULL,       -- بين 0 و100، ومرفوض إن نزل بمنتج عن تكلفته
+  updated_by   text NOT NULL
+);
+```
+
+**وأربعة تعديلات حولها:** `topup_requests.bundle_code` لحوالة تشتري حزمة لا رصيداً بالريال؛ و`verification_runs.charge_source` يقبل `BUNDLE`؛ و`products.status` يقبل `suspended` لمنتج موقوف عن البيع مؤقتاً؛ وسياسة `operator_default_prices_panel` تسمح للوحة بإغلاق سطر السعر الافتراضي وإدراج نسخته الجديدة، والمحفز القائم يمنع ما سوى ذلك.
+
+**ترتيب الدفع:** عمليات الباقة أولاً، ثم الحزم بالأقرب انتهاءً، ثم الرصيد بالريال. العملية تُؤخذ من الحزمة عند التسعير وتُعاد إن خرجت العملية بلا رسم، فالفشل لا يُحتسب (الحارس 04).
+
+**الصلاحية الاحتياطية:** `entity_profile` يضيف `platform_settings.result_validity_days` صفاً أخيراً في ترتيب السياسات، فالحقل الذي لا تسمّيه سياسة يشيخ بالصلاحية العامة. يُحسب عند القراءة كأي مدة (ADR-007)، فتعديلها لا يمس إفادة (الحارس 07).
+
 ---
 
 ## 10. التدقيق والاحتفاظ

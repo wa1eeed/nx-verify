@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { buildStatement, listProducts, listTopUpRequests } from '@nx-verify/core';
 import { Statement, type StatementView } from '../../../../components/statement';
-import { TopUpPanel, type TopUpRowView } from '../../../../components/topup';
+import { TopUpPanel, bundleLabelOf, type TopUpRowView } from '../../../../components/topup';
 import { requestTopUpAction } from './topup-actions';
 import { query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
@@ -45,6 +45,7 @@ export default async function BillingPage({
     requestedAt: request.requestedAt,
     vatInvoiceId: request.vatInvoiceId,
     note: request.note,
+    bundleLabel: bundleLabelOf(request.bundleCode),
   }));
 
   const asked = (await searchParams)['topup'];

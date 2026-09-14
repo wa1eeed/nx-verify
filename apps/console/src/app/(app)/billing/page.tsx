@@ -1,5 +1,14 @@
 import type { ReactElement } from 'react';
-import { getCommitment, getWallet, listEntitlements, listProducts } from '@nx-verify/core';
+import {
+  bundleBalance,
+  getCommitment,
+  getWallet,
+  listAvailableBundles,
+  listEntitlements,
+  listProducts,
+} from '@nx-verify/core';
+import { BundleOffer } from '../../../components/bundle-offer';
+import { requestBundleAction } from './bundle-actions';
 import { Usage, type EntitlementView, type UsageView } from '../../../components/usage';
 import { query } from '../../../lib/context';
 import { SectionTabs } from '../../../components/section-tabs';
@@ -43,10 +52,20 @@ export default async function UsagePage(): Promise<ReactElement> {
     };
   });
 
+  const bundles = await query(async (tx) => ({
+    balance: await bundleBalance(tx),
+    onSale: await listAvailableBundles(tx),
+  }));
+
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
       <SectionTabs tabs={BILLING_TABS} current="/billing" label="أقسام الاشتراك والرصيد" />
       <Usage view={view} />
+      <BundleOffer
+        balance={bundles.balance}
+        bundles={bundles.onSale}
+        requestAction={requestBundleAction}
+      />
     </div>
   );
 }

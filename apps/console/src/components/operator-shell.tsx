@@ -1,9 +1,9 @@
 import type { ReactElement, ReactNode } from 'react';
+import { OPERATOR_ROLE_LABELS, type OperatorIdentity } from '@nx-verify/core';
 import { Brand } from './brand';
 import { SectionNav, type PlaceLink } from './section-nav';
 import type { SectionTab } from './section-tabs';
 import { Button } from './ui/button';
-import { Ltr } from './ui/ltr';
 
 /**
  * The frame of the administration panel (handoff screens 05 and 06).
@@ -34,17 +34,25 @@ export const SUBSCRIBER_TABS: readonly SectionTab[] = [
 
 /** Verification settings, and the connection to the data source behind them. */
 export const INTEGRATION_TABS: readonly SectionTab[] = [
+  { href: '/operator/verification', label: 'الإعدادات' },
   { href: '/operator/verification/integration', label: 'الربط التقني' },
   { href: '/operator/verification/endpoints', label: 'نقاط النهاية' },
   { href: '/operator/verification/health', label: 'صحة الخدمة' },
   { href: '/operator/verification/readiness', label: 'جاهزية النشر' },
 ];
 
+/**
+ * Screens reached from a link on their place's own screen rather than from the navigation:
+ * what each plan sells, opened from the plans card of screen 05.
+ */
+export const SCREEN_LINKED_PAGES: readonly string[] = ['/operator/pricing/plans'];
+
 export function OperatorShell({
-  operatorId,
+  operator,
   children,
 }: {
-  operatorId: string;
+  /** Who is signed in: their name and their role, never their address. */
+  operator: OperatorIdentity;
   children: ReactNode;
 }): ReactElement {
   return (
@@ -61,8 +69,11 @@ export function OperatorShell({
 
             <div className="frame-sidebar-foot">
               <div className="frame-account">
-                <span data-role="operator-id">
-                  <Ltr>{operatorId}</Ltr>
+                <span className="frame-account-name" data-role="operator-name">
+                  {operator.displayName}
+                  <span className="frame-account-role" data-role="operator-role">
+                    {OPERATOR_ROLE_LABELS[operator.role]}
+                  </span>
                 </span>
                 <form action="/operator/logout" method="post" className="inline">
                   <Button type="submit" variant="ghost" data-role="sign-out">
