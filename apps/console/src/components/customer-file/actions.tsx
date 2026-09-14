@@ -1,0 +1,53 @@
+'use client';
+
+import { useState, type ReactElement, type ReactNode } from 'react';
+import { Button } from '../ui/button';
+import { Dialog } from '../ui/dialog';
+import type { IconName } from '../ui/icon';
+
+/**
+ * The file's header actions that need the browser: printing it, and the two dialogs.
+ *
+ * What the dialogs hold is drawn on the server and handed in, so the forms inside them post
+ * to the same server actions as everywhere else.
+ */
+
+/** «تصدير الملف»: the browser's print, which the print sheet turns into the evidence alone. */
+export function ExportFileButton(): ReactElement {
+  return (
+    <Button icon="download" onClick={() => window.print()} data-role="export-file">
+      تصدير الملف
+    </Button>
+  );
+}
+
+export function DialogButton({
+  label,
+  title,
+  icon,
+  variant = 'secondary',
+  initiallyOpen = false,
+  role,
+  children,
+}: {
+  label: string;
+  title: string;
+  icon?: IconName | undefined;
+  variant?: 'primary' | 'secondary' | undefined;
+  /** Open on arrival, as the share dialog is right after a link was issued. */
+  initiallyOpen?: boolean | undefined;
+  role?: string | undefined;
+  children: ReactNode;
+}): ReactElement {
+  const [open, setOpen] = useState(initiallyOpen);
+  return (
+    <>
+      <Button variant={variant} icon={icon} onClick={() => setOpen(true)} data-role={role}>
+        {label}
+      </Button>
+      <Dialog open={open} onClose={() => setOpen(false)} title={title}>
+        {children}
+      </Dialog>
+    </>
+  );
+}

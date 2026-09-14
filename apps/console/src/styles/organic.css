@@ -294,6 +294,8 @@ textarea.input { min-height: 90px; resize: vertical; }
   --pad-section: 22px 24px;
   --pad-table-card: 12px 24px 20px;
   --pad-product-row: 18px 26px;
+  --gap-fields: 14px 18px;
+  --layout-iban-input: 240px;
 
   /* Controls the sheet does not size. */
   --size-hairline: 1px;
@@ -310,6 +312,13 @@ textarea.input { min-height: 90px; resize: vertical; }
   --control-brand-mark: 30px;
   --control-progress: 7px;
   --control-progress-thick: 9px;
+  --control-ring: 78px;
+  --control-ring-stroke: 9px;
+  --control-section-number: 28px;
+  --control-timeline-dot: 11px;
+  --control-timeline-line: 2px;
+  --graph-edge: 2px;
+  --graph-edge-strong: 2.5px;
 
   /* Motion: colour only, between 120 and 180ms. */
   --duration-color: 150ms;
@@ -333,7 +342,9 @@ textarea.input { min-height: 90px; resize: vertical; }
   --text-body-sm: 13.5px;
   --text-value: 14.5px;
   --text-title-lg: 18.5px;
+  --text-stat-sm: 26px;
   --text-stat: 30px;
+  --text-graph: 10px;
   --text-stat-lg: 34px;
 
   /* The administration panel's dark ground (README, screens 05 and 06). */

@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { withTenant } from '../../../packages/db/src/client.js';
 import { runChecks, type RunChecksDependencies } from '../src/customers/checks.js';
-import { getCustomerFile } from '../src/customers/customer-file.js';
+import { SECTION_TITLES, getCustomerFile } from '../src/customers/customer-file.js';
+import { riskLevelFor } from '../src/customers/indicators.js';
 import { countCustomers, listCustomers } from '../src/customers/list.js';
 import {
   createTestDatabase,
@@ -278,5 +279,146 @@ describe('the customer file', () => {
       listCustomers(tx, keys, { kind: 'ESTABLISHMENT' }),
     );
     expect(establishments.map((row) => row.kind)).toEqual(['ESTABLISHMENT']);
+  });
+
+  // Handoff screen 03: the file's sections by kind, its completeness and its risk score.
+
+  const entityFor = async (
+    kind: 'BUSINESS' | 'FREELANCER',
+    identity: { unn?: string; nationalId?: string; certificateNumber?: string },
+    productCodes: string[],
+  ): Promise<string> => {
+    const result = await runChecks(depsFor(tenant.tenantId), {
+      kind,
+      identity,
+      productCodes,
+      bundleKey: randomUUID(),
+      requestedBy: null,
+    });
+    return result.entityId ?? '';
+  };
+
+  it('numbers the five sections of a company in the handoff order, each naming its source', async () => {
+    const file = await fileOf(tenant.tenantId, companyId);
+    expect(file?.sections.map((section) => section.section)).toEqual([
+      'REGISTRY',
+      'CONTRACT',
+      'MANAGERS',
+      'ADDRESS',
+      'BANKING',
+    ]);
+    expect(file?.sections.map((section) => section.number)).toEqual([1, 2, 3, 4, 5]);
+    expect(file?.sections.every((section) => section.requirement === 'REQUIRED')).toBe(true);
+    expect(file?.sections.map((section) => section.titleAr)).toEqual([
+      SECTION_TITLES.REGISTRY,
+      SECTION_TITLES.CONTRACT,
+      SECTION_TITLES.MANAGERS,
+      SECTION_TITLES.ADDRESS,
+      SECTION_TITLES.BANKING,
+    ]);
+    expect(file?.sections[0]?.sourceAr).toMatch(/^مصدرها تحقق /);
+
+    // Completeness counts the required sections that hold what they should.
+    const done = file?.sections.filter((section) => section.done).length ?? 0;
+    expect(file?.sectionsRequired).toBe(5);
+    expect(file?.sectionsDone).toBe(done);
+    expect(file?.completeness).toBe(Math.round((done / 5) * 100));
+  });
+
+  it('counts the people behind a company, and says how many still wait', async () => {
+    const file = await fileOf(tenant.tenantId, companyId);
+    const checked = file?.managers.filter((manager) => manager.permissions !== null).length;
+    expect(file?.kyc.total).toBe(file?.managers.length);
+    expect(file?.kyc.verified).toBe(checked);
+    expect(file?.kyc.lineAr.length).toBeGreaterThan(0);
+  });
+
+  it('reads an establishment with four sections, and its managers optional', async () => {
+    const id = await entityFor('BUSINESS', { unn: SANDBOX_UNN.ESTABLISHMENT }, ['CR_FULL']);
+    const file = await fileOf(tenant.tenantId, id);
+    expect(file?.sections.map((section) => [section.section, section.requirement])).toEqual([
+      ['REGISTRY', 'REQUIRED'],
+      ['MANAGERS', 'OPTIONAL'],
+      ['ADDRESS', 'REQUIRED'],
+      ['BANKING', 'REQUIRED'],
+    ]);
+    expect(file?.sectionsRequired).toBe(3);
+  });
+
+  it('reads the particulars of a freelancer as basic data, and says the address cannot be verified', async () => {
+    const id = await entityFor(
+      'FREELANCER',
+      { nationalId: SANDBOX_FREELANCER.NATIONAL_ID, certificateNumber: SANDBOX_FREELANCER.ACTIVE },
+      ['FREELANCE_CERTIFICATE'],
+    );
+    const file = await fileOf(tenant.tenantId, id);
+    const sections = new Map(file?.sections.map((section) => [section.section, section]));
+    expect([...sections.keys()]).toEqual(['REGISTRY', 'FREELANCE', 'ADDRESS', 'BANKING']);
+
+    const basic = sections.get('REGISTRY');
+    expect(basic?.fields.length).toBeGreaterThan(0);
+    expect(basic?.fields.every((field) => field.fieldPath.startsWith('person.'))).toBe(true);
+    expect(
+      sections.get('FREELANCE')?.fields.some((field) => field.fieldPath.startsWith('person.')),
+    ).toBe(false);
+    // Both are filled by the certificate check, so both offer it.
+    expect(basic?.checks.map((check) => check.productCode)).toContain('FREELANCE_CERTIFICATE');
+
+    const address = sections.get('ADDRESS');
+    expect(address?.requirement).toBe('NOT_APPLICABLE');
+    expect(address?.state).toBe('NOT_APPLICABLE');
+    expect(address?.sourceAr).toBeNull();
+    expect(file?.sectionsRequired).toBe(3);
+    expect(file?.kyc.total).toBe(1);
+  });
+
+  it('marks a partly matching account holder as a conflict in the banking section', async () => {
+    await runChecks(depsFor(tenant.tenantId), {
+      entityId: companyId,
+      kind: 'BUSINESS',
+      identity: {},
+      productCodes: ['IBAN_VERIFICATION'],
+      inputs: { iban: SANDBOX_IBAN.OTHER_NAME },
+      bundleKey: randomUUID(),
+      requestedBy: null,
+    });
+    const file = await fileOf(tenant.tenantId, companyId);
+    const banking = file?.sections.find((section) => section.section === 'BANKING');
+    expect(banking?.state).toBe('CONFLICT');
+    expect(banking?.issueAr).toBe('تعارض في الاسم');
+    // A conflict is still a section that holds its facts: it counts towards completeness.
+    expect(banking?.done).toBe(true);
+  });
+
+  it('rates a file out of one hundred by weighted reasons it shows, heaviest first', async () => {
+    const file = await fileOf(tenant.tenantId, companyId);
+    const { assessment } = file ?? { assessment: undefined };
+    const partial = assessment?.riskReasons.find((reason) => reason.key === 'iban_partial');
+    expect(partial?.weight).toBe(30);
+
+    const weights = assessment?.riskReasons.map((reason) => reason.weight) ?? [];
+    expect([...weights].sort((a, b) => b - a)).toEqual(weights);
+    const score = Math.min(
+      100,
+      weights.reduce((sum, weight) => sum + weight, 0),
+    );
+    expect(assessment?.riskScore).toBe(score);
+    expect(assessment?.riskLevel).toBe(riskLevelFor(score));
+  });
+
+  it('calls a file with a failed fact deficient, and one still missing checks in progress', async () => {
+    const suspended = await entityFor('BUSINESS', { unn: SANDBOX_UNN.SUSPENDED }, ['CR_FULL']);
+    const deficient = await fileOf(tenant.tenantId, suspended);
+    expect(deficient?.assessment.standing).toBe('DEFICIENT');
+    expect(deficient?.assessment.standingAr).toBe('ناقص');
+    expect(deficient?.sections[0]?.state).toBe('CONFLICT');
+    expect(deficient?.assessment.riskLevel).toBe('HIGH');
+
+    const establishment = await entityFor('BUSINESS', { unn: SANDBOX_UNN.ESTABLISHMENT }, [
+      'CR_FULL',
+    ]);
+    const progressing = await fileOf(tenant.tenantId, establishment);
+    expect(progressing?.assessment.standing).toBe('IN_PROGRESS');
+    expect(progressing?.assessment.standingAr).toBe('قيد الإكمال');
   });
 });

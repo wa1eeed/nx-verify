@@ -7,12 +7,14 @@ import { daysCount, detectedChanges, otherBusinesses, otherCustomers } from './a
  *
  * Every figure here can be explained in one sentence from facts on the file, and is. There
  * is no model and no weight a reader cannot see: a compliance officer who is shown "high
- * risk" is shown the line that made it high, because a verdict without its reason is one
- * nobody can act on or defend to an auditor.
+ * risk" is shown the lines that made it high, each with its weight, because a verdict
+ * without its reason is one nobody can act on or defend to an auditor.
  *
  * Indicators say what has been established. Signals say what deserves attention. The risk
- * level is the worst signal, and "incomplete" when too little has been checked to say
- * anything at all: an unverified company is not a low risk company.
+ * score (handoff screen 03) adds the signals' weights and ten for each required section
+ * still missing, up to one hundred; its level is the band the score falls in. A signal the
+ * product treats as serious weighs sixty, so it alone makes the level high. Nothing is rated
+ * until the anchor fact has been checked: an unverified company is not a low risk company.
  */
 
 export type IndicatorState = 'PASS' | 'FAIL' | 'WARN' | 'UNKNOWN' | 'NA';
@@ -20,6 +22,8 @@ export type IndicatorState = 'PASS' | 'FAIL' | 'WARN' | 'UNKNOWN' | 'NA';
 export interface Indicator {
   key: string;
   labelAr: string;
+  /** A few words for the indicator when it passes, for a line of reasons. */
+  shortAr: string;
   state: IndicatorState;
   detailAr: string | null;
 }
@@ -34,6 +38,19 @@ export interface RiskSignal {
 
 export type RiskLevel = 'HIGH' | 'MEDIUM' | 'LOW' | 'INCOMPLETE';
 
+export interface RiskReason {
+  key: string;
+  /** What this reason adds to the score. */
+  weight: number;
+  textAr: string;
+}
+
+/**
+ * Where the file stands, in the word the handoff uses: complete, deficient (a verified fact
+ * failed), or still being completed.
+ */
+export type Standing = 'COMPLETE' | 'DEFICIENT' | 'IN_PROGRESS';
+
 export interface Assessment {
   mode: 'KYB' | 'KYC';
   items: Indicator[];
@@ -42,8 +59,14 @@ export interface Assessment {
   /** Verified, partly verified, or not verified, in words. */
   statusAr: string;
   statusTone: 'fresh' | 'neutral' | 'critical';
+  standing: Standing;
+  standingAr: string;
   riskLevel: RiskLevel;
   riskLabelAr: string;
+  /** Zero to one hundred. Null until there is anything to rate. */
+  riskScore: number | null;
+  /** The weights that make the score, heaviest first. */
+  riskReasons: RiskReason[];
   signals: RiskSignal[];
 }
 
@@ -61,15 +84,53 @@ export interface AssessmentInput {
   accountsSharedWith: number;
   addressSharedWith: number;
   openChanges: number;
+  /** The required sections of the file that are not complete yet, by title. */
+  incompleteSections?: readonly string[];
   now: Date;
 }
 
+/** The handoff's words for the score's level: «درجة المخاطر» is feminine. */
 const RISK_LABELS: Record<RiskLevel, string> = {
-  HIGH: 'مرتفع',
-  MEDIUM: 'متوسط',
-  LOW: 'منخفض',
-  INCOMPLETE: 'غير مكتمل',
+  HIGH: 'عالية',
+  MEDIUM: 'متوسطة',
+  LOW: 'منخفضة',
+  INCOMPLETE: 'غير مكتملة',
 };
+
+const STANDING_LABELS: Record<Standing, string> = {
+  COMPLETE: 'مستوفى',
+  DEFICIENT: 'ناقص',
+  IN_PROGRESS: 'قيد الإكمال',
+};
+
+/**
+ * What each signal adds to the score.
+ *
+ * Serious signals weigh sixty, so one of them makes the level high on its own; the ones a
+ * person should look at weigh thirty, the medium band's floor; the rest nudge.
+ */
+export const SIGNAL_WEIGHTS: Readonly<Record<string, number>> = {
+  registry_inactive: 60,
+  liquidation: 70,
+  iban_mismatch: 60,
+  iban_partial: 30,
+  account_inactive: 30,
+  certificate_inactive: 60,
+  certificate_not_owned: 65,
+  new_business: 10,
+  manager_many_companies: 30,
+  shared_account: 60,
+  shared_address: 14,
+  open_changes: 30,
+};
+
+/** Each required section still missing adds this much, for at most three of them. */
+export const INCOMPLETE_SECTION_WEIGHT = 10;
+const INCOMPLETE_SECTIONS_COUNTED = 3;
+
+export function riskLevelFor(score: number): Exclude<RiskLevel, 'INCOMPLETE'> {
+  return score >= 60 ? 'HIGH' : score >= 30 ? 'MEDIUM' : 'LOW';
+}
 
 function fact(input: AssessmentInput, path: string): FactView | undefined {
   return input.facts.get(path);
@@ -102,6 +163,7 @@ function businessItems(input: AssessmentInput): Indicator[] {
     {
       key: 'registry_active',
       labelAr: 'السجل التجاري فعّال',
+      shortAr: 'سجل ساري',
       state: registryState,
       detailAr:
         registryState === 'UNKNOWN'
@@ -117,6 +179,7 @@ function businessItems(input: AssessmentInput): Indicator[] {
     {
       key: 'articles',
       labelAr: 'عقد التأسيس موثّق',
+      shortAr: 'عقد موثّق',
       state: input.kind === 'ESTABLISHMENT' ? 'NA' : contract ? 'PASS' : 'UNKNOWN',
       detailAr:
         input.kind === 'ESTABLISHMENT'
@@ -128,6 +191,7 @@ function businessItems(input: AssessmentInput): Indicator[] {
     {
       key: 'managers_authority',
       labelAr: 'صلاحيات المدراء مثبتة',
+      shortAr: 'صلاحيات مثبتة',
       state:
         knownManagers === 0
           ? 'UNKNOWN'
@@ -146,6 +210,7 @@ function businessItems(input: AssessmentInput): Indicator[] {
     {
       key: 'national_address',
       labelAr: 'العنوان الوطني موثّق',
+      shortAr: 'عنوان مُتحقق',
       state: address === undefined ? 'UNKNOWN' : address.freshness === 'expired' ? 'WARN' : 'PASS',
       detailAr:
         address === undefined
@@ -163,6 +228,7 @@ function bankItem(ownership: FactView | undefined, accountStatus: FactView | und
     return {
       key: 'bank_account',
       labelAr: 'الحساب البنكي يعود للعميل',
+      shortAr: 'حساب مطابق',
       state: 'UNKNOWN',
       detailAr: 'لم يُتحقق من أي حساب بنكي بعد.',
     };
@@ -172,6 +238,7 @@ function bankItem(ownership: FactView | undefined, accountStatus: FactView | und
     return {
       key: 'bank_account',
       labelAr: 'الحساب البنكي يعود للعميل',
+      shortAr: 'حساب مطابق',
       state: active ? 'PASS' : 'WARN',
       detailAr: active ? null : 'مطابق، لكن الحساب غير نشط.',
     };
@@ -179,6 +246,7 @@ function bankItem(ownership: FactView | undefined, accountStatus: FactView | und
   return {
     key: 'bank_account',
     labelAr: 'الحساب البنكي يعود للعميل',
+    shortAr: 'حساب مطابق',
     state: ownership.value === 'PARTIAL' ? 'WARN' : 'FAIL',
     detailAr:
       ownership.value === 'PARTIAL'
@@ -194,6 +262,7 @@ function freelancerItems(input: AssessmentInput): Indicator[] {
     {
       key: 'certificate_owned',
       labelAr: 'الوثيقة تعود لصاحب الهوية',
+      shortAr: 'وثيقة لصاحبها',
       state: ownership === undefined ? 'UNKNOWN' : ownership.value === 'VERIFIED' ? 'PASS' : 'FAIL',
       detailAr:
         ownership === undefined
@@ -205,6 +274,7 @@ function freelancerItems(input: AssessmentInput): Indicator[] {
     {
       key: 'certificate_active',
       labelAr: 'وثيقة العمل الحر سارية',
+      shortAr: 'وثيقة سارية',
       state:
         status === undefined
           ? 'UNKNOWN'
@@ -301,7 +371,7 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
       textAr: `الحساب البنكي نفسه مقدَّم أيضاً إلى ${otherCustomers(input.accountsSharedWith)} لديك.`,
     });
   }
-  if (input.addressSharedWith >= 2) {
+  if (input.addressSharedWith >= 1) {
     signals.push({
       key: 'shared_address',
       severity: 'LOW',
@@ -334,15 +404,39 @@ export function assessCustomer(input: AssessmentInput): Assessment {
     ? fact(input, 'freelance.certificate_status')
     : fact(input, 'cr.status_code');
 
-  const riskLevel: RiskLevel = signals.some((signal) => signal.severity === 'HIGH')
-    ? 'HIGH'
-    : signals.some((signal) => signal.severity === 'MEDIUM')
-      ? 'MEDIUM'
-      : anchor === undefined || known === 0
-        ? 'INCOMPLETE'
-        : 'LOW';
+  const riskReasons: RiskReason[] = [
+    ...signals.map((signal) => ({
+      key: signal.key,
+      weight: SIGNAL_WEIGHTS[signal.key] ?? 0,
+      textAr: signal.textAr,
+    })),
+    ...(input.incompleteSections ?? []).slice(0, INCOMPLETE_SECTIONS_COUNTED).map((title) => ({
+      key: 'incomplete_section',
+      weight: INCOMPLETE_SECTION_WEIGHT,
+      textAr: `قسم ${title} لم يكتمل بعد`,
+    })),
+  ]
+    .filter((reason) => reason.weight > 0)
+    .sort((left, right) => right.weight - left.weight);
+
+  const rated = anchor !== undefined && known > 0;
+  const signalWeight = signals.reduce((sum, signal) => sum + (SIGNAL_WEIGHTS[signal.key] ?? 0), 0);
+  const riskScore =
+    rated || signalWeight > 0
+      ? Math.min(
+          100,
+          riskReasons.reduce((sum, reason) => sum + reason.weight, 0),
+        )
+      : null;
+  const riskLevel: RiskLevel = riskScore === null ? 'INCOMPLETE' : riskLevelFor(riskScore);
 
   const failed = items.some((item) => item.state === 'FAIL');
+  const standing: Standing = failed
+    ? 'DEFICIENT'
+    : applicable > 0 && known === applicable
+      ? 'COMPLETE'
+      : 'IN_PROGRESS';
+
   return {
     mode,
     items,
@@ -356,8 +450,12 @@ export function assessCustomer(input: AssessmentInput): Assessment {
           ? 'موثّق جزئياً'
           : 'غير موثّق',
     statusTone: failed ? 'critical' : passed === applicable && applicable > 0 ? 'fresh' : 'neutral',
+    standing,
+    standingAr: STANDING_LABELS[standing],
     riskLevel,
     riskLabelAr: RISK_LABELS[riskLevel],
+    riskScore,
+    riskReasons,
     signals,
   };
 }

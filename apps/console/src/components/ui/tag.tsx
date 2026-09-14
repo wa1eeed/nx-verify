@@ -12,14 +12,17 @@ export type TagTone = 'accent' | 'accent-2' | 'neutral' | 'outline' | 'critical'
 export function Tag({
   tone = 'neutral',
   title,
+  role,
   children,
 }: {
   tone?: TagTone | undefined;
   title?: string | undefined;
+  /** A name for tests and styles to find the tag by, written as data-role. */
+  role?: string | undefined;
   children: ReactNode;
 }): ReactElement {
   return (
-    <span className={`tag tag-${tone}`} title={title}>
+    <span className={`tag tag-${tone}`} title={title} data-role={role}>
       {children}
     </span>
   );
@@ -56,10 +59,16 @@ export type TagState = keyof typeof STATE_TONES;
 /** A tag for a state. The words stay the screen's, because the approved text is per screen. */
 export function StateTag({
   state,
+  role,
   children,
 }: {
   state: TagState;
+  role?: string | undefined;
   children: ReactNode;
 }): ReactElement {
-  return <Tag tone={STATE_TONES[state]}>{children}</Tag>;
+  return (
+    <Tag tone={STATE_TONES[state]} role={role}>
+      {children}
+    </Tag>
+  );
 }

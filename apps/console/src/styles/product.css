@@ -811,3 +811,385 @@ a.frame-brand:active {
     display: none !important;
   }
 }
+
+/* ── the customer file (screen 03) ────────────────────────────────────── */
+
+.file-head-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.file-strip {
+  display: grid;
+  grid-template-columns: auto repeat(3, minmax(0, 1fr));
+  gap: var(--layout-grid-gap);
+}
+.strip-ring {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.ring {
+  flex: none;
+  inline-size: var(--control-ring);
+  block-size: var(--control-ring);
+}
+.ring-track,
+.ring-fill {
+  fill: none;
+  stroke-width: var(--control-ring-stroke);
+}
+.ring-track {
+  stroke: var(--color-neutral-300);
+}
+.ring-fill {
+  stroke: var(--color-accent-2);
+  stroke-linecap: round;
+}
+.strip-label,
+.strip-value,
+.strip-line {
+  margin: 0;
+}
+.strip-label {
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.strip-value {
+  font-family: var(--font-product-heading);
+  font-weight: var(--font-product-heading-weight);
+  font-size: var(--text-stat-sm);
+  line-height: 1.2;
+}
+.strip-line {
+  font-size: var(--text-small);
+  color: var(--color-neutral-700);
+}
+
+.file-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: var(--layout-content-gap);
+  align-items: start;
+}
+.file-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-grid-gap);
+  min-inline-size: 0;
+}
+@media (max-width: 1100px) {
+  .file-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .file-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.file-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.file-section-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.file-section-number {
+  flex: none;
+  inline-size: var(--control-section-number);
+  block-size: var(--control-section-number);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: var(--text-small);
+  font-weight: 600;
+  background: var(--color-neutral-400);
+  color: var(--color-bg);
+}
+.file-section-number[data-done='yes'] {
+  background: var(--color-accent-2);
+}
+.file-section-title {
+  flex: 1 1 var(--layout-min-card);
+  min-inline-size: 0;
+}
+.file-section-source {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.file-optional {
+  font-family: var(--font-product-body);
+  font-weight: 400;
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.file-section-actions,
+.file-section-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.file-iban-field {
+  max-inline-size: var(--layout-iban-input);
+}
+.file-tags .tag {
+  white-space: normal;
+}
+.timeline-older > .timeline {
+  margin-block: var(--space-3) var(--space-4);
+}
+
+.file-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--gap-fields);
+  margin: 0;
+}
+@media (max-width: 1280px) {
+  .file-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.file-field {
+  min-inline-size: 0;
+}
+.file-field dt {
+  font-size: var(--text-caption);
+  color: var(--color-neutral-600);
+}
+.file-field dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-value);
+  overflow-wrap: anywhere;
+}
+.file-field-wide {
+  grid-column: 1 / -1;
+}
+.file-field-meta {
+  display: block;
+  margin-block-start: var(--gap-hairline);
+  font-size: var(--text-micro);
+  color: var(--color-neutral-600);
+}
+.file-field-alert {
+  color: var(--color-accent-700);
+}
+.file-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.file-list,
+.file-details ul,
+.file-accounts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--gap-hairline);
+}
+.file-details summary {
+  cursor: pointer;
+  font-size: var(--text-micro);
+  color: var(--color-accent-700);
+  transition-property: color;
+  transition-duration: var(--duration-color);
+}
+.file-details summary:hover {
+  color: var(--color-accent);
+}
+.file-details summary:active {
+  color: var(--color-accent-800);
+}
+.file-details ul {
+  margin-block-start: var(--space-1);
+  font-size: var(--text-small);
+  color: var(--color-neutral-700);
+}
+.file-note {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  color: var(--color-accent-700);
+}
+.file-empty {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  color: var(--color-neutral-600);
+}
+.file-cell-note {
+  display: block;
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.file-cell-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.file-accounts {
+  font-size: var(--text-small);
+  color: var(--color-neutral-700);
+}
+
+.card-line {
+  margin: 0;
+  font-size: var(--text-body-sm);
+}
+.card-foot {
+  margin: 0;
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+
+.kyb-list,
+.reason-list,
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.kyb-list {
+  display: grid;
+  gap: var(--space-3);
+}
+.kyb-item {
+  display: grid;
+  grid-template-columns: var(--control-indicator) minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  font-size: var(--text-body-sm);
+}
+.kyb-mark {
+  inline-size: var(--control-indicator);
+  block-size: var(--control-indicator);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-neutral-400);
+  color: var(--color-bg);
+}
+.kyb-mark[data-state='PASS'] {
+  background: var(--color-accent-2);
+}
+.kyb-mark[data-state='FAIL'],
+.kyb-mark[data-state='WARN'] {
+  background: var(--color-accent);
+}
+.kyb-text {
+  display: grid;
+  gap: var(--gap-hairline);
+}
+.kyb-detail {
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+
+.reason-list {
+  display: grid;
+  gap: var(--space-2);
+}
+.reason-box {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-inset);
+  background: var(--color-bg);
+  font-size: var(--text-body-sm);
+}
+.reason-weight {
+  font-family: var(--font-product-heading);
+}
+.reason-links {
+  font-size: var(--text-small);
+}
+
+.relation-graph {
+  inline-size: 100%;
+  block-size: auto;
+}
+.graph-edge {
+  stroke: var(--color-neutral-400);
+  stroke-width: var(--graph-edge);
+}
+.graph-edge-strong {
+  stroke: var(--color-accent);
+  stroke-width: var(--graph-edge-strong);
+}
+.graph-self {
+  fill: var(--color-accent);
+}
+.graph-person {
+  fill: var(--color-accent-2-300);
+}
+.graph-customer {
+  fill: var(--color-accent-300);
+}
+.graph-other {
+  fill: var(--color-neutral-300);
+}
+.graph-label {
+  fill: var(--color-text);
+  font-size: var(--text-graph);
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+.graph-label-self {
+  fill: var(--color-bg);
+}
+
+.timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--control-timeline-dot);
+  gap: var(--space-3);
+  padding-block-end: var(--space-4);
+}
+.timeline-item:last-child {
+  padding-block-end: 0;
+}
+/* The line that joins one dot to the next, drawn from under a dot to the next item. */
+.timeline-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: calc((var(--control-timeline-dot) - var(--control-timeline-line)) / 2);
+  inset-block: calc(var(--space-1) + var(--control-timeline-dot)) 0;
+  inline-size: var(--control-timeline-line);
+  background: var(--color-neutral-300);
+}
+.timeline-dot {
+  grid-column: 2;
+  grid-row: 1;
+  margin-block-start: var(--space-1);
+  inline-size: var(--control-timeline-dot);
+  block-size: var(--control-timeline-dot);
+  border-radius: 50%;
+  background: var(--color-neutral-400);
+}
+.timeline-item[data-tone='done'] .timeline-dot {
+  background: var(--color-accent-2);
+}
+.timeline-item[data-tone='failed'] .timeline-dot {
+  background: var(--color-accent);
+}
+.timeline-body {
+  grid-column: 1;
+  grid-row: 1;
+  display: grid;
+  gap: var(--gap-hairline);
+  font-size: var(--text-body-sm);
+}
+.timeline-time {
+  font-size: var(--text-caption);
+  color: var(--color-neutral-600);
+}
+.timeline-change {
+  font-weight: 600;
+}

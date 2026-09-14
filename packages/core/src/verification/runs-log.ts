@@ -116,3 +116,49 @@ export async function countRuns(tx: TenantTransaction, now: Date = new Date()): 
     failed: Number(row?.failed ?? 0),
   };
 }
+
+export interface EntityRun {
+  runId: string;
+  reference: string | null;
+  productCode: string;
+  status: string;
+  /** What started it: a call, a person, a monitor sweep, a batch (ADR-106). */
+  triggeredBy: string;
+  at: Date;
+}
+
+/**
+ * One customer's verifications, newest first, whatever they ended in.
+ *
+ * The file's timeline reads this rather than the attestations, because a verification that
+ * failed wrote nothing and still belongs on the record of what was tried.
+ */
+export async function listEntityRuns(
+  tx: TenantTransaction,
+  entityId: string,
+  limit = 30,
+): Promise<EntityRun[]> {
+  const { rows } = await tx.query<{
+    id: string;
+    reference: string | null;
+    product_code: string;
+    status: string;
+    triggered_by: string;
+    created_at: Date;
+  }>(
+    `SELECT id, reference, product_code, status, triggered_by, created_at
+     FROM verification_runs
+     WHERE tenant_id = $1 AND entity_id = $2
+     ORDER BY created_at DESC
+     LIMIT $3`,
+    [tx.tenantId, entityId, limit],
+  );
+  return rows.map((row) => ({
+    runId: row.id,
+    reference: row.reference,
+    productCode: row.product_code,
+    status: row.status,
+    triggeredBy: row.triggered_by,
+    at: row.created_at,
+  }));
+}

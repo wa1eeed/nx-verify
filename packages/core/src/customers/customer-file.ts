@@ -17,7 +17,7 @@ import {
   type CustomerKind,
   type ProfileSection,
 } from './checks.js';
-import { assessCustomer, type Assessment, type FactView } from './indicators.js';
+import { assessCustomer, type Assessment, type FactView, type Indicator } from './indicators.js';
 import { businesses, otherBusinesses, otherCustomers } from './arabic.js';
 
 /**
@@ -38,15 +38,62 @@ import { businesses, otherBusinesses, otherCustomers } from './arabic.js';
  * customer cannot be found because it cannot be read, and that is the whole guarantee.
  */
 
+/** The section names of handoff screen 03, which is the approved copy. */
 export const SECTION_TITLES: Readonly<Record<ProfileSection, string>> = {
   REGISTRY: 'البيانات الأساسية',
-  CONTRACT: 'عقد التأسيس',
-  MANAGERS: 'المدراء المفوّضون',
+  CONTRACT: 'عقد التأسيس والملكية',
+  MANAGERS: 'المدراء المفوضون',
   ADDRESS: 'العنوان الوطني',
   BANKING: 'المعلومات المصرفية',
-  FREELANCE: 'وثيقة العمل الحر',
+  FREELANCE: 'شهادة العمل الحر',
   PROPERTY: 'العقارات',
 };
+
+export type SectionRequirement = 'REQUIRED' | 'OPTIONAL' | 'NOT_APPLICABLE';
+
+/**
+ * Which sections a file has, in order, for each kind of customer (README, screen 03).
+ *
+ * A company has all five. A sole establishment has no articles of association, and its
+ * managers are optional. A freelancer's basic data and certificate both come from the
+ * certificate check, and the national address is shown as not available: no data source
+ * this product uses verifies an individual's address today (PLAN.md, decision 8). A
+ * business whose registry answer has not said which kind it is gets the company's sections,
+ * with the two that depend on the kind left optional.
+ */
+const LAYOUTS: Readonly<
+  Record<CustomerKind | 'BUSINESS', readonly (readonly [ProfileSection, SectionRequirement])[]>
+> = {
+  COMPANY: [
+    ['REGISTRY', 'REQUIRED'],
+    ['CONTRACT', 'REQUIRED'],
+    ['MANAGERS', 'REQUIRED'],
+    ['ADDRESS', 'REQUIRED'],
+    ['BANKING', 'REQUIRED'],
+  ],
+  ESTABLISHMENT: [
+    ['REGISTRY', 'REQUIRED'],
+    ['MANAGERS', 'OPTIONAL'],
+    ['ADDRESS', 'REQUIRED'],
+    ['BANKING', 'REQUIRED'],
+  ],
+  BUSINESS: [
+    ['REGISTRY', 'REQUIRED'],
+    ['CONTRACT', 'OPTIONAL'],
+    ['MANAGERS', 'OPTIONAL'],
+    ['ADDRESS', 'REQUIRED'],
+    ['BANKING', 'REQUIRED'],
+  ],
+  FREELANCER: [
+    ['REGISTRY', 'REQUIRED'],
+    ['FREELANCE', 'REQUIRED'],
+    ['ADDRESS', 'NOT_APPLICABLE'],
+    ['BANKING', 'REQUIRED'],
+  ],
+};
+
+/** The name-match share below which an account holder's name is a conflict (screen 05). */
+export const NAME_MATCH_THRESHOLD_PCT = 85;
 
 const SECTION_OF_GROUP: Readonly<Record<FieldGroup, ProfileSection | null>> = {
   REGISTRY: 'REGISTRY',
@@ -92,7 +139,18 @@ export interface FileField {
 }
 
 export type SectionState =
-  'VERIFIED' | 'EXPIRING' | 'EXPIRED' | 'CHANGED' | 'NOT_VERIFIED' | 'NOT_FOUND' | 'FAILED';
+  | 'VERIFIED'
+  | 'EXPIRING'
+  | 'EXPIRED'
+  | 'CHANGED'
+  /** Verified, and what was verified does not hold: a name that does not match, a registry that is not active. */
+  | 'CONFLICT'
+  /** Some of it verified: some managers' powers checked and some not. */
+  | 'PARTIAL'
+  | 'NOT_VERIFIED'
+  | 'NOT_FOUND'
+  | 'FAILED'
+  | 'NOT_APPLICABLE';
 
 export interface LastRun {
   productCode: string;
@@ -103,11 +161,24 @@ export interface LastRun {
 
 export interface FileSection {
   section: ProfileSection;
+  /** Its place on the file, counted over the sections this kind of customer has. */
+  number: number;
   titleAr: string;
+  requirement: SectionRequirement;
+  /** «مصدرها تحقق …», naming the checks that fill it. Null where nothing can fill it. */
+  sourceAr: string | null;
   /** The checks that fill this section, in order. */
   checks: CheckDefinition[];
   fields: FileField[];
   state: SectionState;
+  /** Why a section is in conflict or partly verified, in a few words. */
+  issueAr: string | null;
+  /** When the newest fact in the section was observed. */
+  observedAt: Date | null;
+  /** The authority of the section's facts, when they all share one. */
+  authority: string | null;
+  /** Holds what it should: verified, even if it has since changed or conflicts. */
+  done: boolean;
   lastRun: LastRun | null;
 }
 
@@ -149,6 +220,8 @@ export interface PartnerView {
   shares: number | null;
   profitPct: number | null;
   alsoOwns: LinkedEntity[];
+  /** True when this partner has been verified in its own right, with a file of its own. */
+  hasOwnFile: boolean;
 }
 
 export interface AccountView {
@@ -183,7 +256,11 @@ export interface CustomerFile {
   displayName: string | null;
   kind: CustomerKind | null;
   kindLabelAr: string;
+  /** When this file was opened, which is when the customer was first seen. */
+  createdAt: Date;
   identifiers: { idType: string; masked: string; isPrimary: boolean }[];
+  /** The number the header shows beside the name, with its short label, masked. */
+  primaryIdentifier: { labelAr: string; masked: string } | null;
   status: { textAr: string | null; tone: 'fresh' | 'critical' | 'neutral' };
   sections: FileSection[];
   managers: ManagerView[];
@@ -194,8 +271,12 @@ export interface CustomerFile {
   lastVerifiedAt: Date | null;
   /** The soonest a current fact on this file stops being current. */
   nextReviewAt: Date | null;
-  /** Share of the applicable indicators that pass, 0 to 100. */
+  /** Share of the required sections that are complete, 0 to 100. */
   completeness: number;
+  sectionsDone: number;
+  sectionsRequired: number;
+  /** The people behind the customer and how many of them are verified. */
+  kyc: { verified: number; total: number; lineAr: string };
   openChanges: number;
   /** Checks this customer is offered, whether or not they have run. */
   checks: CheckDefinition[];
@@ -239,26 +320,140 @@ function kindOf(entityType: EntityType, profile: readonly ProfileField[]): Custo
   return kind === 'COMPANY' || kind === 'ESTABLISHMENT' ? kind : null;
 }
 
-function sectionState(fields: readonly FileField[], lastRun: LastRun | null): SectionState {
-  if (fields.length === 0) {
-    if (lastRun?.status === 'NOT_FOUND') {
-      return 'NOT_FOUND';
+const DONE_STATES: ReadonlySet<SectionState> = new Set<SectionState>([
+  'VERIFIED',
+  'EXPIRING',
+  'CHANGED',
+  'CONFLICT',
+]);
+
+interface SectionDraft {
+  section: ProfileSection;
+  requirement: SectionRequirement;
+  fields: FileField[];
+  lastRun: LastRun | null;
+}
+
+/**
+ * A section's state, and the few words that say why when it is in conflict or partial.
+ *
+ * The order is what a reader must see first: nothing can fill it; nothing is in it yet; what
+ * was verified does not hold; it changed since; it aged out; it is about to.
+ */
+function sectionStateOf(
+  draft: SectionDraft,
+  context: {
+    items: ReadonlyMap<string, Indicator>;
+    isFreelancer: boolean;
+    managers: number;
+    managersChecked: number;
+    managersCheckedAt: Date | null;
+  },
+): { state: SectionState; issueAr: string | null } {
+  if (draft.requirement === 'NOT_APPLICABLE') {
+    return { state: 'NOT_APPLICABLE', issueAr: null };
+  }
+
+  if (draft.section === 'MANAGERS') {
+    if (context.managers === 0 || context.managersChecked === 0) {
+      return { state: 'NOT_VERIFIED', issueAr: null };
     }
-    if (lastRun?.status === 'ERROR') {
-      return 'FAILED';
+    return context.managersChecked < context.managers
+      ? {
+          state: 'PARTIAL',
+          issueAr: `${context.managersChecked} من ${context.managers}`,
+        }
+      : { state: 'VERIFIED', issueAr: null };
+  }
+
+  if (draft.fields.length === 0) {
+    if (draft.lastRun?.status === 'NOT_FOUND') {
+      return { state: 'NOT_FOUND', issueAr: null };
     }
-    return 'NOT_VERIFIED';
+    if (draft.lastRun?.status === 'ERROR') {
+      return { state: 'FAILED', issueAr: null };
+    }
+    return { state: 'NOT_VERIFIED', issueAr: null };
   }
-  if (fields.some((field) => field.changed)) {
-    return 'CHANGED';
+
+  const conflict = conflictOf(draft.section, context.items, context.isFreelancer);
+  if (conflict !== null) {
+    return { state: 'CONFLICT', issueAr: conflict };
   }
-  if (fields.some((field) => field.freshness === 'expired')) {
-    return 'EXPIRED';
+  if (draft.fields.some((field) => field.changed)) {
+    return { state: 'CHANGED', issueAr: null };
   }
-  if (fields.some((field) => field.freshness === 'expiring')) {
-    return 'EXPIRING';
+  if (draft.fields.some((field) => field.freshness === 'expired')) {
+    return { state: 'EXPIRED', issueAr: null };
   }
-  return 'VERIFIED';
+  if (draft.fields.some((field) => field.freshness === 'expiring')) {
+    return { state: 'EXPIRING', issueAr: null };
+  }
+  return { state: 'VERIFIED', issueAr: null };
+}
+
+/** What makes a verified section not hold, from the indicator that watches it. */
+function conflictOf(
+  section: ProfileSection,
+  items: ReadonlyMap<string, Indicator>,
+  isFreelancer: boolean,
+): string | null {
+  if (section === 'REGISTRY' && !isFreelancer && items.get('registry_active')?.state === 'FAIL') {
+    return items.get('registry_active')?.detailAr?.includes('التصفية')
+      ? 'تحت التصفية'
+      : 'السجل غير فعّال';
+  }
+  if (section === 'FREELANCE') {
+    if (items.get('certificate_owned')?.state === 'FAIL') {
+      return 'لا تعود لصاحب الهوية';
+    }
+    if (items.get('certificate_active')?.state === 'FAIL') {
+      return 'الوثيقة غير سارية';
+    }
+  }
+  if (section === 'BANKING') {
+    const bank = items.get('bank_account');
+    if (bank?.state === 'FAIL') {
+      return 'الحساب باسم آخر';
+    }
+    if (bank?.state === 'WARN') {
+      return bank.detailAr?.includes('غير نشط') ? 'الحساب غير نشط' : 'تعارض في الاسم';
+    }
+  }
+  return null;
+}
+
+function managersLine(total: number, checked: number): string {
+  if (total === 0) {
+    return 'يظهر المدراء بعد التحقق من السجل التجاري';
+  }
+  const pending = total - checked;
+  if (pending === 0) {
+    return total === 1 ? 'صلاحيات المدير مثبتة' : 'صلاحيات كل المدراء مثبتة';
+  }
+  return pending === 1
+    ? 'مدير مفوّض واحد بانتظار التحقق'
+    : pending === 2
+      ? 'مديران بانتظار التحقق'
+      : `${pending} مدراء بانتظار التحقق`;
+}
+
+const ID_SHORT_LABELS: Readonly<Record<string, string>> = {
+  CR: 'س.ت',
+  UNN: 'الرقم الموحد',
+  NATIONAL_ID: 'هوية',
+  IQAMA: 'إقامة',
+};
+
+function primaryIdentifierOf(
+  identifiers: readonly { idType: string; masked: string; isPrimary: boolean }[],
+): { labelAr: string; masked: string } | null {
+  const preferred = ['CR', 'UNN', 'NATIONAL_ID', 'IQAMA']
+    .map((idType) => identifiers.find((identifier) => identifier.idType === idType))
+    .find((identifier) => identifier !== undefined);
+  return preferred === undefined
+    ? null
+    : { labelAr: ID_SHORT_LABELS[preferred.idType] ?? preferred.idType, masked: preferred.masked };
 }
 
 interface RelationRow {
@@ -425,32 +620,60 @@ export async function getCustomerFile(
       changed: changedPaths.has(field.fieldPath),
     }));
 
-  const sectionsPresent = new Set<ProfileSection>([
-    ...offered.map((check) => check.section),
-    ...fields
-      .map((field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)])
-      .filter((section): section is ProfileSection => section !== null),
-  ]);
+  // Which sections this file has, in order. A customer of a known kind has its layout; a
+  // related record opened on its own has the sections its facts fall in.
+  const layout: readonly (readonly [ProfileSection, SectionRequirement])[] = isFreelancer
+    ? LAYOUTS.FREELANCER
+    : entity.entityType === 'BUSINESS'
+      ? LAYOUTS[kind ?? 'BUSINESS']
+      : SECTION_ORDER.filter((section) =>
+          fields.some((field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)] === section),
+        ).map((section) => [section, 'OPTIONAL'] as const);
 
-  const sections: FileSection[] = SECTION_ORDER.filter((section) =>
-    sectionsPresent.has(section),
-  ).map((section) => {
-    const sectionChecks = offered.filter((check) => check.section === section);
-    const sectionFields = fields.filter(
-      (field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)] === section,
+  // A freelancer's own particulars come from the certificate check, and read as the file's
+  // basic data rather than as part of the certificate.
+  const sectionOf = (field: FileField): ProfileSection | null =>
+    isFreelancer && field.fieldPath.startsWith('person.')
+      ? 'REGISTRY'
+      : SECTION_OF_GROUP[fieldGroup(field.fieldPath)];
+
+  const drafts = layout.map(([section, requirement], index) => {
+    const sectionChecks = offered.filter(
+      (check) =>
+        check.section === section ||
+        (isFreelancer && section === 'REGISTRY' && check.section === 'FREELANCE'),
     );
+    const sectionFields =
+      requirement === 'NOT_APPLICABLE'
+        ? []
+        : fields.filter((field) => sectionOf(field) === section);
     const lastRun =
       sectionChecks
         .map((check) => lastRuns.get(check.productCode))
         .filter((run): run is LastRun => run !== undefined)
         .sort((left, right) => right.at.getTime() - left.at.getTime())[0] ?? null;
+    const authorities = [...new Set(sectionFields.map((field) => field.authority))];
     return {
       section,
+      number: index + 1,
       titleAr: SECTION_TITLES[section],
+      requirement,
+      sourceAr:
+        requirement === 'NOT_APPLICABLE' || sectionChecks.length === 0
+          ? null
+          : `مصدرها تحقق ${sectionChecks
+              .filter((check) => check.productCode !== 'IBAN_BENEFICIARY_NAME')
+              .map((check) => check.nameAr)
+              .join(' و')}`,
       checks: sectionChecks,
       fields: sectionFields,
-      state: sectionState(sectionFields, lastRun),
       lastRun,
+      observedAt: sectionFields.reduce<Date | null>(
+        (latest, field) =>
+          latest === null || field.observedAt > latest ? field.observedAt : latest,
+        null,
+      ),
+      authority: authorities.length === 1 ? (authorities[0] ?? null) : null,
     };
   });
 
@@ -475,6 +698,15 @@ export async function getCustomerFile(
     entityId,
   );
   const sharedAccounts = await coLinked(tx, 'HOLDS_ACCOUNT', accountIds, entityId);
+  const { rows: ownFileRows } =
+    partnerRows.length === 0
+      ? { rows: [] as { entity_id: string }[] }
+      : await tx.query<{ entity_id: string }>(
+          `SELECT DISTINCT entity_id FROM verification_runs
+           WHERE tenant_id = $1 AND entity_id = ANY($2::uuid[])`,
+          [tx.tenantId, partnerRows.map((row) => row.other)],
+        );
+  const withOwnFile = new Set(ownFileRows.map((row) => row.entity_id));
 
   const managers: ManagerView[] = [];
   for (const row of relations.filter(
@@ -519,6 +751,7 @@ export async function getCustomerFile(
       shares: numberOrNull(facts.get(`partner.shares.${entityId}`)?.value),
       profitPct: numberOrNull(facts.get(`partner.profit_pct.${entityId}`)?.value),
       alsoOwns: sharedPartners.get(row.other) ?? [],
+      hasOwnFile: withOwnFile.has(row.other),
     });
   }
 
@@ -636,7 +869,7 @@ export async function getCustomerFile(
       { value: field.value, freshness: field.freshness, observedAt: field.observedAt },
     ]),
   );
-  const assessment = assessCustomer({
+  const assessmentInput = {
     kind,
     isFreelancer,
     facts,
@@ -649,6 +882,47 @@ export async function getCustomerFile(
     addressSharedWith: addressRows.length,
     openChanges: changedPaths.size,
     now,
+  };
+  // The indicators decide which sections are in conflict, and the sections still missing
+  // weigh in the risk score, so the file is assessed once for the first and again with them.
+  const items = new Map(assessCustomer(assessmentInput).items.map((item) => [item.key, item]));
+  const managersChecked = managers.filter((manager) => manager.permissions !== null).length;
+
+  const sections: FileSection[] = drafts.map((draft) => {
+    const { state, issueAr } = sectionStateOf(draft, {
+      items,
+      isFreelancer,
+      managers: managers.length,
+      managersChecked,
+      managersCheckedAt:
+        managers
+          .map((manager) => manager.permissionsCheckedAt)
+          .filter((at): at is Date => at !== null)
+          .sort((left, right) => right.getTime() - left.getTime())[0] ?? null,
+    });
+    const observedAt =
+      draft.section === 'MANAGERS'
+        ? (managers
+            .map((manager) => manager.permissionsCheckedAt ?? manager.observedAt)
+            .filter((at): at is Date => at !== null)
+            .sort((left, right) => right.getTime() - left.getTime())[0] ?? null)
+        : draft.observedAt;
+    return {
+      ...draft,
+      observedAt,
+      state,
+      issueAr,
+      done: DONE_STATES.has(state),
+    };
+  });
+
+  const required = sections.filter((section) => section.requirement === 'REQUIRED');
+  const sectionsDone = required.filter((section) => section.done).length;
+  const assessment = assessCustomer({
+    ...assessmentInput,
+    incompleteSections: required
+      .filter((section) => !section.done)
+      .map((section) => section.titleAr),
   });
 
   const statusCode = facts.get('cr.status_code')?.value;
@@ -703,11 +977,13 @@ export async function getCustomerFile(
         : entity.entityType === 'PERSON'
           ? 'شخص'
           : 'حساب',
+    createdAt: entity.firstSeenAt,
     identifiers: identifiers.map((identifier) => ({
       idType: identifier.idType,
       masked: identifier.masked,
       isPrimary: identifier.isPrimary,
     })),
+    primaryIdentifier: primaryIdentifierOf(identifiers),
     status,
     sections,
     managers,
@@ -717,10 +993,25 @@ export async function getCustomerFile(
     intersections,
     lastVerifiedAt,
     nextReviewAt,
-    completeness:
-      assessment.applicable === 0
-        ? 0
-        : Math.round((assessment.passed / assessment.applicable) * 100),
+    completeness: required.length === 0 ? 0 : Math.round((sectionsDone / required.length) * 100),
+    sectionsDone,
+    sectionsRequired: required.length,
+    kyc: isFreelancer
+      ? {
+          verified: facts.get('freelance.ownership')?.value === 'VERIFIED' ? 1 : 0,
+          total: 1,
+          lineAr:
+            facts.get('freelance.ownership') === undefined
+              ? 'لم يُتحقق من ملكية الوثيقة بعد'
+              : facts.get('freelance.ownership')?.value === 'VERIFIED'
+                ? 'الوثيقة تعود لصاحب الهوية'
+                : 'الوثيقة لا تعود لصاحب الهوية',
+        }
+      : {
+          verified: managersChecked,
+          total: managers.length,
+          lineAr: managersLine(managers.length, managersChecked),
+        },
     openChanges: changedPaths.size,
     checks: offered,
   };

@@ -92,3 +92,38 @@ export function dateTime(value: Date): string {
 export function shortMask(masked: string | null): string | null {
   return masked === null ? null : masked.replace(/•{4,}/g, '••••');
 }
+
+const DAY_MONTH_AR = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {
+  day: 'numeric',
+  month: 'long',
+  timeZone: 'Asia/Riyadh',
+});
+
+const DATE_AR = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'Asia/Riyadh',
+});
+
+const TIME_OF_DAY = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'Asia/Riyadh',
+});
+
+/** «12 سبتمبر», the Gregorian day and month in Arabic, as the handoff writes a recent date. */
+export function dayMonthAr(value: Date): string {
+  return DAY_MONTH_AR.format(value);
+}
+
+/** «14 سبتمبر 2026». */
+export function dateAr(value: Date): string {
+  return DATE_AR.format(value);
+}
+
+/** «09:41», in Riyadh time. */
+export function timeOfDay(value: Date): string {
+  return TIME_OF_DAY.format(value);
+}

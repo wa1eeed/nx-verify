@@ -40,7 +40,7 @@ const KIND_LABELS: Record<VerificationHistoryField['kind'], string> = {
   confirmed: 'مؤكَّد',
 };
 
-const TRIGGER_LABELS: Record<string, string> = {
+export const TRIGGER_LABELS: Readonly<Record<string, string>> = {
   API: 'عبر الـAPI',
   CONSOLE: 'يدوي من الكونسول',
   MONITOR: 'مراقبة دورية',

@@ -18,6 +18,8 @@ export function Card({
   variant = 'panel',
   tone = 'surface',
   elevation,
+  id,
+  role,
   label,
   labelledBy,
   children,
@@ -26,12 +28,18 @@ export function Card({
   variant?: CardVariant | undefined;
   tone?: CardTone | undefined;
   elevation?: 'sm' | 'md' | 'lg' | undefined;
+  /** An anchor another part of the screen links to, such as the risk reasons. */
+  id?: string | undefined;
+  /** A name for tests and styles to find the card by, written as data-role. */
+  role?: string | undefined;
   label?: string | undefined;
   labelledBy?: string | undefined;
   children: ReactNode;
 }): ReactElement {
   return (
     <Element
+      id={id}
+      data-role={role}
       className={classes(
         'card',
         `card-${variant}`,

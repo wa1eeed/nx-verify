@@ -44,6 +44,8 @@ export interface SharePanelProps {
   issuedLink?: string | null;
   createAction: string | ((formData: FormData) => void | Promise<void>);
   revokeAction: string | ((formData: FormData) => void | Promise<void>);
+  /** Inside a dialog that already carries the title and the surface. */
+  bare?: boolean;
 }
 
 export function SharePanel({
@@ -53,11 +55,16 @@ export function SharePanel({
   issuedLink = null,
   createAction,
   revokeAction,
+  bare = false,
 }: SharePanelProps): ReactElement {
   return (
-    <section className="card stack" data-role="share-panel" style={{ gap: 'var(--s-4)' }}>
+    <section
+      className={bare ? 'stack' : 'card stack'}
+      data-role="share-panel"
+      style={{ gap: 'var(--s-4)' }}
+    >
       <div>
-        <h2 style={{ margin: 0 }}>مشاركة الملف</h2>
+        {bare ? null : <h2 style={{ margin: 0 }}>مشاركة الملف</h2>}
         <p className="faint" style={{ margin: 0 }}>
           رابط يفتح ما تختاره من هذا الملف لطرف خارج مساحة عملك، بلا حساب ولا معرّفات صريحة.
         </p>

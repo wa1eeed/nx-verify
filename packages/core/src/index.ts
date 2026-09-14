@@ -178,8 +178,8 @@ export {
   verify,
 } from './verification/verify.js';
 export type { ResumeInput, VerifyInput, VerifyResult } from './verification/verify.js';
-export { countRuns, listRecentRuns } from './verification/runs-log.js';
-export type { RunCounts, RunLogEntry, RunLogFilter } from './verification/runs-log.js';
+export { countRuns, listEntityRuns, listRecentRuns } from './verification/runs-log.js';
+export type { EntityRun, RunCounts, RunLogEntry, RunLogFilter } from './verification/runs-log.js';
 
 export {
   assertScope,
@@ -637,22 +637,35 @@ export type {
   RunChecksInput,
   RunChecksResult,
 } from './customers/checks.js';
-export { assessCustomer } from './customers/indicators.js';
+export {
+  INCOMPLETE_SECTION_WEIGHT,
+  SIGNAL_WEIGHTS,
+  assessCustomer,
+  riskLevelFor,
+} from './customers/indicators.js';
 export type {
   Assessment,
   AssessmentInput,
   Indicator,
   IndicatorState,
   RiskLevel,
+  RiskReason,
   RiskSignal,
   SignalSeverity,
+  Standing,
 } from './customers/indicators.js';
-export { KIND_LABELS, SECTION_TITLES, getCustomerFile } from './customers/customer-file.js';
+export {
+  KIND_LABELS,
+  NAME_MATCH_THRESHOLD_PCT,
+  SECTION_TITLES,
+  getCustomerFile,
+} from './customers/customer-file.js';
 export type {
   AccountView,
   CustomerFile,
   FileField,
   FileSection,
+  SectionRequirement,
   Intersection,
   IntersectionKind,
   LastRun,

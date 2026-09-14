@@ -28,3 +28,5 @@ export { Dialog } from './dialog';
 export { Icon, ICONS, ICON_STROKE } from './icon';
 export type { IconName, IconSize } from './icon';
 export { Ltr } from './ltr';
+export { ProgressBar } from './progress-bar';
+export { CompletenessRing } from './completeness-ring';
