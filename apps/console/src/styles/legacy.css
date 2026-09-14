@@ -34,17 +34,17 @@
   --expired-bg: var(--color-neutral-100);
   --expired-line: var(--color-neutral-400);
 
-  --changed-fg: var(--color-accent-800);
-  --changed-bg: var(--color-accent-100);
-  --changed-line: var(--color-accent);
+  --changed-fg: var(--color-amber-800);
+  --changed-bg: var(--color-amber-50);
+  --changed-line: var(--color-amber-500);
 
   --fresh-fg: var(--color-accent-2-800);
   --fresh-bg: var(--color-accent-2-100);
   --fresh-line: var(--color-accent-2);
 
-  --critical-fg: var(--color-accent-900);
-  --critical-bg: var(--color-accent-200);
-  --critical-line: var(--color-accent-700);
+  --critical-fg: var(--color-red-700);
+  --critical-bg: var(--color-red-50);
+  --critical-line: var(--color-red-600);
 
   --font-sans: var(--font-product-body);
   --font-mono: var(--font-product-body);
@@ -72,8 +72,8 @@
 
   --expired-fg: var(--color-neutral-200);
   --expired-bg: var(--dark-divider);
-  --changed-fg: var(--color-accent-200);
-  --changed-bg: var(--color-accent-900);
+  --changed-fg: var(--color-amber-200);
+  --changed-bg: var(--dark-attention);
   --fresh-fg: var(--color-accent-2-200);
   --fresh-bg: var(--color-accent-2-900);
   --critical-fg: var(--dark-critical-text);

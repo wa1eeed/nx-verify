@@ -19,11 +19,52 @@
  * not change. The panel's dark ground points these roles at its own values below.
  */
 :root {
+  /*
+   * The owner's palette (ADR-122): the Organic roles pointed at the national green, cool
+   * greys and softer, cooler shadows. The accent ramp is the green everywhere an action,
+   * a place or a link is drawn, and so is the second accent, which marks what is verified.
+   * What asks for attention and what failed are drawn from their own ramps, at the foot of
+   * this sheet, rather than from the accent that used to carry them.
+   */
+  --color-text: var(--color-gray-900);
+  --color-divider: color-mix(in srgb, var(--color-gray-900) 14%, transparent);
+  --color-neutral-100: var(--color-gray-100);
+  --color-neutral-200: var(--color-gray-200);
+  --color-neutral-300: var(--color-gray-300);
+  --color-neutral-400: var(--color-gray-400);
+  --color-neutral-500: var(--color-gray-500);
+  --color-neutral-600: var(--color-gray-600);
+  --color-neutral-700: var(--color-gray-700);
+  --color-neutral-800: var(--color-gray-800);
+  --color-neutral-900: var(--color-gray-900);
+  --color-accent: var(--color-green-600);
+  --color-accent-100: var(--color-green-50);
+  --color-accent-200: var(--color-green-100);
+  --color-accent-300: var(--color-green-200);
+  --color-accent-400: var(--color-green-400);
+  --color-accent-500: var(--color-green-500);
+  --color-accent-600: var(--color-green-700);
+  --color-accent-700: var(--color-green-800);
+  --color-accent-800: var(--color-green-900);
+  --color-accent-900: var(--color-green-950);
+  --color-accent-2: var(--color-green-600);
+  --color-accent-2-100: var(--color-green-50);
+  --color-accent-2-200: var(--color-green-100);
+  --color-accent-2-300: var(--color-green-200);
+  --color-accent-2-400: var(--color-green-400);
+  --color-accent-2-500: var(--color-green-500);
+  --color-accent-2-600: var(--color-green-700);
+  --color-accent-2-700: var(--color-green-800);
+  --color-accent-2-800: var(--color-green-900);
+  --color-accent-2-900: var(--color-green-950);
+  --shadow-sm: 0 1px 2px color-mix(in srgb, var(--color-gray-900) 7%, transparent);
+  --shadow-md: 0 4px 12px color-mix(in srgb, var(--color-gray-900) 10%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, var(--color-gray-900) 14%, transparent);
+
   --color-bg: var(--color-white);
   --color-surface: var(--color-white);
   --color-inset: var(--color-neutral-100);
-  /* Between the canvas and the screens, so the sidebar reads as part of the frame. */
-  --color-sidebar: color-mix(in srgb, var(--color-neutral-100) 55%, var(--color-white));
+  --color-sidebar: var(--color-white);
 }
 
 /* ── type ─────────────────────────────────────────────────────────────── */
@@ -606,10 +647,9 @@ dialog.dialog-backdrop::backdrop {
 
 /* README, shared frame template: a rounded frame on the canvas, the sidebar on the start
    side, the content beside it. */
-/* The canvas around the frame: the palette's lightest cream, so the frame's own shadow draws
-   its edge and nothing around the white screens reads as a coloured background. */
+/* The canvas around the frame, a step deeper than the ground inside it. */
 body {
-  background: var(--color-neutral-100);
+  background: var(--color-canvas);
 }
 
 .skip-link {
@@ -759,6 +799,8 @@ a.frame-brand:active {
   color: var(--color-neutral-700);
 }
 
+/* The screens sit on the tinted ground, with a soft light of the green at their head, so the
+   white cards stand on something rather than float in white (ADR-121, the owner's second ask). */
 .frame-main {
   flex: 1;
   min-inline-size: 0;
@@ -766,6 +808,16 @@ a.frame-brand:active {
   flex-direction: column;
   gap: var(--layout-content-gap);
   padding: var(--layout-content-pad);
+  background:
+    radial-gradient(
+      ellipse 85% var(--layout-glow) at 50% 0,
+      color-mix(in srgb, var(--color-green-100) 75%, transparent),
+      transparent
+    ),
+    var(--color-ground);
+}
+[data-theme='dark'] .frame-main {
+  background: var(--color-bg);
 }
 
 /* The balance at the foot of the sidebar (README, screen 01). */
@@ -854,7 +906,7 @@ a.frame-brand:active {
   padding: var(--pad-tab-track);
   border: var(--size-hairline) solid var(--color-hairline);
   border-radius: var(--radius-inset-lg);
-  background: var(--color-inset);
+  background: var(--color-surface);
 }
 .tab {
   display: inline-flex;
@@ -924,7 +976,8 @@ a.frame-brand:active {
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: var(--color-inset);
+  background: var(--color-surface);
+  border: var(--size-hairline) solid var(--color-hairline);
   border-radius: var(--radius-card);
 }
 .skeleton-title {
@@ -953,7 +1006,7 @@ a.frame-brand:active {
   display: block;
   block-size: var(--space-3);
   border-radius: 999px;
-  background: var(--color-bg);
+  background: var(--color-inset);
 }
 .skeleton-line:nth-child(3n + 2) {
   inline-size: 82%;
@@ -991,7 +1044,7 @@ a.frame-brand:active {
   background: linear-gradient(
     to left,
     transparent 0%,
-    color-mix(in srgb, var(--color-white) 80%, transparent) 50%,
+    color-mix(in srgb, var(--color-green-50) 95%, transparent) 50%,
     transparent 100%
   );
   transform: translateX(100%);
@@ -1398,38 +1451,531 @@ a.frame-brand:active {
   font-size: var(--text-small);
 }
 
-.relation-graph {
+/*
+ * The intersections map (ADR-123): the customer, what they share, and who shares it, on
+ * three rings. The motion here is the owner's ask for this map alone, and all of it stops
+ * for a person who asked for less motion.
+ */
+.rg {
+  display: grid;
+  gap: var(--space-3);
+}
+.rg-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+.rg-totals > div {
+  display: grid;
+  gap: var(--gap-hairline);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-inset-sm);
+  background: var(--color-inset);
+}
+.rg-totals dt {
+  font-size: var(--text-caption);
+  color: var(--color-neutral-600);
+}
+.rg-totals dd {
+  margin: 0;
+  font-family: var(--font-product-heading);
+  font-weight: var(--font-product-heading-weight);
+  font-size: var(--text-heading-sm);
+  color: var(--color-text);
+}
+.rg-totals > div[data-tone='attention'] {
+  background: var(--color-amber-50);
+}
+.rg-totals > div[data-tone='attention'] dd {
+  color: var(--color-amber-700);
+}
+
+.rg-stage {
+  position: relative;
+}
+.rg-map {
+  display: block;
   inline-size: 100%;
   block-size: auto;
+  overflow: visible;
 }
-.graph-edge {
-  stroke: var(--color-neutral-400);
-  stroke-width: var(--graph-edge);
+
+/* The quick look beside a node: a small card on the node's outer side, never under the pointer. */
+.rg-glance {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  gap: var(--gap-hairline);
+  inline-size: max-content;
+  max-inline-size: var(--layout-glance);
+  padding: var(--space-2) var(--space-3);
+  border: var(--size-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-inset-sm);
+  background: var(--color-white);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-small);
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - var(--space-6)));
+  animation: data-loader-in var(--duration-color) ease-out both;
 }
-.graph-edge-strong {
-  stroke: var(--color-accent);
-  stroke-width: var(--graph-edge-strong);
+.rg-glance[data-side='below'] {
+  transform: translate(-50%, var(--space-6));
 }
-.graph-self {
-  fill: var(--color-accent);
+.rg-glance[data-align='right'] {
+  transform: translate(-14%, calc(-100% - var(--space-6)));
 }
-.graph-person {
-  fill: var(--color-accent-2-300);
+.rg-glance[data-align='right'][data-side='below'] {
+  transform: translate(-14%, var(--space-6));
 }
-.graph-customer {
-  fill: var(--color-accent-300);
+.rg-glance[data-align='left'] {
+  transform: translate(-86%, calc(-100% - var(--space-6)));
 }
-.graph-other {
-  fill: var(--color-neutral-300);
+.rg-glance[data-align='left'][data-side='below'] {
+  transform: translate(-86%, var(--space-6));
 }
-.graph-label {
-  fill: var(--color-text);
-  font-size: var(--text-graph);
-  text-anchor: middle;
+.rg-glance p {
+  margin: 0;
+}
+.rg-glance-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--text-body-sm);
+}
+.rg-glance-line {
+  color: var(--color-gray-600);
+}
+.rg-glance-weight {
+  padding: var(--pad-tag-edged);
+  border: var(--size-hairline) solid var(--color-red-200);
+  border-radius: 999px;
+  background: var(--color-red-50);
+  color: var(--color-red-700);
+  font-size: var(--text-caption);
+}
+.rg-glance[data-tone='attention'] .rg-glance-weight {
+  border-color: var(--color-amber-200);
+  background: var(--color-amber-50);
+  color: var(--color-amber-800);
+}
+.rg-glance-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-hairline) var(--space-1);
+}
+.rg-glance-kind {
+  padding: var(--pad-tag-edged);
+  border: var(--size-hairline) solid var(--color-gold-200);
+  border-radius: 999px;
+  background: var(--color-gold-50);
+  color: var(--color-gold-700);
+  font-size: var(--text-caption);
+}
+.rg-glance-kind[data-tone='critical'] {
+  border-color: var(--color-red-200);
+  background: var(--color-red-50);
+  color: var(--color-red-700);
+}
+.rg-glance-kind[data-tone='attention'] {
+  border-color: var(--color-amber-200);
+  background: var(--color-amber-50);
+  color: var(--color-amber-800);
+}
+.rg-map text {
+  direction: rtl;
+  font-family: var(--font-product-body);
   dominant-baseline: middle;
 }
-.graph-label-self {
-  fill: var(--color-bg);
+.rg-map text:not(.rg-label) {
+  text-anchor: middle;
+}
+/* A label outside its node reads over the links behind it, with a halo of the card's white. */
+.rg-label {
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: var(--control-graph-halo);
+  stroke-linejoin: round;
+}
+
+.rg-orbit {
+  fill: none;
+  stroke: var(--color-hairline-strong);
+  stroke-width: var(--size-hairline);
+  stroke-dasharray: 2 5;
+}
+.rg-orbit-outer {
+  stroke: var(--color-hairline);
+}
+
+/* A light turning through the rings, as if the map were still looking. */
+.rg-sweep {
+  transform-box: view-box;
+  animation: rg-sweep var(--duration-graph-sweep) linear infinite;
+}
+.rg-sweep path {
+  fill: var(--color-green-400);
+}
+@keyframes rg-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rg-edge {
+  transition: opacity var(--duration-color) ease-out;
+}
+/* A second link to a customer shows while that customer or that kind is followed; at rest the
+   gold mark on the customer says it is there, and the rings stay readable. */
+.rg-edge[data-cross]:not([data-state='lit']) {
+  display: none;
+}
+.rg-edge-line {
+  fill: none;
+  stroke: var(--color-gray-300);
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: rg-draw var(--duration-graph-draw) ease-out var(--rg-delay) forwards;
+}
+.rg-edge[data-tone='critical'] .rg-edge-line {
+  stroke: var(--color-red-300);
+}
+.rg-edge[data-tone='attention'] .rg-edge-line {
+  stroke: var(--color-amber-300);
+}
+.rg-edge[data-cross] .rg-edge-line {
+  stroke: var(--color-gold-300);
+}
+@keyframes rg-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* Dots travelling each link towards the customer in the middle. */
+.rg-edge-flow {
+  fill: none;
+  stroke: var(--color-green-500);
+  stroke-width: var(--control-graph-flow);
+  stroke-linecap: round;
+  stroke-dasharray: 0.02 0.14;
+  opacity: 0;
+  animation:
+    rg-flow var(--duration-graph-flow) linear infinite,
+    rg-appear var(--duration-color) ease-out calc(var(--rg-delay) + var(--duration-graph-draw))
+      forwards;
+}
+.rg-edge[data-tone='critical'] .rg-edge-flow {
+  stroke: var(--color-red-500);
+}
+.rg-edge[data-tone='attention'] .rg-edge-flow {
+  stroke: var(--color-amber-500);
+}
+.rg-edge[data-cross] .rg-edge-flow {
+  stroke: var(--color-gold-500);
+}
+@keyframes rg-flow {
+  to {
+    stroke-dashoffset: 0.16;
+  }
+}
+@keyframes rg-appear {
+  to {
+    opacity: 1;
+  }
+}
+
+.rg-pulse {
+  fill: var(--color-green-400);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rg-pulse var(--duration-graph-pulse) ease-out infinite;
+}
+.rg-pulse-late {
+  animation-delay: calc(var(--duration-graph-pulse) / 2);
+}
+@keyframes rg-pulse {
+  0% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+.rg-centre-disc {
+  fill: var(--color-green-700);
+  stroke: var(--color-white);
+  stroke-width: var(--control-graph-ring);
+}
+.rg-centre-label {
+  fill: var(--color-white);
+  font-size: var(--text-graph-label);
+  font-weight: 600;
+}
+
+.rg-node {
+  cursor: pointer;
+  outline: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rg-pop var(--duration-graph-pop) cubic-bezier(0.2, 0.8, 0.2, 1.2) var(--rg-delay) both;
+  transition: opacity var(--duration-color) ease-out;
+}
+/* Scale alone: an animation that held opacity would outrank the stepping back below. */
+@keyframes rg-pop {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.rg-hub-disc {
+  fill: var(--color-gold-500);
+  stroke: var(--color-white);
+  stroke-width: var(--control-graph-ring);
+  transition: fill var(--duration-color) ease-out;
+}
+.rg-hub[data-tone='critical'] .rg-hub-disc {
+  fill: var(--color-red-600);
+}
+.rg-hub[data-tone='attention'] .rg-hub-disc {
+  fill: var(--color-amber-500);
+}
+.rg-hub-icon {
+  color: var(--color-white);
+  pointer-events: none;
+}
+.rg-hub-halo {
+  fill: none;
+  stroke: var(--color-red-400);
+  stroke-width: var(--control-graph-ring);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rg-halo var(--duration-graph-pulse) ease-in-out infinite;
+}
+.rg-hub[data-tone='attention'] .rg-hub-halo {
+  stroke: var(--color-amber-400);
+}
+@keyframes rg-halo {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.06);
+  }
+}
+.rg-hub-label {
+  fill: var(--color-gray-700);
+  font-size: var(--text-graph-label);
+  font-weight: 600;
+}
+.rg-weight rect {
+  fill: var(--color-white);
+  stroke: var(--color-red-200);
+  stroke-width: var(--size-hairline);
+}
+.rg-weight text {
+  direction: ltr;
+  fill: var(--color-red-700);
+  font-size: var(--text-graph);
+  font-weight: 700;
+}
+.rg-hub[data-tone='attention'] .rg-weight rect {
+  stroke: var(--color-amber-200);
+}
+.rg-hub[data-tone='attention'] .rg-weight text {
+  fill: var(--color-amber-700);
+}
+
+.rg-entity-disc {
+  fill: var(--color-white);
+  stroke: var(--color-green-600);
+  stroke-width: var(--control-graph-ring);
+  transition: fill var(--duration-color) ease-out;
+}
+.rg-entity[data-person] .rg-entity-disc {
+  stroke: var(--color-gold-500);
+}
+.rg-entity-initial {
+  fill: var(--color-green-800);
+  font-size: var(--text-graph-label);
+  font-weight: 700;
+  pointer-events: none;
+}
+.rg-entity[data-person] .rg-entity-initial {
+  fill: var(--color-gold-700);
+}
+.rg-entity-cluster {
+  fill: var(--color-gold-400);
+  stroke: var(--color-white);
+  stroke-width: var(--size-hairline);
+}
+.rg-entity-label {
+  fill: var(--color-gray-700);
+  font-size: var(--text-graph);
+}
+
+/* Following a link: what it touches stays, the rest steps back. */
+.rg-node:hover .rg-entity-disc,
+.rg-node:focus-visible .rg-entity-disc,
+.rg-node[aria-pressed='true'] .rg-entity-disc {
+  fill: var(--color-green-50);
+}
+.rg-node:focus-visible .rg-hub-disc,
+.rg-node:focus-visible .rg-entity-disc {
+  stroke: var(--color-accent);
+  stroke-width: var(--control-graph-focus);
+}
+.rg-node[data-state='dim'],
+.rg-edge[data-state='dim'] {
+  opacity: 0.16;
+}
+
+.rg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.rg-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--pad-tag-edged);
+  border: var(--size-hairline) solid var(--color-hairline-strong);
+  border-radius: 999px;
+  background: var(--color-white);
+  color: var(--color-gray-700);
+  font: inherit;
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+.rg-legend-item:hover {
+  background: var(--color-accent-100);
+}
+.rg-legend-item:active {
+  background: var(--color-accent-200);
+}
+.rg-legend-item[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-100);
+  color: var(--color-accent-700);
+}
+.rg-legend-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.rg-legend-dot,
+.rg-details-dot {
+  inline-size: var(--control-dot);
+  block-size: var(--control-dot);
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-gold-500);
+}
+[data-tone='critical'] > .rg-legend-dot,
+[data-tone='critical'] > .rg-details-dot {
+  background: var(--color-red-600);
+}
+[data-tone='attention'] > .rg-legend-dot,
+[data-tone='attention'] > .rg-details-dot {
+  background: var(--color-amber-500);
+}
+.rg-legend-count {
+  color: var(--color-gray-500);
+}
+
+.rg-details {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--size-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-inset);
+  background: var(--color-inset);
+  font-size: var(--text-body-sm);
+}
+.rg-details p {
+  margin: 0;
+}
+.rg-details-head,
+.rg-details-strongest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+.rg-details-through,
+.rg-details-tone,
+.rg-details-hint {
+  color: var(--color-gray-600);
+  font-size: var(--text-small);
+}
+.rg-details-weight,
+.rg-details-cluster {
+  padding: var(--pad-tag-edged);
+  border: var(--size-hairline) solid var(--color-red-200);
+  border-radius: 999px;
+  background: var(--color-red-50);
+  color: var(--color-red-700);
+  font-size: var(--text-caption);
+}
+[data-tone='attention'] > .rg-details-weight {
+  border-color: var(--color-amber-200);
+  background: var(--color-amber-50);
+  color: var(--color-amber-700);
+}
+.rg-details-cluster {
+  border-color: var(--color-gold-200);
+  background: var(--color-gold-50);
+  color: var(--color-gold-700);
+}
+.rg-details-text {
+  color: var(--color-gray-700);
+}
+.rg-details-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rg-details-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.rg-details-list li span {
+  color: var(--color-gray-500);
+  font-size: var(--text-small);
+}
+.rg-details-link {
+  justify-self: start;
+  font-size: var(--text-small);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rg-sweep,
+  .rg-pulse,
+  .rg-hub-halo {
+    display: none;
+  }
+  .rg-edge-line {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .rg-edge-flow {
+    display: none;
+  }
+  .rg-node {
+    animation: none;
+  }
 }
 
 .timeline-item {
@@ -2675,4 +3221,134 @@ a.frame-brand:active {
   .data-loader-bar:nth-child(4) {
     transform: scaleY(1);
   }
+}
+
+/* ── attention and failure, on their own ramps (ADR-122) ─────────────────── */
+
+/*
+ * The accent is the national green now, and green says «done». So what asks for a look (a
+ * detected change, a conflict, a name that does not match, a balance running low, the
+ * sandbox) is amber, and what failed is red. CLAUDE.md's rule holds in the new colours: an
+ * expired fact is neutral, and a change or a conflict is the attention colour.
+ *
+ * A tag in the accent tone is attention by that rule. Where the accent tone means the brand
+ * instead (the filter that is open, a toggle that is on, a classification) it is drawn green.
+ */
+.tag-accent {
+  background: var(--color-amber-50);
+  color: var(--color-amber-800);
+  border-color: var(--color-amber-200);
+}
+.tag-brand,
+.tag-link.tag-accent,
+.tag-toggle.tag-accent {
+  background: var(--color-green-50);
+  color: var(--color-green-800);
+  border-color: var(--color-green-200);
+}
+.tag-link.tag-accent:hover,
+.tag-toggle.tag-accent:hover {
+  background: var(--color-green-100);
+}
+.tag-link.tag-accent:active,
+.tag-toggle.tag-accent:active {
+  background: var(--color-green-200);
+}
+.tag-critical {
+  background: var(--color-red-50);
+  color: var(--color-red-700);
+  border-color: var(--color-red-200);
+}
+
+.card-tone-accent,
+.card-tone-attention {
+  background: var(--color-amber-50);
+  border-color: var(--color-amber-200);
+}
+.card-tone-attention {
+  color: var(--color-amber-800);
+}
+
+/* The second series of a chart and a bar still filling: the gold beside the green. */
+.progress-fill-accent {
+  background: var(--color-gold-400);
+}
+
+.sandbox-note,
+.request-alert {
+  background: var(--color-amber-50);
+  color: var(--color-amber-800);
+}
+.file-field-alert,
+.file-note,
+.request-lookup[data-tone='problem'],
+.request-row-note,
+.request-bar-line[data-tone='problem'],
+.home-stat-value[data-tone='attention'],
+.home-stat-line[data-tone='attention'],
+.admin-margin[data-tone='thin'] {
+  color: var(--color-amber-800);
+}
+.kyb-mark[data-state='WARN'] {
+  background: var(--color-amber-500);
+}
+.kyb-mark[data-state='FAIL'],
+.timeline-item[data-tone='failed'] .timeline-dot {
+  background: var(--color-red-600);
+}
+.notice-refused {
+  background: var(--color-red-50);
+  color: var(--color-red-700);
+}
+.field-error,
+.admin-stat-line[data-tone='down'] {
+  color: var(--color-red-700);
+}
+.input[aria-invalid='true'] {
+  border-color: var(--color-red-600);
+}
+
+/* The loader's chart in the two colours of the palette. */
+.data-loader-bar {
+  background: var(--color-green-500);
+}
+.data-loader-bar:nth-child(2),
+.data-loader-bar:nth-child(4) {
+  background: var(--color-gold-400);
+}
+
+[data-theme='dark'] .tag-accent {
+  background: var(--dark-attention);
+  color: var(--color-amber-200);
+  border-color: var(--color-amber-800);
+}
+[data-theme='dark'] .tag-brand,
+[data-theme='dark'] .tag-link.tag-accent,
+[data-theme='dark'] .tag-toggle.tag-accent {
+  background: var(--color-green-900);
+  color: var(--color-green-200);
+  border-color: var(--color-green-800);
+}
+[data-theme='dark'] .tag-critical {
+  background: var(--dark-critical);
+  color: var(--dark-critical-text);
+  border-color: var(--color-red-900);
+}
+[data-theme='dark'] .card-tone-accent,
+[data-theme='dark'] .card-tone-attention {
+  background: var(--dark-attention);
+  border-color: var(--color-amber-900);
+}
+[data-theme='dark'] .card-tone-attention,
+[data-theme='dark'] .home-stat-value[data-tone='attention'],
+[data-theme='dark'] .admin-margin[data-tone='thin'] {
+  color: var(--color-amber-300);
+}
+[data-theme='dark'] .notice-refused {
+  background: var(--dark-critical);
+  color: var(--dark-critical-text);
+}
+[data-theme='dark'] .field-error,
+[data-theme='dark'] .admin-stat-line[data-tone='down'] {
+  color: var(--color-red-300);
 }

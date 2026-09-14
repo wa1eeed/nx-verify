@@ -87,7 +87,7 @@ export function VerificationSettings({
                 const tag = SECTION_TAGS[row.section];
                 if (row.fixed || !editable) {
                   return row.requirement === 'REQUIRED' ? (
-                    <Tag key={row.section} tone="accent">
+                    <Tag key={row.section} tone="brand">
                       {tag.name}
                     </Tag>
                   ) : (

@@ -28,7 +28,7 @@ export function FileHeader({
       <div className="page-head-text">
         <div className="file-head-title">
           <h1 className="page-title">{file.displayName ?? 'عميل بلا اسم بعد'}</h1>
-          <Tag tone="accent" role="classification">
+          <Tag tone="brand" role="classification">
             {file.kindLabelAr}
           </Tag>
           {file.primaryIdentifier ? (

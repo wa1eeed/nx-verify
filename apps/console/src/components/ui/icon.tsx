@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import {
   ArrowLeft,
   BadgeCheck,
+  Briefcase,
   Building2,
   ChartColumn,
   Check,
@@ -10,8 +11,11 @@ import {
   ChevronRight,
   Clock,
   Download,
+  Handshake,
   Info,
+  Landmark,
   LayoutDashboard,
+  MapPin,
   Minus,
   MoreHorizontal,
   Plus,
@@ -22,6 +26,7 @@ import {
   SlidersHorizontal,
   Tag,
   TriangleAlert,
+  UserRound,
   Users,
   Wallet,
   X,
@@ -63,6 +68,12 @@ export const ICONS = {
   'chevron-right': ChevronRight,
   'more-horizontal': MoreHorizontal,
   x: X,
+  // The shared things of the intersections map (ADR-123).
+  landmark: Landmark,
+  'map-pin': MapPin,
+  'user-round': UserRound,
+  handshake: Handshake,
+  briefcase: Briefcase,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

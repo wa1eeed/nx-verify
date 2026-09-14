@@ -6,6 +6,7 @@ import { Card, CardTitle } from '../ui/card';
 import { Icon } from '../ui/icon';
 import { Ltr } from '../ui/ltr';
 import { RelationGraph } from './graph';
+import { relationGraphModel } from './graph-model';
 
 /**
  * The column beside the sections (README, screen 03): what is established, why the risk is
@@ -110,7 +111,7 @@ export function IntersectionsCard({ file }: { file: CustomerFile }): ReactElemen
     <Card id="intersections" label="التقاطعات المكتشفة" role="intersections">
       <CardTitle>التقاطعات المكتشفة</CardTitle>
       <p className="card-line">علاقات مع كيانات تحقق منها سابقاً</p>
-      <RelationGraph file={file} />
+      <RelationGraph model={relationGraphModel(file)} />
       {file.intersections.length === 0 ? (
         <p className="card-line">
           لم نجد مديراً أو شريكاً أو حساباً أو عنواناً مشتركاً مع عملائك الآخرين.

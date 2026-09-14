@@ -282,6 +282,7 @@ textarea.input { min-height: 90px; resize: vertical; }
   --layout-nav-item-gap: 11px;
   --layout-content-pad: 32px 36px;
   --layout-content-gap: 26px;
+  --layout-glow: 260px;
   --layout-grid-gap: 16px;
   --layout-min-meter: 96px;
   --layout-min-kpi: 150px;
@@ -386,14 +387,90 @@ textarea.input { min-height: 90px; resize: vertical; }
   --color-hairline-strong: color-mix(in srgb, var(--color-text) 17%, transparent);
   --color-header-band: color-mix(in srgb, var(--color-text) 3.5%, transparent);
   --color-field: var(--color-white);
-  /* The owner's light ground (2026-09-14): white, the one colour added to the palette. */
+  /* The owner's light ground (2026-09-14): white cards and fields on a ground with a breath
+     of the national green in its grey, so the screens are neither glaring nor flat. */
   --color-white: #ffffff;
+  --color-ground: #f1f5f3;
+  --color-canvas: #e3eae7;
+
+  /* The owner's palette (2026-09-14, ADR-122), in the manner of Saudi government platforms:
+     the national green for every action, a heritage gold beside it, cool greys for text and
+     ground, amber for what asks for attention and red for what failed. The Organic roles
+     above are pointed at these ramps in product.css; their original values stay as written. */
+  --color-green-50: #f3fcf6;
+  --color-green-100: #dff6e7;
+  --color-green-200: #b8eacb;
+  --color-green-300: #88d8ad;
+  --color-green-400: #54c08a;
+  --color-green-500: #25935f;
+  --color-green-600: #1b8354;
+  --color-green-700: #166a45;
+  --color-green-800: #14573a;
+  --color-green-900: #104631;
+  --color-green-950: #0a2e20;
+
+  --color-gold-50: #fbf7ee;
+  --color-gold-100: #f5ebd3;
+  --color-gold-200: #ead5a6;
+  --color-gold-300: #ddba74;
+  --color-gold-400: #cfa04e;
+  --color-gold-500: #b8883a;
+  --color-gold-600: #9a6f2f;
+  --color-gold-700: #7b5727;
+  --color-gold-800: #5f4321;
+  --color-gold-900: #4a351c;
+
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d2d6db;
+  --color-gray-400: #9da4ae;
+  --color-gray-500: #6c737f;
+  --color-gray-600: #4d5761;
+  --color-gray-700: #384250;
+  --color-gray-800: #1f2a37;
+  --color-gray-900: #111927;
+
+  --color-amber-50: #fffaeb;
+  --color-amber-100: #fef0c7;
+  --color-amber-200: #fedf89;
+  --color-amber-300: #fec84b;
+  --color-amber-400: #fdb022;
+  --color-amber-500: #f79009;
+  --color-amber-600: #dc6803;
+  --color-amber-700: #b54708;
+  --color-amber-800: #93370d;
+  --color-amber-900: #7a2e0e;
+
+  --color-red-50: #fef3f2;
+  --color-red-100: #fee4e2;
+  --color-red-200: #fecdca;
+  --color-red-300: #fda29b;
+  --color-red-400: #f97066;
+  --color-red-500: #f04438;
+  --color-red-600: #d92d20;
+  --color-red-700: #b42318;
+  --color-red-800: #912018;
+  --color-red-900: #7a271a;
   --pad-tag-edged: 2px 9px;
   --pad-tab-track: 4px;
   --control-spinner: 13px;
   --control-spinner-stroke: 2px;
   --duration-spinner: 700ms;
   --blur-backdrop: 3px;
+
+  /* The intersections map (ADR-123). */
+  --control-graph-ring: 2px;
+  --control-graph-focus: 3px;
+  --control-graph-flow: 2.5px;
+  --control-graph-halo: 4px;
+  --layout-glance: 240px;
+  --text-graph-label: 11px;
+  --duration-graph-sweep: 9s;
+  --duration-graph-draw: 700ms;
+  --duration-graph-flow: 2.2s;
+  --duration-graph-pulse: 2.8s;
+  --duration-graph-pop: 450ms;
 
   /* The product's faces. Caprasimo and Figtree carry no Arabic, so the README names
      these in their place, with the originals kept as the fallback. */
@@ -420,12 +497,12 @@ textarea.input { min-height: 90px; resize: vertical; }
   --text-stat-lg: 34px;
 
   /* The administration panel's dark ground (README, screens 05 and 06). */
-  --dark-sidebar: #25221d;
-  --dark-card: #2b2823;
-  --dark-field: #211e1a;
-  --dark-field-border: #4a463d;
-  --dark-divider: #3a362f;
-  --dark-attention: #3a2a1c;
-  --dark-critical: #4a2a24;
-  --dark-critical-text: #ffd9cc;
+  --dark-sidebar: #0b111b;
+  --dark-card: #151c28;
+  --dark-field: #0f1520;
+  --dark-field-border: #344054;
+  --dark-divider: #232d3b;
+  --dark-attention: #3b2a0c;
+  --dark-critical: #45201c;
+  --dark-critical-text: #fecdca;
 }

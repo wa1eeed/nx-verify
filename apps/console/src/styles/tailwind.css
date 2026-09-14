@@ -92,15 +92,15 @@
   --muted-foreground: var(--color-neutral-600);
   --accent: var(--color-accent-100);
   --accent-foreground: var(--color-accent-800);
-  --destructive: var(--color-accent-700);
+  --destructive: var(--color-red-600);
   --border: var(--color-divider);
   --input: var(--color-divider);
   --ring: var(--color-accent);
   --chart-1: var(--color-accent);
-  --chart-2: var(--color-accent-2);
+  --chart-2: var(--color-gold-500);
   --chart-3: var(--color-neutral-500);
-  --chart-4: var(--color-accent-300);
-  --chart-5: var(--color-accent-2-300);
+  --chart-4: var(--color-gold-400);
+  --chart-5: var(--color-amber-500);
   --sidebar: var(--color-surface);
   --sidebar-foreground: var(--color-text);
   --sidebar-primary: var(--color-accent);
@@ -120,7 +120,7 @@
   --muted-foreground: var(--color-neutral-400);
   --accent: var(--color-accent-900);
   --accent-foreground: var(--color-accent-200);
-  --destructive: var(--color-accent-300);
+  --destructive: var(--color-red-300);
   --border: var(--dark-divider);
   --input: var(--dark-field-border);
   --sidebar: var(--dark-sidebar);

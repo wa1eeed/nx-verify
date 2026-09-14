@@ -8,7 +8,7 @@ import type { ReactElement, ReactNode } from 'react';
  * how that looks, light in the portal and dark in the administration panel.
  */
 
-export type TagTone = 'accent' | 'accent-2' | 'neutral' | 'outline' | 'critical';
+export type TagTone = 'accent' | 'accent-2' | 'brand' | 'neutral' | 'outline' | 'critical';
 
 export function Tag({
   tone = 'neutral',
