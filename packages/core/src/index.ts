@@ -723,7 +723,12 @@ export type {
 } from './customers/requests.js';
 export { quoteChecks } from './customers/quote.js';
 export type { CheckQuote, ChecksQuote } from './customers/quote.js';
-export { countCustomers, listCustomers } from './customers/list.js';
+export {
+  countCustomers,
+  findCustomersByIdentifier,
+  listCustomers,
+  looksLikeIdentifier,
+} from './customers/list.js';
 export { summarizeCustomers } from './customers/summaries.js';
 export { homeOverview, riyadhMonthStart } from './customers/home.js';
 export type { HomeOverview, HomeRun } from './customers/home.js';

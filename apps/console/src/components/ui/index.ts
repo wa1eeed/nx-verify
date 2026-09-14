@@ -9,7 +9,7 @@
 export { Button, ButtonLink, IconButton, buttonClass } from './button';
 export type { ButtonLinkProps, ButtonProps, ButtonVariant, IconButtonProps } from './button';
 export { SubmitButton } from './submit-button';
-export { Tag, StateTag, STATE_TONES } from './tag';
+export { Tag, StateTag, TagLink, STATE_TONES } from './tag';
 export type { TagState, TagTone } from './tag';
 export { Input } from './input';
 export type { InputProps } from './input';

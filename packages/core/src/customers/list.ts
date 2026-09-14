@@ -147,6 +147,50 @@ export async function listCustomers(
   });
 }
 
+/**
+ * The customers a typed number belongs to: a unified or registration number, a national or
+ * residence ID, or an IBAN, which finds every customer holding that account.
+ *
+ * Found by keyed hash, the only way a number can be found (rule 4), and only among this
+ * subscriber's own records (rule 2). Nothing typed is kept.
+ */
+export async function findCustomersByIdentifier(
+  tx: TenantTransaction,
+  keys: TenantKeyProvider,
+  typed: string,
+): Promise<string[]> {
+  const value = typed.replace(/[\s-]/g, '').toUpperCase();
+  if (/^SA[0-9]{22}$/.test(value)) {
+    const account = await findEntityIdByIdentifier(tx, keys, 'IBAN', value);
+    if (account === null) {
+      return [];
+    }
+    const { rows } = await tx.query<{ holder: string }>(
+      `SELECT DISTINCT from_entity AS holder FROM entity_relations
+       WHERE tenant_id = $1 AND to_entity = $2 AND rel_type = 'HOLDS_ACCOUNT'`,
+      [tx.tenantId, account],
+    );
+    return rows.map((row) => row.holder);
+  }
+  if (!/^[0-9]{10}$/.test(value)) {
+    return [];
+  }
+  const found: string[] = [];
+  for (const idType of ['UNN', 'CR', 'NATIONAL_ID', 'IQAMA'] as const) {
+    const entityId = await findEntityIdByIdentifier(tx, keys, idType, value);
+    if (entityId !== null && !found.includes(entityId)) {
+      found.push(entityId);
+    }
+  }
+  return found;
+}
+
+/** Whether what was typed into a search is a number to look up rather than a name. */
+export function looksLikeIdentifier(typed: string): boolean {
+  const value = typed.replace(/[\s-]/g, '').toUpperCase();
+  return /^[0-9]{10}$/.test(value) || /^SA[0-9]{22}$/.test(value);
+}
+
 export interface CustomerCounts {
   all: number;
   companies: number;

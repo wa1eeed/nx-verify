@@ -4,7 +4,12 @@ import { withTenant } from '../../../packages/db/src/client.js';
 import { runChecks, type RunChecksDependencies } from '../src/customers/checks.js';
 import { SECTION_TITLES, getCustomerFile } from '../src/customers/customer-file.js';
 import { riskLevelFor } from '../src/customers/indicators.js';
-import { countCustomers, listCustomers } from '../src/customers/list.js';
+import {
+  countCustomers,
+  findCustomersByIdentifier,
+  listCustomers,
+  looksLikeIdentifier,
+} from '../src/customers/list.js';
 import { summarizeCustomers } from '../src/customers/summaries.js';
 import {
   createTestDatabase,
@@ -452,5 +457,24 @@ describe('the customer file', () => {
     );
     const ours = new Set(summaries.map((summary) => summary.entityId));
     expect(elsewhere.some((summary) => ours.has(summary.entityId))).toBe(false);
+  });
+
+  it('finds the customers behind a typed number or IBAN, and nobody for another subscriber', async () => {
+    expect(looksLikeIdentifier('SA28 1000 0011 1000 0046 1309')).toBe(true);
+    expect(looksLikeIdentifier('شركة')).toBe(false);
+
+    const byUnn = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      findCustomersByIdentifier(tx, keys, SANDBOX_UNN.ACTIVE),
+    );
+    expect(byUnn).toEqual([companyId]);
+    const byIban = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      findCustomersByIdentifier(tx, keys, SANDBOX_IBAN.MATCH),
+    );
+    expect(byIban).toContain(companyId);
+    const elsewhere = await withTenant(db.appPool, other.tenantId, (tx) =>
+      findCustomersByIdentifier(tx, keys, SANDBOX_UNN.ACTIVE),
+    );
+    // The other subscriber may have verified the same company: that is its own file, not ours.
+    expect(elsewhere).not.toContain(companyId);
   });
 });

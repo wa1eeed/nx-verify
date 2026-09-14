@@ -7,6 +7,8 @@ import {
   NxError,
   createRequest,
   executeRequest,
+  findCustomersByIdentifier,
+  looksLikeIdentifier,
   openChecksFor,
   parseSubject,
   type CustomerKind,
@@ -110,4 +112,30 @@ export async function openChecksAction(entityId: unknown): Promise<string[]> {
     return [];
   }
   return query((tx) => openChecksFor(tx, entityId));
+}
+
+/**
+ * The customers search. A name goes to the address like any filter; a number never does: it
+ * is looked up here, by its keyed hash, and the address carries only the files it found.
+ */
+export async function searchCustomersAction(formData: FormData): Promise<void> {
+  const typed = text(formData, 'q').slice(0, 40);
+  const kind = text(formData, 'kind');
+  const params = new URLSearchParams();
+  if (KINDS.has(kind)) {
+    params.set('kind', kind);
+  }
+  if (text(formData, 'alerts') === '1') {
+    params.set('alerts', '1');
+  }
+  if (typed !== '') {
+    if (looksLikeIdentifier(typed)) {
+      const found = await query((tx) => findCustomersByIdentifier(tx, getKeys(), typed));
+      params.set('ids', found.length === 0 ? 'none' : found.slice(0, 20).join(','));
+    } else {
+      params.set('q', typed);
+    }
+  }
+  const search = params.toString();
+  redirect(search === '' ? '/customers' : `/customers?${search}`);
 }

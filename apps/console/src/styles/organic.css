@@ -319,6 +319,10 @@ textarea.input { min-height: 90px; resize: vertical; }
   --layout-start-input: 260px;
   --pad-note: 14px 16px;
 
+  /* Screen 04, the customers. */
+  --layout-search: 320px;
+  --layout-bar: 70px;
+
   /* Controls the sheet does not size. */
   --size-hairline: 1px;
   --gap-hairline: 2px;

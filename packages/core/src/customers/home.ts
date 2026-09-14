@@ -28,11 +28,11 @@ export interface HomeOverview {
   dataUpdatedAt: Date | null;
   customers: {
     all: number;
-    /** Files that stand complete: every applicable indicator known, none failing. */
+    /** Files whose every required section is verified. */
     verified: number;
     /** Of those, the ones first verified this month. */
     verifiedThisMonth: number;
-    /** Files with a required section still missing. */
+    /** Files with a required section still missing. With the verified, every file. */
     incomplete: number;
     /** Sections whose verified facts do not hold, across every file. */
     conflicts: number;
@@ -70,7 +70,9 @@ export async function homeOverview(
 
   // Every customer the list counts, not only its first page.
   const summaries = await summarizeCustomers(tx, keys, { limit: 5_000 }, { now });
-  const complete = summaries.filter((summary) => summary.standing === 'COMPLETE');
+  // Complete and incomplete split every file, so the home screen's two figures add up to the
+  // customers list's count, as they do in the handoff (312 and 27 of 339).
+  const complete = summaries.filter((summary) => summary.completeness === 100);
 
   const catalogue = await listChecks(tx);
   const sectionOf = new Map(catalogue.map((check) => [check.productCode, check.section]));

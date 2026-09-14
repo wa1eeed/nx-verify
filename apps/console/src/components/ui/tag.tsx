@@ -35,6 +35,36 @@ export function Tag({
  * adds the rule this map exists to hold: expired is neutral, and a detected change or a
  * conflict is the accent, so the two can never be mistaken for each other.
  */
+/**
+ * A tag that is a link: the filters of screen 04 («الكل · 339», «تنبيهات مفتوحة · 4»).
+ *
+ * The open filter says so to assistive technology as well as in colour.
+ */
+export function TagLink({
+  href,
+  tone = 'neutral',
+  current = false,
+  role,
+  children,
+}: {
+  href: string;
+  tone?: TagTone | undefined;
+  current?: boolean | undefined;
+  role?: string | undefined;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <a
+      href={href}
+      className={`tag tag-${tone} tag-link`}
+      data-role={role}
+      {...(current ? { 'aria-current': 'true' as const } : {})}
+    >
+      {children}
+    </a>
+  );
+}
+
 export const STATE_TONES = {
   VERIFIED: 'accent-2',
   COMPLETE: 'accent-2',

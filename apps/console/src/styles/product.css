@@ -113,6 +113,30 @@ a.btn-ghost:active {
   color: var(--color-accent-900);
 }
 
+/* A tag that filters: a link, so it answers the pointer and the keyboard like one. */
+.tag-link {
+  text-decoration: none;
+  transition-property: background-color, color, border-color;
+  transition-duration: var(--duration-color);
+}
+.tag-link:hover {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+}
+.tag-link:active {
+  background: var(--color-accent-200);
+}
+.tag-link.tag-accent:hover {
+  background: var(--color-accent-200);
+}
+.tag-link.tag-accent:active {
+  background: var(--color-accent-300);
+}
+.tag-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* ── forms ────────────────────────────────────────────────────────────── */
 
 .field-hint,
@@ -1552,4 +1576,51 @@ a.frame-brand:active {
     inline-size: auto;
     max-inline-size: none;
   }
+}
+
+/* ── the customers (screen 04) ────────────────────────────────────────── */
+
+.customers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-content-gap);
+}
+.customers-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.customers-search {
+  flex: 1;
+  max-inline-size: var(--layout-search);
+}
+.customers-search .input {
+  background: var(--color-surface);
+}
+.customers-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.customers-searched {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  color: var(--color-neutral-600);
+}
+.customers-table {
+  padding: var(--pad-table-card);
+}
+.customers-completeness {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.customers-bar {
+  inline-size: var(--layout-bar);
+}
+.customers-open {
+  font-size: var(--text-label);
+  white-space: nowrap;
 }

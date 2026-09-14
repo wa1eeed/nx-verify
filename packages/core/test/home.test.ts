@@ -109,8 +109,9 @@ describe('the home overview', () => {
     expect(home.subscriberName).toBe('Home Tenant');
     expect(home.customers.all).toBe(4);
     expect(home.customers.verified).toBe(
-      summaries.filter((summary) => summary.standing === 'COMPLETE').length,
+      summaries.filter((summary) => summary.completeness === 100).length,
     );
+    expect(home.customers.verified + home.customers.incomplete).toBe(home.customers.all);
     expect(home.customers.verifiedThisMonth).toBe(home.customers.verified);
     expect(home.customers.incomplete).toBe(
       summaries.filter((summary) => summary.completeness < 100).length,
