@@ -10,6 +10,22 @@
  * or shadow.
  */
 
+/* ── the ground (unit C5) ─────────────────────────────────────────────── */
+
+/*
+ * The owner's light ground (2026-09-14, ADR-121): the screens and their cards are white, and
+ * the cream of the palette stays where a shade is needed, as `--color-inset`: the sidebar, a
+ * note inside a card, the track of the tabs, the shapes of a loading screen. The accents do
+ * not change. The panel's dark ground points these roles at its own values below.
+ */
+:root {
+  --color-bg: var(--color-white);
+  --color-surface: var(--color-white);
+  --color-inset: var(--color-neutral-100);
+  /* Between the canvas and the screens, so the sidebar reads as part of the frame. */
+  --color-sidebar: color-mix(in srgb, var(--color-neutral-100) 55%, var(--color-white));
+}
+
 /* ── type ─────────────────────────────────────────────────────────────── */
 
 body {
@@ -76,8 +92,49 @@ a,
   padding-inline: var(--pad-button-wide);
 }
 
+/*
+ * The shadcn touch (unit C5): a filled or outlined button stands a hairline off the ground
+ * with the small shadow, and an outlined one takes the lighter field fill, so it reads as
+ * something to press rather than a frame around words. Hover and pressed stay on the
+ * accent ramp.
+ */
+.btn-primary,
+.btn-secondary {
+  box-shadow: var(--shadow-sm);
+}
+.btn-secondary {
+  background: var(--color-field);
+  border-color: var(--color-hairline-strong);
+}
+.btn-secondary:hover {
+  background: var(--color-accent-100);
+  border-color: var(--color-accent-300);
+}
+.btn-secondary:active {
+  background: var(--color-accent-200);
+}
+.btn:disabled {
+  box-shadow: none;
+}
+
 .btn[aria-busy='true'] {
   cursor: progress;
+}
+/* The action is running: a small ring turns before the words (ADR-120, loading). */
+.btn[aria-busy='true']::before {
+  content: '';
+  flex: none;
+  inline-size: var(--control-spinner);
+  block-size: var(--control-spinner);
+  border: var(--control-spinner-stroke) solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin var(--duration-spinner) linear infinite;
+}
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* A link drawn as a button keeps its button's colours: the link colours would otherwise
@@ -107,10 +164,27 @@ a.btn-ghost:active {
 
 .tag {
   white-space: nowrap;
+  /* An edge one step deeper than the fill, as a badge has, inside the same outer size. */
+  padding: var(--pad-tag-edged);
+  border: var(--size-hairline) solid transparent;
+  font-weight: 500;
+}
+.tag-accent {
+  border-color: var(--color-accent-200);
+}
+.tag-accent-2 {
+  border-color: var(--color-accent-2-200);
+}
+.tag-neutral {
+  border-color: var(--color-neutral-300);
+}
+.tag-outline {
+  border-color: var(--color-accent);
 }
 .tag-critical {
   background: var(--color-accent-200);
   color: var(--color-accent-900);
+  border-color: var(--color-accent-300);
 }
 
 /* A tag that filters: a link, so it answers the pointer and the keyboard like one. */
@@ -151,6 +225,15 @@ a.btn-ghost:active {
   color: var(--color-accent-700);
 }
 
+/* A field is lighter than the card it sits on, with a hairline edge and the small shadow. */
+.input {
+  background: var(--color-field);
+  border-color: var(--color-hairline-strong);
+  box-shadow: var(--shadow-sm);
+}
+.input:hover {
+  border-color: var(--color-accent-300);
+}
 .input::placeholder {
   color: var(--color-neutral-500);
 }
@@ -271,9 +354,12 @@ a.btn-ghost:active {
 
 /* ── cards ────────────────────────────────────────────────────────────── */
 
-/* The sheet rounds cards to 1.15 of the large radius; the screens ask for 26 to 28px. */
+/* The sheet rounds cards to 1.15 of the large radius; the screens ask for 26 to 28px. A
+   hairline edge and the small shadow set a card off the ground (unit C5). */
 .card {
   border-radius: var(--radius-lg);
+  border: var(--size-hairline) solid var(--color-hairline);
+  box-shadow: var(--shadow-sm);
 }
 .card-title {
   margin: 0;
@@ -292,16 +378,19 @@ a.btn-ghost:active {
   overflow: hidden;
 }
 .card-tone-ground {
-  background: var(--color-bg);
+  background: var(--color-inset);
 }
 .card-tone-accent {
   background: var(--color-accent-100);
+  border-color: var(--color-accent-200);
 }
 .card-tone-accent-2 {
   background: var(--color-accent-2-100);
+  border-color: var(--color-accent-2-200);
 }
 .card-tone-attention {
   background: var(--color-accent-100);
+  border-color: var(--color-accent-200);
   color: var(--color-accent-700);
 }
 
@@ -310,8 +399,34 @@ a.btn-ghost:active {
 .table-scroll {
   overflow-x: auto;
 }
+/* Separate borders, so the head's band can round its ends like the controls around it. */
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
 .table th {
   text-align: start;
+  font-size: var(--text-small);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-neutral-600);
+  background: var(--color-header-band);
+  border-bottom-color: var(--color-hairline-strong);
+}
+.table th:first-child {
+  border-start-start-radius: var(--radius-inset-sm);
+}
+.table th:last-child {
+  border-start-end-radius: var(--radius-inset-sm);
+}
+.table td {
+  border-bottom-color: var(--color-hairline);
+}
+/* Figures line up down a column. */
+.table td .ltr,
+.table td .mono {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── dialog ───────────────────────────────────────────────────────────── */
@@ -337,6 +452,17 @@ dialog.dialog-backdrop::backdrop {
 .dialog-title {
   margin: 0;
 }
+/* A hairline edge, the page softened behind it, and the actions set apart (unit C5). */
+.dialog {
+  border: var(--size-hairline) solid var(--color-hairline);
+}
+.dialog-backdrop {
+  backdrop-filter: blur(var(--blur-backdrop));
+}
+.dialog-actions {
+  padding-block-start: var(--space-3);
+  border-block-start: var(--size-hairline) solid var(--color-hairline);
+}
 
 /* ── the administration panel's dark ground ───────────────────────────── */
 
@@ -348,6 +474,11 @@ dialog.dialog-backdrop::backdrop {
   --color-text: var(--color-neutral-100);
   --color-divider: var(--dark-field-border);
   --color-accent: var(--color-accent-400);
+  --color-inset: var(--color-neutral-900);
+  --color-hairline: var(--dark-divider);
+  --color-hairline-strong: var(--dark-field-border);
+  --color-header-band: color-mix(in srgb, var(--color-neutral-100) 4%, transparent);
+  --color-field: var(--dark-field);
   background: var(--color-bg);
   color: var(--color-text);
 }
@@ -407,6 +538,36 @@ dialog.dialog-backdrop::backdrop {
   background: var(--dark-critical);
   color: var(--dark-critical-text);
 }
+[data-theme='dark'] .tag-accent {
+  border-color: var(--color-accent-700);
+}
+[data-theme='dark'] .tag-accent-2 {
+  border-color: var(--color-accent-2-700);
+}
+[data-theme='dark'] .tag-neutral {
+  border-color: var(--dark-field-border);
+}
+[data-theme='dark'] .tag-critical {
+  border-color: var(--color-accent-800);
+}
+
+/* Shadows do not show on the dark ground; the hairline carries the edge alone. */
+[data-theme='dark'] .card,
+[data-theme='dark'] .btn-primary,
+[data-theme='dark'] .btn-secondary,
+[data-theme='dark'] .input {
+  box-shadow: none;
+}
+[data-theme='dark'] .btn-secondary:hover {
+  background: var(--color-accent-900);
+  border-color: var(--color-accent-700);
+}
+[data-theme='dark'] .btn-secondary:active {
+  background: var(--color-accent-800);
+}
+[data-theme='dark'] .input:hover {
+  border-color: var(--color-accent-700);
+}
 
 [data-theme='dark'] .check .box {
   background: var(--dark-field);
@@ -433,13 +594,22 @@ dialog.dialog-backdrop::backdrop {
   background: var(--dark-attention);
   color: var(--color-accent-300);
 }
+[data-theme='dark'] .card-tone-accent,
+[data-theme='dark'] .card-tone-attention {
+  border-color: var(--color-accent-800);
+}
+[data-theme='dark'] .card-tone-accent-2 {
+  border-color: var(--color-accent-2-800);
+}
 
 /* ── the frame ────────────────────────────────────────────────────────── */
 
 /* README, shared frame template: a rounded frame on the canvas, the sidebar on the start
    side, the content beside it. */
+/* The canvas around the frame: the palette's lightest cream, so the frame's own shadow draws
+   its edge and nothing around the white screens reads as a coloured background. */
 body {
-  background: var(--color-neutral-200);
+  background: var(--color-neutral-100);
 }
 
 .skip-link {
@@ -480,7 +650,8 @@ body {
 .frame-sidebar {
   flex: none;
   inline-size: var(--layout-sidebar);
-  background: var(--color-surface);
+  background: var(--color-sidebar);
+  border-inline-end: var(--size-hairline) solid var(--color-hairline);
 }
 
 .frame-sidebar-inner {
@@ -674,10 +845,16 @@ a.frame-brand:active {
 
 /* The screens inside a place, as the filter tags of screen 04: neutral, and the open one
    filled. */
+/* The tabs sit in a track, as a tab list does, with the open one raised in the accent. */
 .tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  align-self: flex-start;
+  gap: var(--space-1);
+  padding: var(--pad-tab-track);
+  border: var(--size-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-inset-lg);
+  background: var(--color-inset);
 }
 .tab {
   display: inline-flex;
@@ -686,7 +863,7 @@ a.frame-brand:active {
   padding: var(--space-1) var(--space-3);
   border-radius: 999px;
   font-size: var(--text-small);
-  background: var(--color-neutral-100);
+  background: transparent;
   color: var(--color-neutral-800);
   text-decoration: none;
   white-space: nowrap;
@@ -704,6 +881,7 @@ a.frame-brand:active {
 .tab[aria-current='true'] {
   background: var(--color-accent);
   color: var(--color-bg);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── progress ─────────────────────────────────────────────────────────── */
@@ -746,7 +924,7 @@ a.frame-brand:active {
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: var(--color-surface);
+  background: var(--color-inset);
   border-radius: var(--radius-card);
 }
 .skeleton-title {
@@ -813,7 +991,7 @@ a.frame-brand:active {
   background: linear-gradient(
     to left,
     transparent 0%,
-    color-mix(in srgb, var(--color-neutral-100) 60%, transparent) 50%,
+    color-mix(in srgb, var(--color-white) 80%, transparent) 50%,
     transparent 100%
   );
   transform: translateX(100%);
@@ -1210,7 +1388,7 @@ a.frame-brand:active {
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-inset);
-  background: var(--color-bg);
+  background: var(--color-inset);
   font-size: var(--text-body-sm);
 }
 .reason-weight {
@@ -1621,7 +1799,7 @@ a.frame-brand:active {
   margin: auto 0 0;
   padding: var(--pad-note);
   border-radius: var(--radius-inset-lg);
-  background: var(--color-bg);
+  background: var(--color-inset);
   font-size: var(--text-note);
   color: var(--color-neutral-700);
 }
@@ -1927,7 +2105,7 @@ a.frame-brand:active {
   gap: var(--gap-hairline);
   padding: var(--pad-offer);
   border-radius: var(--radius-inset);
-  background: var(--color-bg);
+  background: var(--color-inset);
 }
 .admin-offer-line {
   display: flex;
@@ -2160,7 +2338,7 @@ a.frame-brand:active {
   margin: 0;
   padding: var(--pad-offer);
   border-radius: var(--radius-inset);
-  background: var(--color-bg);
+  background: var(--color-inset);
   font-size: var(--text-heading-sm);
   user-select: all;
   word-break: break-all;
@@ -2366,8 +2544,9 @@ a.frame-brand:active {
   padding-block: var(--space-1);
   padding-inline: var(--space-1) var(--space-6);
   border-radius: 999px;
-  background: var(--color-neutral-100);
+  background: var(--color-white);
   color: var(--color-text);
+  border: var(--size-hairline) solid var(--color-hairline);
   box-shadow: var(--shadow-md);
   animation: data-loader-in var(--duration-color) ease-out var(--delay-loader) both;
 }

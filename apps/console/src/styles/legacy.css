@@ -24,7 +24,7 @@
   --ink-soft: var(--color-neutral-700);
   --ink-faint: var(--color-neutral-600);
   --paper: var(--color-surface);
-  --paper-soft: var(--color-bg);
+  --paper-soft: var(--color-inset);
   --paper-sunken: var(--color-neutral-200);
   --line: var(--color-divider);
   --line-strong: var(--color-neutral-500);
@@ -130,6 +130,8 @@ html {
 .card:not(.card-panel, .card-stat, .card-plain, .card-flush) {
   display: block;
   background: var(--color-surface);
+  border: var(--size-hairline) solid var(--color-hairline);
+  box-shadow: var(--shadow-sm);
   border-radius: var(--radius-lg);
   padding: var(--pad-section);
   color: inherit;
@@ -149,6 +151,8 @@ a.card:not(.card-panel, .card-stat, .card-plain, .card-flush):active {
 
 .panel {
   background: var(--color-surface);
+  border: var(--size-hairline) solid var(--color-hairline);
+  box-shadow: var(--shadow-sm);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
@@ -189,6 +193,8 @@ a.card:not(.card-panel, .card-stat, .card-plain, .card-flush):active {
   gap: var(--space-1);
   padding: var(--pad-stat);
   background: var(--color-surface);
+  border: var(--size-hairline) solid var(--color-hairline);
+  box-shadow: var(--shadow-sm);
   border-radius: var(--radius-card);
 }
 
@@ -520,6 +526,8 @@ button.link:active {
   gap: var(--gap-hairline);
   padding: var(--pad-stat);
   background: var(--color-surface);
+  border: var(--size-hairline) solid var(--color-hairline);
+  box-shadow: var(--shadow-sm);
   border-radius: var(--radius-card);
 }
 
@@ -557,7 +565,8 @@ button.link:active {
 
 .section-card {
   background: var(--color-surface);
-  border: 1px solid transparent;
+  border: var(--size-hairline) solid var(--color-hairline);
+  box-shadow: var(--shadow-sm);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }

@@ -379,6 +379,22 @@ textarea.input { min-height: 90px; resize: vertical; }
   --delay-pending: 120ms;
   --opacity-pending: 0.55;
 
+  /* The edges and small depth of a business interface (unit C5): hairlines a shade off the
+     ground, the lighter fill of fields and outlined buttons, the band over a table's head,
+     and the ring of a button whose action runs. Re-pointed on the panel's dark ground. */
+  --color-hairline: color-mix(in srgb, var(--color-text) 10%, transparent);
+  --color-hairline-strong: color-mix(in srgb, var(--color-text) 17%, transparent);
+  --color-header-band: color-mix(in srgb, var(--color-text) 3.5%, transparent);
+  --color-field: var(--color-white);
+  /* The owner's light ground (2026-09-14): white, the one colour added to the palette. */
+  --color-white: #ffffff;
+  --pad-tag-edged: 2px 9px;
+  --pad-tab-track: 4px;
+  --control-spinner: 13px;
+  --control-spinner-stroke: 2px;
+  --duration-spinner: 700ms;
+  --blur-backdrop: 3px;
+
   /* The product's faces. Caprasimo and Figtree carry no Arabic, so the README names
      these in their place, with the originals kept as the fallback. */
   --font-product-heading: "Baloo Bhaijaan 2", "Caprasimo", system-ui, sans-serif;
