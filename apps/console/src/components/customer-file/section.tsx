@@ -9,7 +9,6 @@ import {
 } from '@nx-verify/core';
 import type { FieldHistoryView } from '../field-card';
 import { dateAr, dayMonthAr, isoDate, shortMask } from '../format';
-import { Button } from '../ui/button';
 import { Field } from '../ui/field';
 import { Card, CardTitle } from '../ui/card';
 import type { IconName } from '../ui/icon';
@@ -18,6 +17,9 @@ import { Ltr } from '../ui/ltr';
 import { SubmitButton } from '../ui/submit-button';
 import { StateTag, type TagState } from '../ui/tag';
 import { Table, Th } from '../ui/table';
+import { FieldHistory } from './field-history';
+import { historyStretches } from './field-history-model';
+import { SectionLive, SectionVerifyForm, type SectionCheckAction } from './section-live';
 import { MATCH_SCORE_FIELDS, orderedFields, permissionsCountAr, renderValue } from './values';
 
 /**
@@ -35,6 +37,8 @@ export type Action = string | ((formData: FormData) => void | Promise<void>);
 export interface SectionContext {
   file: CustomerFile;
   action: Action;
+  /** A section's own verify, which stays on the page; without it the form leaves as before. */
+  sectionAction?: SectionCheckAction | undefined;
   bundle: string;
   managerBundles: Readonly<Record<string, string>>;
   refusals: Readonly<Record<string, string | null>>;
@@ -150,13 +154,8 @@ function SectionVerify({
   const look = verifyLook(section);
   const running = runnable.some((check) => context.running.has(check.productCode));
 
-  return (
-    <form
-      action={context.action}
-      className="file-section-form"
-      data-role="section-form"
-      id={banking ? bankFormId(file) : undefined}
-    >
+  const fields = (
+    <>
       <HiddenFields
         file={file}
         bundle={context.bundle}
@@ -171,7 +170,18 @@ function SectionVerify({
       >
         {look.label}
       </SubmitButton>
+    </>
+  );
+  const id = banking ? bankFormId(file) : undefined;
+
+  return context.sectionAction === undefined ? (
+    <form action={context.action} className="file-section-form" data-role="section-form" id={id}>
+      {fields}
     </form>
+  ) : (
+    <SectionVerifyForm action={context.sectionAction} id={id}>
+      {fields}
+    </SectionVerifyForm>
   );
 }
 
@@ -189,6 +199,21 @@ function Meta({ section }: { section: FileSection }): ReactElement | null {
   return <p className="file-section-source">{parts.join(' · ')}</p>;
 }
 
+/** The same value, compared as the attestation store compares it. */
+function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+/** A past value in words: as the page worded it, or as plain text when it did not. */
+function wordsOf(entry: FieldHistoryView): string {
+  if (entry.valueAr !== undefined) {
+    return entry.valueAr;
+  }
+  return typeof entry.value === 'string' || typeof entry.value === 'number'
+    ? String(entry.value)
+    : JSON.stringify(entry.value);
+}
+
 function FieldCell({
   field,
   section,
@@ -204,6 +229,10 @@ function FieldCell({
 }): ReactElement {
   // A list takes the whole row: two long activity names side by side do not fit one column.
   const wide = Array.isArray(field.value);
+  // The value this one replaced, when the last verification changed it.
+  const latest = history?.[0];
+  const previous =
+    latest !== undefined && !sameValue(latest.value, field.value) ? latest : undefined;
   const ownMeta = section.authority === null || field.authority !== section.authority;
   return (
     <div
@@ -211,6 +240,7 @@ function FieldCell({
       data-field={field.fieldPath}
       data-freshness={field.freshness}
       data-changed={field.changed ? 'yes' : 'no'}
+      data-observed={String(field.observedAt.getTime())}
     >
       <dt>{field.labelAr}</dt>
       <dd className={alert ? 'file-field-alert' : undefined}>
@@ -234,24 +264,30 @@ function FieldCell({
             <span data-role="observed-at">{isoDate(field.observedAt)}</span>
           </span>
         )}
+        {previous !== undefined ? (
+          <span className="file-field-was" data-role="previous-value">
+            كانت <s>{wordsOf(previous)}</s> حتى <Ltr>{isoDate(field.observedAt)}</Ltr>
+          </span>
+        ) : null}
         {history && history.length > 0 ? (
-          <details className="file-details" data-role="field-history">
-            <summary>القيم السابقة ({history.length})</summary>
-            <ul>
-              {history.map((entry, index) => (
-                <li
-                  key={`${entry.observedAt.toISOString()}-${index}`}
-                  data-changed={entry.changed ? 'yes' : 'no'}
-                >
-                  <Ltr>{isoDate(entry.observedAt)}</Ltr>{' '}
-                  {typeof entry.value === 'string' || typeof entry.value === 'number'
-                    ? String(entry.value)
-                    : JSON.stringify(entry.value)}
-                  {entry.changed ? ' · تغيّر هنا' : ''}
-                </li>
-              ))}
-            </ul>
-          </details>
+          <FieldHistory
+            label={field.labelAr}
+            current={renderValue(field)}
+            stretches={historyStretches(
+              {
+                value: field.value,
+                valueAr: '',
+                observedAt: isoDate(field.observedAt),
+                authority: field.authority,
+              },
+              history.map((entry) => ({
+                value: entry.value,
+                valueAr: wordsOf(entry),
+                observedAt: isoDate(entry.observedAt),
+                authority: entry.authority,
+              })),
+            )}
+          />
         ) : null}
       </dd>
     </div>
@@ -301,6 +337,34 @@ function LinkList({
         </span>
       ))}
     </>
+  );
+}
+
+/** One manager's own verify, which stays on the page like a section's does. */
+function ManagerVerify({
+  manager,
+  context,
+}: {
+  manager: ManagerView;
+  context: SectionContext;
+}): ReactElement {
+  const fields = (
+    <>
+      <HiddenFields
+        file={context.file}
+        bundle={context.managerBundles[manager.entityId] ?? context.bundle}
+        checks={['MANAGER_AUTHORITY']}
+        person={manager.entityId}
+      />
+      <SubmitButton variant="ghost" data-role="check-manager">
+        تحقق
+      </SubmitButton>
+    </>
+  );
+  return context.sectionAction === undefined ? (
+    <form action={context.action}>{fields}</form>
+  ) : (
+    <SectionVerifyForm action={context.sectionAction}>{fields}</SectionVerifyForm>
   );
 }
 
@@ -380,17 +444,7 @@ function ManagersTable({
                     <>
                       <StateTag state="PENDING">بانتظار التحقق</StateTag>
                       {canCheck && manager.maskedId !== null ? (
-                        <form action={context.action}>
-                          <HiddenFields
-                            file={file}
-                            bundle={context.managerBundles[manager.entityId] ?? context.bundle}
-                            checks={['MANAGER_AUTHORITY']}
-                            person={manager.entityId}
-                          />
-                          <Button type="submit" variant="ghost" data-role="check-manager">
-                            تحقق
-                          </Button>
-                        </form>
+                        <ManagerVerify manager={manager} context={context} />
                       ) : null}
                     </>
                   ) : (
@@ -634,37 +688,41 @@ export function SectionCard({
 
   return (
     <Card as="section" labelledBy={titleId} role="file-section">
-      <div
-        className="file-section"
-        data-section={section.section}
-        data-state={section.state}
-        data-requirement={section.requirement}
-        data-running={running ? 'yes' : undefined}
+      <SectionLive
+        titleAr={section.titleAr}
+        running={running}
+        attributes={{
+          'data-section': section.section,
+          'data-state': section.state,
+          'data-requirement': section.requirement,
+        }}
+        head={
+          <div className="file-section-head">
+            <span
+              className="file-section-number"
+              data-done={section.done ? 'yes' : 'no'}
+              aria-hidden="true"
+            >
+              <Ltr>{section.number}</Ltr>
+            </span>
+            <div className="file-section-title">
+              <CardTitle as="h2" id={titleId}>
+                {section.titleAr}
+                {section.requirement === 'OPTIONAL' ? (
+                  <span className="file-optional"> · اختياري</span>
+                ) : null}
+              </CardTitle>
+              <Meta section={section} />
+            </div>
+            <div className="file-section-actions">
+              <StateTag state={tag.state} role="section-state">
+                {tag.text}
+              </StateTag>
+              <SectionVerify section={section} context={context} />
+            </div>
+          </div>
+        }
       >
-        <div className="file-section-head">
-          <span
-            className="file-section-number"
-            data-done={section.done ? 'yes' : 'no'}
-            aria-hidden="true"
-          >
-            <Ltr>{section.number}</Ltr>
-          </span>
-          <div className="file-section-title">
-            <CardTitle as="h2" id={titleId}>
-              {section.titleAr}
-              {section.requirement === 'OPTIONAL' ? (
-                <span className="file-optional"> · اختياري</span>
-              ) : null}
-            </CardTitle>
-            <Meta section={section} />
-          </div>
-          <div className="file-section-actions">
-            <StateTag state={tag.state} role="section-state">
-              {tag.text}
-            </StateTag>
-            <SectionVerify section={section} context={context} />
-          </div>
-        </div>
         {empty ? (
           <p className="file-empty" data-role="section-empty">
             {emptyText(section, file)}
@@ -676,7 +734,7 @@ export function SectionCard({
         section.checks.some((check) => check.availability === 'AVAILABLE') ? (
           <IbanField file={file} />
         ) : null}
-      </div>
+      </SectionLive>
     </Card>
   );
 }

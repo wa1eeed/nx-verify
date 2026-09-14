@@ -24,7 +24,7 @@ import { SharePanel, type ShareRowView } from '../../../../components/share-pane
 import { fieldLabel, formatValue, type FieldHistoryView } from '../../../../components/field-card';
 import { TRIGGER_LABELS } from '../../../../components/verification-history';
 import { createShareAction, revokeShareAction } from './share-actions';
-import { openChecksAction, startChecksAction } from '../actions';
+import { openChecksAction, startChecksAction, startSectionChecksAction } from '../actions';
 import type { CheckResultView } from '../../../../components/check-results';
 
 /**
@@ -74,6 +74,7 @@ export default async function CustomerPage({
           .filter((entry) => !entry.current)
           .map((entry) => ({
             value: entry.value,
+            valueAr: valueLabelAr(field.fieldPath, entry.value) ?? formatValue(entry.value).text,
             authority: entry.authority,
             observedAt: entry.observedAt,
             changed: entry.changed,
@@ -196,6 +197,7 @@ export default async function CustomerPage({
   return (
     <CustomerFileScreen
       action={startChecksAction}
+      sectionAction={startSectionChecksAction}
       watch={openChecksAction}
       share={{
         open: issuedLink !== null,

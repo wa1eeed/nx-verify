@@ -14,6 +14,7 @@ import {
 } from './aside';
 import { FileHeader, IndicatorStrip } from './header';
 import { SectionCard, customerKindOf, type Action, type SectionContext } from './section';
+import type { SectionCheckAction } from './section-live';
 
 export type { TimelineEntry, TimelineField } from './aside';
 
@@ -60,11 +61,14 @@ const ERRORS: Readonly<Record<string, string>> = {
 export function CustomerFileScreen({
   view,
   action,
+  sectionAction,
   watch,
   share,
 }: {
   view: CustomerFileView;
   action: Action;
+  /** A section's own verify, which stays on the page (the owner's ask). */
+  sectionAction?: SectionCheckAction | undefined;
   /** Asks which of this customer's checks are still running, while some are. */
   watch?: ((entityId: string) => Promise<string[]>) | undefined;
   /** The share panel, drawn by the page, and whether its dialog opens on arrival. */
@@ -82,6 +86,7 @@ export function CustomerFileScreen({
   const context = (section: string): SectionContext => ({
     file,
     action,
+    sectionAction,
     bundle: view.bundles.sections[section] ?? view.bundles.refreshAll,
     managerBundles: view.bundles.managers,
     refusals: view.refusals,

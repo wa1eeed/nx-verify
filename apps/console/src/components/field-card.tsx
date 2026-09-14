@@ -33,6 +33,8 @@ export interface ProfileFieldView {
 
 export interface FieldHistoryView {
   value: unknown;
+  /** The value in words, as the field itself is written, when the page has worded it. */
+  valueAr?: string | undefined;
   authority: string | null;
   observedAt: Date;
   /** True when this value differed from the one before it. */

@@ -465,6 +465,8 @@ textarea.input { min-height: 90px; resize: vertical; }
   --control-graph-flow: 2.5px;
   --control-graph-halo: 4px;
   --layout-glance: 240px;
+  --duration-field-glow: 2.6s;
+  --layout-history: 300px;
   --text-graph-label: 11px;
   --duration-graph-sweep: 9s;
   --duration-graph-draw: 700ms;

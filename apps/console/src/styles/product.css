@@ -1277,6 +1277,217 @@ a.frame-brand:active {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
+.file-section-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/*
+ * A section verifying in place (the owner's ask): its body steps back under its own loader
+ * while the rest of the file stays as it is, and the fields the verification wrote glow for
+ * a moment when they arrive. The motion is the loading exception of ADR-120.
+ */
+.file-section-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.file-section-body > :not(.file-section-loading) {
+  transition: opacity var(--duration-color) ease-out;
+}
+.file-section-body[aria-busy='true'] {
+  min-block-size: calc(var(--control-loader-chart) * 2.4);
+  overflow: clip;
+  border-radius: var(--radius-inset);
+}
+.file-section-body[aria-busy='true'] > :not(.file-section-loading) {
+  opacity: 0.32;
+}
+.file-section-body[aria-busy='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to left,
+    transparent 0%,
+    color-mix(in srgb, var(--color-green-50) 90%, transparent) 50%,
+    transparent 100%
+  );
+  transform: translateX(100%);
+  animation: skeleton-sweep var(--duration-loader-sweep) ease-in-out infinite;
+  pointer-events: none;
+}
+.file-section-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.file-field[data-fresh='yes'] {
+  border-radius: var(--radius-inset-sm);
+  outline: var(--control-graph-focus) solid transparent;
+  outline-offset: var(--control-graph-ring);
+  animation: field-fresh var(--duration-field-glow) ease-out both;
+}
+@keyframes field-fresh {
+  0%,
+  35% {
+    background: var(--color-green-50);
+    outline-color: var(--color-green-200);
+  }
+  100% {
+    background: transparent;
+    outline-color: transparent;
+  }
+}
+
+/* The value a verification replaced, under the one that replaced it. */
+.file-field-was {
+  display: block;
+  margin-block-start: var(--gap-hairline);
+  font-size: var(--text-micro);
+  color: var(--color-gray-600);
+}
+.file-field-was s {
+  text-decoration-color: var(--color-amber-500);
+  color: var(--color-gray-700);
+}
+
+/* Every value a field has held, told in stretches, in a panel beside the field. */
+.file-history {
+  position: relative;
+  margin-block-start: var(--space-1);
+}
+/* Quiet for a value that never changed; amber for one that did, so the eye finds it. */
+.file-history-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--pad-tag-edged);
+  border: var(--size-hairline) solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-gray-500);
+  font: inherit;
+  font-size: var(--text-caption);
+  cursor: pointer;
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--duration-color);
+}
+.file-history-toggle[data-changed] {
+  border-color: var(--color-amber-200);
+  background: var(--color-amber-50);
+  color: var(--color-amber-800);
+}
+.file-history-toggle:hover,
+.file-history-toggle[aria-expanded='true'] {
+  background: var(--color-accent-100);
+  border-color: var(--color-accent-300);
+  color: var(--color-accent-700);
+}
+.file-history-toggle:active {
+  background: var(--color-accent-200);
+}
+.file-history-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.file-history-panel {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-start: 0;
+  z-index: 30;
+  display: grid;
+  gap: var(--space-2);
+  inline-size: var(--layout-history);
+  max-inline-size: calc(100vw - var(--space-8));
+  padding: var(--space-3);
+  border: var(--size-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-inset);
+  background: var(--color-white);
+  box-shadow: var(--shadow-lg);
+  animation: data-loader-in var(--duration-color) ease-out both;
+}
+.file-history-summary {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--color-gray-500);
+}
+.file-history-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.file-history-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--control-dot) minmax(0, 1fr);
+  column-gap: var(--space-2);
+  row-gap: var(--gap-hairline);
+  align-items: baseline;
+}
+/* The thread joining one stretch to the next. */
+.file-history-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: calc(var(--control-dot) / 2 - var(--size-hairline) / 2);
+  inset-block-start: calc(var(--space-1) + var(--control-dot));
+  inset-block-end: calc(-1 * var(--space-3));
+  inline-size: var(--size-hairline);
+  background: var(--color-hairline-strong);
+}
+.file-history-dot {
+  grid-row: 1 / span 2;
+  inline-size: var(--control-dot);
+  block-size: var(--control-dot);
+  margin-block-start: var(--space-1);
+  border-radius: 50%;
+  background: var(--color-gray-400);
+}
+.file-history-item[data-current='yes'] .file-history-dot {
+  background: var(--color-green-600);
+}
+.file-history-item[data-changed='yes'] .file-history-dot {
+  background: var(--color-amber-500);
+}
+.file-history-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-body-sm);
+  color: var(--color-text);
+}
+.file-history-item[data-changed='yes'] .file-history-value {
+  color: var(--color-gray-600);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-amber-400);
+}
+.file-history-now {
+  padding: var(--pad-tag-edged);
+  border: var(--size-hairline) solid var(--color-green-200);
+  border-radius: 999px;
+  background: var(--color-green-50);
+  color: var(--color-green-800);
+  font-size: var(--text-micro);
+  text-decoration: none;
+}
+.file-history-meta {
+  font-size: var(--text-micro);
+  color: var(--color-gray-500);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-section-body[aria-busy='true']::after {
+    display: none;
+  }
+}
 .file-iban-field {
   max-inline-size: var(--layout-iban-input);
 }

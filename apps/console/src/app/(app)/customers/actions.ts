@@ -1,6 +1,7 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
+import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import {
@@ -16,6 +17,7 @@ import {
 import { actingUser, query } from '../../../lib/context';
 import { getKeys } from '../../../lib/keys';
 import { checkDependenciesFor } from '../../../lib/verification';
+import type { SectionCheckState } from '../../../components/customer-file/section-live';
 
 /**
  * Verifying from a customer's file: the whole file, one section, or one manager.
@@ -34,11 +36,18 @@ function text(formData: FormData, name: string): string {
   return String(formData.get(name) ?? '').trim();
 }
 
-export async function startChecksAction(formData: FormData): Promise<void> {
+/** What starting a request from a file came to: its request, or why there is none. */
+interface Started {
+  entityId: string | null;
+  requestId: string | null;
+  error: 'checks' | 'iban' | 'failed' | null;
+}
+
+async function beginChecks(formData: FormData): Promise<Started> {
   const user = await actingUser();
   const entityIdRaw = text(formData, 'entity_id');
   if (!UUID.test(entityIdRaw)) {
-    redirect('/verifications/new');
+    return { entityId: null, requestId: null, error: 'failed' };
   }
   const entityId = entityIdRaw;
   const customerKind = text(formData, 'customer_kind');
@@ -57,14 +66,14 @@ export async function startChecksAction(formData: FormData): Promise<void> {
   const iban = text(formData, 'iban');
 
   if (checks.length === 0) {
-    redirect(`/customers/${entityId}?error=checks`);
+    return { entityId, requestId: null, error: 'checks' };
   }
   if (parseSubject(kind, { iban }).problem !== null) {
-    redirect(`/customers/${entityId}?error=iban`);
+    return { entityId, requestId: null, error: 'iban' };
   }
 
   let requestId: string | null = null;
-  let failed: string | null = null;
+  let failed: 'checks' | 'failed' | null = null;
   try {
     const created = await query((tx) =>
       createRequest(tx, getKeys(), {
@@ -82,7 +91,7 @@ export async function startChecksAction(formData: FormData): Promise<void> {
     failed = error instanceof NxError && error.code === 'NX-4002' ? 'checks' : 'failed';
   }
   if (requestId === null) {
-    redirect(`/customers/${entityId}?error=${failed ?? 'failed'}`);
+    return { entityId, requestId: null, error: failed ?? 'failed' };
   }
 
   const started = requestId;
@@ -103,7 +112,37 @@ export async function startChecksAction(formData: FormData): Promise<void> {
     }
   });
 
-  redirect(`/customers/${entityId}?request=${started}`);
+  return { entityId, requestId: started, error: null };
+}
+
+export async function startChecksAction(formData: FormData): Promise<void> {
+  const started = await beginChecks(formData);
+  if (started.entityId === null) {
+    redirect('/verifications/new');
+  }
+  if (started.requestId === null) {
+    redirect(`/customers/${started.entityId}?error=${started.error ?? 'failed'}`);
+  }
+  redirect(`/customers/${started.entityId}?request=${started.requestId}`);
+}
+
+/**
+ * A section's verify, in place: the same request, and the page stays where it is. The file is
+ * drawn again in the action's own answer, so the section learns its check is running without a
+ * second round trip, and shows its own loader meanwhile.
+ */
+export async function startSectionChecksAction(
+  _previous: SectionCheckState,
+  formData: FormData,
+): Promise<SectionCheckState> {
+  const started = await beginChecks(formData);
+  if (started.requestId === null) {
+    return { status: 'failed', error: started.error ?? 'failed', at: Date.now() };
+  }
+  if (started.entityId !== null) {
+    revalidatePath(`/customers/${started.entityId}`);
+  }
+  return { status: 'started', error: null, at: Date.now() };
 }
 
 /** The checks still queued or running for a customer, for the file that waits on them. */
