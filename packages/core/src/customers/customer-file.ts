@@ -462,7 +462,7 @@ const ID_SHORT_LABELS: Readonly<Record<string, string>> = {
   IQAMA: 'إقامة',
 };
 
-function primaryIdentifierOf(
+export function primaryIdentifierOf(
   identifiers: readonly { idType: string; masked: string; isPrimary: boolean }[],
 ): { labelAr: string; masked: string } | null {
   const preferred = ['CR', 'UNN', 'NATIONAL_ID', 'IQAMA']
@@ -569,59 +569,60 @@ async function maskedPrimary(
   return identifiers.find((identifier) => types.includes(identifier.idType))?.masked ?? null;
 }
 
-export async function getCustomerFile(
-  tx: TenantTransaction,
-  keys: TenantKeyProvider,
-  entityId: string,
-  options: { now?: Date } = {},
-): Promise<CustomerFile | null> {
-  const now = options.now ?? new Date();
-  const entity = await getEntity(tx, entityId);
-  if (!entity) {
-    return null;
-  }
+/** What deciding a file's sections, indicators and figures needs, however it was loaded. */
+export interface FileBasis {
+  entityType: EntityType;
+  profile: readonly ProfileField[];
+  /** Fields with a detected change nobody has acknowledged. */
+  changedPaths: ReadonlySet<string>;
+  /** The newest run of each check on this customer. */
+  lastRuns: ReadonlyMap<string, LastRun>;
+  managers: readonly {
+    name: string | null;
+    hasPermissions: boolean;
+    /** Other businesses the same person manages. */
+    otherCompanies: number;
+    permissionsCheckedAt: Date | null;
+    observedAt: Date | null;
+  }[];
+  /** Other entities holding the accounts this customer holds. */
+  accountsSharedWith: number;
+  /** Other entities registered at the same national address. */
+  addressSharedWith: number;
+  catalogue: readonly CheckDefinition[];
+  now: Date;
+}
 
-  const profile = await getEntityProfile(tx, entityId);
-  const identifiers = await listIdentifiers(tx, keys, entityId);
-  const catalogue = await listChecks(tx);
-  const kind = kindOf(entity.entityType, profile);
-  const isFreelancer = entity.entityType === 'FREELANCER';
+export interface FileStanding {
+  kind: CustomerKind | null;
+  isFreelancer: boolean;
+  offered: CheckDefinition[];
+  fields: FileField[];
+  facts: Map<string, FactView>;
+  sections: FileSection[];
+  assessment: Assessment;
+  completeness: number;
+  sectionsDone: number;
+  sectionsRequired: number;
+  managersChecked: number;
+}
+
+/**
+ * The sections of a file, their states, the indicators and the figures, from loaded facts.
+ *
+ * Pure, so the one customer file and the list of every customer decide the same things the
+ * same way: a row on the list and the file it opens never disagree about how complete it is
+ * or what its risk score is.
+ */
+export function fileStandingOf(basis: FileBasis): FileStanding {
+  const { profile, changedPaths, lastRuns, catalogue } = basis;
+  const kind = kindOf(basis.entityType, profile);
+  const isFreelancer = basis.entityType === 'FREELANCER';
   const offered = isFreelancer
     ? checksFor(catalogue, 'FREELANCER')
-    : entity.entityType === 'BUSINESS'
+    : basis.entityType === 'BUSINESS'
       ? checksFor(catalogue, kind ?? 'BUSINESS')
       : [];
-
-  const { rows: runRows } = await tx.query<{
-    product_code: string;
-    status: string;
-    reference: string | null;
-    created_at: Date;
-  }>(
-    `SELECT DISTINCT ON (product_code) product_code, status, reference, created_at
-     FROM verification_runs
-     WHERE tenant_id = $1 AND entity_id = $2
-     ORDER BY product_code, created_at DESC`,
-    [tx.tenantId, entityId],
-  );
-  const lastRuns = new Map(
-    runRows.map((row) => [
-      row.product_code,
-      {
-        productCode: row.product_code,
-        status: row.status,
-        reference: row.reference,
-        at: row.created_at,
-      },
-    ]),
-  );
-
-  const { rows: changeRows } = await tx.query<{ field_path: string }>(
-    `SELECT DISTINCT field_path FROM change_events
-     WHERE tenant_id = $1 AND entity_id = $2 AND acknowledged_at IS NULL`,
-    [tx.tenantId, entityId],
-  );
-  const changedPaths = new Set(changeRows.map((row) => row.field_path));
 
   const fields: FileField[] = profile
     .filter((field) => !isHiddenField(field.fieldPath))
@@ -641,7 +642,7 @@ export async function getCustomerFile(
   // related record opened on its own has the sections its facts fall in.
   const layout: readonly (readonly [ProfileSection, SectionRequirement])[] = isFreelancer
     ? LAYOUTS.FREELANCER
-    : entity.entityType === 'BUSINESS'
+    : basis.entityType === 'BUSINESS'
       ? LAYOUTS[kind ?? 'BUSINESS']
       : SECTION_ORDER.filter((section) =>
           fields.some((field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)] === section),
@@ -691,6 +692,131 @@ export async function getCustomerFile(
       authority: authorities.length === 1 ? (authorities[0] ?? null) : null,
     };
   });
+
+  const facts = new Map<string, FactView>(
+    profile.map((field) => [
+      field.fieldPath,
+      { value: field.value, freshness: field.freshness, observedAt: field.observedAt },
+    ]),
+  );
+  const assessmentInput = {
+    kind,
+    isFreelancer,
+    facts,
+    managers: basis.managers.map((manager) => ({
+      name: manager.name,
+      hasPermissions: manager.hasPermissions,
+      otherCompanies: manager.otherCompanies,
+    })),
+    accountsSharedWith: basis.accountsSharedWith,
+    addressSharedWith: basis.addressSharedWith,
+    openChanges: basis.changedPaths.size,
+    now: basis.now,
+  };
+  // The indicators decide which sections are in conflict, and the sections still missing
+  // weigh in the risk score, so the file is assessed once for the first and again with them.
+  const items = new Map(assessCustomer(assessmentInput).items.map((item) => [item.key, item]));
+  const managers = basis.managers;
+  const managersChecked = managers.filter((manager) => manager.hasPermissions).length;
+
+  const sections: FileSection[] = drafts.map((draft) => {
+    const { state, issueAr } = sectionStateOf(draft, {
+      items,
+      isFreelancer,
+      managers: managers.length,
+      managersChecked,
+      managersCheckedAt:
+        managers
+          .map((manager) => manager.permissionsCheckedAt)
+          .filter((at): at is Date => at !== null)
+          .sort((left, right) => right.getTime() - left.getTime())[0] ?? null,
+    });
+    const observedAt =
+      draft.section === 'MANAGERS'
+        ? (managers
+            .map((manager) => manager.permissionsCheckedAt ?? manager.observedAt)
+            .filter((at): at is Date => at !== null)
+            .sort((left, right) => right.getTime() - left.getTime())[0] ?? null)
+        : draft.observedAt;
+    return {
+      ...draft,
+      observedAt,
+      state,
+      issueAr,
+      done: DONE_STATES.has(state),
+    };
+  });
+
+  const required = sections.filter((section) => section.requirement === 'REQUIRED');
+  const sectionsDone = required.filter((section) => section.done).length;
+  const assessment = assessCustomer({
+    ...assessmentInput,
+    incompleteSections: required
+      .filter((section) => !section.done)
+      .map((section) => section.titleAr),
+  });
+
+  return {
+    kind,
+    isFreelancer,
+    offered,
+    fields,
+    facts,
+    sections,
+    assessment,
+    completeness: required.length === 0 ? 0 : Math.round((sectionsDone / required.length) * 100),
+    sectionsDone,
+    sectionsRequired: required.length,
+    managersChecked,
+  };
+}
+
+export async function getCustomerFile(
+  tx: TenantTransaction,
+  keys: TenantKeyProvider,
+  entityId: string,
+  options: { now?: Date } = {},
+): Promise<CustomerFile | null> {
+  const now = options.now ?? new Date();
+  const entity = await getEntity(tx, entityId);
+  if (!entity) {
+    return null;
+  }
+
+  const profile = await getEntityProfile(tx, entityId);
+  const identifiers = await listIdentifiers(tx, keys, entityId);
+  const catalogue = await listChecks(tx);
+
+  const { rows: runRows } = await tx.query<{
+    product_code: string;
+    status: string;
+    reference: string | null;
+    created_at: Date;
+  }>(
+    `SELECT DISTINCT ON (product_code) product_code, status, reference, created_at
+     FROM verification_runs
+     WHERE tenant_id = $1 AND entity_id = $2
+     ORDER BY product_code, created_at DESC`,
+    [tx.tenantId, entityId],
+  );
+  const lastRuns = new Map(
+    runRows.map((row) => [
+      row.product_code,
+      {
+        productCode: row.product_code,
+        status: row.status,
+        reference: row.reference,
+        at: row.created_at,
+      },
+    ]),
+  );
+
+  const { rows: changeRows } = await tx.query<{ field_path: string }>(
+    `SELECT DISTINCT field_path FROM change_events
+     WHERE tenant_id = $1 AND entity_id = $2 AND acknowledged_at IS NULL`,
+    [tx.tenantId, entityId],
+  );
+  const changedPaths = new Set(changeRows.map((row) => row.field_path));
 
   // The people and accounts around this customer, and the other customers they lead to.
   const relations = await relationsOf(tx, entityId);
@@ -878,67 +1004,24 @@ export async function getCustomerFile(
     });
   }
 
-  const facts = new Map<string, FactView>(
-    profile.map((field) => [
-      field.fieldPath,
-      { value: field.value, freshness: field.freshness, observedAt: field.observedAt },
-    ]),
-  );
-  const assessmentInput = {
-    kind,
-    isFreelancer,
-    facts,
+  const standing = fileStandingOf({
+    entityType: entity.entityType,
+    profile,
+    changedPaths,
+    lastRuns,
     managers: managers.map((manager) => ({
       name: manager.name,
       hasPermissions: manager.permissions !== null,
       otherCompanies: manager.alsoManages.length,
+      permissionsCheckedAt: manager.permissionsCheckedAt,
+      observedAt: manager.observedAt,
     })),
     accountsSharedWith: accounts.reduce((sum, account) => sum + account.sharedWith.length, 0),
     addressSharedWith: addressRows.length,
-    openChanges: changedPaths.size,
+    catalogue,
     now,
-  };
-  // The indicators decide which sections are in conflict, and the sections still missing
-  // weigh in the risk score, so the file is assessed once for the first and again with them.
-  const items = new Map(assessCustomer(assessmentInput).items.map((item) => [item.key, item]));
-  const managersChecked = managers.filter((manager) => manager.permissions !== null).length;
-
-  const sections: FileSection[] = drafts.map((draft) => {
-    const { state, issueAr } = sectionStateOf(draft, {
-      items,
-      isFreelancer,
-      managers: managers.length,
-      managersChecked,
-      managersCheckedAt:
-        managers
-          .map((manager) => manager.permissionsCheckedAt)
-          .filter((at): at is Date => at !== null)
-          .sort((left, right) => right.getTime() - left.getTime())[0] ?? null,
-    });
-    const observedAt =
-      draft.section === 'MANAGERS'
-        ? (managers
-            .map((manager) => manager.permissionsCheckedAt ?? manager.observedAt)
-            .filter((at): at is Date => at !== null)
-            .sort((left, right) => right.getTime() - left.getTime())[0] ?? null)
-        : draft.observedAt;
-    return {
-      ...draft,
-      observedAt,
-      state,
-      issueAr,
-      done: DONE_STATES.has(state),
-    };
   });
-
-  const required = sections.filter((section) => section.requirement === 'REQUIRED');
-  const sectionsDone = required.filter((section) => section.done).length;
-  const assessment = assessCustomer({
-    ...assessmentInput,
-    incompleteSections: required
-      .filter((section) => !section.done)
-      .map((section) => section.titleAr),
-  });
+  const { kind, isFreelancer, facts, sections, assessment, managersChecked } = standing;
 
   const statusCode = facts.get('cr.status_code')?.value;
   const statusText = facts.get('cr.status')?.value;
@@ -1008,9 +1091,9 @@ export async function getCustomerFile(
     intersections,
     lastVerifiedAt,
     nextReviewAt,
-    completeness: required.length === 0 ? 0 : Math.round((sectionsDone / required.length) * 100),
-    sectionsDone,
-    sectionsRequired: required.length,
+    completeness: standing.completeness,
+    sectionsDone: standing.sectionsDone,
+    sectionsRequired: standing.sectionsRequired,
     kyc: isFreelancer
       ? {
           verified: facts.get('freelance.ownership')?.value === 'VERIFIED' ? 1 : 0,
@@ -1028,6 +1111,6 @@ export async function getCustomerFile(
           lineAr: managersLine(managers.length, managersChecked),
         },
     openChanges: changedPaths.size,
-    checks: offered,
+    checks: standing.offered,
   };
 }

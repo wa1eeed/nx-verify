@@ -661,11 +661,14 @@ export {
   NAME_MATCH_THRESHOLD_PCT,
   SECTION_SOURCES,
   SECTION_TITLES,
+  fileStandingOf,
   getCustomerFile,
 } from './customers/customer-file.js';
 export type {
   AccountView,
   CustomerFile,
+  FileBasis,
+  FileStanding,
   FileField,
   FileSection,
   SectionRequirement,
@@ -721,4 +724,8 @@ export type {
 export { quoteChecks } from './customers/quote.js';
 export type { CheckQuote, ChecksQuote } from './customers/quote.js';
 export { countCustomers, listCustomers } from './customers/list.js';
+export { summarizeCustomers } from './customers/summaries.js';
+export { homeOverview, riyadhMonthStart } from './customers/home.js';
+export type { HomeOverview, HomeRun } from './customers/home.js';
+export type { CustomerSummary } from './customers/summaries.js';
 export type { CustomerCounts, CustomerFilter, CustomerRow } from './customers/list.js';

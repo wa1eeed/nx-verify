@@ -112,7 +112,7 @@ export async function listCustomers(
       byIdentifier,
       byIdentifier === null && search !== '' ? search : null,
       filter.kind ?? null,
-      Math.min(Math.max(filter.limit ?? 100, 1), 500),
+      Math.min(Math.max(filter.limit ?? 100, 1), 5_000),
     ],
   );
 

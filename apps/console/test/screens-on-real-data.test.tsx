@@ -203,8 +203,9 @@ describe('the console renders real data', () => {
     const queue = renderToStaticMarkup(await QueuePage());
     const portfolios = renderToStaticMarkup(await PortfoliosPage());
 
-    expect(dashboard).toContain('الرئيسية');
+    expect(dashboard).toMatch(/(صباح|مساء) الخير/);
     expect(dashboard).toContain('data-role="tiles"');
+    expect(dashboard).toContain('data-role="recent-runs"');
     expect(queue).toContain('المراجعات');
     expect(portfolios).toContain('المحافظ');
 

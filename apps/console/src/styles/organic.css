@@ -310,6 +310,15 @@ textarea.input { min-height: 90px; resize: vertical; }
   --text-note: 12.5px;
   --text-bar-title: 17px;
 
+  /* Screen 01, the subscriber's home. */
+  --text-package: 22px;
+  --text-card-title: 18px;
+  --tracking-label: 0.06em;
+  --gap-home-grid: 20px;
+  --gap-bars: 13px;
+  --layout-start-input: 260px;
+  --pad-note: 14px 16px;
+
   /* Controls the sheet does not size. */
   --size-hairline: 1px;
   --gap-hairline: 2px;

@@ -17,7 +17,6 @@ import { Timeline } from '../src/components/timeline';
 import RootLayout from '../src/app/layout';
 import AuthLayout from '../src/app/(auth)/layout';
 import { ReviewQueue, reasonLabel } from '../src/components/review-queue';
-import { Dashboard } from '../src/components/dashboard';
 import { Portfolios } from '../src/components/portfolios';
 import { RulesStudio, describeCondition } from '../src/components/rules-studio';
 import { NotificationSettings, eventLabel } from '../src/components/notification-settings';
@@ -396,49 +395,6 @@ describe('the phase two screens keep the same rules', () => {
     expect(reasonLabel('CR_NOT_ACTIVE')).toBe('السجل التجاري غير نشط');
     // An unknown code shows itself rather than disappearing.
     expect(reasonLabel('SOMETHING_NEW')).toBe('SOMETHING_NEW');
-  });
-
-  it('keeps aged out and changed apart on the dashboard', () => {
-    const html = renderToStaticMarkup(
-      <Dashboard
-        view={{
-          entities: 120,
-          entitiesWithExpired: 14,
-          fieldFreshness: { fresh: 300, expiring: 20, expired: 40, permanent: 5 },
-          openChanges: { critical: 2, warning: 6, info: 1 },
-          reviewQueue: { open: 9, overdue: 2, awaitingApproval: 1 },
-          wallet: { balance: 120_000, isLow: false },
-          monitors: { active: 4, budgetExhausted: 1 },
-        }}
-      />,
-    );
-
-    // The two states carry different words as well as different colours, because merging
-    // them would be the most misleading number on the page: data that has aged is not
-    // data that has changed.
-    expect(html).toContain('تحتاج إعادة تحقق');
-    expect(html).toContain('بيانات تغيّرت منذ آخر تحقق');
-    expect(html).toContain('data-role="freshness"');
-    expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
-  });
-
-  it('shows numbers left to right on the dashboard', () => {
-    const html = renderToStaticMarkup(
-      <Dashboard
-        view={{
-          entities: 120,
-          entitiesWithExpired: 0,
-          fieldFreshness: { fresh: 1, expiring: 0, expired: 0, permanent: 0 },
-          openChanges: { critical: 0, warning: 0, info: 0 },
-          reviewQueue: { open: 0, overdue: 0, awaitingApproval: 0 },
-          wallet: { balance: 4_400, isLow: true },
-          monitors: { active: 0, budgetExhausted: 0 },
-        }}
-      />,
-    );
-    expect(html).toContain('dir="ltr"');
-    expect(html).toContain('44.00');
-    expect(html).toContain('الرصيد منخفض');
   });
 
   it('shows what belonging to a portfolio costs and enforces', () => {

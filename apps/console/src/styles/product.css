@@ -1387,3 +1387,169 @@ a.frame-brand:active {
     flex-wrap: wrap;
   }
 }
+
+/* ── the subscriber's home (screen 01) ───────────────────────────────── */
+
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-content-gap);
+}
+.home-head {
+  align-items: flex-end;
+}
+
+.home-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--layout-grid-gap);
+}
+.home-stat-label,
+.home-stat-value,
+.home-stat-line,
+.home-package-value {
+  margin: 0;
+}
+.home-stat-label {
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-label);
+  color: var(--color-neutral-700);
+}
+.home-stat-value {
+  font-family: var(--font-product-heading);
+  font-weight: var(--font-product-heading-weight);
+  font-size: var(--text-stat-lg);
+  line-height: 1.2;
+}
+.home-stat-value[data-tone='attention'] {
+  color: var(--color-accent-700);
+}
+.home-stat-line {
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.home-stat-label[data-tone='fresh'],
+.home-stat-line[data-tone='fresh'] {
+  color: var(--color-accent-2-800);
+}
+.home-stat-line[data-tone='attention'] {
+  color: var(--color-accent-700);
+}
+.home-package-value {
+  margin-block-start: var(--space-1);
+  font-family: var(--font-product-heading);
+  font-weight: var(--font-product-heading-weight);
+  font-size: var(--text-package);
+  line-height: 1.3;
+}
+
+/* «ابدأ تحققاً جديداً»: the words, then the number and the button facing them. */
+.home-start {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-product-row);
+  padding: var(--pad-request-input);
+}
+.home-start-text {
+  flex: 1;
+  min-inline-size: 0;
+  display: grid;
+  gap: var(--gap-hairline);
+}
+.home-start-text .card-title {
+  font-size: var(--text-brand);
+}
+.home-start-line {
+  margin: 0;
+  font-size: var(--text-label);
+  color: var(--color-neutral-700);
+}
+.home-start-form {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-product-row);
+}
+.home-start-form .input {
+  inline-size: var(--layout-start-input);
+  max-inline-size: var(--layout-start-input);
+  background: var(--color-bg);
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: var(--gap-home-grid);
+  align-items: stretch;
+}
+.home-grid .card-title {
+  font-size: var(--text-card-title);
+}
+.home-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-end: var(--space-2);
+}
+.home-card-link {
+  font-size: var(--text-label);
+}
+.home-consumption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-grid-gap);
+  block-size: 100%;
+}
+.home-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-bars);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-bar-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-block-end: calc(var(--space-1) + var(--size-hairline));
+  font-size: var(--text-label);
+}
+.home-bar-count {
+  color: var(--color-neutral-700);
+}
+.home-note {
+  margin: auto 0 0;
+  padding: var(--pad-note);
+  border-radius: var(--radius-inset-lg);
+  background: var(--color-bg);
+  font-size: var(--text-note);
+  color: var(--color-neutral-700);
+}
+.home-empty {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  color: var(--color-neutral-600);
+}
+
+@media (max-width: 1100px) {
+  .home-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .home-start {
+    flex-wrap: wrap;
+  }
+  .home-start-form {
+    inline-size: 100%;
+  }
+  .home-start-form .input {
+    flex: 1;
+    inline-size: auto;
+    max-inline-size: none;
+  }
+}

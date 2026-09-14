@@ -12,6 +12,7 @@ import { Ltr } from '../ui/ltr';
 import { Segmented } from '../ui/segmented';
 import { Tag } from '../ui/tag';
 import { dayMonthAr, riyals, shortMask } from '../format';
+import { HANDOFF_KEY } from '../home/quick-start';
 import {
   KIND_OPTIONS,
   availableCountAr,
@@ -102,6 +103,28 @@ export function NewRequestScreen({
     setProblem(null);
   };
 
+  // A number handed over from the home screen's «ابدأ تحققاً جديداً», read once and cleared.
+  // A number of ten digits starting 1 or 2 may be a registration or an ID: if no business
+  // is on file under it, the screen asks again as a freelancer.
+  const handedOver = useRef<string | null>(null);
+  useEffect(() => {
+    if (draft !== null) {
+      return;
+    }
+    try {
+      const handed = window.sessionStorage.getItem(HANDOFF_KEY);
+      window.sessionStorage.removeItem(HANDOFF_KEY);
+      if (handed !== null && handed.trim() !== '') {
+        handedOver.current = handed.trim();
+        setNumber(handed.trim());
+        setSearching(true);
+      }
+    } catch {
+      // Storage refused: the screen opens empty.
+    }
+    // Once, when the screen opens.
+  }, []);
+
   // Who the typed number belongs to, asked once typing pauses. A later answer wins over an
   // earlier one that arrives late.
   useEffect(() => {
@@ -121,6 +144,32 @@ export function NewRequestScreen({
         .lookup(kind, typed)
         .then((found) => {
           if (sequence !== lookupSequence.current) {
+            return;
+          }
+          if (
+            handedOver.current === typed &&
+            found.status !== 'FOUND' &&
+            kindRef.current !== 'FREELANCER' &&
+            /^[12][0-9]{9}$/.test(typed)
+          ) {
+            handedOver.current = null;
+            void actions
+              .lookup('FREELANCER', typed)
+              .then((person) => {
+                if (sequence !== lookupSequence.current) {
+                  return;
+                }
+                if (person.status === 'FOUND') {
+                  changeKind('FREELANCER');
+                } else {
+                  setSearching(false);
+                  setLookup(found);
+                }
+              })
+              .catch(() => {
+                setSearching(false);
+                setLookup(found);
+              });
             return;
           }
           setSearching(false);

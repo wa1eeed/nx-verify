@@ -31,6 +31,8 @@ export interface RunLogFilter {
   status?: string | null;
   decision?: string | null;
   triggeredBy?: string | null;
+  /** Only runs from this moment on: a month's report. */
+  since?: Date | null;
   limit?: number;
 }
 
@@ -64,6 +66,7 @@ export async function listRecentRuns(
        AND ($3::text IS NULL OR r.status = $3)
        AND ($4::text IS NULL OR r.decision = $4)
        AND ($5::text IS NULL OR r.triggered_by = $5)
+       AND ($7::timestamptz IS NULL OR r.created_at >= $7)
      ORDER BY r.created_at DESC
      LIMIT $6`,
     [
@@ -72,7 +75,8 @@ export async function listRecentRuns(
       filter.status ?? null,
       filter.decision ?? null,
       filter.triggeredBy ?? null,
-      Math.min(Math.max(filter.limit ?? 100, 1), 500),
+      Math.min(Math.max(filter.limit ?? 100, 1), 5_000),
+      filter.since ?? null,
     ],
   );
 

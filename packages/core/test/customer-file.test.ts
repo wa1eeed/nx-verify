@@ -5,6 +5,7 @@ import { runChecks, type RunChecksDependencies } from '../src/customers/checks.j
 import { SECTION_TITLES, getCustomerFile } from '../src/customers/customer-file.js';
 import { riskLevelFor } from '../src/customers/indicators.js';
 import { countCustomers, listCustomers } from '../src/customers/list.js';
+import { summarizeCustomers } from '../src/customers/summaries.js';
 import {
   createTestDatabase,
   seedTenant,
@@ -420,5 +421,36 @@ describe('the customer file', () => {
     const progressing = await fileOf(tenant.tenantId, establishment);
     expect(progressing?.assessment.standing).toBe('IN_PROGRESS');
     expect(progressing?.assessment.standingAr).toBe('قيد الإكمال');
+  });
+
+  it('summarises every customer at once exactly as the file of each says', async () => {
+    const now = new Date('2026-09-14T09:00:00Z');
+    const summaries = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      summarizeCustomers(tx, keys, {}, { now }),
+    );
+    expect(summaries.length).toBeGreaterThanOrEqual(4);
+
+    for (const summary of summaries) {
+      const file = await fileOf(tenant.tenantId, summary.entityId);
+      expect(summary, summary.displayName ?? summary.entityId).toMatchObject({
+        kind: file?.kind ?? null,
+        completeness: file?.completeness,
+        sectionsDone: file?.sectionsDone,
+        sectionsRequired: file?.sectionsRequired,
+        standing: file?.assessment.standing,
+        riskLevel: file?.assessment.riskLevel,
+        riskScore: file?.assessment.riskScore,
+        conflicts: file?.sections.filter((section) => section.state === 'CONFLICT').length,
+        openChanges: file?.openChanges,
+        identifier: file?.primaryIdentifier ?? null,
+      });
+    }
+
+    // Another subscriber's summary holds none of these customers.
+    const elsewhere = await withTenant(db.appPool, other.tenantId, (tx) =>
+      summarizeCustomers(tx, keys),
+    );
+    const ours = new Set(summaries.map((summary) => summary.entityId));
+    expect(elsewhere.some((summary) => ours.has(summary.entityId))).toBe(false);
   });
 });
