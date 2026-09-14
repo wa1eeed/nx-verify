@@ -30,6 +30,7 @@ import {
   listKeyVersions,
 } from '../../../packages/core/src/crypto/key-versions.js';
 import { canRetireKeyVersion, rotateIdentifierKeys } from '../src/jobs/key-rotation.js';
+import { createRequest, getRequest } from '../../../packages/core/src/customers/requests.js';
 import { scanForPlaintext } from '../../../test/helpers/plaintext-scan.js';
 
 /**
@@ -44,6 +45,8 @@ const V1 = Buffer.alloc(32, 7);
 const V2 = Buffer.alloc(32, 9);
 const NATIONAL_ID = '1098765432';
 const CR = '1010478213';
+const DRAFT_UNN = '7009876543';
+const DRAFT_IBAN = 'SA0380000000608010167519';
 
 const oldKeys = new DerivedTenantKeyProvider(new StaticMasterKeySource(new Map([[1, V1]])));
 const bothKeys = new DerivedTenantKeyProvider(
@@ -60,6 +63,7 @@ describe('key rotation', () => {
   let tenant: SeededTenant;
   let entityId = '';
   let evidenceId = '';
+  let draftId = '';
   const fixture = providerFixture();
 
   beforeAll(async () => {
@@ -106,6 +110,19 @@ describe('key rotation', () => {
       });
     });
     evidenceId = sealed.evidenceId;
+
+    // A draft typed before the rotation, holding a new customer's number and an IBAN.
+    const draft = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      createRequest(tx, oldKeys, {
+        kind: 'COMPANY',
+        subject: { number: DRAFT_UNN, iban: DRAFT_IBAN },
+        productCodes: ['CR_FULL'],
+        bundleKey: 'rotation-draft-0001',
+        requestedBy: null,
+        draft: true,
+      }),
+    );
+    draftId = draft.requestId;
   });
 
   afterAll(async () => {
@@ -177,6 +194,30 @@ describe('key rotation', () => {
     expect(rows.map((row) => row.key_version)).toEqual([2]);
   });
 
+  it('moves a waiting draft onto the new key, and it still reads', async () => {
+    const { rows } = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      tx.query<{ key_version: number }>(
+        `SELECT key_version FROM verification_requests WHERE tenant_id = $1 AND id = $2`,
+        [tx.tenantId, draftId],
+      ),
+    );
+    expect(rows[0]?.key_version).toBe(2);
+
+    // Readable with version 2 alone, which is what retiring version 1 depends on.
+    const newKeysOnly = new DerivedTenantKeyProvider(new StaticMasterKeySource(new Map([[2, V2]])));
+    const view = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getRequest(tx, newKeysOnly, draftId),
+    );
+    expect(view?.subjectMasked).toBe('••••••6543');
+    expect(view?.ibanMasked?.endsWith('7519')).toBe(true);
+    for (const value of [DRAFT_UNN, DRAFT_IBAN]) {
+      const hits = await withTenant(db.migratorPool, tenant.tenantId, (tx) =>
+        scanForPlaintext(tx, value),
+      );
+      expect(hits, value).toEqual([]);
+    }
+  });
+
   it('finds the same entity by the same identifier after rotation', async () => {
     const byCr = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       findEntityIdByIdentifier(tx, bothKeys, 'CR', CR),
@@ -242,6 +283,7 @@ describe('key rotation', () => {
     const check = await withTenant(db.appPool, tenant.tenantId, (tx) => canRetireKeyVersion(tx, 1));
 
     expect(check.identifiersRemaining).toBe(0);
+    expect(check.requestsRemaining).toBe(0);
     expect(check.evidenceSealed).toBeGreaterThan(0);
     // Discarding it would silently turn an audit document into one nobody can check.
     expect(check.safeToRetire).toBe(false);

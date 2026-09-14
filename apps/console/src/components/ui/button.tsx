@@ -25,17 +25,24 @@ interface ButtonLook {
   iconEnd?: IconName | undefined;
   /** Full width, as «شراء رصيد» under the balance. */
   block?: boolean | undefined;
+  /** The wider padding of a bar's closing action, «تحقق من الكل» (README, screen 02). */
+  wide?: boolean | undefined;
   children: ReactNode;
 }
 
 export function buttonClass(
   variant: ButtonVariant,
-  options: { block?: boolean | undefined; iconOnly?: boolean | undefined } = {},
+  options: {
+    block?: boolean | undefined;
+    wide?: boolean | undefined;
+    iconOnly?: boolean | undefined;
+  } = {},
 ): string {
   return classes(
     'btn',
     `btn-${variant}`,
     options.block === true && 'btn-block',
+    options.wide === true && 'btn-wide',
     options.iconOnly === true && 'btn-icon',
   );
 }
@@ -65,6 +72,7 @@ export function Button({
   icon,
   iconEnd,
   block,
+  wide,
   pending = false,
   type = 'button',
   disabled,
@@ -75,7 +83,7 @@ export function Button({
     <button
       {...rest}
       type={type}
-      className={buttonClass(variant, { block })}
+      className={buttonClass(variant, { block, wide })}
       disabled={disabled === true || pending}
       aria-busy={pending ? true : undefined}
     >

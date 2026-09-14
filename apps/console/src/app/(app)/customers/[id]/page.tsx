@@ -5,24 +5,27 @@ import {
   fieldGroup,
   getCustomerFile,
   getFieldHistory,
+  getPreferences,
+  getRequest,
   getVerificationHistory,
   listChecks,
   listEntityRuns,
   listProducts,
   listShares,
+  openChecksFor,
   quoteChecks,
   valueLabelAr,
   type FieldGroup,
 } from '@nx-verify/core';
 import { getKeys } from '../../../../lib/keys';
 import { query } from '../../../../lib/context';
-import { readStoredResult } from '../../../../lib/check-result';
 import { CustomerFileScreen, type TimelineEntry } from '../../../../components/customer-file';
 import { SharePanel, type ShareRowView } from '../../../../components/share-panel';
 import { fieldLabel, formatValue, type FieldHistoryView } from '../../../../components/field-card';
 import { TRIGGER_LABELS } from '../../../../components/verification-history';
 import { createShareAction, revokeShareAction } from './share-actions';
-import { startChecksAction } from '../actions';
+import { openChecksAction, startChecksAction } from '../actions';
+import type { CheckResultView } from '../../../../components/check-results';
 
 /**
  * Never prerendered and never cached.
@@ -86,15 +89,48 @@ export default async function CustomerPage({
     const products = await listProducts(tx);
     const shares = await listShares(tx, id);
     const catalogue = await listChecks(tx);
-    return { file, histories, quote, verifications, runs, products, shares, catalogue };
+    const running = await openChecksFor(tx, id);
+    const preferences = await getPreferences(tx);
+    const requestId = typeof query_['request'] === 'string' ? query_['request'] : '';
+    const request = UUID.test(requestId) ? await getRequest(tx, getKeys(), requestId) : null;
+    return {
+      file,
+      histories,
+      quote,
+      verifications,
+      runs,
+      products,
+      shares,
+      catalogue,
+      running,
+      preferences,
+      // Only a request about this customer is reported on this customer's file.
+      request: request?.entityId === id ? request : null,
+    };
   });
 
   if (!data) {
     notFound();
   }
 
-  const ran = typeof query_['ran'] === 'string' ? query_['ran'] : null;
-  const stored = await readStoredResult(ran);
+  // What the request pressed on this file ended in, once every check in it has settled.
+  const results: CheckResultView[] | null =
+    data.request === null || data.request.open
+      ? null
+      : data.request.checks.map((check) => ({
+          productCode: check.productCode,
+          nameAr:
+            data.catalogue.find((entry) => entry.productCode === check.productCode)?.nameAr ??
+            check.productCode,
+          status:
+            check.status === 'SKIPPED'
+              ? 'SKIPPED'
+              : check.outcome === null || check.outcome === 'SKIPPED'
+                ? 'ERROR'
+                : check.outcome,
+          noteAr: check.noteAr,
+          reference: check.reference,
+        }));
   const nameOf = new Map(data.products.map((product) => [product.code, product.nameAr]));
   const fieldsOf = new Map(data.verifications.map((run) => [run.runId, run.fields]));
 
@@ -160,6 +196,7 @@ export default async function CustomerPage({
   return (
     <CustomerFileScreen
       action={startChecksAction}
+      watch={openChecksAction}
       share={{
         open: issuedLink !== null,
         panel: (
@@ -192,14 +229,9 @@ export default async function CustomerPage({
           data.quote.lines.map((line) => [line.productCode, line.allowed ? null : line.refusalAr]),
         ),
         fromPackage: data.quote.capacityRemaining !== null && data.quote.capacityRemaining > 0,
-        results: stored
-          ? stored.outcomes.map((outcome) => ({
-              ...outcome,
-              nameAr:
-                data.catalogue.find((check) => check.productCode === outcome.productCode)?.nameAr ??
-                outcome.productCode,
-            }))
-          : null,
+        showPrices: data.preferences.showPrices,
+        results,
+        running: data.running,
         error: typeof query_['error'] === 'string' ? query_['error'] : null,
         histories: data.histories,
         timeline,

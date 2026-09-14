@@ -39,6 +39,13 @@ export interface SectionContext {
   managerBundles: Readonly<Record<string, string>>;
   refusals: Readonly<Record<string, string | null>>;
   histories: Readonly<Record<string, FieldHistoryView[]>>;
+  /** Checks queued or running for this customer: their sections say so and wait. */
+  running: ReadonlySet<string>;
+}
+
+/** The kind a request for this file is made as. A business not read yet is offered a company's checks. */
+export function customerKindOf(file: CustomerFile): 'COMPANY' | 'ESTABLISHMENT' | 'FREELANCER' {
+  return file.entityType === 'FREELANCER' ? 'FREELANCER' : (file.kind ?? 'COMPANY');
 }
 
 function stateTagOf(section: FileSection): { state: TagState; text: string } {
@@ -106,6 +113,7 @@ function HiddenFields({
         name="kind"
         value={file.entityType === 'FREELANCER' ? 'FREELANCER' : 'BUSINESS'}
       />
+      <input type="hidden" name="customer_kind" value={customerKindOf(file)} />
       <input type="hidden" name="bundle" value={bundle} />
       {checks.map((code) => (
         <input key={code} type="hidden" name="checks" value={code} />
@@ -128,9 +136,7 @@ function SectionVerify({
   context: SectionContext;
 }): ReactElement | null {
   const { file } = context;
-  const runnable = section.checks.filter(
-    (check) => check.availability === 'AVAILABLE' && check.productCode !== 'IBAN_BENEFICIARY_NAME',
-  );
+  const runnable = section.checks.filter((check) => check.availability === 'AVAILABLE');
   if (section.state === 'NOT_APPLICABLE' || runnable.length === 0) {
     return null;
   }
@@ -142,6 +148,7 @@ function SectionVerify({
     runnable.map((check) => context.refusals[check.productCode] ?? null).find(Boolean) ?? null;
   const banking = section.section === 'BANKING';
   const look = verifyLook(section);
+  const running = runnable.some((check) => context.running.has(check.productCode));
 
   return (
     <form
@@ -158,7 +165,7 @@ function SectionVerify({
       <SubmitButton
         variant={look.variant}
         icon={look.icon}
-        disabled={refusal !== null}
+        disabled={refusal !== null || running}
         title={refusal ?? undefined}
         data-role="check-section"
       >
@@ -307,7 +314,9 @@ function ManagersTable({
   const { file } = context;
   const canCheck =
     file.checks.find((check) => check.productCode === 'MANAGER_AUTHORITY')?.availability ===
-      'AVAILABLE' && (context.refusals['MANAGER_AUTHORITY'] ?? null) === null;
+      'AVAILABLE' &&
+    (context.refusals['MANAGER_AUTHORITY'] ?? null) === null &&
+    !context.running.has('MANAGER_AUTHORITY');
 
   return (
     <Table label="المدراء المفوضون">
@@ -579,7 +588,11 @@ export function SectionCard({
   context: SectionContext;
 }): ReactElement {
   const { file } = context;
-  const tag = stateTagOf(section);
+  const running = section.checks.some((check) => context.running.has(check.productCode));
+  // A section being checked says so, whatever it said before (README, screen 02 and 03).
+  const tag = running
+    ? { state: 'PROCESSING' as const, text: 'قيد المعالجة' }
+    : stateTagOf(section);
   const shared = file.intersections.find((link) => link.kind === 'SHARED_ADDRESS');
   const titleId = `section-${section.section}-title`;
 
@@ -626,6 +639,7 @@ export function SectionCard({
         data-section={section.section}
         data-state={section.state}
         data-requirement={section.requirement}
+        data-running={running ? 'yes' : undefined}
       >
         <div className="file-section-head">
           <span

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 import type { IconName } from '../ui/icon';
@@ -50,4 +51,49 @@ export function DialogButton({
       </Dialog>
     </>
   );
+}
+
+const WATCH_MS = 2000;
+
+/**
+ * Keeps a file current while its checks run in the background.
+ *
+ * Asks which of the customer's checks are still queued or running, and redraws the file the
+ * moment that changes, so a section fills as soon as its own check settles rather than when
+ * the last one does (README, interactions). Draws nothing, and stops when nothing is running.
+ */
+export function FileWatcher({
+  entityId,
+  running,
+  watch,
+}: {
+  entityId: string;
+  running: readonly string[];
+  watch: (entityId: string) => Promise<string[]>;
+}): null {
+  const router = useRouter();
+  const key = [...running].sort().join(',');
+
+  useEffect(() => {
+    if (key === '') {
+      return undefined;
+    }
+    let stopped = false;
+    const timer = setInterval(() => {
+      watch(entityId)
+        .then((now) => {
+          if (!stopped && [...now].sort().join(',') !== key) {
+            stopped = true;
+            router.refresh();
+          }
+        })
+        .catch(() => undefined);
+    }, WATCH_MS);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [entityId, key, router, watch]);
+
+  return null;
 }

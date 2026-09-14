@@ -297,6 +297,19 @@ textarea.input { min-height: 90px; resize: vertical; }
   --gap-fields: 14px 18px;
   --layout-iban-input: 240px;
 
+  /* Screen 02, the verification request. */
+  --pad-request-input: 24px 26px;
+  --pad-request-bar: 20px 26px;
+  --gap-request-input: 20px;
+  --gap-request-bar: 24px;
+  --gap-product-row: 18px;
+  --layout-lookup-note: 240px;
+  --layout-price: 72px;
+  --pad-button-wide: 26px;
+  --text-product: 15px;
+  --text-note: 12.5px;
+  --text-bar-title: 17px;
+
   /* Controls the sheet does not size. */
   --size-hairline: 1px;
   --gap-hairline: 2px;

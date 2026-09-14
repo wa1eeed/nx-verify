@@ -23,6 +23,8 @@ const OBSERVED = new Date('2026-09-12T11:08:00Z');
 const check = (productCode: string, nameAr: string, section: ProfileSection): CheckDefinition => ({
   productCode,
   nameAr,
+  nameEn: productCode,
+  summaryAr: null,
   section,
   appliesTo: ['COMPANY'],
   order: 1,
@@ -66,7 +68,7 @@ const section = (overrides: Partial<FileSection> & Pick<FileSection, 'section'>)
 
 const CR = check('CR_FULL', 'السجل التجاري', 'REGISTRY');
 const ADDRESS = check('NATIONAL_ADDRESS', 'العنوان الوطني', 'ADDRESS');
-const IBAN = check('IBAN_VERIFICATION', 'التحقق من الآيبان', 'BANKING');
+const IBAN = check('IBAN_VERIFICATION', 'الآيبان والحساب البنكي', 'BANKING');
 
 function fileWith(sections: FileSection[]): CustomerFile {
   return {
@@ -142,14 +144,20 @@ const run = (index: number, triggeredBy: string): TimelineEntry => ({
   fields: [],
 });
 
-function render(file: CustomerFile, timeline: TimelineEntry[] = []): string {
+function render(
+  file: CustomerFile,
+  timeline: TimelineEntry[] = [],
+  running: readonly string[] = [],
+): string {
   const view: CustomerFileView = {
     file,
     bundles: { refreshAll: 'bundle-all', sections: {}, managers: {} },
     prices: { CR_FULL: 2000, NATIONAL_ADDRESS: 600, IBAN_VERIFICATION: 2000 },
     refusals: {},
     fromPackage: false,
+    showPrices: true,
     results: null,
+    running,
     error: null,
     histories: {},
     timeline,
@@ -286,6 +294,17 @@ describe('the customer file of screen 03', () => {
     const address = /data-section="ADDRESS"[\s\S]*?<\/section>/.exec(freelancer)?.[0] ?? '';
     expect(address).toContain('غير متاح لهذا النوع');
     expect(address).not.toContain('data-role="check-section"');
+  });
+
+  it('marks a section being checked in the background, and holds its button until it settles', () => {
+    const busy = render(fileWith(sections), [], ['NATIONAL_ADDRESS']);
+    const address = /data-section="ADDRESS"[\s\S]*?<\/section>/.exec(busy)?.[0] ?? '';
+    expect(address).toContain('data-running="yes"');
+    expect(address).toContain('data-role="section-state">قيد المعالجة</span>');
+    const button = /<button[^>]*data-role="check-section"[^>]*>/.exec(address)?.[0] ?? '';
+    expect(button).toContain('disabled=""');
+    const registry = /data-section="REGISTRY"[\s\S]*?<\/section>/.exec(busy)?.[0] ?? '';
+    expect(registry).not.toContain('قيد المعالجة');
   });
 
   it('says what started each verification, and folds the older ones away', () => {

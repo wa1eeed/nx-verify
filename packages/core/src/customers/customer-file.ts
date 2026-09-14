@@ -49,6 +49,23 @@ export const SECTION_TITLES: Readonly<Record<ProfileSection, string>> = {
   PROPERTY: 'العقارات',
 };
 
+/**
+ * The line under each section's title that says which check fills it, as screen 03 words it.
+ *
+ * Written per section rather than composed from product names: the approved lines are
+ * sentences («مصدرها تحقق المدراء المفوضين», «مصدرها تحقق الآيبان والحساب»), and gluing
+ * names together reads as a list of products rather than as Arabic.
+ */
+export const SECTION_SOURCES: Readonly<Record<ProfileSection, string>> = {
+  REGISTRY: 'مصدرها تحقق السجل التجاري',
+  CONTRACT: 'مصدرها تحقق عقد التأسيس',
+  MANAGERS: 'مصدرها تحقق المدراء المفوضين',
+  ADDRESS: 'مصدرها تحقق العنوان الوطني',
+  BANKING: 'مصدرها تحقق الآيبان والحساب',
+  FREELANCE: 'مصدرها تحقق شهادة الفريلانسر',
+  PROPERTY: 'مصدرها تحقق العقار',
+};
+
 export type SectionRequirement = 'REQUIRED' | 'OPTIONAL' | 'NOT_APPLICABLE';
 
 /**
@@ -661,10 +678,8 @@ export async function getCustomerFile(
       sourceAr:
         requirement === 'NOT_APPLICABLE' || sectionChecks.length === 0
           ? null
-          : `مصدرها تحقق ${sectionChecks
-              .filter((check) => check.productCode !== 'IBAN_BENEFICIARY_NAME')
-              .map((check) => check.nameAr)
-              .join(' و')}`,
+          : // A freelancer's basic data is filled by the certificate check.
+            SECTION_SOURCES[isFreelancer && section === 'REGISTRY' ? 'FREELANCE' : section],
       checks: sectionChecks,
       fields: sectionFields,
       lastRun,

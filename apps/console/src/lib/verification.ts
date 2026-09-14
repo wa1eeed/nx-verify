@@ -1,5 +1,4 @@
 import { isSandbox, resolveProviders, type RunChecksDependencies } from '@nx-verify/core';
-import type { TenantTransaction } from '@nx-verify/db';
 import {
   createProviderStepRunner,
   registryFor,
@@ -7,8 +6,9 @@ import {
   secretStoreFromEnv,
   type ProviderRegistry,
 } from '@nx-verify/providers';
+import { withTenant, type TenantTransaction } from '@nx-verify/db';
 import { getKeys } from './keys';
-import { query } from './context';
+import { currentTenantId, getPool } from './context';
 
 /**
  * What a verification started from the console runs through.
@@ -38,11 +38,24 @@ async function registryForWorkspace(tx: TenantTransaction): Promise<ProviderRegi
 }
 
 export async function checkDependencies(): Promise<RunChecksDependencies> {
+  return checkDependenciesFor(await currentTenantId());
+}
+
+/**
+ * The same, for a workspace named rather than read from the session.
+ *
+ * Work that carries on after the response has been sent, such as a verification request
+ * running in the background, has no request left to read a cookie from. The workspace is
+ * read from the session while there still is one, and handed in here.
+ */
+export async function checkDependenciesFor(tenantId: string): Promise<RunChecksDependencies> {
   const secrets = secretStoreFromEnv();
-  const registry = await query((tx) => registryForWorkspace(tx));
+  const inTenant: RunChecksDependencies['inTenant'] = (work) =>
+    withTenant(getPool(), tenantId, work);
+  const registry = await inTenant((tx) => registryForWorkspace(tx));
 
   return {
-    inTenant: (work) => query(work),
+    inTenant,
     keys: getKeys(),
     runStepFor: (tx) =>
       createProviderStepRunner({

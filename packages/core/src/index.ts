@@ -620,11 +620,13 @@ export type { ApiLogFilter, ApiRequestRecord, ApiRequestRow } from './observabil
 export { subscriberHealth } from './observability/service-health.js';
 export type { SubscriberHealthRow } from './observability/service-health.js';
 export {
+  certificateForCall,
   checksFor,
   listBundleRuns,
   listChecks,
   refusalFor,
   runChecks,
+  settledPeople,
 } from './customers/checks.js';
 export type {
   CheckDefinition,
@@ -657,6 +659,7 @@ export type {
 export {
   KIND_LABELS,
   NAME_MATCH_THRESHOLD_PCT,
+  SECTION_SOURCES,
   SECTION_TITLES,
   getCustomerFile,
 } from './customers/customer-file.js';
@@ -675,6 +678,46 @@ export type {
   Permission,
   SectionState,
 } from './customers/customer-file.js';
+export {
+  SUBJECT_PROBLEMS_AR,
+  createRequest,
+  customerStandings,
+  discardDraft,
+  executeRequest,
+  getPreferences,
+  getRequest,
+  hasOpenRequests,
+  listDrafts,
+  lookupCustomer,
+  openChecksFor,
+  parseSubject,
+  requestFromDraft,
+  resumeRequests,
+  setPreferences,
+  settleCheck,
+  submitDraft,
+  updateDraft,
+} from './customers/requests.js';
+export type {
+  CreateRequestInput,
+  CreatedRequest,
+  DraftChanges,
+  CustomerLookup,
+  DraftSummary,
+  ExecuteRequestOptions,
+  LookupStatus,
+  ProductStanding,
+  ProductState,
+  RequestCheckStatus,
+  RequestCheckView,
+  RequestOutcome,
+  RequestStatus,
+  RequestSubject,
+  RequestView,
+  ResumeRequestsOptions,
+  SubjectProblem,
+  TenantPreferences,
+} from './customers/requests.js';
 export { quoteChecks } from './customers/quote.js';
 export type { CheckQuote, ChecksQuote } from './customers/quote.js';
 export { countCustomers, listCustomers } from './customers/list.js';

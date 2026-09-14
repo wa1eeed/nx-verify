@@ -33,6 +33,9 @@ export type ProfileSection =
 export interface CheckDefinition {
   productCode: string;
   nameAr: string;
+  nameEn: string;
+  /** What the check brings back, in a line. Null for a product that does not say. */
+  summaryAr: string | null;
   section: ProfileSection;
   appliesTo: CustomerKind[];
   order: number;
@@ -47,13 +50,16 @@ export async function listChecks(tx: TenantTransaction): Promise<CheckDefinition
   const { rows } = await tx.query<{
     code: string;
     name_ar: string;
+    name_en: string;
+    summary_ar: string | null;
     profile_section: ProfileSection;
     applies_to: CustomerKind[];
     check_order: number;
     availability: 'AVAILABLE' | 'COMING_SOON';
     input_schema: { required?: string[]; properties?: Record<string, unknown> };
   }>(
-    `SELECT code, name_ar, profile_section, applies_to, check_order, availability, input_schema
+    `SELECT code, name_ar, name_en, summary_ar, profile_section, applies_to, check_order,
+            availability, input_schema
      FROM products
      WHERE profile_section IS NOT NULL AND status = 'active'
        AND valid_from <= now() AND (valid_to IS NULL OR valid_to > now())
@@ -63,6 +69,8 @@ export async function listChecks(tx: TenantTransaction): Promise<CheckDefinition
   return rows.map((row) => ({
     productCode: row.code,
     nameAr: row.name_ar,
+    nameEn: row.name_en,
+    summaryAr: row.summary_ar,
     section: row.profile_section,
     appliesTo: row.applies_to,
     order: row.check_order,
@@ -109,6 +117,16 @@ export interface RunChecksInput {
   managerLimit?: number;
   /** Check only these managers, by entity. Absent means every known manager. */
   onlyPeople?: readonly string[];
+  /** Leave these managers out: their check in this verification has already settled. */
+  skipPeople?: readonly string[];
+  /**
+   * Which attempt of the verification this is, from 1.
+   *
+   * A call that could not reach the authority is recorded with its key, so asking again
+   * under the same key only replays the failure. A later attempt gets keys of its own,
+   * derived from the same bundle, and is still one verification in the log.
+   */
+  attempt?: number;
 }
 
 export type CheckStatus =
@@ -185,6 +203,18 @@ function identifiersOf(
     identifiers.push({ idType: 'FREELANCE_DOC', value: identity.certificateNumber });
   }
   return identifiers;
+}
+
+/**
+ * A certificate number as the authority expects it: «FL-013988291».
+ *
+ * Identifiers are normalised before they are hashed and sealed, and normalising drops the
+ * dash, so a number read back from the file comes out as «FL013988291» and would be refused
+ * by the product's schema. Put back here, where it is sent, and nowhere else.
+ */
+export function certificateForCall(value: string): string {
+  const compact = value.replace(/[\s-]/g, '').toUpperCase();
+  return /^FL[0-9]+$/.test(compact) ? `FL-${compact.slice(2)}` : compact;
 }
 
 /** The subject a check is sent with, built from the customer's identity and the inputs given. */
@@ -289,7 +319,7 @@ async function identityOf(
   const certificate = await revealIdentifier(tx, keys, entityId, ['FREELANCE_DOC']);
   return {
     ...(nationalId ? { nationalId: nationalId.value } : {}),
-    ...(certificate ? { certificateNumber: certificate.value } : {}),
+    ...(certificate ? { certificateNumber: certificateForCall(certificate.value) } : {}),
   };
 }
 
@@ -382,10 +412,15 @@ export async function runChecks(
             await deps.inTenant((tx) => managersOf(tx, deps.keys, entityId as string, managerLimit))
           ).filter(
             (manager) =>
-              input.onlyPeople === undefined || input.onlyPeople.includes(manager.personId),
+              (input.onlyPeople === undefined || input.onlyPeople.includes(manager.personId)) &&
+              !(input.skipPeople ?? []).includes(manager.personId),
           )
       : [null];
 
+    if (targets.length === 0 && (input.skipPeople ?? []).length > 0) {
+      // Every manager left to check has already settled in an earlier attempt.
+      continue;
+    }
     if (targets.length === 0) {
       outcomes.push({
         productCode: check.productCode,
@@ -397,7 +432,12 @@ export async function runChecks(
     }
 
     for (const target of targets) {
-      const idempotencyKey = `${input.bundleKey}:${check.productCode}${target ? `:${target.personId}` : ''}`;
+      const idempotencyKey = checkKey(
+        input.bundleKey,
+        input.attempt ?? 1,
+        check.productCode,
+        target?.personId,
+      );
       try {
         const result = await deps.inTenant((tx) =>
           verify(tx, {
@@ -438,6 +478,51 @@ export async function runChecks(
   }
 
   return { entityId, outcomes };
+}
+
+/** The idempotency key of one call of a verification: the bundle, the attempt, the check, the person. */
+function checkKey(
+  bundleKey: string,
+  attempt: number,
+  productCode: string,
+  personId: string | undefined,
+): string {
+  const base = attempt > 1 ? `${bundleKey}~r${attempt}` : bundleKey;
+  return `${base}:${productCode}${personId === undefined ? '' : `:${personId}`}`;
+}
+
+/**
+ * The managers whose check has already settled in a verification, with how it ended.
+ *
+ * Read from the keys of the runs, which carry the person (see checkKey). A retry of a
+ * manager check leaves these out: their calls reached the authority and were charged, and
+ * asking again under a new key would charge them twice. Only a call that failed to reach
+ * it is asked again.
+ */
+export async function settledPeople(
+  tx: TenantTransaction,
+  bundleKey: string,
+  productCode: string,
+): Promise<Map<string, { status: CheckStatus; reference: string | null }>> {
+  const { rows } = await tx.query<{
+    idempotency_key: string | null;
+    status: string;
+    reference: string | null;
+  }>(
+    `SELECT idempotency_key, status, reference FROM verification_runs
+     WHERE tenant_id = $1 AND bundle_key = $2 AND product_code = $3
+       AND status NOT IN ('ERROR', 'PENDING')
+     ORDER BY created_at`,
+    [tx.tenantId, bundleKey, productCode],
+  );
+  const settled = new Map<string, { status: CheckStatus; reference: string | null }>();
+  for (const row of rows) {
+    const person = row.idempotency_key?.split(`:${productCode}:`)[1];
+    if (person !== undefined && person !== '') {
+      settled.set(person, { status: row.status as CheckStatus, reference: row.reference });
+    }
+  }
+  return settled;
 }
 
 /** The runs of one verification started together, for the result banner. */

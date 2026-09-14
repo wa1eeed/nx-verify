@@ -98,6 +98,38 @@ describe('what retention reaches, and what it must not', () => {
     expect(left.map((row) => row.step_key)).toEqual(['open']);
   });
 
+  it('clears finished verification requests and forgotten drafts, and never an open one', async () => {
+    await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      tx.query(
+        `INSERT INTO verification_requests (tenant_id, status, kind, subject_type, subject_hash,
+                                            subject_enc, product_codes, bundle_key, created_at,
+                                            submitted_at, completed_at)
+         VALUES ($1, 'DONE', 'COMPANY', 'UNN', '\\x01'::bytea, '\\x01'::bytea, '{CR_FULL}',
+                 'old-done-request', now() - interval '60 days', now() - interval '60 days',
+                 now() - interval '60 days'),
+                ($1, 'DRAFT', 'COMPANY', 'UNN', '\\x02'::bytea, '\\x02'::bytea, '{CR_FULL}',
+                 'old-draft-request', now() - interval '120 days', NULL, NULL),
+                ($1, 'DRAFT', 'COMPANY', 'UNN', '\\x03'::bytea, '\\x03'::bytea, '{CR_FULL}',
+                 'new-draft-request', now() - interval '10 days', NULL, NULL),
+                ($1, 'QUEUED', 'COMPANY', 'UNN', '\\x04'::bytea, '\\x04'::bytea, '{CR_FULL}',
+                 'old-open-request', now() - interval '60 days', now() - interval '60 days', NULL)`,
+        [tx.tenantId],
+      ),
+    );
+
+    const summary = await withTenant(db.retentionPool, tenant.tenantId, (tx) =>
+      enforceRetention(tx),
+    );
+    expect(summary.requestsPruned).toBe(2);
+
+    const { rows } = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      tx.query<{ bundle_key: string }>(
+        `SELECT bundle_key FROM verification_requests ORDER BY bundle_key`,
+      ),
+    );
+    expect(rows.map((row) => row.bundle_key)).toEqual(['new-draft-request', 'old-open-request']);
+  });
+
   it('cannot touch a top up request at all', async () => {
     await withTenant(db.appPool, tenant.tenantId, (tx) =>
       tx.query(

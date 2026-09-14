@@ -27,6 +27,8 @@ export interface RetentionSummary {
   waitsPruned: number;
   /** Links that have expired or been withdrawn. */
   sharesPruned: number;
+  /** Verification requests long finished, and drafts nobody came back to. */
+  requestsPruned: number;
 }
 
 export interface RetentionOptions {
@@ -101,6 +103,7 @@ export async function enforceRetention(
     entitiesArchived: stale.length,
     waitsPruned: 0,
     sharesPruned: 0,
+    requestsPruned: 0,
   };
 
   /**
@@ -137,8 +140,24 @@ export async function enforceRetention(
     [tx.tenantId, now],
   );
 
+  /**
+   * A verification request is the working copy of a click: once its checks ran, the runs
+   * and the file are the record, and the request is only the screen's memory of it. A draft
+   * holds a sealed number somebody typed and never used, and ninety days is long enough to
+   * come back to it.
+   */
+  const { rowCount: requestsPruned } = await tx.query(
+    `DELETE FROM verification_requests
+     WHERE tenant_id = $1
+       AND ((status IN ('DONE', 'CANCELLED')
+             AND coalesce(completed_at, created_at) < $2::timestamptz - make_interval(days => 30))
+         OR (status = 'DRAFT' AND created_at < $2::timestamptz - make_interval(days => 90)))`,
+    [tx.tenantId, now],
+  );
+
   summary.waitsPruned = waitsPruned ?? 0;
   summary.sharesPruned = sharesPruned ?? 0;
+  summary.requestsPruned = requestsPruned ?? 0;
 
   // The destruction is itself auditable, which is the half of the promise that makes it
   // worth anything to a regulator.

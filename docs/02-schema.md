@@ -474,6 +474,57 @@ CREATE TABLE evidence (
 
 **`public_token`** يخدم رمز QR على ملف الدليل: صفحة عامة تعرض هاش المستند وتاريخ الختم فقط، بلا أي بيانات شخصية.
 
+### طلبات التحقق (الترحيل 0046، ADR-115)
+
+طلب الشاشة 02 وملف العميل صف ينتظر قبل أن يُشغَّل، ومنتجاته صفوف يقرأ كلٌّ منها حالته بمفرده. العمليات نفسها تبقى في `verification_runs`، والطلب ذاكرة الشاشة عنها.
+
+```sql
+CREATE TABLE verification_requests (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       uuid NOT NULL REFERENCES tenants(id),
+  status          text NOT NULL,   -- DRAFT | QUEUED | RUNNING | DONE | CANCELLED
+  kind            text NOT NULL,   -- COMPANY | ESTABLISHMENT | FREELANCER
+  entity_id       uuid,            -- العميل حين يكون في الملف
+  subject_type    text,            -- UNN | NATIONAL_ID | IQAMA، لعميل جديد فقط
+  subject_hash    bytea,           -- HMAC بمفتاح المستأجر
+  subject_enc     bytea,           -- مشفّر، ويُحذف حين يحمل الملف معرّفاته
+  certificate_enc bytea,
+  iban_enc        bytea,
+  key_version     int NOT NULL,
+  product_codes   text[] NOT NULL,
+  person_ids      uuid[],          -- مدراء بعينهم، من صف المدير في الملف
+  bundle_key      text NOT NULL,   -- مفتاح النموذج، ومنه تُشتق مفاتيح كل مكالمة
+  requested_by    uuid REFERENCES users(id),
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  submitted_at    timestamptz,
+  completed_at    timestamptz,
+  UNIQUE (tenant_id, bundle_key)
+);
+
+CREATE TABLE verification_request_checks (
+  tenant_id    uuid NOT NULL,
+  request_id   uuid NOT NULL,
+  product_code text NOT NULL REFERENCES products(code),
+  status       text NOT NULL,   -- QUEUED | RUNNING | DONE | FAILED | SKIPPED
+  outcome      text,            -- OK | PARTIAL | NOT_FOUND | ERROR | SKIPPED | REFUSED | AWAITING
+  note_ar      text,            -- جملة يكتبها النظام، لا شخص
+  reference    text,
+  attempts     int NOT NULL DEFAULT 0,
+  max_attempts int NOT NULL DEFAULT 2,
+  retry_at     timestamptz,
+  locked_at    timestamptz,
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, request_id, product_code)
+);
+
+CREATE TABLE tenant_preferences (
+  tenant_id   uuid PRIMARY KEY REFERENCES tenants(id),
+  show_prices boolean NOT NULL DEFAULT true
+);
+```
+
+**`attempts`** تُزاد حين يُؤخذ منتج من الانتظار، ولا تُزاد حين يُستعاد من مشغّل توقف. المحاولة الثانية تأخذ مفتاح `<bundle_key>~r2`، فالفشل المحفوظ لا يُعاد، والمكالمة المكتملة لا تُدفع مرتين.
+
 ---
 
 ## 9. التسعير والرصيد

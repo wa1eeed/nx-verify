@@ -1,4 +1,4 @@
-import { createPool, withTenant } from '@nx-verify/db';
+import { createPool, withTenant, withoutTenant } from '@nx-verify/db';
 import {
   DerivedTenantKeyProvider,
   masterKeySourceFromEnv,
@@ -8,8 +8,10 @@ import {
   createProviderRegistry,
   createProviderStepRunner,
   providerConfigFromEnv,
+  registryFor,
   resolveCredential,
   secretStoreFromEnv,
+  type ProviderRegistry,
 } from '@nx-verify/providers';
 import { resolveProviders } from '@nx-verify/core';
 import { Scheduler, type JobDefinition } from './schedule.js';
@@ -30,6 +32,7 @@ import {
 } from './jobs/retention.js';
 import { runBatchItems } from './jobs/batches.js';
 import { checkProviderHealth } from './jobs/provider-health.js';
+import { runVerificationRequests } from './jobs/requests.js';
 
 /**
  * The worker process.
@@ -91,6 +94,22 @@ async function main(): Promise<void> {
       credentialFor: (name, ref) => resolveCredential(tx, secrets, name, ref),
     });
 
+  // The connections the administration panel set, per world, held for a minute like the API
+  // and the console hold them.
+  const registries = new Map<
+    'sandbox' | 'live',
+    { registry: ProviderRegistry; expiresAt: number }
+  >();
+  const panelRegistryFor = async (environment: 'sandbox' | 'live'): Promise<ProviderRegistry> => {
+    const cached = registries.get(environment);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.registry;
+    }
+    const built = await withoutTenant(appPool, (tx) => registryFor(tx, environment));
+    registries.set(environment, { registry: built, expiresAt: Date.now() + 60_000 });
+    return built;
+  };
+
   const jobs: JobDefinition[] = [
     {
       name: 'monitors',
@@ -121,6 +140,20 @@ async function main(): Promise<void> {
             const response = await fetch(url, { method: 'POST', body, headers });
             return { ok: response.ok, status: response.status };
           },
+        });
+      },
+    },
+    {
+      // Often: a request left behind is a row on somebody's screen still saying «قيد المعالجة».
+      name: 'verification-requests',
+      everySeconds: 30,
+      scope: 'tenant',
+      run: async ({ tx, tenantId }) => {
+        await runVerificationRequests(tx, {
+          keys,
+          secrets,
+          registryFor: panelRegistryFor,
+          inTenant: (work) => withTenant(appPool, tenantId, work),
         });
       },
     },

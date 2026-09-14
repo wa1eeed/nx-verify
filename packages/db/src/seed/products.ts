@@ -55,6 +55,8 @@ export interface SeedProduct {
   appliesTo?: ('COMPANY' | 'ESTABLISHMENT' | 'FREELANCER')[];
   checkOrder?: number;
   availability?: 'AVAILABLE' | 'COMING_SOON';
+  /** What the check brings back, in a line: «الاسم، النشاط، الحالة …». */
+  summaryAr?: string;
 }
 
 /**
@@ -649,11 +651,12 @@ export async function applyProductSeed(
     await db.query(
       `INSERT INTO products (code, name_ar, name_en, subject_type, input_schema,
                              is_composite, partial_policy, decision_ruleset,
-                             profile_section, applies_to, check_order, availability)
+                             profile_section, applies_to, check_order, availability,
+                             summary_ar)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7,
                (SELECT id FROM decision_rulesets
                 WHERE code = $8 AND tenant_id IS NULL),
-               $9, $10, $11, $12)
+               $9, $10, $11, $12, $13)
        ON CONFLICT (code) DO UPDATE SET
          name_ar = EXCLUDED.name_ar,
          name_en = EXCLUDED.name_en,
@@ -664,7 +667,8 @@ export async function applyProductSeed(
          decision_ruleset = EXCLUDED.decision_ruleset,
          profile_section = EXCLUDED.profile_section,
          applies_to = EXCLUDED.applies_to,
-         check_order = EXCLUDED.check_order`,
+         check_order = EXCLUDED.check_order,
+         summary_ar = EXCLUDED.summary_ar`,
       // Availability is written on insert and left alone after: once the panel marks a
       // product available, a later seed must not quietly take it away again.
       [
@@ -680,6 +684,7 @@ export async function applyProductSeed(
         product.appliesTo ?? [],
         product.checkOrder ?? 100,
         product.availability ?? 'AVAILABLE',
+        product.summaryAr ?? null,
       ],
     );
 

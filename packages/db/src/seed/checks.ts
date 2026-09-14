@@ -13,9 +13,13 @@ import type { SeedFieldMap, SeedProduct } from './products.js';
  *   MANAGERS     MANAGER_AUTHORITY        company, establishment (one call per manager)
  *   ADDRESS      NATIONAL_ADDRESS         company, establishment
  *   BANKING      IBAN_VERIFICATION        everyone
- *   BANKING      IBAN_BENEFICIARY_NAME    everyone
  *   FREELANCE    FREELANCE_CERTIFICATE    freelancer
  *   PROPERTY     PROPERTY_VERIFICATION    everyone, not enabled at the source yet
+ *
+ * The account holder's name, IBAN_BENEFICIARY_NAME, is sold through the API and offered on
+ * no screen. The IBAN check already brings the holder's name and how well it matches, which
+ * is the one banking row of the request screen (handoff screen 02), and a second row asking
+ * the same account the same question would be a second charge for one answer.
  *
  * Each step names the data source and falls back to the internal sandbox data, which is
  * only ever registered for a sandbox workspace without its own connection. Production has
@@ -90,7 +94,8 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
   {
     code: 'CR_FULL',
     nameAr: 'السجل التجاري',
-    nameEn: 'Commercial registration',
+    nameEn: 'Commercial Registry',
+    summaryAr: 'الاسم، النشاط، الحالة، رأس المال، تواريخ الإصدار والانتهاء',
     subjectType: 'BUSINESS',
     inputSchema: UNN_SCHEMA,
     profileSection: 'REGISTRY',
@@ -164,7 +169,8 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
   {
     code: 'ARTICLES_OF_ASSOCIATION',
     nameAr: 'عقد التأسيس',
-    nameEn: 'Articles of association',
+    nameEn: 'Articles of Association',
+    summaryAr: 'الشركاء، نسب الملكية، رقم الوثيقة وتاريخها',
     subjectType: 'BUSINESS',
     inputSchema: UNN_SCHEMA,
     profileSection: 'CONTRACT',
@@ -234,8 +240,9 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
   },
   {
     code: 'MANAGER_AUTHORITY',
-    nameAr: 'صلاحيات المدير المفوّض',
-    nameEn: 'Authorised manager powers',
+    nameAr: 'المدراء المفوضون',
+    nameEn: 'Authorized Managers',
+    summaryAr: 'الأسماء، الهويات، نوع الصلاحية ونطاقها',
     subjectType: 'BUSINESS',
     inputSchema: {
       type: 'object',
@@ -297,7 +304,8 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
   {
     code: 'NATIONAL_ADDRESS',
     nameAr: 'العنوان الوطني',
-    nameEn: 'National address',
+    nameEn: 'National Address',
+    summaryAr: 'المدينة، الحي، الشارع، الرمز البريدي، الرقم الإضافي',
     subjectType: 'BUSINESS',
     inputSchema: UNN_SCHEMA,
     profileSection: 'ADDRESS',
@@ -349,8 +357,9 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
   },
   {
     code: 'IBAN_VERIFICATION',
-    nameAr: 'التحقق من الآيبان',
-    nameEn: 'IBAN verification',
+    nameAr: 'الآيبان والحساب البنكي',
+    nameEn: 'IBAN & Account',
+    summaryAr: 'صحة الآيبان، اسم صاحب الحساب، مطابقته لاسم الكيان',
     subjectType: 'BUSINESS',
     inputSchema: {
       type: 'object',
@@ -425,7 +434,8 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
   {
     code: 'IBAN_BENEFICIARY_NAME',
     nameAr: 'اسم صاحب الحساب',
-    nameEn: 'Account holder name',
+    nameEn: 'Account Holder Name',
+    summaryAr: 'اسم صاحب الحساب وحالة الحساب',
     subjectType: 'BUSINESS',
     inputSchema: {
       type: 'object',
@@ -438,9 +448,6 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
         certificate_number: { type: 'string' },
       },
     },
-    profileSection: 'BANKING',
-    appliesTo: ['COMPANY', 'ESTABLISHMENT', 'FREELANCER'],
-    checkOrder: 55,
     steps: [
       {
         stepKey: 'beneficiary',
@@ -464,8 +471,9 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
   },
   {
     code: 'FREELANCE_CERTIFICATE',
-    nameAr: 'وثيقة العمل الحر',
-    nameEn: 'Freelance certificate',
+    nameAr: 'شهادة الفريلانسر',
+    nameEn: 'Freelancer Certificate',
+    summaryAr: 'الاسم، التخصص، التصنيف، حالة الوثيقة، تواريخ الإصدار والانتهاء',
     subjectType: 'FREELANCER',
     inputSchema: {
       type: 'object',
@@ -527,7 +535,8 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
   {
     code: 'PROPERTY_VERIFICATION',
     nameAr: 'التحقق من العقار',
-    nameEn: 'Property verification',
+    nameEn: 'Property Verification',
+    summaryAr: 'رقم الصك وحالة العقار',
     subjectType: 'PROPERTY',
     inputSchema: {
       type: 'object',

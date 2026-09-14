@@ -72,6 +72,10 @@ a,
 
 /* ── buttons ──────────────────────────────────────────────────────────── */
 
+.btn.btn-wide {
+  padding-inline: var(--pad-button-wide);
+}
+
 .btn[aria-busy='true'] {
   cursor: progress;
 }
@@ -256,6 +260,12 @@ a.btn-ghost:active {
 .card-stat {
   padding: var(--pad-stat);
   border-radius: var(--radius-card);
+}
+/* Rows that run edge to edge, divided by hairlines: the products of screen 02. */
+.card-flush {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
 }
 .card-tone-ground {
   background: var(--color-bg);
@@ -1192,4 +1202,188 @@ a.frame-brand:active {
 }
 .timeline-change {
   font-weight: 600;
+}
+
+/* ── the verification request (screen 02) ────────────────────────────── */
+
+.request-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-content-gap);
+}
+
+.request-alert {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-inset);
+  background: var(--color-accent-100);
+  color: var(--color-accent-700);
+  font-size: var(--text-body-sm);
+}
+
+/* The number, the kind of customer, and who that number turned out to be. */
+/* The third column keeps its width while there is nothing to say yet, so the fields do not
+   move when the sentence about the number arrives. */
+.request-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--layout-lookup-note);
+  gap: var(--gap-request-input);
+  align-items: end;
+  padding: var(--pad-request-input);
+}
+.request-input .input,
+.request-input .seg {
+  background: var(--color-bg);
+}
+.field > .field-label {
+  display: block;
+  margin-block-end: calc(var(--space-1) + var(--size-hairline));
+  font-size: var(--text-small);
+  color: var(--color-neutral-700);
+}
+.request-lookup {
+  margin: 0;
+  max-inline-size: var(--layout-lookup-note);
+  font-size: var(--text-note);
+  color: var(--color-neutral-700);
+}
+.request-lookup[data-tone='problem'] {
+  color: var(--color-accent-700);
+}
+
+.request-products-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-product-row);
+  padding: var(--pad-product-row);
+  border-block-end: var(--size-hairline) solid var(--color-divider);
+}
+.request-products-count {
+  margin: 0;
+  font-size: var(--text-note);
+  color: var(--color-neutral-700);
+}
+.request-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.request-row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-product-row);
+  padding: var(--pad-product-row);
+  border-block-end: var(--size-hairline) solid var(--color-divider);
+}
+.request-row:last-child {
+  border-block-end: 0;
+}
+/* A product that does not apply to this kind of customer. */
+.request-row[data-applicable='no'] {
+  opacity: 0.55;
+}
+.request-row-text {
+  flex: 1;
+  min-inline-size: 0;
+  display: grid;
+  gap: var(--gap-hairline);
+}
+.request-row-name,
+.request-row-line,
+.request-row-note {
+  margin: 0;
+}
+.request-row-name {
+  font-size: var(--text-product);
+}
+.request-row-line {
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.request-row-note {
+  font-size: var(--text-small);
+  color: var(--color-accent-700);
+}
+.request-row-input {
+  max-inline-size: var(--layout-iban-input);
+  margin-block-start: var(--space-2);
+}
+.request-row-price {
+  min-inline-size: var(--layout-price);
+  font-size: var(--text-label);
+  color: var(--color-neutral-700);
+  text-align: left;
+}
+
+/* The confirmation bar: what is ticked, what it costs, and the one primary action. */
+.request-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--gap-request-bar);
+  padding: var(--pad-request-bar);
+}
+.request-bar-text {
+  flex: 1;
+  min-inline-size: 0;
+  display: grid;
+  gap: var(--gap-hairline);
+}
+.request-bar-title,
+.request-bar-line {
+  margin: 0;
+}
+.request-bar-title {
+  font-family: var(--font-product-heading);
+  font-weight: var(--font-product-heading-weight);
+  font-size: var(--text-bar-title);
+}
+.request-bar-line {
+  font-size: var(--text-label);
+  color: var(--color-accent-2-900);
+}
+.request-bar-line[data-tone='problem'] {
+  color: var(--color-accent-700);
+}
+
+.request-drafts {
+  display: grid;
+  gap: var(--space-3);
+}
+.request-draft-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.request-draft {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-body-sm);
+}
+.request-draft-label {
+  flex: 1;
+  min-inline-size: 0;
+}
+.request-draft-meta {
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+
+@media (max-width: 960px) {
+  .request-input {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .request-lookup {
+    max-inline-size: none;
+  }
+  .request-row {
+    flex-wrap: wrap;
+  }
 }

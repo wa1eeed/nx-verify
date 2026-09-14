@@ -1,10 +1,28 @@
 import type { ReactElement } from 'react';
-import { KIND_LABELS, SECTION_TITLES, listChecks, quoteChecks, vatOn } from '@nx-verify/core';
+import {
+  KIND_LABELS,
+  SECTION_TITLES,
+  canAdminister,
+  getPreferences,
+  listChecks,
+  quoteChecks,
+  vatOn,
+} from '@nx-verify/core';
 import { PageHeader } from '../../../../components/page-header';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { BILLING_TABS } from '../../../../components/nav';
-import { Card, Ltr, StateTag, Table, Th } from '../../../../components/ui';
-import { query } from '../../../../lib/context';
+import {
+  Card,
+  CardTitle,
+  Checkbox,
+  Ltr,
+  StateTag,
+  SubmitButton,
+  Table,
+  Th,
+} from '../../../../components/ui';
+import { actingUser, query } from '../../../../lib/context';
+import { setShowPricesAction } from './actions';
 
 /** Never prerendered: this subscriber's own prices and package. */
 export const dynamic = 'force-dynamic';
@@ -23,13 +41,14 @@ const RIYALS = new Intl.NumberFormat('en-US', {
 });
 
 export default async function PricesPage(): Promise<ReactElement> {
+  const actor = await actingUser();
   const data = await query(async (tx) => {
     const checks = await listChecks(tx);
     const quote = await quoteChecks(
       tx,
       checks.map((check) => check.productCode),
     );
-    return { checks, quote };
+    return { checks, quote, preferences: await getPreferences(tx) };
   });
 
   const lineOf = new Map(data.quote.lines.map((line) => [line.productCode, line]));
@@ -99,6 +118,25 @@ export default async function PricesPage(): Promise<ReactElement> {
           </tbody>
         </Table>
       </Card>
+
+      {canAdminister(actor.role) ? (
+        <Card label="إظهار الأسعار" role="price-visibility">
+          <form action={setShowPricesAction} className="stack" style={{ gap: 'var(--space-3)' }}>
+            <CardTitle as="h2">إظهار الأسعار</CardTitle>
+            <Checkbox name="show_prices" defaultChecked={data.preferences.showPrices}>
+              إظهار سعر كل منتج وإجمالي الطلب في شاشات التحقق لمستخدمي مساحة العمل
+            </Checkbox>
+            <p className="faint" style={{ margin: 0 }}>
+              إخفاء الأسعار لا يغيّر ما يُخصم: يُخصم فقط عند نجاح العملية.
+            </p>
+            <div>
+              <SubmitButton pendingLabel="جارٍ الحفظ" data-role="save-price-visibility">
+                حفظ
+              </SubmitButton>
+            </div>
+          </form>
+        </Card>
+      ) : null}
     </div>
   );
 }

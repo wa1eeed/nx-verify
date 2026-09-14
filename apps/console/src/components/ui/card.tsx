@@ -10,7 +10,7 @@ import { classes } from './classes';
  * behind a package, or the attention card of the administration panel.
  */
 
-export type CardVariant = 'panel' | 'stat' | 'plain';
+export type CardVariant = 'panel' | 'stat' | 'plain' | 'flush';
 export type CardTone = 'surface' | 'ground' | 'accent' | 'accent-2' | 'attention';
 
 export function Card({
