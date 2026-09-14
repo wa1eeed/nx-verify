@@ -1,5 +1,8 @@
 import type { ReactElement } from 'react';
-import type { SubscriberBoardRow, SubscribersBoard } from '@nx-verify/core';
+import type { Page, SubscriberBoardRow, SubscribersBoard } from '@nx-verify/core';
+import type { SearchParams } from '../../lib/pagination';
+import { LinkedRows } from '../ui/linked-rows';
+import { ListPagination } from '../ui/pagination';
 import { PageHeader } from '../page-header';
 import { ButtonLink } from '../ui/button';
 import { Card } from '../ui/card';
@@ -29,6 +32,9 @@ import {
 
 export interface AdminSubscribersView {
   board: SubscribersBoard;
+  /** The page of the board's rows on screen; the figures above stay the whole board's. */
+  page: Page<SubscriberBoardRow>;
+  params: SearchParams;
   expiringWindowDays: number;
   canManage: boolean;
   plans: readonly { code: string; nameAr: string }[];
@@ -37,7 +43,11 @@ export interface AdminSubscribersView {
 export function SubscriberRow({ row }: { row: SubscriberBoardRow }): ReactElement {
   const standing = STANDING_TAGS[row.standing];
   return (
-    <tr data-role="subscriber-row" data-standing={row.standing}>
+    <tr
+      data-role="subscriber-row"
+      data-standing={row.standing}
+      data-href={`/operator/subscribers/${row.tenantId}`}
+    >
       <td>{row.legalName}</td>
       <td>{planCellAr(row)}</td>
       <td>
@@ -54,7 +64,7 @@ export function SubscriberRow({ row }: { row: SubscriberBoardRow }): ReactElemen
         </Tag>
       </td>
       <td>
-        <a href={`/operator/subscribers/${row.tenantId}`} className="admin-row-link">
+        <a href={`/operator/subscribers/${row.tenantId}`} className="admin-row-link" data-row-link>
           إدارة
         </a>
       </td>
@@ -144,12 +154,18 @@ export function AdminSubscribers({
                   </Th>
                 </tr>
               </thead>
-              <tbody>
-                {board.rows.map((row) => (
+              <LinkedRows>
+                {view.page.rows.map((row) => (
                   <SubscriberRow key={row.tenantId} row={row} />
                 ))}
-              </tbody>
+              </LinkedRows>
             </Table>
+            <ListPagination
+              page={view.page}
+              path="/operator/subscribers"
+              params={view.params}
+              label="صفحات المشتركين"
+            />
           </div>
         )}
       </Card>

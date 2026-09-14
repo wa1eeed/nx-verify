@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { redirect } from 'next/navigation';
-import { summarizeCustomers, type CustomerKind } from '@nx-verify/core';
+import { slicePage, summarizeCustomers, type CustomerKind } from '@nx-verify/core';
+import { pageRequestFrom } from '../../../lib/pagination';
 import { query } from '../../../lib/context';
 import { getKeys } from '../../../lib/keys';
 import { Customers, type CustomersFilter } from '../../../components/customers';
@@ -37,6 +38,8 @@ export default async function CustomersPage({
     q?: string;
     alerts?: string;
     ids?: string;
+    page?: string;
+    size?: string;
   }>;
 }): Promise<ReactElement> {
   const params = await searchParams;
@@ -75,7 +78,8 @@ export default async function CustomersPage({
       <SectionTabs tabs={CUSTOMER_TABS} current="/customers" label="أقسام العملاء" />
       <Customers
         view={{
-          rows,
+          page: slicePage(rows, pageRequestFrom(params)),
+          params,
           counts: {
             all: all.length,
             companies: all.filter((summary) => summary.kind === 'COMPANY').length,

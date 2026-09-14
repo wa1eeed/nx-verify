@@ -1,4 +1,7 @@
 import type { ReactElement } from 'react';
+import type { ApiLogTallies, Page } from '@nx-verify/core';
+import { ListPagination } from './ui/pagination';
+import type { SearchParams } from '../lib/pagination';
 import { EmptyState, PageHeader, Panel } from './page-header';
 
 /**
@@ -23,14 +26,20 @@ export interface ApiLogRowView {
 }
 
 export function ApiLog({
-  rows,
+  page,
+  tallies,
+  params,
   failuresOnly,
 }: {
-  rows: ApiLogRowView[];
+  page: Page<ApiLogRowView>;
+  /** Over every call the filter leaves, not the page on screen. */
+  tallies: ApiLogTallies;
+  params: SearchParams;
   failuresOnly: boolean;
 }): ReactElement {
-  const failures = rows.filter((row) => row.status >= 400).length;
-  const slowest = rows.reduce((worst, row) => Math.max(worst, row.latencyMs), 0);
+  const rows = page.rows;
+  const failures = tallies.failures;
+  const slowest = tallies.slowestMs;
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
@@ -38,10 +47,10 @@ export function ApiLog({
 
       <section className="grid" data-role="log-tiles">
         <article className="stat">
-          <span className="stat-label">نداءات معروضة</span>
+          <span className="stat-label">نداءات مسجّلة</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {rows.length}
+              {tallies.total}
             </bdi>
           </strong>
         </article>
@@ -83,7 +92,7 @@ export function ApiLog({
       </nav>
 
       <Panel title="النداءات" aside="الأحدث أولاً">
-        {rows.length === 0 ? (
+        {page.total === 0 ? (
           <div className="panel-body">
             <EmptyState>
               {failuresOnly ? 'لا نداءات فاشلة. هذه أخبار جيدة.' : 'لا نداءات بعد.'}
@@ -165,6 +174,14 @@ export function ApiLog({
             </table>
           </div>
         )}
+        <div className="panel-body">
+          <ListPagination
+            page={page}
+            path="/settings/developers/logs"
+            params={params}
+            label="صفحات سجل النداءات"
+          />
+        </div>
       </Panel>
     </div>
   );

@@ -206,7 +206,9 @@ export async function getLedger(
     `SELECT id::text AS id, delta, balance_after, reason, run_id, vat_invoice_id, created_at
      FROM wallet_ledger
      WHERE tenant_id = $1 AND ($2::uuid IS NULL OR run_id = $2)
-     ORDER BY id
+     -- Qualified: the select list names id::text as id, and a bare ORDER BY id would sort
+     -- that text, which puts entry 10 before entry 2.
+     ORDER BY wallet_ledger.id
      LIMIT $3`,
     [tx.tenantId, options.runId ?? null, options.limit ?? 500],
   );

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { slicePage } from '@nx-verify/core';
 import { AdminPricing, type AdminPricingView } from '../src/components/admin-pricing';
 import {
   bundlesLineAr,
@@ -390,17 +391,21 @@ describe('the staff and the trail (الصلاحيات والتدقيق)', () => 
     selfId: 's-1',
     canManageStaff: true,
     sessionHours: 8,
-    audit: [
-      {
-        at: new Date('2026-09-12T13:31:00Z'),
-        operatorId: 's-1',
-        operatorName: 'سارة العتيبي',
-        byName: 'سارة العتيبي',
-        action: 'pricing.list_price',
-        target: 'pricing:product:CR_FULL',
-        metadata: { from: 300, to: 350, margin_pct: 69 },
-      },
-    ],
+    audit: slicePage(
+      [
+        {
+          at: new Date('2026-09-12T13:31:00Z'),
+          operatorId: 's-1',
+          operatorName: 'سارة العتيبي',
+          byName: 'سارة العتيبي',
+          action: 'pricing.list_price',
+          target: 'pricing:product:CR_FULL',
+          metadata: { from: 300, to: 350, margin_pct: 69 },
+        },
+      ],
+      { page: 1, size: 25 },
+    ),
+    params: {},
     scope: 'all',
     names,
     notice: null,

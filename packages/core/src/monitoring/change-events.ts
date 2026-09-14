@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@nx-verify/db';
+import { readPage, type Page, type PageRequest } from '../pagination.js';
 import { canonicalJson } from '../canonical-json.js';
 
 /**
@@ -128,9 +129,37 @@ export interface ChangeEventView {
   acknowledgedAt: Date | null;
 }
 
+/** How many changes there are, open ones only when asked, for the pages of the alerts. */
+export async function countChangeEvents(
+  tx: TenantTransaction,
+  options: { entityId?: string; openOnly?: boolean } = {},
+): Promise<number> {
+  const { rows } = await tx.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM change_events
+     WHERE tenant_id = $1
+       AND ($2::uuid IS NULL OR entity_id = $2)
+       AND (NOT $3::boolean OR acknowledged_at IS NULL)`,
+    [tx.tenantId, options.entityId ?? null, options.openOnly ?? false],
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+/** One page of the changes, newest first. */
+export async function pageChangeEvents(
+  tx: TenantTransaction,
+  options: { entityId?: string; openOnly?: boolean },
+  request: PageRequest,
+): Promise<Page<ChangeEventView>> {
+  return readPage(
+    request,
+    () => countChangeEvents(tx, options),
+    (window) => listChangeEvents(tx, { ...options, ...window }),
+  );
+}
+
 export async function listChangeEvents(
   tx: TenantTransaction,
-  options: { entityId?: string; openOnly?: boolean; limit?: number } = {},
+  options: { entityId?: string; openOnly?: boolean; limit?: number; offset?: number } = {},
 ): Promise<ChangeEventView[]> {
   const { rows } = await tx.query<{
     id: string;
@@ -146,9 +175,15 @@ export async function listChangeEvents(
      WHERE tenant_id = $1
        AND ($2::uuid IS NULL OR entity_id = $2)
        AND (NOT $3::boolean OR acknowledged_at IS NULL)
-     ORDER BY detected_at DESC
-     LIMIT $4`,
-    [tx.tenantId, options.entityId ?? null, options.openOnly ?? false, options.limit ?? 100],
+     ORDER BY detected_at DESC, id
+     LIMIT $4 OFFSET $5`,
+    [
+      tx.tenantId,
+      options.entityId ?? null,
+      options.openOnly ?? false,
+      options.limit ?? 100,
+      Math.max(options.offset ?? 0, 0),
+    ],
   );
 
   return rows.map((row) => ({

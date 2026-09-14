@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { LinkedRows } from '../ui/linked-rows';
 import type { HomeOverview } from '@nx-verify/core';
 import { ButtonLink } from '../ui/button';
 import { Card, CardTitle } from '../ui/card';
@@ -171,13 +172,29 @@ export function HomeScreen({ overview, now }: { overview: HomeOverview; now: Dat
                   <Th>التكلفة</Th>
                 </tr>
               </thead>
-              <tbody>
+              <LinkedRows>
                 {overview.recent.map((run) => {
                   const status = runStatus(run);
                   const cost = costAr(run);
                   return (
-                    <tr key={run.runId} data-run={run.runId}>
-                      <td>{customerAr(run)}</td>
+                    <tr
+                      key={run.runId}
+                      data-run={run.runId}
+                      {...(run.entityId ? { 'data-href': `/customers/${run.entityId}` } : {})}
+                    >
+                      <td>
+                        {run.entityId ? (
+                          <a
+                            href={`/customers/${run.entityId}`}
+                            className="row-link-quiet"
+                            data-row-link
+                          >
+                            {customerAr(run)}
+                          </a>
+                        ) : (
+                          customerAr(run)
+                        )}
+                      </td>
                       <td>{run.productNameAr}</td>
                       <td>
                         <Tag tone={status.tone} role="run-status">
@@ -197,7 +214,7 @@ export function HomeScreen({ overview, now }: { overview: HomeOverview; now: Dat
                     </tr>
                   );
                 })}
-              </tbody>
+              </LinkedRows>
             </Table>
           )}
         </Card>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { CustomerSummary } from '@nx-verify/core';
+import { slicePage, type CustomerSummary } from '@nx-verify/core';
 import { Customers, filesCountAr, type CustomersView } from '../src/components/customers';
 
 /**
@@ -65,9 +65,12 @@ const ROWS: CustomerSummary[] = [
   }),
 ];
 
+const firstPage = (rows: CustomerSummary[]) => slicePage(rows, { page: 1, size: 25 });
+
 function view(overrides: Partial<CustomersView> = {}): CustomersView {
   return {
-    rows: ROWS,
+    page: firstPage(ROWS),
+    params: {},
     counts: {
       all: 339,
       companies: 188,
@@ -122,7 +125,9 @@ describe('the customers of screen 04', () => {
     const search = /<form[^>]*role="search"[\s\S]*?<\/form>/.exec(html)?.[0] ?? '';
     expect(search).toContain('action="/customers/search"');
     expect(search).toContain('placeholder="ابحث بالاسم أو رقم السجل أو الآيبان"');
-    expect(render({ searchedByNumber: true, rows: [] })).toContain('لا عميل يطابق هذا البحث.');
+    expect(render({ searchedByNumber: true, page: firstPage([]) })).toContain(
+      'لا عميل يطابق هذا البحث.',
+    );
   });
 
   it('draws each row: kind, masked number, completeness, standing, risk, last check and the file', () => {
@@ -146,13 +151,45 @@ describe('the customers of screen 04', () => {
   });
 
   it('says why the list is empty', () => {
-    expect(render({ rows: [], counts: { ...view().counts, all: 0 } })).toContain(
+    expect(render({ page: firstPage([]), counts: { ...view().counts, all: 0 } })).toContain(
       'لا عملاء بعد. أضف أول عميل وتحقق منه من زر «عميل جديد».',
     );
-    expect(render({ rows: [], alertsOnly: true })).toContain('لا تنبيهات مفتوحة على أي عميل.');
+    expect(render({ page: firstPage([]), alertsOnly: true })).toContain(
+      'لا تنبيهات مفتوحة على أي عميل.',
+    );
   });
 
   it('writes no em dash anywhere', () => {
     expect(html).not.toContain(String.fromCharCode(0x2014));
+  });
+
+  it('opens the file from anywhere on the row, and keeps the link for the keyboard', () => {
+    expect(html).toContain('<tbody class="linked-rows">');
+    const first = row(html, '11111111-1111-4111-8111-111111111111');
+    expect(first).toContain('data-href="/customers/11111111-1111-4111-8111-111111111111"');
+    expect(first).toMatch(
+      /<a[^>]*href="\/customers\/11111111-1111-4111-8111-111111111111"[^>]*data-row-link="true"/,
+    );
+  });
+
+  it('pages a long list and keeps the filters in every page link', () => {
+    const many = Array.from({ length: 60 }, (_, index) => ({
+      ...(ROWS[0] as CustomerSummary),
+      entityId: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    }));
+    const second = render({
+      page: slicePage(many, { page: 2, size: 25 }),
+      params: { kind: 'COMPANY', page: '2' },
+    });
+    expect(second.match(/data-role="customer-row"/g)).toHaveLength(25);
+    expect(second).toContain('data-role="pagination"');
+    expect(second).toMatch(
+      /عرض <bdi dir="ltr" class="ltr">26–50<\/bdi> من <bdi dir="ltr" class="ltr">60<\/bdi>/,
+    );
+    expect(second).toContain('href="/customers?kind=COMPANY&amp;page=3"');
+    expect(second).toContain('href="/customers?kind=COMPANY"');
+    expect(second).toMatch(/aria-current="page"[^>]*>(<[^>]+>)*2</);
+    // One page has nothing to move between.
+    expect(html).not.toContain('data-slot="pagination"');
   });
 });

@@ -1,4 +1,5 @@
 import type { Queryable, TenantTransaction } from '@nx-verify/db';
+import { readPage, type Page, type PageRequest } from '../pagination.js';
 
 /**
  * What we earn, aggregated to the only shape an internal role may read.
@@ -63,6 +64,67 @@ export interface MarginQuery {
   to?: Date;
   tenantId?: string;
   productCode?: string;
+  limit?: number;
+  offset?: number;
+}
+
+const MARGIN_FILTER = `($1::date IS NULL OR m.period_start >= $1)
+       AND ($2::date IS NULL OR m.period_start <= $2)
+       AND ($3::uuid IS NULL OR m.tenant_id = $3)
+       AND ($4::text IS NULL OR m.product_code = $4)`;
+
+function marginFilterValues(query: MarginQuery): unknown[] {
+  return [query.from ?? null, query.to ?? null, query.tenantId ?? null, query.productCode ?? null];
+}
+
+/** How many rows of the report the filters leave, for its pages. */
+export async function countMarginRows(
+  operator: Queryable,
+  query: MarginQuery = {},
+): Promise<number> {
+  const { rows } = await operator.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM margin_counters m WHERE ${MARGIN_FILTER}`,
+    marginFilterValues(query),
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+export interface MarginTotals {
+  billedHalalas: number;
+  providerCostHalalas: number;
+  packageRuns: number;
+}
+
+/** The figures above the report, over every row the filters leave rather than the page on screen. */
+export async function marginTotals(
+  operator: Queryable,
+  query: MarginQuery = {},
+): Promise<MarginTotals> {
+  const { rows } = await operator.query<{ billed: string; cost: string; package_runs: string }>(
+    `SELECT coalesce(sum(m.billed_halalas), 0)::text AS billed,
+            coalesce(sum(m.provider_cost_halalas), 0)::text AS cost,
+            coalesce(sum(m.package_runs), 0)::text AS package_runs
+     FROM margin_counters m WHERE ${MARGIN_FILTER}`,
+    marginFilterValues(query),
+  );
+  return {
+    billedHalalas: Number(rows[0]?.billed ?? 0),
+    providerCostHalalas: Number(rows[0]?.cost ?? 0),
+    packageRuns: Number(rows[0]?.package_runs ?? 0),
+  };
+}
+
+/** One page of the report, newest month first. */
+export async function pageMarginReport(
+  operator: Queryable,
+  query: Omit<MarginQuery, 'limit' | 'offset'>,
+  request: PageRequest,
+): Promise<Page<MarginRow>> {
+  return readPage(
+    request,
+    () => countMarginRows(operator, query),
+    (window) => marginReport(operator, { ...query, ...window }),
+  );
 }
 
 /**
@@ -92,12 +154,10 @@ export async function marginReport(
             m.package_runs, m.billed_halalas::text, m.provider_cost_halalas::text
      FROM margin_counters m
      JOIN tenants t ON t.id = m.tenant_id
-     WHERE ($1::date IS NULL OR m.period_start >= $1)
-       AND ($2::date IS NULL OR m.period_start <= $2)
-       AND ($3::uuid IS NULL OR m.tenant_id = $3)
-       AND ($4::text IS NULL OR m.product_code = $4)
-     ORDER BY m.period_start DESC, t.legal_name, m.product_code`,
-    [query.from ?? null, query.to ?? null, query.tenantId ?? null, query.productCode ?? null],
+     WHERE ${MARGIN_FILTER}
+     ORDER BY m.period_start DESC, t.legal_name, m.product_code, m.tenant_id
+     LIMIT $5 OFFSET $6`,
+    [...marginFilterValues(query), query.limit ?? null, Math.max(query.offset ?? 0, 0)],
   );
 
   return rows.map((row) => {

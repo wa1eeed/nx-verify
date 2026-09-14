@@ -1,5 +1,12 @@
 import type { ReactElement } from 'react';
-import { EXPIRING_WINDOW_DAYS, listPlans, operatorCan, subscribersBoard } from '@nx-verify/core';
+import {
+  EXPIRING_WINDOW_DAYS,
+  listPlans,
+  operatorCan,
+  slicePage,
+  subscribersBoard,
+} from '@nx-verify/core';
+import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { AdminSubscribers } from '../../../../components/admin-subscribers';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { SUBSCRIBER_TABS } from '../../../../components/operator-shell';
@@ -14,8 +21,13 @@ export const dynamic = 'force-dynamic';
  *
  * Read on the operator connection from commercial rows and monthly counters only (ADR-118).
  */
-export default async function OperatorSubscribersPage(): Promise<ReactElement> {
+export default async function OperatorSubscribersPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}): Promise<ReactElement> {
   const operator = await currentOperator();
+  const params = await searchParams;
   const data = await operatorQuery(async (db) => ({
     board: await subscribersBoard(db),
     plans: await listPlans(db),
@@ -27,6 +39,8 @@ export default async function OperatorSubscribersPage(): Promise<ReactElement> {
       <AdminSubscribers
         view={{
           board: data.board,
+          page: slicePage(data.board.rows, pageRequestFrom(params)),
+          params,
           expiringWindowDays: EXPIRING_WINDOW_DAYS,
           canManage: operatorCan(operator.role, 'subscribers'),
           plans: data.plans.map((plan) => ({ code: plan.code, nameAr: plan.nameAr })),

@@ -1,4 +1,5 @@
 import type { Queryable } from '@nx-verify/db';
+import { readPage, type Page, type PageRequest } from '../pagination.js';
 
 /**
  * What staff changed, and who changed it (handoff screen 05, «آخر تعديل بواسطة»).
@@ -34,13 +35,43 @@ export async function recordOperatorAudit(db: Queryable, entry: OperatorAuditEnt
  * prefixes given. A target prefix narrows to one thing («pricing:»); an action prefix to one
  * kind of change («staff.»).
  */
+export interface OperatorAuditFilter {
+  targetPrefixes?: readonly string[];
+  actionPrefixes?: readonly string[];
+}
+
+const AUDIT_FILTER = `(cardinality($1::text[]) = 0 AND cardinality($2::text[]) = 0)
+        OR EXISTS (SELECT 1 FROM unnest($1::text[]) AS prefix WHERE a.target LIKE prefix || '%')
+        OR EXISTS (SELECT 1 FROM unnest($2::text[]) AS prefix WHERE a.action LIKE prefix || '%')`;
+
+/** How many changes the prefixes leave, for the pages of the trail. */
+export async function countOperatorAudit(
+  db: Queryable,
+  filter: OperatorAuditFilter = {},
+): Promise<number> {
+  const { rows } = await db.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM operator_audit a WHERE ${AUDIT_FILTER}`,
+    [[...(filter.targetPrefixes ?? [])], [...(filter.actionPrefixes ?? [])]],
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+/** One page of the trail, newest first. */
+export async function pageOperatorAudit(
+  db: Queryable,
+  filter: OperatorAuditFilter,
+  request: PageRequest,
+): Promise<Page<OperatorAuditRow>> {
+  return readPage(
+    request,
+    () => countOperatorAudit(db, filter),
+    (window) => listOperatorAudit(db, { ...filter, ...window }),
+  );
+}
+
 export async function listOperatorAudit(
   db: Queryable,
-  options: {
-    targetPrefixes?: readonly string[];
-    actionPrefixes?: readonly string[];
-    limit?: number;
-  } = {},
+  options: OperatorAuditFilter & { limit?: number; offset?: number } = {},
 ): Promise<OperatorAuditRow[]> {
   const targets = options.targetPrefixes ?? [];
   const actions = options.actionPrefixes ?? [];
@@ -55,12 +86,15 @@ export async function listOperatorAudit(
     `SELECT a.at, a.operator_id, o.display_name AS operator_name, a.action, a.target, a.metadata
      FROM operator_audit a
      LEFT JOIN operator_accounts o ON o.id::text = a.operator_id
-     WHERE (cardinality($1::text[]) = 0 AND cardinality($2::text[]) = 0)
-        OR EXISTS (SELECT 1 FROM unnest($1::text[]) AS prefix WHERE a.target LIKE prefix || '%')
-        OR EXISTS (SELECT 1 FROM unnest($2::text[]) AS prefix WHERE a.action LIKE prefix || '%')
+     WHERE ${AUDIT_FILTER}
      ORDER BY a.at DESC, a.id DESC
-     LIMIT $3`,
-    [[...targets], [...actions], Math.min(Math.max(options.limit ?? 50, 1), 500)],
+     LIMIT $3 OFFSET $4`,
+    [
+      [...targets],
+      [...actions],
+      Math.min(Math.max(options.limit ?? 50, 1), 500),
+      Math.max(options.offset ?? 0, 0),
+    ],
   );
   return rows.map((row) => ({
     at: row.at,

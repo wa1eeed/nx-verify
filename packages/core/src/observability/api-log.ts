@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@nx-verify/db';
+import { readPage, type Page, type PageRequest } from '../pagination.js';
 
 /**
  * What a customer's engineer sees when an integration misbehaves.
@@ -60,9 +61,68 @@ export interface ApiRequestRow {
 
 export interface ApiLogFilter {
   limit?: number;
+  offset?: number;
   /** Only the calls that failed, which is what somebody debugging came for. */
   failuresOnly?: boolean;
   environment?: 'sandbox' | 'live';
+}
+
+// The tenant is constrained in each statement itself, where rule 2's scan can see it.
+const API_LOG_FILTER = `($2::boolean IS NOT TRUE OR status >= 400)
+       AND ($3::text IS NULL OR environment = $3)`;
+
+function apiLogFilterValues(tx: TenantTransaction, filter: ApiLogFilter): unknown[] {
+  return [tx.tenantId, filter.failuresOnly ?? false, filter.environment ?? null];
+}
+
+/** How many calls the filters leave, for the pages of the log. */
+export async function countApiRequests(
+  tx: TenantTransaction,
+  filter: ApiLogFilter = {},
+): Promise<number> {
+  const { rows } = await tx.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM api_requests WHERE tenant_id = $1 AND ${API_LOG_FILTER}`,
+    apiLogFilterValues(tx, filter),
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+export interface ApiLogTallies {
+  total: number;
+  failures: number;
+  slowestMs: number;
+}
+
+/** The figures above the log, over every call the filters leave rather than the page on screen. */
+export async function apiLogTallies(
+  tx: TenantTransaction,
+  filter: ApiLogFilter = {},
+): Promise<ApiLogTallies> {
+  const { rows } = await tx.query<{ total: string; failures: string; slowest: number | null }>(
+    `SELECT count(*)::text AS total,
+            count(*) FILTER (WHERE status >= 400)::text AS failures,
+            max(latency_ms) AS slowest
+     FROM api_requests WHERE tenant_id = $1 AND ${API_LOG_FILTER}`,
+    apiLogFilterValues(tx, filter),
+  );
+  return {
+    total: Number(rows[0]?.total ?? 0),
+    failures: Number(rows[0]?.failures ?? 0),
+    slowestMs: rows[0]?.slowest ?? 0,
+  };
+}
+
+/** One page of the log, newest first. */
+export async function pageApiRequests(
+  tx: TenantTransaction,
+  filter: Omit<ApiLogFilter, 'limit' | 'offset'>,
+  request: PageRequest,
+): Promise<Page<ApiRequestRow>> {
+  return readPage(
+    request,
+    () => countApiRequests(tx, filter),
+    (window) => listApiRequests(tx, { ...filter, ...window }),
+  );
 }
 
 export async function listApiRequests(
@@ -83,12 +143,12 @@ export async function listApiRequests(
     `SELECT id::text, request_id, method, route, status, latency_ms, error_code,
             environment, created_at
      FROM api_requests
-     WHERE tenant_id = $1
-       AND ($2::boolean IS NOT TRUE OR status >= 400)
-       AND ($3::text IS NULL OR environment = $3)
-     ORDER BY id DESC
-     LIMIT $4`,
-    [tx.tenantId, filter.failuresOnly ?? false, filter.environment ?? null, filter.limit ?? 100],
+     WHERE tenant_id = $1 AND ${API_LOG_FILTER}
+     -- Qualified: the select list names id::text as id, and a bare ORDER BY id would sort
+     -- that text, which puts request 9 after request 29.
+     ORDER BY api_requests.id DESC
+     LIMIT $4 OFFSET $5`,
+    [...apiLogFilterValues(tx, filter), filter.limit ?? 100, Math.max(filter.offset ?? 0, 0)],
   );
 
   return rows.map((row) => ({

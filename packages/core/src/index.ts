@@ -1,4 +1,6 @@
 export { NxError } from './errors.js';
+export { PAGE_SIZES, pageRequestOf, pageWindow, readPage, slicePage } from './pagination.js';
+export type { Page, PageRequest, PageSize } from './pagination.js';
 export type { NxErrorCode, NxErrorOptions } from './errors.js';
 export { canonicalJson } from './canonical-json.js';
 export {
@@ -178,7 +180,13 @@ export {
   verify,
 } from './verification/verify.js';
 export type { ResumeInput, VerifyInput, VerifyResult } from './verification/verify.js';
-export { countRuns, listEntityRuns, listRecentRuns } from './verification/runs-log.js';
+export {
+  countRecentRuns,
+  countRuns,
+  listEntityRuns,
+  listRecentRuns,
+  pageRecentRuns,
+} from './verification/runs-log.js';
 export type { EntityRun, RunCounts, RunLogEntry, RunLogFilter } from './verification/runs-log.js';
 
 export {
@@ -244,7 +252,9 @@ export type {
 
 export {
   acknowledgeChange,
+  countChangeEvents,
   listChangeEvents,
+  pageChangeEvents,
   recordChangeEvent,
 } from './monitoring/change-events.js';
 export type {
@@ -345,7 +355,9 @@ export {
   approveCase,
   assignCase,
   decideCase,
+  countQueue,
   listQueue,
+  pageQueue,
   openCase,
   queueStats,
   returnCase,
@@ -559,7 +571,10 @@ export {
   concludeCase,
   defineJourney,
   getCase,
+  caseTallies,
+  countCases,
   listCases,
+  pageCases,
   listJourneys,
   openCase as openOnboardingCase,
   waiveStep,
@@ -572,6 +587,7 @@ export type {
   CaseStatus as OnboardingStatus,
   CaseStep as OnboardingStep,
   CaseSummary as OnboardingSummary,
+  CaseTallies,
   DefineJourneyInput,
   Journey,
   JourneyStepInput,
@@ -586,7 +602,14 @@ export type {
   DefineActionInput,
   DispatchedAction,
 } from './onboarding/actions.js';
-export { marginReport, recordMargin } from './billing/margin.js';
+export {
+  countMarginRows,
+  marginReport,
+  marginTotals,
+  pageMarginReport,
+  recordMargin,
+} from './billing/margin.js';
+export type { MarginTotals } from './billing/margin.js';
 export type { MarginQuery, MarginRow, RecordMarginInput } from './billing/margin.js';
 export {
   listPackagesForOperator,
@@ -616,8 +639,20 @@ export type {
   SubscriberSummary,
   SubscriberTopUp,
 } from './billing/subscribers.js';
-export { listApiRequests, pruneApiRequests, recordApiRequest } from './observability/api-log.js';
-export type { ApiLogFilter, ApiRequestRecord, ApiRequestRow } from './observability/api-log.js';
+export {
+  apiLogTallies,
+  countApiRequests,
+  listApiRequests,
+  pageApiRequests,
+  pruneApiRequests,
+  recordApiRequest,
+} from './observability/api-log.js';
+export type {
+  ApiLogFilter,
+  ApiLogTallies,
+  ApiRequestRecord,
+  ApiRequestRow,
+} from './observability/api-log.js';
 export { subscriberHealth } from './observability/service-health.js';
 export type { SubscriberHealthRow } from './observability/service-health.js';
 export {
@@ -744,7 +779,13 @@ export type {
   OperatorRole,
   OperatorStatus,
 } from './operators/accounts.js';
-export { listOperatorAudit, recordOperatorAudit } from './operators/audit.js';
+export {
+  countOperatorAudit,
+  listOperatorAudit,
+  pageOperatorAudit,
+  recordOperatorAudit,
+} from './operators/audit.js';
+export type { OperatorAuditFilter } from './operators/audit.js';
 export type { OperatorAuditEntry, OperatorAuditRow } from './operators/audit.js';
 export {
   DEFAULT_PLATFORM_SETTINGS,

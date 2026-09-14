@@ -1,5 +1,6 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { riyalsToHalalas } from '../billing/money.js';
+import { readPage, type Page, type PageRequest } from '../pagination.js';
 
 /**
  * Every verification a subscriber ran, newest first.
@@ -34,6 +35,25 @@ export interface RunLogFilter {
   /** Only runs from this moment on: a month's report. */
   since?: Date | null;
   limit?: number;
+  offset?: number;
+}
+
+// The tenant is constrained in each statement itself, where rule 2's scan can see it.
+const RUN_FILTER = `($2::text IS NULL OR r.product_code = $2)
+       AND ($3::text IS NULL OR r.status = $3)
+       AND ($4::text IS NULL OR r.decision = $4)
+       AND ($5::text IS NULL OR r.triggered_by = $5)
+       AND ($6::timestamptz IS NULL OR r.created_at >= $6)`;
+
+function runFilterValues(tx: TenantTransaction, filter: RunLogFilter): unknown[] {
+  return [
+    tx.tenantId,
+    filter.productCode ?? null,
+    filter.status ?? null,
+    filter.decision ?? null,
+    filter.triggeredBy ?? null,
+    filter.since ?? null,
+  ];
 }
 
 export async function listRecentRuns(
@@ -61,22 +81,13 @@ export async function listRecentRuns(
      FROM verification_runs r
      LEFT JOIN products p ON p.code = r.product_code
      LEFT JOIN entities e ON e.tenant_id = r.tenant_id AND e.id = r.entity_id
-     WHERE r.tenant_id = $1
-       AND ($2::text IS NULL OR r.product_code = $2)
-       AND ($3::text IS NULL OR r.status = $3)
-       AND ($4::text IS NULL OR r.decision = $4)
-       AND ($5::text IS NULL OR r.triggered_by = $5)
-       AND ($7::timestamptz IS NULL OR r.created_at >= $7)
-     ORDER BY r.created_at DESC
-     LIMIT $6`,
+     WHERE r.tenant_id = $1 AND ${RUN_FILTER}
+     ORDER BY r.created_at DESC, r.id
+     LIMIT $7 OFFSET $8`,
     [
-      tx.tenantId,
-      filter.productCode ?? null,
-      filter.status ?? null,
-      filter.decision ?? null,
-      filter.triggeredBy ?? null,
+      ...runFilterValues(tx, filter),
       Math.min(Math.max(filter.limit ?? 100, 1), 5_000),
-      filter.since ?? null,
+      Math.max(filter.offset ?? 0, 0),
     ],
   );
 
@@ -96,6 +107,32 @@ export async function listRecentRuns(
     chargeSource: row.charge_source,
     createdAt: row.created_at,
   }));
+}
+
+/** How many runs the filters leave, for the pages of the log. */
+export async function countRecentRuns(
+  tx: TenantTransaction,
+  filter: RunLogFilter = {},
+): Promise<number> {
+  const { rows } = await tx.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM verification_runs r
+     WHERE r.tenant_id = $1 AND ${RUN_FILTER}`,
+    runFilterValues(tx, filter),
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+/** One page of the log, newest first. */
+export async function pageRecentRuns(
+  tx: TenantTransaction,
+  filter: Omit<RunLogFilter, 'limit' | 'offset'>,
+  request: PageRequest,
+): Promise<Page<RunLogEntry>> {
+  return readPage(
+    request,
+    () => countRecentRuns(tx, filter),
+    (window) => listRecentRuns(tx, { ...filter, ...window }),
+  );
 }
 
 export interface RunCounts {

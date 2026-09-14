@@ -1,4 +1,8 @@
 import type { ReactElement } from 'react';
+import type { Page } from '@nx-verify/core';
+import { LinkedRows } from './ui/linked-rows';
+import { ListPagination } from './ui/pagination';
+import type { SearchParams } from '../lib/pagination';
 import { EmptyState, PageHeader, Panel } from './page-header';
 
 /**
@@ -43,8 +47,17 @@ export function reasonLabel(code: string): string {
   return REASON_LABELS[code] ?? code;
 }
 
-export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
-  const overdue = rows.filter((row) => row.overdue).length;
+export function ReviewQueue({
+  page,
+  overdue,
+  params,
+}: {
+  page: Page<QueueRowView>;
+  /** Overdue cases across the whole queue, not the page on screen. */
+  overdue: number;
+  params: SearchParams;
+}): ReactElement {
+  const rows = page.rows;
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
@@ -65,7 +78,7 @@ export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
       */}
       <Panel
         title="الحالات"
-        aside={overdue > 0 ? `${overdue} متأخرة من ${rows.length}` : `${rows.length} حالة`}
+        aside={overdue > 0 ? `${overdue} متأخرة من ${page.total}` : `${page.total} حالة`}
         note="لا يجوز أن يكون المقرِّر هو المعتمِد. من يقرّر حالة لا يستطيع اعتمادها."
       >
         <div className="table-scroll">
@@ -79,11 +92,17 @@ export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
                 <th>المقرِّر</th>
               </tr>
             </thead>
-            <tbody>
+            <LinkedRows>
               {rows.map((row) => (
-                <tr key={row.caseId} data-overdue={row.overdue ? 'true' : 'false'}>
+                <tr
+                  key={row.caseId}
+                  data-overdue={row.overdue ? 'true' : 'false'}
+                  data-href={`/customers/${row.entityId}`}
+                >
                   <td>
-                    <a href={`/customers/${row.entityId}`}>{row.entityName ?? 'بلا اسم'}</a>
+                    <a href={`/customers/${row.entityId}`} data-row-link>
+                      {row.entityName ?? 'بلا اسم'}
+                    </a>
                   </td>
                   <td>{row.reasonCodes.map(reasonLabel).join('، ')}</td>
                   <td>
@@ -112,10 +131,18 @@ export function ReviewQueue({ rows }: { rows: QueueRowView[] }): ReactElement {
                   <td className="muted">{row.decidedBy ?? row.assignedTo ?? 'غير مسندة'}</td>
                 </tr>
               ))}
-            </tbody>
+            </LinkedRows>
           </table>
         </div>
-        {rows.length === 0 ? (
+        <div className="panel-body">
+          <ListPagination
+            page={page}
+            path="/customers/reviews"
+            params={params}
+            label="صفحات المراجعات"
+          />
+        </div>
+        {page.total === 0 ? (
           <div className="panel-body">
             {/* Good news, and the screen says so rather than showing a blank table. */}
             <EmptyState>لا حالات مفتوحة. لا شيء ينتظر قراراً.</EmptyState>

@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
-import { countRuns, listProducts, listRecentRuns } from '@nx-verify/core';
+import { countRuns, listProducts, pageRecentRuns } from '@nx-verify/core';
 import { VerificationsLog } from '../../../components/verifications-log';
 import { SectionTabs } from '../../../components/section-tabs';
 import { VERIFICATION_TABS } from '../../../components/nav';
 import { query } from '../../../lib/context';
+import { pageRequestFrom } from '../../../lib/pagination';
 
 /** Never prerendered: one subscriber's live runs. */
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export default async function VerificationsPage({
 
   const data = await query(async (tx) => ({
     // Sequential: one connection, one transaction, one query at a time.
-    rows: await listRecentRuns(tx, { productCode: product, status, limit: 200 }),
+    page: await pageRecentRuns(tx, { productCode: product, status }, pageRequestFrom(params)),
     counts: await countRuns(tx),
     products: await listProducts(tx),
   }));
@@ -36,7 +37,8 @@ export default async function VerificationsPage({
       <SectionTabs tabs={VERIFICATION_TABS} current="/verifications" label="أقسام التحقق" />
       <VerificationsLog
         view={{
-          rows: data.rows,
+          page: data.page,
+          params,
           counts: data.counts,
           products: data.products.map((entry) => ({ code: entry.code, nameAr: entry.nameAr })),
           filter: { product, status },

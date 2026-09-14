@@ -5,6 +5,9 @@ import {
   type OperatorAccount,
   type OperatorAuditRow,
 } from '@nx-verify/core';
+import type { Page } from '@nx-verify/core';
+import { ListPagination } from '../ui/pagination';
+import type { SearchParams } from '../../lib/pagination';
 import { PageHeader } from '../page-header';
 import { Card } from '../ui/card';
 import { Ltr } from '../ui/ltr';
@@ -40,7 +43,8 @@ export interface AdminAccessView {
   selfId: string | null;
   canManageStaff: boolean;
   sessionHours: number;
-  audit: readonly (OperatorAuditRow & { byName: string })[];
+  audit: Page<OperatorAuditRow & { byName: string }>;
+  params: SearchParams;
   scope: AuditScope;
   names: AuditNames;
   notice: { tone: 'done' | 'refused'; text: string } | null;
@@ -181,7 +185,7 @@ export function AdminAccess({
             ))}
           </nav>
         </div>
-        {view.audit.length === 0 ? (
+        {view.audit.total === 0 ? (
           <p className="admin-empty" data-role="empty-state">
             لم يُجرِ أحد أي تغيير هنا بعد.
           </p>
@@ -198,7 +202,7 @@ export function AdminAccess({
                 </tr>
               </thead>
               <tbody>
-                {view.audit.map((row, index) => (
+                {view.audit.rows.map((row, index) => (
                   <tr key={`${row.at.toISOString()}-${index}`} data-role="audit-row">
                     <td>
                       {dateAr(row.at)}، <Ltr>{timeOfDay(row.at)}</Ltr>
@@ -213,6 +217,14 @@ export function AdminAccess({
             </Table>
           </div>
         )}
+        <div className="admin-table">
+          <ListPagination
+            page={view.audit}
+            path="/operator/access"
+            params={view.params}
+            label="صفحات سجل التغييرات"
+          />
+        </div>
       </Card>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@nx-verify/db';
+import { readPage, type Page, type PageRequest } from '../pagination.js';
 import { NxError } from '../errors.js';
 import { audit } from '../auth/audit.js';
 import { decide } from '../decision/engine.js';
@@ -697,9 +698,64 @@ export interface CaseSummary {
   total: number;
 }
 
+export interface CaseTallies {
+  /** Still being worked on, or decided and waiting for review. */
+  open: number;
+  /** Open, and past the deadline its journey set. */
+  late: number;
+  approved: number;
+}
+
+/** The figures above the list of cases, over every case rather than the page on screen. */
+export async function caseTallies(
+  tx: TenantTransaction,
+  now: Date = new Date(),
+): Promise<CaseTallies> {
+  const { rows } = await tx.query<{ open: string; late: string; approved: string }>(
+    `SELECT count(*) FILTER (WHERE outcome IS NULL OR status = 'IN_REVIEW')::text AS open,
+            count(*) FILTER (WHERE (outcome IS NULL OR status = 'IN_REVIEW')
+                               AND closed_at IS NULL AND due_at < $2)::text AS late,
+            count(*) FILTER (WHERE status = 'APPROVED')::text AS approved
+     FROM onboarding_cases
+     WHERE tenant_id = $1`,
+    [tx.tenantId, now],
+  );
+  return {
+    open: Number(rows[0]?.open ?? 0),
+    late: Number(rows[0]?.late ?? 0),
+    approved: Number(rows[0]?.approved ?? 0),
+  };
+}
+
+/** How many cases there are, open ones only when asked, for the pages of the list. */
+export async function countCases(
+  tx: TenantTransaction,
+  options: { open?: boolean } = {},
+): Promise<number> {
+  const { rows } = await tx.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM onboarding_cases c
+     WHERE c.tenant_id = $1 AND ($2::boolean IS NOT TRUE OR c.closed_at IS NULL)`,
+    [tx.tenantId, options.open ?? false],
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+/** One page of the cases, open ones first and the soonest due first among them. */
+export async function pageCases(
+  tx: TenantTransaction,
+  options: { open?: boolean; now?: Date },
+  request: PageRequest,
+): Promise<Page<CaseSummary>> {
+  return readPage(
+    request,
+    () => countCases(tx, options),
+    (window) => listCases(tx, { ...options, ...window }),
+  );
+}
+
 export async function listCases(
   tx: TenantTransaction,
-  options: { open?: boolean; limit?: number; now?: Date } = {},
+  options: { open?: boolean; limit?: number; offset?: number; now?: Date } = {},
 ): Promise<CaseSummary[]> {
   const now = options.now ?? new Date();
   const { rows } = await tx.query<{
@@ -723,9 +779,9 @@ export async function listCases(
      LEFT JOIN onboarding_case_steps s ON s.tenant_id = c.tenant_id AND s.case_id = c.id
      WHERE c.tenant_id = $1 AND ($2::boolean IS NOT TRUE OR c.closed_at IS NULL)
      GROUP BY c.id
-     ORDER BY c.closed_at NULLS FIRST, c.due_at
-     LIMIT $3`,
-    [tx.tenantId, options.open ?? false, options.limit ?? 100],
+     ORDER BY c.closed_at NULLS FIRST, c.due_at, c.id
+     LIMIT $3 OFFSET $4`,
+    [tx.tenantId, options.open ?? false, options.limit ?? 100, Math.max(options.offset ?? 0, 0)],
   );
 
   return rows.map((row) => ({

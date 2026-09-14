@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@nx-verify/db';
+import { readPage, type Page, type PageRequest } from '@nx-verify/core';
 
 /**
  * The registry and its saved views.
@@ -81,10 +82,34 @@ export interface RegistryRow {
   scoreAt: Date | null;
 }
 
+/** How many records of a kind there are, for the pages of their view. */
+export async function countRegistry(tx: TenantTransaction, entityType: string): Promise<number> {
+  const { rows } = await tx.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM entities
+     WHERE tenant_id = $1 AND entity_type = $2 AND archived_at IS NULL`,
+    [tx.tenantId, entityType],
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+/** One page of a kind of record, most recently seen first. */
+export async function pageRegistry(
+  tx: TenantTransaction,
+  entityType: string,
+  request: PageRequest,
+): Promise<Page<RegistryRow>> {
+  return readPage(
+    request,
+    () => countRegistry(tx, entityType),
+    (window) => listRegistry(tx, entityType, window.limit, window.offset),
+  );
+}
+
 export async function listRegistry(
   tx: TenantTransaction,
   entityType: string,
   limit = 100,
+  offset = 0,
 ): Promise<RegistryRow[]> {
   const { rows } = await tx.query<{
     entity_id: string;
@@ -113,9 +138,9 @@ export async function listRegistry(
      LEFT JOIN entity_scores s ON s.tenant_id = e.tenant_id AND s.entity_id = e.id
      WHERE e.tenant_id = $1 AND e.entity_type = $2 AND e.archived_at IS NULL
      GROUP BY e.id, e.display_name, e.entity_type, e.last_seen_at
-     ORDER BY e.last_seen_at DESC
-     LIMIT $3`,
-    [tx.tenantId, entityType, limit],
+     ORDER BY e.last_seen_at DESC, e.id
+     LIMIT $3 OFFSET $4`,
+    [tx.tenantId, entityType, limit, Math.max(offset, 0)],
   );
 
   return rows.map((row) => ({

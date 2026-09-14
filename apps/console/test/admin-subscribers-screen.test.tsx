@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { SubscriberBoardRow, SubscriberDetail, SubscribersBoard } from '@nx-verify/core';
+import {
+  slicePage,
+  type SubscriberBoardRow,
+  type SubscriberDetail,
+  type SubscribersBoard,
+} from '@nx-verify/core';
 import { AdminSubscribers } from '../src/components/admin-subscribers';
 import { AdminSubscriber } from '../src/components/admin-subscribers/detail';
 import {
@@ -106,6 +111,8 @@ const render = (canManage = true, board: SubscribersBoard = BOARD): string =>
     <AdminSubscribers
       view={{
         board,
+        page: slicePage(board.rows, { page: 1, size: 25 }),
+        params: {},
         expiringWindowDays: 14,
         canManage,
         plans: [{ code: 'GROWTH', nameAr: 'النمو' }],

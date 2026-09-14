@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@nx-verify/db';
+import { readPage, type Page, type PageRequest } from '../pagination.js';
 import { NxError } from '../errors.js';
 import { audit } from '../auth/audit.js';
 import { canApprove, canDecide, getUser } from '../auth/users.js';
@@ -77,15 +78,55 @@ export interface QueueFilter {
   status?: CaseStatus | 'AWAITING_APPROVAL';
   assignedTo?: string;
   entityId?: string;
+  /** Only the open cases past their deadline: the figure beside the queue's title. */
+  overdueOnly?: boolean;
   limit?: number;
+  offset?: number;
+}
+
+// The tenant is constrained in each statement itself, where rule 2's scan can see it.
+const QUEUE_FILTER = `($2::text IS NULL OR status = $2)
+       AND ($3::uuid IS NULL OR assigned_to = $3)
+       AND ($4::uuid IS NULL OR entity_id = $4)
+       AND ($5::boolean IS NOT TRUE OR (sla_due_at < now() AND closed_at IS NULL))`;
+
+function queueFilterValues(tx: TenantTransaction, filter: QueueFilter): unknown[] {
+  const status = filter.status === 'AWAITING_APPROVAL' ? 'DECIDED' : (filter.status ?? null);
+  return [
+    tx.tenantId,
+    status,
+    filter.assignedTo ?? null,
+    filter.entityId ?? null,
+    filter.overdueOnly ?? false,
+  ];
+}
+
+/** How many cases the filters leave, for the pages of the queue. */
+export async function countQueue(tx: TenantTransaction, filter: QueueFilter = {}): Promise<number> {
+  const { rows } = await tx.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM review_cases WHERE tenant_id = $1 AND ${QUEUE_FILTER}`,
+    queueFilterValues(tx, filter),
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+/** One page of the queue, overdue and urgent first. */
+export async function pageQueue(
+  tx: TenantTransaction,
+  filter: Omit<QueueFilter, 'limit' | 'offset'>,
+  request: PageRequest,
+): Promise<Page<QueueItem>> {
+  return readPage(
+    request,
+    () => countQueue(tx, filter),
+    (window) => listQueue(tx, { ...filter, ...window }),
+  );
 }
 
 export async function listQueue(
   tx: TenantTransaction,
   filter: QueueFilter = {},
 ): Promise<QueueItem[]> {
-  const status = filter.status === 'AWAITING_APPROVAL' ? 'DECIDED' : (filter.status ?? null);
-
   const { rows } = await tx.query<{
     id: string;
     entity_id: string;
@@ -107,16 +148,14 @@ export async function listQueue(
             (extract(epoch FROM (now() - opened_at)) / 3600)::numeric(10,2)::text AS age_hours,
             (sla_due_at < now() AND closed_at IS NULL) AS overdue
      FROM review_cases
-     WHERE tenant_id = $1
-       AND ($2::text IS NULL OR status = $2)
-       AND ($3::uuid IS NULL OR assigned_to = $3)
-       AND ($4::uuid IS NULL OR entity_id = $4)
+     WHERE tenant_id = $1 AND ${QUEUE_FILTER}
      ORDER BY
        (sla_due_at < now() AND closed_at IS NULL) DESC,
        CASE priority WHEN 'HIGH' THEN 0 WHEN 'NORMAL' THEN 1 ELSE 2 END,
-       sla_due_at
-     LIMIT $5`,
-    [tx.tenantId, status, filter.assignedTo ?? null, filter.entityId ?? null, filter.limit ?? 100],
+       sla_due_at,
+       id
+     LIMIT $6 OFFSET $7`,
+    [...queueFilterValues(tx, filter), filter.limit ?? 100, Math.max(filter.offset ?? 0, 0)],
   );
 
   return rows.map((row) => ({

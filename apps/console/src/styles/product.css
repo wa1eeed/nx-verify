@@ -2102,3 +2102,142 @@ a.frame-brand:active {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── long lists: rows that open what they are about, and pages (unit C) ── */
+
+/* The whole row answers the pointer; the link inside it stays the keyboard's way in. */
+.linked-rows tr[data-href] {
+  cursor: pointer;
+  transition-property: background-color;
+  transition-duration: var(--duration-color);
+}
+.linked-rows tr[data-href]:hover,
+.linked-rows tr[data-href]:has(a:focus-visible) {
+  background: var(--color-accent-100);
+}
+.linked-rows tr[data-href]:active {
+  background: var(--color-accent-200);
+}
+.linked-rows tr[data-href]:has(a:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+[data-theme='dark'] .linked-rows tr[data-href]:hover,
+[data-theme='dark'] .linked-rows tr[data-href]:has(a:focus-visible) {
+  background: var(--color-accent-900);
+}
+[data-theme='dark'] .linked-rows tr[data-href]:active {
+  background: var(--color-accent-800);
+}
+
+.list-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-block-start: var(--space-3);
+}
+.list-pagination-summary {
+  margin: 0;
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+/* The shadcn nav centres itself across the row; here it sits between the count and the sizes. */
+.list-pagination-pages {
+  inline-size: auto;
+  margin-inline: 0;
+}
+.list-pagination-pages ul {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.list-pagination-sizes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The shadcn page links, drawn as the system's pills. Colour is the only thing that moves. */
+[data-slot='pagination-link'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-inline-size: var(--control-height);
+  block-size: var(--control-height);
+  padding-inline: var(--space-3);
+  border: var(--size-hairline) solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-product-heading);
+  font-weight: var(--font-product-heading-weight);
+  font-size: var(--text-control);
+  text-decoration: none;
+  transform: none;
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--duration-color);
+}
+[data-slot='pagination-link']:hover {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+}
+[data-slot='pagination-link']:active {
+  background: var(--color-accent-200);
+  transform: none;
+}
+[data-slot='pagination-link'][aria-current='page'] {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+[data-slot='pagination-link']:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+[data-slot='pagination-ellipsis'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-height);
+  color: var(--color-neutral-600);
+}
+
+[data-theme='dark'] .list-pagination-summary,
+[data-theme='dark'] [data-slot='pagination-ellipsis'] {
+  color: var(--color-neutral-400);
+}
+[data-theme='dark'] [data-slot='pagination-link'] {
+  color: var(--color-neutral-100);
+}
+[data-theme='dark'] [data-slot='pagination-link']:hover {
+  background: var(--color-accent-900);
+  color: var(--color-accent-200);
+}
+[data-theme='dark'] [data-slot='pagination-link']:active {
+  background: var(--color-accent-800);
+}
+[data-theme='dark'] [data-slot='pagination-link'][aria-current='page'] {
+  background: var(--color-accent-400);
+  color: var(--dark-sidebar);
+}
+
+/* A row's link that reads as the row's text: the whole row is already what answers. */
+.row-link-quiet,
+.row-link-quiet:hover,
+.row-link-quiet:active,
+[data-theme='dark'] .row-link-quiet,
+[data-theme='dark'] .row-link-quiet:hover,
+[data-theme='dark'] .row-link-quiet:active {
+  color: inherit;
+  text-decoration: none;
+}
+.row-link-quiet:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

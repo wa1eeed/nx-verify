@@ -1,4 +1,8 @@
 import type { ReactElement } from 'react';
+import type { CaseTallies, Page } from '@nx-verify/core';
+import { LinkedRows } from './ui/linked-rows';
+import { ListPagination } from './ui/pagination';
+import type { SearchParams } from '../lib/pagination';
 import { EmptyState, PageHeader, Panel } from './page-header';
 
 /**
@@ -63,9 +67,17 @@ export function StatusBadge({ status }: { status: string }): ReactElement {
   );
 }
 
-export function OnboardingList({ cases }: { cases: CaseRowView[] }): ReactElement {
-  const open = cases.filter((row) => row.outcome === null || row.status === 'IN_REVIEW');
-  const late = open.filter((row) => row.overdue);
+export function OnboardingList({
+  page,
+  tallies,
+  params,
+}: {
+  page: Page<CaseRowView>;
+  /** The figures above the list, over every case rather than the page on screen. */
+  tallies: CaseTallies;
+  params: SearchParams;
+}): ReactElement {
+  const cases = page.rows;
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
@@ -84,15 +96,15 @@ export function OnboardingList({ cases }: { cases: CaseRowView[] }): ReactElemen
           <span className="stat-label">ملفات مفتوحة</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {open.length}
+              {tallies.open}
             </bdi>
           </strong>
         </article>
-        <article className="stat" {...(late.length > 0 ? { 'data-tone': 'critical' } : {})}>
+        <article className="stat" {...(tallies.late > 0 ? { 'data-tone': 'critical' } : {})}>
           <span className="stat-label">تجاوزت مهلتها</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {late.length}
+              {tallies.late}
             </bdi>
           </strong>
           <span className="stat-hint">المهلة من رحلة التأهيل</span>
@@ -101,14 +113,14 @@ export function OnboardingList({ cases }: { cases: CaseRowView[] }): ReactElemen
           <span className="stat-label">مقبولة</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {cases.filter((row) => row.status === 'APPROVED').length}
+              {tallies.approved}
             </bdi>
           </strong>
         </article>
       </section>
 
-      <Panel title="الملفات" aside={`${cases.length} ملفاً`}>
-        {cases.length === 0 ? (
+      <Panel title="الملفات" aside={`${page.total} ملفاً`}>
+        {page.total === 0 ? (
           <div className="panel-body">
             <EmptyState>لا ملفات تأهيل بعد. أول ملف يبدأ برحلة معرّفة في الإعدادات.</EmptyState>
           </div>
@@ -125,15 +137,16 @@ export function OnboardingList({ cases }: { cases: CaseRowView[] }): ReactElemen
                   <th>المهلة</th>
                 </tr>
               </thead>
-              <tbody>
+              <LinkedRows>
                 {cases.map((row) => (
                   <tr
                     key={row.caseId}
                     data-role="case-row"
                     data-overdue={row.overdue ? 'true' : 'false'}
+                    data-href={`/verifications/onboarding/${row.caseId}`}
                   >
                     <td>
-                      <a href={`/verifications/onboarding/${row.caseId}`}>
+                      <a href={`/verifications/onboarding/${row.caseId}`} data-row-link>
                         <bdi dir="ltr" className="mono">
                           {row.reference}
                         </bdi>
@@ -169,10 +182,18 @@ export function OnboardingList({ cases }: { cases: CaseRowView[] }): ReactElemen
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </LinkedRows>
             </table>
           </div>
         )}
+        <div className="panel-body">
+          <ListPagination
+            page={page}
+            path="/verifications/onboarding"
+            params={params}
+            label="صفحات ملفات التأهيل"
+          />
+        </div>
       </Panel>
     </div>
   );

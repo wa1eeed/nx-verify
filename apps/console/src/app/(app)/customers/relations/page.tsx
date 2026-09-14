@@ -2,7 +2,10 @@ import type { ReactElement } from 'react';
 import { FreshnessBadge } from '../../../../components/freshness';
 import { TrustChip } from '../../../../components/trust-dial';
 import { query } from '../../../../lib/context';
-import { SAVED_VIEWS, findCompletenessGaps, findView, listRegistry } from '../../../../lib/views';
+import { SAVED_VIEWS, findCompletenessGaps, findView, pageRegistry } from '../../../../lib/views';
+import { pageRequestFrom } from '../../../../lib/pagination';
+import { LinkedRows } from '../../../../components/ui/linked-rows';
+import { ListPagination } from '../../../../components/ui/pagination';
 import { fieldLabel } from '../../../../components/field-card';
 import { EmptyState, PageHeader, Panel } from '../../../../components/page-header';
 import { SectionTabs } from '../../../../components/section-tabs';
@@ -25,12 +28,12 @@ const TRACKED_FIELDS = ['cr.status', 'address.national.city', 'manager.signing_a
 export default async function RelationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; page?: string; size?: string }>;
 }): Promise<ReactElement> {
   const params = await searchParams;
   const view = findView(params.view);
-  const { rows, gaps } = await query(async (tx) => ({
-    rows: await listRegistry(tx, view.entityType),
+  const { page, gaps } = await query(async (tx) => ({
+    page: await pageRegistry(tx, view.entityType, pageRequestFrom(params)),
     gaps: await findCompletenessGaps(tx, view.entityType, TRACKED_FIELDS),
   }));
 
@@ -68,7 +71,7 @@ export default async function RelationsPage({
         </Panel>
       ) : null}
 
-      <Panel title={view.labelAr} aside={`${rows.length} ${view.unitAr}`}>
+      <Panel title={view.labelAr} aside={`${page.total} ${view.unitAr}`}>
         <div className="table-scroll">
           <table>
             <thead>
@@ -80,11 +83,13 @@ export default async function RelationsPage({
                 <th>آخر ظهور</th>
               </tr>
             </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.entityId}>
+            <LinkedRows>
+              {page.rows.map((row) => (
+                <tr key={row.entityId} data-href={`/customers/${row.entityId}`}>
                   <td>
-                    <a href={`/customers/${row.entityId}`}>{row.displayName ?? 'بلا اسم'}</a>
+                    <a href={`/customers/${row.entityId}`} data-row-link>
+                      {row.displayName ?? 'بلا اسم'}
+                    </a>
                   </td>
                   <td>{row.fieldCount}</td>
                   <td>
@@ -100,10 +105,18 @@ export default async function RelationsPage({
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </LinkedRows>
           </table>
         </div>
-        {rows.length === 0 ? (
+        <div className="panel-body">
+          <ListPagination
+            page={page}
+            path="/customers/relations"
+            params={params}
+            label={`صفحات ${view.labelAr}`}
+          />
+        </div>
+        {page.total === 0 ? (
           <div className="panel-body">
             <EmptyState>لا شيء في هذا العرض بعد. أول تحقق يضع صفاً هنا.</EmptyState>
           </div>

@@ -2,15 +2,17 @@ import type { ReactElement } from 'react';
 import {
   findExpiringFields,
   inboxSeenAt,
-  listChangeEvents,
   listInbox,
   markInboxSeen,
+  pageChangeEvents,
+  slicePage,
 } from '@nx-verify/core';
 import { Monitoring, type StaleCustomerView } from '../../../../components/monitoring';
 import type { FreshnessState } from '../../../../components/freshness';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { CUSTOMER_TABS } from '../../../../components/nav';
 import { actingUser, query } from '../../../../lib/context';
+import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { Inbox } from '../../../../components/inbox';
 import { PageHeader, Panel } from '../../../../components/page-header';
 
@@ -25,17 +27,25 @@ export const dynamic = 'force-dynamic';
  * the timestamp is read before the sweep and written after it, so an item that lands while
  * the page renders is still new next time.
  */
-export default async function AlertsPage(): Promise<ReactElement> {
+export default async function AlertsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}): Promise<ReactElement> {
+  const params = await searchParams;
   const user = await actingUser();
   const data = await query(async (tx) => {
     const seenAt = await inboxSeenAt(tx, user.userId);
     const inbox = await listInbox(tx, { seenAt });
     await markInboxSeen(tx, user.userId);
-    const changes = await listChangeEvents(tx, { openOnly: true, limit: 100 });
+    const changes = await pageChangeEvents(tx, { openOnly: true }, pageRequestFrom(params));
     const expiring = await findExpiringFields(tx, 500);
 
     const ids = [
-      ...new Set([...changes.map((row) => row.entityId), ...expiring.map((row) => row.entityId)]),
+      ...new Set([
+        ...changes.rows.map((row) => row.entityId),
+        ...expiring.map((row) => row.entityId),
+      ]),
     ];
     const { rows: names } = ids.length
       ? await tx.query<{ id: string; display_name: string | null }>(
@@ -92,16 +102,24 @@ export default async function AlertsPage(): Promise<ReactElement> {
       </Panel>
       <Monitoring
         heading={false}
-        changes={data.changes.map((change) => ({
-          changeEventId: change.changeEventId,
-          entityId: change.entityId,
-          entityName: data.names.get(change.entityId) ?? null,
-          fieldPath: change.fieldPath,
-          severity: change.severity,
-          reasonAr: change.reasonAr,
-          detectedAt: change.detectedAt,
-        }))}
-        stale={[...byCustomer.values()].sort((left, right) => right.expired - left.expired)}
+        path="/customers/alerts"
+        params={params}
+        changes={{
+          ...data.changes,
+          rows: data.changes.rows.map((change) => ({
+            changeEventId: change.changeEventId,
+            entityId: change.entityId,
+            entityName: data.names.get(change.entityId) ?? null,
+            fieldPath: change.fieldPath,
+            severity: change.severity,
+            reasonAr: change.reasonAr,
+            detectedAt: change.detectedAt,
+          })),
+        }}
+        stale={slicePage(
+          [...byCustomer.values()].sort((left, right) => right.expired - left.expired),
+          pageRequestFrom(params, 'stale'),
+        )}
       />
     </div>
   );

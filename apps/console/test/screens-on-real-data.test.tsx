@@ -200,7 +200,7 @@ describe('the console renders real data', () => {
     const { default: PortfoliosPage } = await import('../src/app/(app)/settings/portfolios/page');
 
     const dashboard = renderToStaticMarkup(await DashboardPage());
-    const queue = renderToStaticMarkup(await QueuePage());
+    const queue = renderToStaticMarkup(await QueuePage({ searchParams: Promise.resolve({}) }));
     const portfolios = renderToStaticMarkup(await PortfoliosPage());
 
     expect(dashboard).toMatch(/(صباح|مساء) الخير/);
@@ -262,11 +262,11 @@ describe('the console renders real data', () => {
     process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
     process.env['NX_OPERATOR_DATABASE_URL'] = db.operatorConnectionString;
     delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
-    await expect(TenantsPage()).rejects.toThrow();
+    await expect(TenantsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow();
 
     process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = 'operator-token-long-enough-1234';
     try {
-      const list = renderToStaticMarkup(await TenantsPage());
+      const list = renderToStaticMarkup(await TenantsPage({ searchParams: Promise.resolve({}) }));
       expect(list).toContain('data-role="subscriber-row"');
       expect(list).toContain('data-role="subscriber-figures"');
       expect(list).toContain('شركة المثال للتجارة');

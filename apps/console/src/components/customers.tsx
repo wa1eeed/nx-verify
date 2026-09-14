@@ -1,9 +1,12 @@
 import type { ReactElement } from 'react';
-import type { CustomerSummary } from '@nx-verify/core';
+import type { CustomerSummary, Page } from '@nx-verify/core';
+import type { SearchParams } from '../lib/pagination';
 import { ButtonLink } from './ui/button';
 import { Card } from './ui/card';
 import { Ltr } from './ui/ltr';
 import { ProgressBar } from './ui/progress-bar';
+import { LinkedRows } from './ui/linked-rows';
+import { ListPagination } from './ui/pagination';
 import { Table, Th } from './ui/table';
 import { Tag, TagLink, type TagTone } from './ui/tag';
 import { count, dayMonthAr, shortMask } from './format';
@@ -20,8 +23,10 @@ import { count, dayMonthAr, shortMask } from './format';
 export type CustomersFilter = 'all' | 'COMPANY' | 'ESTABLISHMENT' | 'FREELANCER';
 
 export interface CustomersView {
-  /** The rows the filters and the search leave. */
-  rows: CustomerSummary[];
+  /** The page of rows the filters and the search leave. */
+  page: Page<CustomerSummary>;
+  /** The address's parameters, so a page link keeps the filters. */
+  params: SearchParams;
   counts: {
     all: number;
     companies: number;
@@ -152,7 +157,7 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
 
       <Card as="section" variant="flush" label="قائمة العملاء" role="customers">
         <div className="customers-table">
-          {view.rows.length === 0 ? (
+          {view.page.total === 0 ? (
             <p className="home-empty" data-role="empty-state">
               {view.search !== '' || view.searchedByNumber
                 ? 'لا عميل يطابق هذا البحث.'
@@ -178,9 +183,14 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
                   </Th>
                 </tr>
               </thead>
-              <tbody>
-                {view.rows.map((row) => (
-                  <tr key={row.entityId} data-role="customer-row" data-customer={row.entityId}>
+              <LinkedRows>
+                {view.page.rows.map((row) => (
+                  <tr
+                    key={row.entityId}
+                    data-role="customer-row"
+                    data-customer={row.entityId}
+                    data-href={`/customers/${row.entityId}`}
+                  >
                     <td>{row.displayName ?? 'عميل بلا اسم بعد'}</td>
                     <td>{row.kindLabelAr}</td>
                     <td>{row.identifier ? <Ltr>{shortMask(row.identifier.masked)}</Ltr> : '·'}</td>
@@ -213,15 +223,25 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
                     </td>
                     <td>{row.lastVerifiedAt ? dayMonthAr(row.lastVerifiedAt) : '·'}</td>
                     <td>
-                      <a href={`/customers/${row.entityId}`} className="customers-open">
+                      <a
+                        href={`/customers/${row.entityId}`}
+                        className="customers-open"
+                        data-row-link
+                      >
                         فتح الملف
                       </a>
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </LinkedRows>
             </Table>
           )}
+          <ListPagination
+            page={view.page}
+            path="/customers"
+            params={view.params}
+            label="صفحات العملاء"
+          />
         </div>
       </Card>
     </div>

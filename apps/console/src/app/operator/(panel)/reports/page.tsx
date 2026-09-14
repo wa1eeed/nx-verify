@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react';
-import { marginReport } from '@nx-verify/core';
+import { marginTotals, pageMarginReport, type Page } from '@nx-verify/core';
 import { OperatorMargin, type MarginRowView } from '../../../../components/operator-margin';
 import { operatorQuery, requireOperator } from '../../../../lib/operator';
+import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 
 /**
  * Never prerendered, and it refuses to render without an operator token. It is the only
@@ -9,13 +10,19 @@ import { operatorQuery, requireOperator } from '../../../../lib/operator';
  */
 export const dynamic = 'force-dynamic';
 
-export default async function OperatorMarginPage(): Promise<ReactElement> {
+export default async function OperatorMarginPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}): Promise<ReactElement> {
   await requireOperator();
+  const params = await searchParams;
 
   // Names from the catalogue, which is rows rather than code (rule 8), so a check added
   // tomorrow is named here without a release.
-  const { rows, names } = await operatorQuery(async (db) => ({
-    rows: await marginReport(db),
+  const { report, totals, names } = await operatorQuery(async (db) => ({
+    report: await pageMarginReport(db, {}, pageRequestFrom(params)),
+    totals: await marginTotals(db),
     names: new Map(
       (
         await db.query<{ code: string; name_ar: string }>(`SELECT code, name_ar FROM products`)
@@ -23,7 +30,7 @@ export default async function OperatorMarginPage(): Promise<ReactElement> {
     ),
   }));
 
-  const view: MarginRowView[] = rows.map((row) => ({
+  const view: MarginRowView[] = report.rows.map((row) => ({
     tenantName: row.tenantName,
     productNameAr: names.get(row.productCode) ?? row.productCode,
     periodStart: row.periodStart,
@@ -37,7 +44,11 @@ export default async function OperatorMarginPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <OperatorMargin rows={view} />
+      <OperatorMargin
+        page={{ ...report, rows: view } as Page<MarginRowView>}
+        totals={totals}
+        params={params}
+      />
     </div>
   );
 }

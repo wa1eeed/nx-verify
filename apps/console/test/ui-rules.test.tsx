@@ -1,3 +1,4 @@
+import { slicePage } from '@nx-verify/core';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -379,13 +380,20 @@ describe('the phase two screens keep the same rules', () => {
   ];
 
   it('shows one primary action on the review queue', () => {
-    const html = renderToStaticMarkup(<ReviewQueue rows={queueRows} />);
+    const html = renderToStaticMarkup(
+      <ReviewQueue page={slicePage(queueRows, { page: 1, size: 25 })} overdue={1} params={{}} />,
+    );
     expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
   });
 
   it('marks a late case and names who decided', () => {
-    const html = renderToStaticMarkup(<ReviewQueue rows={queueRows} />);
+    const html = renderToStaticMarkup(
+      <ReviewQueue page={slicePage(queueRows, { page: 1, size: 25 })} overdue={1} params={{}} />,
+    );
     expect(html).toContain('data-overdue="true"');
+    // The count is the whole queue's, and every row opens its customer's file.
+    expect(html).toContain('1 متأخرة من 2');
+    expect(html).toContain('data-href="/customers/e1"');
     expect(html).toContain('متأخرة');
     // The control is visible, not merely enforced.
     expect(html).toContain('user:analyst-1');
@@ -1519,32 +1527,37 @@ describe('the subscriber portal', () => {
 describe('the onboarding screens', () => {
   const list = renderToStaticMarkup(
     <OnboardingList
-      cases={[
-        {
-          caseId: 'c1',
-          reference: 'ONB-2026-000001',
-          journeyNameAr: 'تأهيل تاجر',
-          entityName: 'مؤسسة نماء',
-          status: 'IN_REVIEW',
-          outcome: 'REVIEW',
-          done: 2,
-          total: 3,
-          dueAt: new Date('2026-09-01T00:00:00Z'),
-          overdue: true,
-        },
-        {
-          caseId: 'c2',
-          reference: 'ONB-2026-000002',
-          journeyNameAr: 'تأهيل تاجر',
-          entityName: null,
-          status: 'APPROVED',
-          outcome: 'PASS',
-          done: 3,
-          total: 3,
-          dueAt: new Date('2026-10-01T00:00:00Z'),
-          overdue: false,
-        },
-      ]}
+      page={slicePage(
+        [
+          {
+            caseId: 'c1',
+            reference: 'ONB-2026-000001',
+            journeyNameAr: 'تأهيل تاجر',
+            entityName: 'مؤسسة نماء',
+            status: 'IN_REVIEW',
+            outcome: 'REVIEW',
+            done: 2,
+            total: 3,
+            dueAt: new Date('2026-09-01T00:00:00Z'),
+            overdue: true,
+          },
+          {
+            caseId: 'c2',
+            reference: 'ONB-2026-000002',
+            journeyNameAr: 'تأهيل تاجر',
+            entityName: null,
+            status: 'APPROVED',
+            outcome: 'PASS',
+            done: 3,
+            total: 3,
+            dueAt: new Date('2026-10-01T00:00:00Z'),
+            overdue: false,
+          },
+        ],
+        { page: 1, size: 25 },
+      )}
+      tallies={{ open: 1, late: 1, approved: 1 }}
+      params={{}}
     />,
   );
 
@@ -1659,30 +1672,35 @@ describe('the onboarding screens', () => {
 describe('the operator margin screen', () => {
   const html = renderToStaticMarkup(
     <OperatorMargin
-      rows={[
-        {
-          tenantName: 'Customer One',
-          productNameAr: 'التحقق من العنوان الوطني',
-          periodStart: new Date('2026-09-01T00:00:00Z'),
-          runs: 10,
-          packageRuns: 0,
-          billedHalalas: 8000,
-          providerCostHalalas: 3000,
-          grossHalalas: 5000,
-          marginPct: 63,
-        },
-        {
-          tenantName: 'Customer Two',
-          productNameAr: 'التحقق الشامل من المنشأة',
-          periodStart: new Date('2026-09-01T00:00:00Z'),
-          runs: 4,
-          packageRuns: 4,
-          billedHalalas: 0,
-          providerCostHalalas: 2400,
-          grossHalalas: -2400,
-          marginPct: null,
-        },
-      ]}
+      page={slicePage(
+        [
+          {
+            tenantName: 'Customer One',
+            productNameAr: 'التحقق من العنوان الوطني',
+            periodStart: new Date('2026-09-01T00:00:00Z'),
+            runs: 10,
+            packageRuns: 0,
+            billedHalalas: 8000,
+            providerCostHalalas: 3000,
+            grossHalalas: 5000,
+            marginPct: 63,
+          },
+          {
+            tenantName: 'Customer Two',
+            productNameAr: 'التحقق الشامل من المنشأة',
+            periodStart: new Date('2026-09-01T00:00:00Z'),
+            runs: 4,
+            packageRuns: 4,
+            billedHalalas: 0,
+            providerCostHalalas: 2400,
+            grossHalalas: -2400,
+            marginPct: null,
+          },
+        ],
+        { page: 1, size: 25 },
+      )}
+      totals={{ billedHalalas: 8000, providerCostHalalas: 5400, packageRuns: 4 }}
+      params={{}}
     />,
   );
 
@@ -1943,7 +1961,14 @@ describe('the request log', () => {
     },
   ];
 
-  const html = renderToStaticMarkup(<ApiLog rows={rows} failuresOnly={false} />);
+  const html = renderToStaticMarkup(
+    <ApiLog
+      page={slicePage(rows, { page: 1, size: 25 })}
+      tallies={{ total: 2, failures: 1, slowestMs: 9 }}
+      params={{}}
+      failuresOnly={false}
+    />,
+  );
 
   it('leads with the request id, because that is what support asks for', () => {
     expect(html).toContain('req_abc123');
@@ -1959,7 +1984,14 @@ describe('the request log', () => {
 
   it('puts the failures one click away, and says so when there are none', () => {
     expect(html).toContain('data-role="failures-filter"');
-    const empty = renderToStaticMarkup(<ApiLog rows={[]} failuresOnly />);
+    const empty = renderToStaticMarkup(
+      <ApiLog
+        page={slicePage([], { page: 1, size: 25 })}
+        tallies={{ total: 0, failures: 0, slowestMs: 0 }}
+        params={{}}
+        failuresOnly
+      />,
+    );
     expect(empty).toContain('هذه أخبار جيدة');
   });
 

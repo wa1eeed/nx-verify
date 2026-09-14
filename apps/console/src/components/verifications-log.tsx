@@ -1,6 +1,10 @@
 import type { ReactElement } from 'react';
+import type { Page } from '@nx-verify/core';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { count, riyals } from './format';
+import { LinkedRows } from './ui/linked-rows';
+import { ListPagination } from './ui/pagination';
+import type { SearchParams } from '../lib/pagination';
 
 /**
  * Every verification that ran, with its reference.
@@ -28,7 +32,10 @@ export interface RunRowView {
 }
 
 export interface VerificationsLogView {
-  rows: RunRowView[];
+  /** The page of runs the filters leave. */
+  page: Page<RunRowView>;
+  /** The address's parameters, so a page link keeps the filters. */
+  params: SearchParams;
   counts: { thisMonth: number; needsDecision: number; failed: number };
   products: { code: string; nameAr: string }[];
   filter: { product: string | null; status: string | null };
@@ -128,7 +135,7 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
         </article>
       </section>
 
-      <Panel title="السجل" aside={`آخر ${view.rows.length}`} role="runs">
+      <Panel title="السجل" aside={`${count(view.page.total)} عملية`} role="runs">
         <form
           method="get"
           action={failedOnly ? '/verifications/failed' : '/verifications'}
@@ -168,7 +175,7 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
           </button>
         </form>
 
-        {view.rows.length === 0 ? (
+        {view.page.total === 0 ? (
           <div className="panel-body">
             <EmptyState>لا عمليات بهذه الشروط.</EmptyState>
           </div>
@@ -187,11 +194,12 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
                   <th>الرسم (ريال)</th>
                 </tr>
               </thead>
-              <tbody>
-                {view.rows.map((row) => (
+              <LinkedRows>
+                {view.page.rows.map((row) => (
                   <tr
                     key={row.runId}
                     data-role="run-row"
+                    {...(row.entityId ? { 'data-href': `/customers/${row.entityId}` } : {})}
                     {...(view.highlight === row.runId ? { 'data-highlight': 'yes' } : {})}
                   >
                     <td>
@@ -201,7 +209,9 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
                     </td>
                     <td>
                       {row.entityId ? (
-                        <a href={`/customers/${row.entityId}`}>{row.entityName ?? 'بلا اسم'}</a>
+                        <a href={`/customers/${row.entityId}`} data-row-link>
+                          {row.entityName ?? 'بلا اسم'}
+                        </a>
                       ) : (
                         <span className="faint">لم يُحدَّد</span>
                       )}
@@ -234,10 +244,18 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </LinkedRows>
             </table>
           </div>
         )}
+        <div className="panel-body">
+          <ListPagination
+            page={view.page}
+            path={failedOnly ? '/verifications/failed' : '/verifications'}
+            params={view.params}
+            label="صفحات سجل العمليات"
+          />
+        </div>
       </Panel>
     </div>
   );

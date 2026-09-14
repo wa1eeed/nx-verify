@@ -1,5 +1,8 @@
 import type { ReactElement } from 'react';
+import type { MarginTotals, Page } from '@nx-verify/core';
 import { EmptyState, PageHeader, Panel } from './page-header';
+import { ListPagination } from './ui/pagination';
+import type { SearchParams } from '../lib/pagination';
 
 /**
  * What each customer earns us, by service.
@@ -31,10 +34,20 @@ function riyals(halalas: number): string {
   return (halalas / 100).toFixed(2);
 }
 
-export function OperatorMargin({ rows }: { rows: MarginRowView[] }): ReactElement {
-  const billed = rows.reduce((total, row) => total + row.billedHalalas, 0);
-  const cost = rows.reduce((total, row) => total + row.providerCostHalalas, 0);
-  const covered = rows.reduce((total, row) => total + row.packageRuns, 0);
+export function OperatorMargin({
+  page,
+  totals,
+  params,
+}: {
+  page: Page<MarginRowView>;
+  /** Over every row of the report, not the page on screen. */
+  totals: MarginTotals;
+  params: SearchParams;
+}): ReactElement {
+  const rows = page.rows;
+  const billed = totals.billedHalalas;
+  const cost = totals.providerCostHalalas;
+  const covered = totals.packageRuns;
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
@@ -86,8 +99,8 @@ export function OperatorMargin({ rows }: { rows: MarginRowView[] }): ReactElemen
         </article>
       </section>
 
-      <Panel title="التفصيل" aside={`${rows.length} سطراً`}>
-        {rows.length === 0 ? (
+      <Panel title="التفصيل" aside={`${page.total} سطراً`}>
+        {page.total === 0 ? (
           <div className="panel-body">
             <EmptyState>لا استهلاك مسجّل في هذه الفترة.</EmptyState>
           </div>
@@ -156,6 +169,14 @@ export function OperatorMargin({ rows }: { rows: MarginRowView[] }): ReactElemen
             </table>
           </div>
         )}
+        <div className="panel-body">
+          <ListPagination
+            page={page}
+            path="/operator/reports"
+            params={params}
+            label="صفحات تقرير الهامش"
+          />
+        </div>
       </Panel>
     </div>
   );

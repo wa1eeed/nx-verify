@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { LinkedRows } from './ui/linked-rows';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { count, riyals, termPhrase } from './format';
 
@@ -171,11 +172,13 @@ export function OperatorOverview({ view }: { view: OperatorOverviewView }): Reac
                   <th>الإيراد (ريال)</th>
                 </tr>
               </thead>
-              <tbody>
+              <LinkedRows>
                 {view.busiest.map((row) => (
-                  <tr key={row.tenantId}>
+                  <tr key={row.tenantId} data-href={`/operator/subscribers/${row.tenantId}`}>
                     <td>
-                      <a href={`/operator/subscribers/${row.tenantId}`}>{row.legalName}</a>
+                      <a href={`/operator/subscribers/${row.tenantId}`} data-row-link>
+                        {row.legalName}
+                      </a>
                     </td>
                     <td>
                       <bdi dir="ltr" className="mono">
@@ -189,7 +192,7 @@ export function OperatorOverview({ view }: { view: OperatorOverviewView }): Reac
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </LinkedRows>
             </table>
           </div>
         )}

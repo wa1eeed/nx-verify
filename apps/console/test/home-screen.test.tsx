@@ -86,7 +86,7 @@ function render(overview: HomeOverview = OVERVIEW, now: Date = NOW): string {
 }
 
 function row(html: string, runId: string): string {
-  return new RegExp(`<tr data-run="${runId}">[\\s\\S]*?</tr>`).exec(html)?.[0] ?? '';
+  return new RegExp(`<tr[^>]*data-run="${runId}"[^>]*>[\\s\\S]*?</tr>`).exec(html)?.[0] ?? '';
 }
 
 describe('the home screen of screen 01', () => {
@@ -146,6 +146,10 @@ describe('the home screen of screen 01', () => {
       'class="tag tag-accent" data-role="run-status">اسم غير مطابق</span>',
     );
     expect(html).toContain('href="/verifications"');
+    // Each operation opens its customer's file, from anywhere on the row.
+    expect(row(html, 'r1')).toContain(
+      'data-href="/customers/6b7f4a0e-2d4c-4f5e-9a1b-0c3d2e1f4a5b"',
+    );
   });
 
   it('draws the month consumption busiest first, in the accent then sage, with the note', () => {

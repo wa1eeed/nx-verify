@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react';
-import { listApiRequests } from '@nx-verify/core';
+import { apiLogTallies, pageApiRequests, type Page } from '@nx-verify/core';
 import { ApiLog, type ApiLogRowView } from '../../../../../components/api-log';
 import { query } from '../../../../../lib/context';
+import { pageRequestFrom } from '../../../../../lib/pagination';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { DEVELOPER_TABS, SETTINGS_TABS } from '../../../../../components/nav';
 
@@ -15,9 +16,10 @@ export default async function LogsPage({
   const params = await searchParams;
   const failuresOnly = params['failures'] !== undefined;
 
-  const rows = await query(async (tx): Promise<ApiLogRowView[]> => {
-    const log = await listApiRequests(tx, { limit: 200, failuresOnly });
-    return log.map((row) => ({
+  const { page, tallies } = await query(async (tx) => {
+    const log = await pageApiRequests(tx, { failuresOnly }, pageRequestFrom(params));
+    const tallies = await apiLogTallies(tx, { failuresOnly });
+    const rows = log.rows.map((row): ApiLogRowView => ({
       id: row.id,
       requestId: row.requestId,
       method: row.method,
@@ -28,6 +30,7 @@ export default async function LogsPage({
       environment: row.environment,
       at: row.at,
     }));
+    return { page: { ...log, rows } as Page<ApiLogRowView>, tallies };
   });
 
   return (
@@ -38,7 +41,7 @@ export default async function LogsPage({
         current="/settings/developers/logs"
         label="أقسام مفاتيح الربط"
       />
-      <ApiLog rows={rows} failuresOnly={failuresOnly} />
+      <ApiLog page={page} tallies={tallies} params={params} failuresOnly={failuresOnly} />
     </div>
   );
 }

@@ -1,4 +1,8 @@
 import type { ReactElement } from 'react';
+import type { Page } from '@nx-verify/core';
+import { LinkedRows } from './ui/linked-rows';
+import { ListPagination } from './ui/pagination';
+import type { SearchParams } from '../lib/pagination';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { ChangeBadge, FreshnessBadge, type FreshnessState } from './freshness';
 import { fieldLabel } from './field-card';
@@ -38,10 +42,15 @@ export interface StaleCustomerView {
 export function Monitoring({
   changes,
   stale,
+  params,
+  path,
   heading = true,
 }: {
-  changes: ChangeRowView[];
-  stale: StaleCustomerView[];
+  changes: Page<ChangeRowView>;
+  /** Customers with facts that aged, a page of them; its pages are `stale_page`. */
+  stale: Page<StaleCustomerView>;
+  params: SearchParams;
+  path: string;
   /** False where the screen around it already carries the page header. */
   heading?: boolean;
 }): ReactElement {
@@ -56,11 +65,11 @@ export function Monitoring({
 
       <Panel
         title="تغيّرات مرصودة"
-        aside={changes.length === 0 ? 'لا شيء جديد' : `${changes.length}`}
+        aside={changes.total === 0 ? 'لا شيء جديد' : `${changes.total}`}
         note="التغيّر خبر عن العميل نفسه: الجهة الرسمية تقول الآن شيئاً لم تقله من قبل."
         role="changes"
       >
-        {changes.length === 0 ? (
+        {changes.total === 0 ? (
           <div className="panel-body">
             <EmptyState>لم يُرصد أي تغيّر يحتاج اطلاعك.</EmptyState>
           </div>
@@ -75,11 +84,17 @@ export function Monitoring({
                   <th>رُصد في</th>
                 </tr>
               </thead>
-              <tbody>
-                {changes.map((change) => (
-                  <tr key={change.changeEventId} data-role="change-row">
+              <LinkedRows>
+                {changes.rows.map((change) => (
+                  <tr
+                    key={change.changeEventId}
+                    data-role="change-row"
+                    data-href={`/customers/${change.entityId}`}
+                  >
                     <td>
-                      <a href={`/customers/${change.entityId}`}>{change.entityName ?? 'بلا اسم'}</a>
+                      <a href={`/customers/${change.entityId}`} data-row-link>
+                        {change.entityName ?? 'بلا اسم'}
+                      </a>
                     </td>
                     <td>
                       {fieldLabel(change.fieldPath)}
@@ -95,19 +110,22 @@ export function Monitoring({
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </LinkedRows>
             </table>
           </div>
         )}
+        <div className="panel-body">
+          <ListPagination page={changes} path={path} params={params} label="صفحات التغيّرات" />
+        </div>
       </Panel>
 
       <Panel
         title="معلومات تحتاج تحديثاً"
-        aside={stale.length === 0 ? 'كلها حديثة' : `${stale.length} عميل`}
+        aside={stale.total === 0 ? 'كلها حديثة' : `${stale.total} عميل`}
         note="انتهاء المدة لا يعني وجود مشكلة. يعني أن المعلومة قديمة وتحتاج تحققاً جديداً."
         role="stale"
       >
-        {stale.length === 0 ? (
+        {stale.total === 0 ? (
           <div className="panel-body">
             <EmptyState>كل المعلومات في ملفات عملائك ضمن مدة صلاحيتها.</EmptyState>
           </div>
@@ -121,11 +139,15 @@ export function Monitoring({
                   <th>أقرب انتهاء</th>
                 </tr>
               </thead>
-              <tbody>
-                {stale.map((customer) => (
-                  <tr key={customer.entityId} data-role="stale-row">
+              <LinkedRows>
+                {stale.rows.map((customer) => (
+                  <tr
+                    key={customer.entityId}
+                    data-role="stale-row"
+                    data-href={`/customers/${customer.entityId}`}
+                  >
                     <td>
-                      <a href={`/customers/${customer.entityId}`}>
+                      <a href={`/customers/${customer.entityId}`} data-row-link>
                         {customer.entityName ?? 'بلا اسم'}
                       </a>
                     </td>
@@ -163,10 +185,19 @@ export function Monitoring({
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </LinkedRows>
             </table>
           </div>
         )}
+        <div className="panel-body">
+          <ListPagination
+            page={stale}
+            path={path}
+            params={params}
+            label="صفحات المعلومات القديمة"
+            prefix="stale"
+          />
+        </div>
       </Panel>
     </div>
   );

@@ -1,16 +1,26 @@
 import type { ReactElement } from 'react';
-import { listCases, listJourneys } from '@nx-verify/core';
+import { caseTallies, listJourneys, pageCases, type Page } from '@nx-verify/core';
 import { OnboardingList, type CaseRowView } from '../../../../components/onboarding';
 import { query } from '../../../../lib/context';
+import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { VERIFICATION_TABS } from '../../../../components/nav';
 
 /** Never prerendered: one subscriber's live files. */
 export const dynamic = 'force-dynamic';
 
-export default async function OnboardingPage(): Promise<ReactElement> {
-  const cases = await query(async (tx): Promise<CaseRowView[]> => {
-    const [rows, journeys] = await Promise.all([listCases(tx, { limit: 100 }), listJourneys(tx)]);
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}): Promise<ReactElement> {
+  const params = await searchParams;
+  const { page, tallies } = await query(async (tx) => {
+    // Sequential: one connection, one transaction, one query at a time.
+    const cases = await pageCases(tx, {}, pageRequestFrom(params));
+    const tallies = await caseTallies(tx);
+    const journeys = await listJourneys(tx);
+    const rows = cases.rows;
     const journeyName = new Map(journeys.map((journey) => [journey.code, journey.nameAr]));
 
     const entityIds = rows.map((row) => row.entityId).filter((id): id is string => id !== null);
@@ -22,7 +32,7 @@ export default async function OnboardingPage(): Promise<ReactElement> {
       : { rows: [] as { id: string; display_name: string | null }[] };
     const nameOf = new Map(names.rows.map((row) => [row.id, row.display_name]));
 
-    return rows.map((row) => ({
+    const views = rows.map((row): CaseRowView => ({
       caseId: row.caseId,
       reference: row.reference,
       journeyNameAr: journeyName.get(row.journeyCode) ?? row.journeyCode,
@@ -34,6 +44,7 @@ export default async function OnboardingPage(): Promise<ReactElement> {
       dueAt: row.dueAt,
       overdue: row.overdue,
     }));
+    return { page: { ...cases, rows: views } as Page<CaseRowView>, tallies };
   });
 
   return (
@@ -43,7 +54,7 @@ export default async function OnboardingPage(): Promise<ReactElement> {
         current="/verifications/onboarding"
         label="أقسام التحقق"
       />
-      <OnboardingList cases={cases} />
+      <OnboardingList page={page} tallies={tallies} params={params} />
     </div>
   );
 }

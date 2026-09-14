@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import {
   listOperatorAccounts,
-  listOperatorAudit,
+  pageOperatorAudit,
   listPlans,
   listSubscribers,
   operatorCan,
@@ -15,6 +15,7 @@ import {
   operatorQuery,
 } from '../../../../lib/operator';
 import { operatorNameOf } from '../../../../lib/operator-names';
+import { pageRequestFrom } from '../../../../lib/pagination';
 import { addStaffAction, changeOwnPasswordAction, updateStaffAction } from './actions';
 
 /** Never prerendered, and refuses to render without a sign in. */
@@ -55,7 +56,7 @@ export default async function OperatorAccessPage({
 
   const data = await operatorQuery(async (db) => ({
     accounts: await listOperatorAccounts(db),
-    audit: await listOperatorAudit(db, { actionPrefixes: actions, limit: 200 }),
+    audit: await pageOperatorAudit(db, { actionPrefixes: actions }, pageRequestFrom(params)),
     plans: await listPlans(db),
     subscribers: await listSubscribers(db),
     products: (
@@ -76,7 +77,15 @@ export default async function OperatorAccessPage({
         selfId: operator.id === TOKEN_OPERATOR.id ? null : operator.id,
         canManageStaff: operatorCan(operator.role, 'staff'),
         sessionHours: OPERATOR_SESSION_HOURS,
-        audit: data.audit.map((row) => ({ ...row, byName: operatorNameOf(row) })),
+        audit: {
+          ...data.audit,
+          rows: data.audit.rows.map((row) => ({ ...row, byName: operatorNameOf(row) })),
+        },
+        params: Object.fromEntries(
+          Object.entries(params).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
+        ),
         scope,
         names: {
           products: new Map(data.products.map((row) => [row.code, row.name_ar])),
