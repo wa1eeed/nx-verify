@@ -271,7 +271,10 @@ textarea.input { min-height: 90px; resize: vertical; }
   --radius-card: 26px;
   --radius-frame: 32px;
 
-  /* The frame and its sidebar (README, shared frame template). */
+  /* The frame and its sidebar (README, shared frame template). The gap around the frame is
+     ours: the handoff draws the frame on a canvas, and a browser window needs the corners
+     and the shadow to show. */
+  --layout-frame-gap: 16px;
   --layout-sidebar: 244px;
   --layout-sidebar-pad: 24px 18px;
   --layout-nav-gap: 6px;
@@ -280,6 +283,11 @@ textarea.input { min-height: 90px; resize: vertical; }
   --layout-content-pad: 32px 36px;
   --layout-content-gap: 26px;
   --layout-grid-gap: 16px;
+  --layout-min-meter: 96px;
+  --layout-min-kpi: 150px;
+  --layout-min-card: 180px;
+  --layout-min-fact: 200px;
+  --layout-min-grid: 220px;
 
   /* Card and row padding, per screen spec. */
   --pad-stat: 20px 22px;
@@ -288,8 +296,20 @@ textarea.input { min-height: 90px; resize: vertical; }
   --pad-product-row: 18px 26px;
 
   /* Controls the sheet does not size. */
+  --size-hairline: 1px;
+  --gap-hairline: 2px;
+  --offset-underline: 3px;
+  --control-height: 36px;
+  --control-textarea: 90px;
+  --control-dot: 7px;
+  --control-indicator: 20px;
+  --pad-control: 6px 14px;
+  --pad-tag: 3px 10px;
   --control-check: 18px;
   --control-border: 1.5px;
+  --control-brand-mark: 30px;
+  --control-progress: 7px;
+  --control-progress-thick: 9px;
 
   /* Motion: colour only, between 120 and 180ms. */
   --duration-color: 150ms;
@@ -300,7 +320,14 @@ textarea.input { min-height: 90px; resize: vertical; }
   --font-product-heading-weight: 700;
   --font-product-body: "IBM Plex Sans Arabic", "Figtree", system-ui, sans-serif;
 
-  /* Type sizes the screens use beyond the sheet's own (README, fonts). */
+  /* Type sizes the screens use beyond the sheet's own (README, fonts). The sheet's own
+     component sizes are named here too, so our rules can say which one they mean. */
+  --text-micro: 11px;
+  --text-label: 13px;
+  --text-control: 14px;
+  --text-heading-sm: 16px;
+  --text-page-title: 32px;
+  --text-brand: 19px;
   --text-caption: 11.5px;
   --text-small: 12px;
   --text-body-sm: 13.5px;

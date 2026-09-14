@@ -34,7 +34,7 @@ export function Card({
     <Element
       className={classes(
         'card',
-        variant !== 'plain' && `card-${variant}`,
+        `card-${variant}`,
         tone !== 'surface' && `card-tone-${tone}`,
         elevation !== undefined && `elev-${elevation}`,
       )}
@@ -51,7 +51,7 @@ export function CardTitle({
   id,
   children,
 }: {
-  as?: 'h2' | 'h3' | 'h4' | undefined;
+  as?: 'h1' | 'h2' | 'h3' | 'h4' | undefined;
   id?: string | undefined;
   children: ReactNode;
 }): ReactElement {

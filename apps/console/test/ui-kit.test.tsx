@@ -148,7 +148,7 @@ describe('Icon', () => {
         }
       }
     };
-    for (const dir of ['app', 'components', 'lib', 'src']) walk(join(consoleRoot, dir));
+    walk(join(consoleRoot, 'src'));
     expect(offenders).toEqual([]);
   });
 });

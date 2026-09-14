@@ -5,7 +5,7 @@ import {
   operatorSessionValue,
   operatorTokenMatches,
   verifyOperatorSession,
-} from '../lib/operator';
+} from '../src/lib/operator';
 
 /**
  * Unit 74: a sign in to the administration panel.

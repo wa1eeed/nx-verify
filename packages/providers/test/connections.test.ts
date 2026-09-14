@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { listProviderConnections, registryFor, setProviderConnection } from '../src/connections.js';
+import {
+  listOperatorChanges,
+  listProviderConnections,
+  recordOperatorChange,
+  registryFor,
+  setProviderConnection,
+} from '../src/connections.js';
 import { InMemorySecretStore, EnvSecretStore } from '../src/credentials.js';
 import { createTestDatabase, type TestDatabase } from '../../../test/helpers/db.js';
 
@@ -120,6 +126,28 @@ describe('provider connections', () => {
     // Half working is worse than refusing: the panel prints the line to set instead. The
     // material is not passed here because this store refuses before looking at it.
     await expect(store.put?.('kms://providers/bankdata/sandbox')).rejects.toThrow(/cannot write/);
+  });
+
+  it('reads the history of one target, or every change for the audit screen', async () => {
+    await recordOperatorChange(db.operatorPool, {
+      operatorId: 'nx-staff:audit-test',
+      action: 'credentials.saved',
+      target: 'bankdata/live',
+      metadata: { fields: ['clientId'] },
+    });
+
+    const one = await listOperatorChanges(db.operatorPool, 'bankdata/live', 50);
+    expect(one.length).toBeGreaterThan(0);
+    expect(one.every((change) => change.target === 'bankdata/live')).toBe(true);
+
+    const all = await listOperatorChanges(db.operatorPool, null, 200);
+    const targets = new Set(all.map((change) => change.target));
+    expect(targets.has('bankdata/live')).toBe(true);
+    // The connection writes above were recorded too, under their own target.
+    expect(targets.has('bankdata/sandbox')).toBe(true);
+    // Newest first.
+    const times = all.map((change) => change.at.getTime());
+    expect([...times].sort((a, b) => b - a)).toEqual(times);
   });
 
   it('declares whether it can be written rather than leaving it to be inferred', () => {

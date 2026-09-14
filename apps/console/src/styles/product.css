@@ -49,8 +49,8 @@ a:active {
 
 .visually-hidden {
   position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
+  inline-size: var(--size-hairline);
+  block-size: var(--size-hairline);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
@@ -74,6 +74,29 @@ a,
 
 .btn[aria-busy='true'] {
   cursor: progress;
+}
+
+/* A link drawn as a button keeps its button's colours: the link colours would otherwise
+   paint the words the colour of the fill under the pointer. */
+a.btn,
+a.btn:hover,
+a.btn:active {
+  text-decoration: none;
+}
+a.btn-primary,
+a.btn-primary:hover,
+a.btn-primary:active {
+  color: var(--color-bg);
+}
+a.btn-secondary,
+a.btn-secondary:hover,
+a.btn-secondary:active {
+  color: var(--color-text);
+}
+a.btn-ghost,
+a.btn-ghost:hover,
+a.btn-ghost:active {
+  color: var(--color-accent);
 }
 
 /* ── tags ─────────────────────────────────────────────────────────────── */
@@ -158,7 +181,7 @@ a,
   align-items: center;
   gap: var(--space-2);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-control);
 }
 .check input {
   position: absolute;
@@ -305,7 +328,10 @@ dialog.dialog-backdrop::backdrop {
   color: var(--color-accent-400);
 }
 
-[data-theme='dark'] .btn-primary {
+[data-theme='dark'] .btn-primary,
+[data-theme='dark'] a.btn-primary,
+[data-theme='dark'] a.btn-primary:hover,
+[data-theme='dark'] a.btn-primary:active {
   color: var(--dark-sidebar);
 }
 [data-theme='dark'] .btn-primary:hover {
@@ -372,4 +398,416 @@ dialog.dialog-backdrop::backdrop {
 [data-theme='dark'] .card-tone-attention {
   background: var(--dark-attention);
   color: var(--color-accent-300);
+}
+
+/* ── the frame ────────────────────────────────────────────────────────── */
+
+/* README, shared frame template: a rounded frame on the canvas, the sidebar on the start
+   side, the content beside it. */
+body {
+  background: var(--color-neutral-200);
+}
+
+.skip-link {
+  position: absolute;
+  inline-size: var(--size-hairline);
+  block-size: var(--size-hairline);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skip-link:focus {
+  position: fixed;
+  inset-block-start: var(--space-3);
+  inset-inline-start: var(--space-3);
+  z-index: 10;
+  inline-size: auto;
+  block-size: auto;
+  clip-path: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.frame {
+  display: flex;
+  min-block-size: calc(100dvh - 2 * var(--layout-frame-gap));
+  margin: var(--layout-frame-gap);
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-radius: var(--radius-frame);
+  box-shadow: var(--shadow-lg);
+  /* Clip, not hidden: a hidden overflow is a scroll container and the sidebar would stop
+     staying in view. */
+  overflow: clip;
+}
+
+.frame-sidebar {
+  flex: none;
+  inline-size: var(--layout-sidebar);
+  background: var(--color-surface);
+}
+
+.frame-sidebar-inner {
+  position: sticky;
+  inset-block-start: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-nav-gap);
+  min-block-size: calc(100dvh - 2 * var(--layout-frame-gap));
+  max-block-size: 100dvh;
+  padding: var(--layout-sidebar-pad);
+  overflow-y: auto;
+}
+
+.frame-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-end: var(--space-6);
+  padding-inline: var(--space-2);
+  font-family: var(--font-product-heading);
+  font-weight: var(--font-product-heading-weight);
+  font-size: var(--text-brand);
+  color: var(--color-text);
+  text-decoration: none;
+}
+a.frame-brand:hover,
+a.frame-brand:active {
+  color: var(--color-text);
+}
+
+.frame-brand-mark {
+  flex: none;
+  inline-size: var(--control-brand-mark);
+  block-size: var(--control-brand-mark);
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.frame-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-nav-gap);
+}
+
+.frame-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--layout-nav-item-gap);
+  padding: var(--layout-nav-item-pad);
+  border-radius: 999px;
+  font-size: var(--text-control);
+  color: var(--color-text);
+  text-decoration: none;
+  transition-property: background-color, color;
+  transition-duration: var(--duration-color);
+}
+.frame-nav-item:hover {
+  background: var(--color-accent-100);
+  color: var(--color-text);
+}
+.frame-nav-item:active {
+  background: var(--color-accent-200);
+}
+.frame-nav-item[aria-current='page'] {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.frame-nav-item[aria-current='page']:hover {
+  background: var(--color-accent-600);
+  color: var(--color-bg);
+}
+.frame-nav-item[aria-current='page']:active {
+  background: var(--color-accent-700);
+}
+
+.frame-nav-count {
+  margin-inline-start: auto;
+  padding: var(--size-hairline) var(--space-2);
+  border-radius: 999px;
+  font-size: var(--text-micro);
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.frame-nav-item[aria-current='page'] .frame-nav-count {
+  background: var(--color-bg);
+  color: var(--color-accent-700);
+}
+
+.frame-sidebar-foot {
+  margin-block-start: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-block-start: var(--space-6);
+}
+
+.frame-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-inline: var(--space-2);
+  font-size: var(--text-small);
+  color: var(--color-neutral-700);
+}
+
+.frame-main {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-content-gap);
+  padding: var(--layout-content-pad);
+}
+
+/* The balance at the foot of the sidebar (README, screen 01). */
+.balance-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--color-bg);
+}
+.balance-card .progress {
+  margin-block: var(--space-3) var(--space-1);
+}
+.balance-label {
+  margin: 0;
+  font-family: var(--font-product-body);
+  font-weight: 400;
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.balance-value {
+  margin: 0;
+  font-family: var(--font-product-heading);
+  font-weight: var(--font-product-heading-weight);
+  font-size: var(--text-stat);
+  line-height: 1.12;
+}
+.balance-unit {
+  margin: 0;
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+
+/* The sandbox note: it cannot be closed, and it is the accent because it asks for care. */
+.sandbox-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-inset-lg);
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+  font-size: var(--text-body-sm);
+}
+
+/* ── the head of a screen ─────────────────────────────────────────────── */
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.page-head-text {
+  min-inline-size: 0;
+}
+.page-title {
+  margin: 0;
+  font-size: var(--text-page-title);
+  line-height: 1.12;
+}
+.page-subtitle {
+  margin: var(--space-2) 0 0;
+  max-inline-size: 72ch;
+  font-size: var(--text-body-sm);
+  color: var(--color-neutral-600);
+}
+.page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* The screens inside a place, as the filter tags of screen 04: neutral, and the open one
+   filled. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  font-size: var(--text-small);
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-800);
+  text-decoration: none;
+  white-space: nowrap;
+  transition-property: background-color, color;
+  transition-duration: var(--duration-color);
+}
+.tab:hover {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+}
+.tab:active {
+  background: var(--color-accent-200);
+}
+.tab[aria-current='page'],
+.tab[aria-current='true'] {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+/* ── progress ─────────────────────────────────────────────────────────── */
+
+.progress {
+  display: block;
+  inline-size: 100%;
+  block-size: var(--control-progress);
+  border-radius: 999px;
+  background: var(--color-neutral-300);
+  overflow: hidden;
+}
+.progress-thick {
+  block-size: var(--control-progress-thick);
+}
+.progress-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: 999px;
+}
+.progress-fill-accent-2 {
+  background: var(--color-accent-2);
+}
+.progress-fill-accent {
+  background: var(--color-accent);
+}
+
+/* ── states: empty, loading, error ────────────────────────────────────── */
+
+.empty-with-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.empty-with-action p {
+  margin: 0;
+}
+
+.skeleton {
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+}
+.skeleton-title {
+  inline-size: 40%;
+  block-size: var(--text-page-title);
+  border-radius: 999px;
+}
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--layout-min-card), 1fr));
+  gap: var(--layout-grid-gap);
+}
+.skeleton-stat {
+  block-size: calc(var(--text-stat) * 3.8);
+}
+.skeleton-panel {
+  block-size: calc(var(--text-stat) * 10);
+  border-radius: var(--radius-lg);
+}
+
+/* ── the dark ground: the frame ───────────────────────────────────────── */
+
+[data-theme='dark'] .frame-sidebar {
+  background: var(--dark-sidebar);
+}
+/* The dark ground paints links in the accent; navigation, the brand and link buttons keep
+   their own colours over it. */
+[data-theme='dark'] .frame-nav-item,
+[data-theme='dark'] .frame-nav-item:hover,
+[data-theme='dark'] .frame-nav-item:active,
+[data-theme='dark'] a.frame-brand,
+[data-theme='dark'] a.frame-brand:hover,
+[data-theme='dark'] a.frame-brand:active,
+[data-theme='dark'] a.btn-secondary,
+[data-theme='dark'] a.btn-secondary:hover,
+[data-theme='dark'] a.btn-secondary:active {
+  color: var(--color-text);
+}
+[data-theme='dark'] a.btn-ghost,
+[data-theme='dark'] a.btn-ghost:hover,
+[data-theme='dark'] a.btn-ghost:active {
+  color: var(--color-accent);
+}
+[data-theme='dark'] .frame-brand-mark {
+  background: var(--color-accent-400);
+}
+[data-theme='dark'] .frame-nav-item:hover {
+  background: var(--dark-card);
+}
+[data-theme='dark'] .frame-nav-item:active {
+  background: var(--dark-divider);
+}
+[data-theme='dark'] .frame-nav-item[aria-current='page'] {
+  background: var(--color-accent-400);
+  color: var(--dark-sidebar);
+}
+[data-theme='dark'] .frame-nav-item[aria-current='page']:hover {
+  background: var(--color-accent-300);
+}
+[data-theme='dark'] .frame-account,
+[data-theme='dark'] .page-subtitle {
+  color: var(--color-neutral-400);
+}
+[data-theme='dark'] .tab {
+  background: var(--dark-divider);
+  color: var(--color-neutral-200);
+}
+[data-theme='dark'] .tab:hover {
+  background: var(--color-accent-900);
+  color: var(--color-accent-200);
+}
+[data-theme='dark'] .tab[aria-current='page'] {
+  background: var(--color-accent-400);
+  color: var(--dark-sidebar);
+}
+[data-theme='dark'] .progress {
+  background: var(--dark-divider);
+}
+[data-theme='dark'] .skeleton {
+  background: var(--dark-card);
+}
+
+/* ── print: the evidence, not the furniture ───────────────────────────── */
+
+@media print {
+  body {
+    background: none;
+  }
+  .frame {
+    margin: 0;
+    box-shadow: none;
+  }
+  .frame-sidebar,
+  .skip-link,
+  .sandbox-note,
+  .tabs,
+  .btn {
+    display: none !important;
+  }
 }

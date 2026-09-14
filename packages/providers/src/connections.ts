@@ -171,9 +171,15 @@ export interface OperatorChangeRow extends Required<OperatorChange> {
   at: Date;
 }
 
+/**
+ * The changes staff made, newest first.
+ *
+ * With a target, the history of one thing, such as one environment's connection. With
+ * null, everything, which is what the panel's audit screen reads.
+ */
 export async function listOperatorChanges(
   operator: Queryable,
-  target: string,
+  target: string | null,
   limit = 10,
 ): Promise<OperatorChangeRow[]> {
   const { rows } = await operator.query<{
@@ -184,7 +190,7 @@ export async function listOperatorChanges(
     metadata: Record<string, unknown>;
   }>(
     `SELECT at, operator_id, action, target, metadata FROM operator_audit
-     WHERE target = $1 ORDER BY at DESC LIMIT $2`,
+     WHERE ($1::text IS NULL OR target = $1) ORDER BY at DESC LIMIT $2`,
     [target, limit],
   );
   return rows.map((row) => ({

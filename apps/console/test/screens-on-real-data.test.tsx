@@ -11,7 +11,7 @@ import {
   type TestDatabase,
 } from '../../../test/helpers/db';
 import { preparePricedTenant, providerFixture } from '../../../test/helpers/billing';
-import { SAVED_VIEWS } from '../lib/views';
+import { SAVED_VIEWS } from '../src/lib/views';
 import type { ReactElement } from 'react';
 
 /**
@@ -63,9 +63,9 @@ describe('the console renders real data', () => {
   });
 
   afterAll(async () => {
-    const { closePool } = await import('../lib/context');
-    const { closeSessionPool } = await import('../lib/session');
-    const { closeOperatorPool } = await import('../lib/operator');
+    const { closePool } = await import('../src/lib/context');
+    const { closeSessionPool } = await import('../src/lib/session');
+    const { closeOperatorPool } = await import('../src/lib/operator');
     await closePool();
     await closeSessionPool();
     await closeOperatorPool();
@@ -76,7 +76,7 @@ describe('the console renders real data', () => {
     renderToStaticMarkup(await element);
 
   it('shows the customer file with its fields, their source and its history', async () => {
-    const { default: EntityPage } = await import('../app/(app)/customers/[id]/page.js');
+    const { default: EntityPage } = await import('../src/app/(app)/customers/[id]/page.js');
     const html = await render(
       EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }),
     );
@@ -92,7 +92,7 @@ describe('the console renders real data', () => {
   });
 
   it('masks every identifier it shows', async () => {
-    const { default: EntityPage } = await import('../app/(app)/customers/[id]/page.js');
+    const { default: EntityPage } = await import('../src/app/(app)/customers/[id]/page.js');
     const html = await render(
       EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }),
     );
@@ -105,8 +105,8 @@ describe('the console renders real data', () => {
   });
 
   it('never names the provider on any screen', async () => {
-    const { default: EntityPage } = await import('../app/(app)/customers/[id]/page.js');
-    const { default: RegistryPage } = await import('../app/(app)/customers/page.js');
+    const { default: EntityPage } = await import('../src/app/(app)/customers/[id]/page.js');
+    const { default: RegistryPage } = await import('../src/app/(app)/customers/page.js');
 
     const entity = await render(
       EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }),
@@ -121,7 +121,7 @@ describe('the console renders real data', () => {
   });
 
   it('lists the entity in the registry and links to it', async () => {
-    const { default: RegistryPage } = await import('../app/(app)/customers/page.js');
+    const { default: RegistryPage } = await import('../src/app/(app)/customers/relations/page.js');
     const html = await render(
       RegistryPage({ searchParams: Promise.resolve({ view: 'businesses' }) }),
     );
@@ -131,7 +131,7 @@ describe('the console renders real data', () => {
   });
 
   it('shows the people created by normalisation under their own saved view', async () => {
-    const { default: RegistryPage } = await import('../app/(app)/customers/page.js');
+    const { default: RegistryPage } = await import('../src/app/(app)/customers/relations/page.js');
     const html = await render(RegistryPage({ searchParams: Promise.resolve({ view: 'people' }) }));
 
     // The manager became an entity of its own during normalisation, and appears here
@@ -162,7 +162,7 @@ describe('the console renders real data', () => {
   });
 
   it('shows the retention settings with their source', async () => {
-    const { default: SettingsPage } = await import('../app/(app)/monitoring/freshness/page.js');
+    const { default: SettingsPage } = await import('../src/app/(app)/settings/freshness/page.js');
     const html = await render(SettingsPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('data-source="system"');
@@ -171,7 +171,7 @@ describe('the console renders real data', () => {
   });
 
   it('previews the impact of a retention change on this tenant own data', async () => {
-    const { default: SettingsPage } = await import('../app/(app)/monitoring/freshness/page.js');
+    const { default: SettingsPage } = await import('../src/app/(app)/settings/freshness/page.js');
     const html = await render(
       SettingsPage({
         searchParams: Promise.resolve({ field: 'cr.core.name', ttl: '1' }),
@@ -187,7 +187,7 @@ describe('the console renders real data', () => {
       setTenantTtl(tx, { fieldPath: 'cr.status', ttlDays: 3, weight: 20 }),
     );
 
-    const { default: SettingsPage } = await import('../app/(app)/monitoring/freshness/page.js');
+    const { default: SettingsPage } = await import('../src/app/(app)/settings/freshness/page.js');
     const html = await render(SettingsPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain('data-source="tenant"');
@@ -195,9 +195,9 @@ describe('the console renders real data', () => {
   });
 
   it('renders the risk dashboard, the queue and the portfolios on real data', async () => {
-    const { default: DashboardPage } = await import('../app/(app)/dashboard/page');
-    const { default: QueuePage } = await import('../app/(app)/verifications/reviews/page');
-    const { default: PortfoliosPage } = await import('../app/(app)/settings/portfolios/page');
+    const { default: DashboardPage } = await import('../src/app/(app)/dashboard/page');
+    const { default: QueuePage } = await import('../src/app/(app)/customers/reviews/page');
+    const { default: PortfoliosPage } = await import('../src/app/(app)/settings/portfolios/page');
 
     const dashboard = renderToStaticMarkup(await DashboardPage());
     const queue = renderToStaticMarkup(await QueuePage());
@@ -215,7 +215,7 @@ describe('the console renders real data', () => {
   });
 
   it('renders the rules studio with a simulation on this tenant own entities', async () => {
-    const { default: RulesPage } = await import('../app/(app)/settings/rules/page');
+    const { default: RulesPage } = await import('../src/app/(app)/settings/rules/page');
     const html = renderToStaticMarkup(
       await RulesPage({ searchParams: Promise.resolve({ simulate: '1' }) }),
     );
@@ -227,7 +227,8 @@ describe('the console renders real data', () => {
   });
 
   it('refuses the integration screen without a sign in, and names no data source with one', async () => {
-    const { default: IntegrationPage } = await import('../app/operator/(panel)/integration/page');
+    const { default: IntegrationPage } =
+      await import('../src/app/operator/(panel)/verification/integration/page');
 
     delete process.env['NX_OPERATOR_TOKEN_OVERRIDE'];
     process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
@@ -252,9 +253,10 @@ describe('the console renders real data', () => {
   });
 
   it('shows the operator who is subscribed, until when, and what is left', async () => {
-    const { default: TenantsPage } = await import('../app/operator/(panel)/tenants/page');
-    const { default: OverviewPage } = await import('../app/operator/(panel)/page');
-    const { default: TenantPage } = await import('../app/operator/(panel)/tenants/[id]/page');
+    const { default: TenantsPage } = await import('../src/app/operator/(panel)/subscribers/page');
+    const { default: OverviewPage } = await import('../src/app/operator/(panel)/page');
+    const { default: TenantPage } =
+      await import('../src/app/operator/(panel)/subscribers/[id]/page');
 
     process.env['NX_OPERATOR_TOKEN'] = 'operator-token-long-enough-1234';
     process.env['NX_OPERATOR_DATABASE_URL'] = db.operatorConnectionString;
@@ -285,8 +287,8 @@ describe('the console renders real data', () => {
   });
 
   it('names no provider on a subscriber screen even while the operator panel does', async () => {
-    const { default: RegistryPage } = await import('../app/(app)/customers/page');
-    const { default: DashboardPage } = await import('../app/(app)/dashboard/page');
+    const { default: RegistryPage } = await import('../src/app/(app)/customers/page');
+    const { default: DashboardPage } = await import('../src/app/(app)/dashboard/page');
 
     // The operator panel and these pages read the same database. Only one of them may
     // say the name, and it is the one a subscriber cannot open.
@@ -299,7 +301,7 @@ describe('the console renders real data', () => {
   });
 
   it('reports completeness gaps the tenant can act on', async () => {
-    const { default: RegistryPage } = await import('../app/(app)/customers/page.js');
+    const { default: RegistryPage } = await import('../src/app/(app)/customers/relations/page.js');
     const html = await render(RegistryPage({ searchParams: Promise.resolve({ view: 'people' }) }));
 
     // People carry none of the business fields, so the gap section has something to say.

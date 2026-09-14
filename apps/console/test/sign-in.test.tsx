@@ -11,15 +11,15 @@ import {
   type TestDatabase,
 } from '../../../test/helpers/db';
 import { FakeIdp } from '../../../test/helpers/idp';
-import { SignIn } from '../components/sign-in';
+import { SignIn } from '../src/components/sign-in';
 import {
   SIGN_IN_FAILED,
   finishSso,
   sessionCookie,
   signInWithPassword,
   startSso,
-} from '../lib/auth';
-import { closePool } from '../lib/context';
+} from '../src/lib/auth';
+import { closePool } from '../src/lib/context';
 
 /**
  * Unit 28 acceptance: a person can actually get in, through either door.

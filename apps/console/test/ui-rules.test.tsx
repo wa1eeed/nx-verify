@@ -2,57 +2,63 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { FieldCard, formatValue, daysUntil } from '../components/field-card';
-import { ChangeBadge, FreshnessBadge } from '../components/freshness';
-import { Identifier, Money } from '../components/identifier';
-import { Entity360 } from '../components/entity-360';
-import { SharedProfile } from '../components/shared-profile';
-import { UserAdmin } from '../components/user-admin';
-import { PendingTopUps, TopUpPanel } from '../components/topup';
-import { OperatorReadiness } from '../components/operator-readiness';
-import { VerificationHistory } from '../components/verification-history';
-import { Inbox, InboxBell } from '../components/inbox';
-import { FreshnessSettings } from '../components/freshness-settings';
-import { Timeline } from '../components/timeline';
-import RootLayout from '../app/layout';
-import AuthLayout from '../app/(auth)/layout';
-import { ReviewQueue, reasonLabel } from '../components/review-queue';
-import { Dashboard } from '../components/dashboard';
-import { Portfolios } from '../components/portfolios';
-import { RulesStudio, describeCondition } from '../components/rules-studio';
-import { NotificationSettings, eventLabel } from '../components/notification-settings';
-import { ChangePassword } from '../components/change-password';
-import { ApiKeys } from '../components/api-keys';
-import { Shell } from '../components/shell';
-import { OnboardingList } from '../components/onboarding';
-import { OperatorMargin } from '../components/operator-margin';
-import { Developer } from '../components/developer';
-import { OperatorPackages, billingLabel } from '../components/operator-packages';
-import { ApiLog } from '../components/api-log';
-import { OperatorHealth } from '../components/operator-health';
-import { Docs } from '../components/docs';
-import { OperatorIntegration, type IntegrationView } from '../components/operator-integration';
-import { Support, supportTierLabel } from '../components/support';
+import { FieldCard, formatValue, daysUntil } from '../src/components/field-card';
+import { ChangeBadge, FreshnessBadge } from '../src/components/freshness';
+import { Identifier, Money } from '../src/components/identifier';
+import { Entity360 } from '../src/components/entity-360';
+import { SharedProfile } from '../src/components/shared-profile';
+import { UserAdmin } from '../src/components/user-admin';
+import { PendingTopUps, TopUpPanel } from '../src/components/topup';
+import { OperatorReadiness } from '../src/components/operator-readiness';
+import { VerificationHistory } from '../src/components/verification-history';
+import { Inbox, InboxBell } from '../src/components/inbox';
+import { FreshnessSettings } from '../src/components/freshness-settings';
+import { Timeline } from '../src/components/timeline';
+import RootLayout from '../src/app/layout';
+import AuthLayout from '../src/app/(auth)/layout';
+import { ReviewQueue, reasonLabel } from '../src/components/review-queue';
+import { Dashboard } from '../src/components/dashboard';
+import { Portfolios } from '../src/components/portfolios';
+import { RulesStudio, describeCondition } from '../src/components/rules-studio';
+import { NotificationSettings, eventLabel } from '../src/components/notification-settings';
+import { ChangePassword } from '../src/components/change-password';
+import { ApiKeys } from '../src/components/api-keys';
+import { Shell } from '../src/components/shell';
+import {
+  INTEGRATION_TABS,
+  OPERATOR_SECTIONS,
+  OperatorShell,
+  SUBSCRIBER_TABS,
+} from '../src/components/operator-shell';
+import { OnboardingList } from '../src/components/onboarding';
+import { OperatorMargin } from '../src/components/operator-margin';
+import { Developer } from '../src/components/developer';
+import { OperatorPackages, billingLabel } from '../src/components/operator-packages';
+import { ApiLog } from '../src/components/api-log';
+import { OperatorHealth } from '../src/components/operator-health';
+import { Docs } from '../src/components/docs';
+import { OperatorIntegration, type IntegrationView } from '../src/components/operator-integration';
+import { Support, supportTierLabel } from '../src/components/support';
 import {
   OnboardingCaseView,
   stepStatusLabel,
   waiveReasonLabel,
-} from '../components/onboarding-case';
-import { Usage, refusalLabel } from '../components/usage';
-import { Statement } from '../components/statement';
+} from '../src/components/onboarding-case';
+import { Usage, refusalLabel } from '../src/components/usage';
+import { Statement } from '../src/components/statement';
 import {
   BILLING_TABS,
+  CUSTOMER_TABS,
   DEVELOPER_TABS,
-  MONITORING_TABS,
   SECTIONS,
   SETTINGS_TABS,
   VERIFICATION_TABS,
-} from '../components/nav';
-import { isInSection } from '../components/section-nav';
+} from '../src/components/nav';
+import { isInSection } from '../src/components/section-nav';
 import { readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { EmptyState, PageHeader, Panel } from '../components/page-header';
-import type { ProfileFieldView } from '../components/field-card';
+import { EmptyState, PageHeader, Panel } from '../src/components/page-header';
+import type { ProfileFieldView } from '../src/components/field-card';
 
 /**
  * The interface rules from CLAUDE.md, asserted rather than eyeballed.
@@ -308,24 +314,41 @@ describe('the document itself', () => {
     expect(html).toContain('dir="rtl"');
   });
 
-  it('loads the two named typefaces', () => {
+  it('loads the two faces the design names, and no other', () => {
     const html = renderToStaticMarkup(<RootLayout>{null}</RootLayout>);
+    expect(html).toContain('Baloo+Bhaijaan+2');
     expect(html).toContain('IBM+Plex+Sans+Arabic');
-    expect(html).toContain('IBM+Plex+Mono');
-  });
-
-  it('uses solid borders and no rgba shadows', () => {
-    const css = readFileSync(fileURLToPath(new URL('../app/tokens.css', import.meta.url)), 'utf8');
-    expect(css).not.toMatch(/rgba\(/);
-    expect(css).not.toMatch(/box-shadow/);
-    expect(css).toContain('border: 1px solid');
-  });
-
-  it('carries the four brand colours', () => {
-    const css = readFileSync(fileURLToPath(new URL('../app/tokens.css', import.meta.url)), 'utf8');
-    for (const colour of ['#0a1628', '#00d2a8', '#00a886', '#f5b942']) {
-      expect(css).toContain(colour);
+    for (const banned of ['IBM+Plex+Mono', 'Inter', 'Roboto']) {
+      expect(html).not.toContain(banned);
     }
+  });
+
+  it('takes every colour and shadow from the tokens, outside the token sheet', () => {
+    for (const sheet of ['legacy.css', 'product.css']) {
+      const css = readFileSync(
+        fileURLToPath(new URL(`../src/styles/${sheet}`, import.meta.url)),
+        'utf8',
+      );
+      expect(css, sheet).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+      expect(css, sheet).not.toMatch(/\brgba?\(/);
+      for (const shadow of css.match(/box-shadow:[^;]+;/g) ?? []) {
+        expect(shadow === 'box-shadow: none;' || shadow.includes('var(--shadow-'), shadow).toBe(
+          true,
+        );
+      }
+    }
+  });
+
+  it('cascades the old classes first, then the system, then what the product adds', () => {
+    const layout = readFileSync(
+      fileURLToPath(new URL('../src/app/layout.tsx', import.meta.url)),
+      'utf8',
+    );
+    const order = ['legacy.css', 'organic.css', 'product.css'].map((sheet) =>
+      layout.indexOf(sheet),
+    );
+    expect(order.every((position) => position > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 });
 
@@ -583,41 +606,42 @@ describe('the change password screen', () => {
 describe('the console shell', () => {
   const html = renderToStaticMarkup(<Shell isSandbox={false}>{null}</Shell>);
 
-  it('lists seven places, in the order a subscriber works through them', () => {
+  it('lists the home screen and four places, as the handoff draws them (screen 00)', () => {
     expect(SECTIONS.map((section) => section.label)).toEqual([
-      'الرئيسية',
+      'اللوحة الرئيسية',
       'العملاء',
-      'عمليات التحقق',
-      'المراقبة',
-      'الفوترة',
-      'المطوّرون',
+      'التحقق',
+      'الاشتراك والرصيد',
       'الإعدادات',
+    ]);
+    expect(SECTIONS.map((section) => section.icon)).toEqual([
+      'layout-dashboard',
+      'users',
+      'badge-check',
+      'wallet',
+      'settings',
     ]);
   });
 
   it('puts every tab inside exactly one place, and repeats no link', () => {
-    const tabs = [
-      VERIFICATION_TABS,
-      MONITORING_TABS,
-      BILLING_TABS,
-      DEVELOPER_TABS,
-      SETTINGS_TABS,
-    ].flat();
+    const tabs = [CUSTOMER_TABS, VERIFICATION_TABS, BILLING_TABS, SETTINGS_TABS].flat();
     const hrefs = tabs.map((tab) => tab.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
-    for (const tab of tabs) {
+    // The keys and webhooks tab holds screens of its own, all inside the settings place.
+    for (const tab of [...tabs, ...DEVELOPER_TABS]) {
       const owners = SECTIONS.filter((section) => isInSection(tab.href, section));
       expect(
         owners.map((owner) => owner.label),
         tab.href,
       ).toHaveLength(1);
     }
+    expect(DEVELOPER_TABS.every((tab) => tab.href.startsWith('/settings/developers'))).toBe(true);
   });
 
   it('reaches every screen in the console from a place or one of its tabs', () => {
     // Walked from the file system, so a screen added later without a way to reach it
     // fails here rather than being found by a customer who cannot find it.
-    const root = join(__dirname, '../app/(app)');
+    const root = join(__dirname, '../src/app/(app)');
     const pages: string[] = [];
     const walk = (dir: string): void => {
       for (const name of readdirSync(dir)) {
@@ -633,21 +657,44 @@ describe('the console shell', () => {
 
     const reachable = new Set([
       ...SECTIONS.map((section) => section.href),
-      ...[VERIFICATION_TABS, MONITORING_TABS, BILLING_TABS, DEVELOPER_TABS, SETTINGS_TABS]
+      ...[CUSTOMER_TABS, VERIFICATION_TABS, BILLING_TABS, SETTINGS_TABS, DEVELOPER_TABS]
         .flat()
         .map((tab) => tab.href),
     ]);
-    // Screens reached from a place's own primary button rather than from the sidebar.
-    const fromActions = new Set(['/customers/new']);
-    const unreachable = pages.filter(
-      (page) =>
-        // A detail screen is reached from its list, and the inbox from the bell.
-        !page.includes('[') &&
-        page !== '/notifications' &&
-        !fromActions.has(page) &&
-        !reachable.has(page),
-    );
+    // A detail screen is reached from its list.
+    const unreachable = pages.filter((page) => !page.includes('[') && !reachable.has(page));
     expect(unreachable).toEqual([]);
+  });
+
+  it('keeps what is left to spend at the foot of the sidebar on every screen', () => {
+    const withPackage = renderToStaticMarkup(
+      <Shell isSandbox={false} balance={{ kind: 'operations', remaining: 1840, included: 3000 }}>
+        {null}
+      </Shell>,
+    );
+    expect(withPackage).toContain('data-role="balance-card"');
+    expect(withPackage).toContain('1,840');
+    expect(withPackage).toContain('عملية تحقق');
+    expect(withPackage).toContain('role="progressbar"');
+    expect(withPackage).toContain('شراء رصيد');
+
+    const fromWallet = renderToStaticMarkup(
+      <Shell isSandbox={false} balance={{ kind: 'wallet', availableHalalas: 566800 }}>
+        {null}
+      </Shell>,
+    );
+    expect(fromWallet).toContain('5,668.00');
+    expect(fromWallet).toContain('ريال قبل الضريبة');
+    expect(fromWallet).not.toContain('role="progressbar"');
+  });
+
+  it('draws the frame of the handoff: brand, places with their icons, and the content', () => {
+    expect(html).toContain('class="frame"');
+    expect(html).toContain('class="frame-brand"');
+    expect(html).toContain('NX Trust');
+    expect(html.match(/class="frame-nav-item"/g)).toHaveLength(SECTIONS.length);
+    expect(html.match(/stroke-width="2.75"/g)?.length).toBeGreaterThanOrEqual(SECTIONS.length);
+    expect(html).toContain('class="frame-main" id="main"');
   });
 
   it('lets a keyboard skip the navigation, and offers the way out', () => {
@@ -682,6 +729,63 @@ describe('the console shell', () => {
   });
 });
 
+describe('the administration panel', () => {
+  const html = renderToStaticMarkup(
+    <OperatorShell operatorId="nx-staff:demo">{null}</OperatorShell>,
+  );
+
+  it('is dark, so staff never mistake it for a subscriber portal (screen 05)', () => {
+    expect(html).toContain('data-theme="dark"');
+    expect(html).toContain('أدمن');
+  });
+
+  it('lists the six places of the handoff and none of the portal', () => {
+    expect(OPERATOR_SECTIONS.map((section) => section.label)).toEqual([
+      'نظرة عامة',
+      'المشتركون',
+      'الأسعار والمنتجات',
+      'إعدادات التحقق',
+      'التقارير',
+      'الصلاحيات والتدقيق',
+    ]);
+    expect(html).not.toContain('href="/customers"');
+    expect(html).not.toContain('data-role="balance-card"');
+  });
+
+  it('reaches every panel screen from a place or one of its tabs', () => {
+    const root = join(__dirname, '../src/app/operator/(panel)');
+    const pages: string[] = [];
+    const walk = (dir: string): void => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) {
+          walk(path);
+        } else if (name === 'page.tsx') {
+          pages.push(`/operator/${relative(root, dir)}`.replace(/\/$/, ''));
+        }
+      }
+    };
+    walk(root);
+
+    const reachable = new Set([
+      ...OPERATOR_SECTIONS.map((section) => section.href),
+      ...[SUBSCRIBER_TABS, INTEGRATION_TABS].flat().map((tab) => tab.href),
+    ]);
+    const unreachable = pages.filter((page) => !page.includes('[') && !reachable.has(page));
+    expect(unreachable).toEqual([]);
+  });
+
+  it('keeps every tab inside the place it belongs to', () => {
+    for (const tab of [...SUBSCRIBER_TABS, ...INTEGRATION_TABS]) {
+      const owners = OPERATOR_SECTIONS.filter((section) => isInSection(tab.href, section));
+      expect(
+        owners.map((owner) => owner.label),
+        tab.href,
+      ).toHaveLength(1);
+    }
+  });
+});
+
 describe('the page furniture', () => {
   it('gives a screen a title, a sentence and at most one action', () => {
     const html = renderToStaticMarkup(
@@ -689,14 +793,14 @@ describe('the page furniture', () => {
         title="الرئيسية"
         subtitle="ما يحتاج قراراً اليوم"
         action={
-          <button type="button" className="btn-primary">
+          <button type="button" className="btn btn-primary">
             افتح
           </button>
         }
       />,
     );
     expect(html).toContain('data-role="page-header"');
-    expect(html).toContain('<h1>الرئيسية</h1>');
+    expect(html).toContain('<h1 class="page-title">الرئيسية</h1>');
     expect(html.match(/btn-primary/g)?.length).toBe(1);
   });
 
@@ -718,23 +822,35 @@ describe('the page furniture', () => {
   });
 });
 
-describe('the stylesheet holds the layout rules that are easy to break', () => {
-  const css = readFileSync(fileURLToPath(new URL('../app/tokens.css', import.meta.url)), 'utf8');
+describe('the stylesheets hold the layout rules that are easy to break', () => {
+  const sheet = (name: string): string =>
+    readFileSync(fileURLToPath(new URL(`../src/styles/${name}`, import.meta.url)), 'utf8');
+  const product = sheet('product.css');
 
   it('keeps one long table from pushing every screen sideways', () => {
-    // A grid item is as wide as its widest child unless it is told otherwise.
-    expect(css).toContain('.shell > * {\n  min-width: 0;\n}');
+    // A flex item is as wide as its widest child unless it is told otherwise.
+    expect(product).toMatch(/\.frame-main \{[^}]*min-inline-size: 0;/);
+    expect(product).toMatch(/\.table-scroll \{[^}]*overflow-x: auto;/);
   });
 
   it('makes focus visible, because this screen is worked by keyboard under audit', () => {
-    expect(css).toContain(':focus-visible');
-    expect(css).toContain('outline: 2px solid var(--teal-d)');
+    expect(sheet('organic.css')).toContain(
+      ':focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }',
+    );
+    // The checkbox hides its input, so its drawn box carries the ring instead.
+    expect(product).toMatch(
+      /\.check input:focus-visible \+ \.box \{\s*outline: 2px solid var\(--color-accent\);/,
+    );
+  });
+
+  it('keeps the sidebar in view without a scroll container that would break it', () => {
+    expect(product).toMatch(/\.frame \{[^}]*overflow: clip;/);
+    expect(product).toMatch(/\.frame-sidebar-inner \{[^}]*position: sticky;/);
   });
 
   it('prints the evidence and not the furniture', () => {
-    expect(css).toContain('@media print');
-    const print = css.slice(css.indexOf('@media print'));
-    expect(print).toContain('.sidebar');
+    const print = product.slice(product.indexOf('@media print'));
+    expect(print).toContain('.frame-sidebar');
     expect(print).toContain('display: none');
   });
 });
@@ -1231,7 +1347,7 @@ describe('the notification centre', () => {
       titleAr: 'مراجعة تنتظر قراراً',
       detailAr: null,
       at: new Date('2026-09-10T10:00:00Z'),
-      href: '/verifications/reviews',
+      href: '/customers/reviews',
       severity: 'info' as const,
     },
   ];
@@ -1240,7 +1356,7 @@ describe('the notification centre', () => {
     const html = renderToStaticMarkup(<Inbox items={items} seenAt={null} />);
     // A notification you cannot act on from makes somebody hunt for the screen it meant.
     expect(html).toContain('href="/customers/e1"');
-    expect(html).toContain('href="/verifications/reviews"');
+    expect(html).toContain('href="/customers/reviews"');
   });
 
   it('marks what arrived after the last look, and leaves the rest readable', () => {
@@ -2059,9 +2175,9 @@ describe('the integration screen in the administration panel', () => {
 
   it('keeps one primary button, for the environment in front of the person', () => {
     const html = render();
-    expect(html.match(/class="btn-primary"/g)?.length).toBe(1);
-    expect(html).toContain('href="/operator/integration?env=sandbox"');
-    expect(html).toContain('href="/operator/integration?env=live"');
+    expect(html.match(/class="btn btn-primary"/g)?.length).toBe(1);
+    expect(html).toContain('href="/operator/verification/integration?env=sandbox"');
+    expect(html).toContain('href="/operator/verification/integration?env=live"');
   });
 
   it('takes secrets and gives none back: a fingerprint and a masked id only', () => {

@@ -1,0 +1,37 @@
+import type { ReactElement, ReactNode } from 'react';
+import { PRODUCT_NAME } from '../components/brand';
+// The order is the cascade: the old console classes first, so the system's base type, links
+// and focus ring win over them, then the Organic sheet, then what the product adds to it.
+import '../styles/legacy.css';
+import '../styles/organic.css';
+import '../styles/product.css';
+
+export const metadata = {
+  title: PRODUCT_NAME,
+  description: 'منصة تحقق وامتثال',
+};
+
+/**
+ * The document.
+ *
+ * Full RTL, set at the root rather than patched per component, and the two faces the design
+ * names: Baloo Bhaijaan 2 for headings and buttons, IBM Plex Sans Arabic for everything else.
+ *
+ * The furniture lives one level down, in separate groups. A person who is signed in gets the
+ * frame; a person who is not gets a bare page, because navigation to screens they cannot open
+ * and a sign out button for a session they do not have are both lies.
+ */
+export default function RootLayout({ children }: { children: ReactNode }): ReactElement {
+  return (
+    <html lang="ar" dir="rtl">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
