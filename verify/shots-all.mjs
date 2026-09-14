@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global document -- read inside page.evaluate, which runs in the browser */
 /**
  * NX Trust: screenshots of every screen at desktop, tablet and phone widths.
  *

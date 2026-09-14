@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global document -- read inside page.evaluate, which runs in the browser */
 /**
  * NX Trust: every screen fits the phone and the tablet.
  *
