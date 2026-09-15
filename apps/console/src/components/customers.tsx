@@ -194,7 +194,7 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
                   >
                     <td>{row.displayName ?? 'عميل بلا اسم بعد'}</td>
                     <td>{row.kindLabelAr}</td>
-                    <td>{row.identifier ? <Ltr>{shortMask(row.identifier.masked)}</Ltr> : '·'}</td>
+                    <td>{row.identifier ? <Ltr>{shortMask(row.identifier.display)}</Ltr> : '·'}</td>
                     <td>
                       <span className="customers-completeness">
                         <span className="customers-bar">

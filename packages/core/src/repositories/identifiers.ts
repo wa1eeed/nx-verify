@@ -2,6 +2,7 @@ import { withSavepoint, type TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import {
   decryptIdentifier,
+  displayIdentifier,
   hashIdentifier,
   maskIdentifier,
   protectIdentifier,
@@ -242,6 +243,8 @@ export interface RevealedIdentifier {
   isPrimary: boolean;
   /** Masked for display. The full value is only produced on explicit request. */
   masked: string;
+  /** What a signed in screen shows: a business's registry number in full, else masked (ADR-127). */
+  display: string;
 }
 
 export async function listIdentifiers(
@@ -268,11 +271,13 @@ export async function listIdentifiers(
     // Each row is decrypted with the key that encrypted it, which is what lets a
     // rotation run in the background instead of all at once.
     const encryptionKey = await keys.encryptionKey(tx.tenantId, row.key_version);
+    const value = decryptIdentifier(encryptionKey, row.id_value_enc);
     revealed.push({
       id: row.id,
       idType: row.id_type,
       isPrimary: row.is_primary,
-      masked: maskIdentifier(decryptIdentifier(encryptionKey, row.id_value_enc)),
+      masked: maskIdentifier(value),
+      display: displayIdentifier(row.id_type, value),
     });
   }
   return revealed;
@@ -293,7 +298,8 @@ function isUniqueViolation(error: unknown): boolean {
  * This is the only function in the system that returns an identifier in the clear, and it
  * exists because a re-verification has to send the authority the number it is asking
  * about. It is for provider calls, never for display, never for a log line, and never for
- * a response body. Everything user facing goes through listIdentifiers, which masks.
+ * a response body. Everything user facing goes through listIdentifiers, which masks every
+ * identifier of a person and shows a business's public registry number (ADR-127).
  */
 export async function revealIdentifier(
   tx: TenantTransaction,

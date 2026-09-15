@@ -78,8 +78,8 @@ function fileWith(sections: FileSection[]): CustomerFile {
     kind: 'COMPANY',
     kindLabelAr: 'شركة',
     createdAt: new Date('2026-03-02T08:00:00Z'),
-    identifiers: [{ idType: 'CR', masked: '••••••4567', isPrimary: true }],
-    primaryIdentifier: { labelAr: 'س.ت', masked: '••••••4567' },
+    identifiers: [{ idType: 'CR', masked: '••••••4567', display: '1010234567', isPrimary: true }],
+    primaryIdentifier: { labelAr: 'س.ت', masked: '••••••4567', display: '1010234567' },
     status: { textAr: 'فعال', tone: 'fresh' },
     sections,
     managers: [],
@@ -216,10 +216,11 @@ describe('the customer file of screen 03', () => {
   ];
   const html = render(fileWith(sections));
 
-  it('heads the file with its name, its kind and its number, masked and left to right', () => {
+  it('heads the file with its name, its kind and its registry number in full, left to right', () => {
     expect(html).toContain('<h1 class="page-title">شركة أفق المدى للتقنية</h1>');
     expect(html).toContain('data-role="classification">شركة</span>');
-    expect(html).toContain('س.ت <bdi dir="ltr" class="ltr">••••4567</bdi>');
+    // A business's registry number is a public record, shown in full (ADR-127).
+    expect(html).toContain('س.ت <bdi dir="ltr" class="ltr">1010234567</bdi>');
     expect(html).toContain('أُنشئ الملف في 2 مارس 2026 · آخر تحقق 12 سبتمبر 2026');
   });
 

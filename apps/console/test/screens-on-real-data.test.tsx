@@ -94,16 +94,16 @@ describe('the console renders real data', () => {
     expect(html).toContain('يدوي من الكونسول');
   });
 
-  it('masks every identifier it shows', async () => {
+  it('shows a business registry number in full, and masks every identifier of a person', async () => {
     const { default: EntityPage } = await import('../src/app/(app)/customers/[id]/page.js');
     const html = await render(
       EntityPage({ params: Promise.resolve({ id: entityId }), searchParams: Promise.resolve({}) }),
     );
 
-    // Rule 4. The full value never reaches a screen.
-    expect(html).not.toContain('7001272184');
-    expect(html).not.toContain('1010478213');
-    expect(html).toContain('••••');
+    // ADR-127: the commercial registration is a public record the owner wants in full.
+    expect(html).toContain('1010478213');
+    // Rule 4: the manager's national id never reaches a screen in the clear.
+    expect(html).not.toContain('1098765432');
     expect(html).toContain('dir="ltr"');
   });
 

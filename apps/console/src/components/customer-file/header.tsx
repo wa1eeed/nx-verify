@@ -33,7 +33,8 @@ export function FileHeader({
           </Tag>
           {file.primaryIdentifier ? (
             <Tag role="primary-identifier">
-              {file.primaryIdentifier.labelAr} <Ltr>{shortMask(file.primaryIdentifier.masked)}</Ltr>
+              {file.primaryIdentifier.labelAr}{' '}
+              <Ltr>{shortMask(file.primaryIdentifier.display)}</Ltr>
             </Tag>
           ) : null}
         </div>

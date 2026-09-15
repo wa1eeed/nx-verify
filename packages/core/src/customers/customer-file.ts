@@ -301,9 +301,12 @@ export interface CustomerFile {
   kindLabelAr: string;
   /** When this file was opened, which is when the customer was first seen. */
   createdAt: Date;
-  identifiers: { idType: string; masked: string; isPrimary: boolean }[];
-  /** The number the header shows beside the name, with its short label, masked. */
-  primaryIdentifier: { labelAr: string; masked: string } | null;
+  identifiers: { idType: string; masked: string; display: string; isPrimary: boolean }[];
+  /**
+   * The number the header shows beside the name, with its short label: a business's registry
+   * number in full, a person's identifier masked (ADR-127).
+   */
+  primaryIdentifier: { labelAr: string; masked: string; display: string } | null;
   status: { textAr: string | null; tone: 'fresh' | 'critical' | 'neutral' };
   sections: FileSection[];
   managers: ManagerView[];
@@ -509,14 +512,18 @@ const ID_SHORT_LABELS: Readonly<Record<string, string>> = {
 };
 
 export function primaryIdentifierOf(
-  identifiers: readonly { idType: string; masked: string; isPrimary: boolean }[],
-): { labelAr: string; masked: string } | null {
+  identifiers: readonly { idType: string; masked: string; display: string; isPrimary: boolean }[],
+): { labelAr: string; masked: string; display: string } | null {
   const preferred = ['CR', 'UNN', 'NATIONAL_ID', 'IQAMA']
     .map((idType) => identifiers.find((identifier) => identifier.idType === idType))
     .find((identifier) => identifier !== undefined);
   return preferred === undefined
     ? null
-    : { labelAr: ID_SHORT_LABELS[preferred.idType] ?? preferred.idType, masked: preferred.masked };
+    : {
+        labelAr: ID_SHORT_LABELS[preferred.idType] ?? preferred.idType,
+        masked: preferred.masked,
+        display: preferred.display,
+      };
 }
 
 interface RelationRow {
@@ -1139,6 +1146,7 @@ export async function getCustomerFile(
     identifiers: identifiers.map((identifier) => ({
       idType: identifier.idType,
       masked: identifier.masked,
+      display: identifier.display,
       isPrimary: identifier.isPrimary,
     })),
     primaryIdentifier: primaryIdentifierOf(identifiers),

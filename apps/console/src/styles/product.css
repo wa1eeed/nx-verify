@@ -209,6 +209,8 @@ a.btn-ghost:active {
 /* ── tags ─────────────────────────────────────────────────────────────── */
 
 .tag {
+  /* A tag is a flex box, which drops the space between its words and a number beside them. */
+  gap: var(--space-1);
   white-space: nowrap;
   /* An edge one step deeper than the fill, as a badge has, inside the same outer size. */
   padding: var(--pad-tag-edged);

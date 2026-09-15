@@ -1,6 +1,6 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
-import { decryptIdentifier, maskIdentifier } from '../crypto/identifier.js';
+import { decryptIdentifier, displayIdentifier, maskIdentifier } from '../crypto/identifier.js';
 import type { EntityType } from '../repositories/entities.js';
 import type { Freshness, ProfileField } from '../repositories/profile.js';
 import { listChecks, type CustomerKind, type ProfileSection } from './checks.js';
@@ -34,7 +34,7 @@ export interface CustomerSummary {
   kind: CustomerKind | null;
   kindLabelAr: string;
   /** The number beside the name, with its short label, masked. */
-  identifier: { labelAr: string; masked: string } | null;
+  identifier: { labelAr: string; masked: string; display: string } | null;
   createdAt: Date;
   lastVerifiedAt: Date | null;
   /** When the customer first came back verified. */
@@ -247,18 +247,24 @@ export async function summarizeCustomers(
     [tx.tenantId, ids],
   );
   const encryptionKeys = new Map<number, Buffer>();
-  const identifiers = new Map<string, { idType: string; masked: string; isPrimary: boolean }[]>();
+  const identifiers = new Map<
+    string,
+    { idType: string; masked: string; display: string; isPrimary: boolean }[]
+  >();
   for (const row of identifierRows) {
     let key = encryptionKeys.get(row.key_version);
     if (key === undefined) {
       key = await keys.encryptionKey(tx.tenantId, row.key_version);
       encryptionKeys.set(row.key_version, key);
     }
-    // Decrypted to be masked, and only the masked form is kept.
+    // Decrypted to be masked, and only the masked form and the display form are kept: a
+    // business's registry number shows in full, a person's identifier never does (ADR-127).
+    const value = decryptIdentifier(key, row.id_value_enc);
     const list = identifiers.get(row.entity_id) ?? [];
     list.push({
       idType: row.id_type,
-      masked: maskIdentifier(decryptIdentifier(key, row.id_value_enc)),
+      masked: maskIdentifier(value),
+      display: displayIdentifier(row.id_type, value),
       isPrimary: row.is_primary,
     });
     identifiers.set(row.entity_id, list);

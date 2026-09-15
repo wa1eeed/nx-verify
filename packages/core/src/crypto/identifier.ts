@@ -107,6 +107,20 @@ export async function protectIdentifier(
   };
 }
 
+/**
+ * The registry numbers of a business: the commercial registration and the unified number,
+ * which the Ministry of Commerce publishes for anyone to look up. The owner asked for them in
+ * full on the customer file (ADR-127). They are stored exactly as every identifier is,
+ * hashed for search and encrypted, and they stay out of logs, errors and responses (rule 4);
+ * only the signed in console shows them. Every identifier of a person stays masked.
+ */
+export const PUBLIC_BUSINESS_IDENTIFIERS: ReadonlySet<string> = new Set(['CR', 'UNN']);
+
+/** Display only: a business's registry number in full, every other identifier masked. */
+export function displayIdentifier(idType: string, value: string): string {
+  return PUBLIC_BUSINESS_IDENTIFIERS.has(idType) ? value : maskIdentifier(value);
+}
+
 /** Display only. Masks all but the last four characters, as the console shows them. */
 export function maskIdentifier(value: string): string {
   if (value.length <= 4) {
