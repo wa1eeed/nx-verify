@@ -704,6 +704,23 @@ export type {
   Standing,
 } from './customers/indicators.js';
 export {
+  PARTY_ROLE_LABELS,
+  findPartiesByIdentifier,
+  getPartyMentions,
+  getPartyRoles,
+  summarizeParties,
+} from './customers/parties.js';
+export type {
+  CompanyStanding,
+  PartyCompany,
+  PartyConcern,
+  PartyMention,
+  PartyRole,
+  PartyRoleView,
+  PartyRoles,
+  RelatedPartySummary,
+} from './customers/parties.js';
+export {
   KIND_LABELS,
   NAME_MATCH_THRESHOLD_PCT,
   SECTION_SOURCES,

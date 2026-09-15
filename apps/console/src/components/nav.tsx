@@ -29,6 +29,7 @@ export const SECTIONS: readonly PlaceLink[] = [
 
 export const CUSTOMER_TABS: readonly SectionTab[] = [
   { href: '/customers', label: 'قائمة العملاء' },
+  { href: '/customers/parties', label: 'الأطراف ذات العلاقة' },
   { href: '/customers/relations', label: 'التقاطعات والعلاقات' },
   { href: '/customers/alerts', label: 'التنبيهات المفتوحة' },
   { href: '/customers/reviews', label: 'بانتظار قرار' },

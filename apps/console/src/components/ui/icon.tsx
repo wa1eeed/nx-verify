@@ -21,6 +21,7 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCw,
+  Scale,
   Search,
   Settings,
   Shield,
@@ -76,6 +77,7 @@ export const ICONS = {
   'user-round': UserRound,
   handshake: Handshake,
   briefcase: Briefcase,
+  scale: Scale,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

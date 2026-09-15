@@ -5,6 +5,8 @@ import {
   fieldGroup,
   getCustomerFile,
   getFieldHistory,
+  getPartyMentions,
+  getPartyRoles,
   getPreferences,
   getRequest,
   getVerificationHistory,
@@ -20,6 +22,7 @@ import {
 import { getKeys } from '../../../../lib/keys';
 import { query } from '../../../../lib/context';
 import { CustomerFileScreen, type TimelineEntry } from '../../../../components/customer-file';
+import { PartyFileScreen } from '../../../../components/customer-file/party';
 import { SharePanel, type ShareRowView } from '../../../../components/share-panel';
 import { fieldLabel, type FieldHistoryView } from '../../../../components/field-card';
 import { TRIGGER_LABELS } from '../../../../components/verification-history';
@@ -81,10 +84,20 @@ export default async function CustomerPage({
           }));
       }
     }
-    const quote = await quoteChecks(
-      tx,
-      file.checks.map((check) => check.productCode),
-    );
+    // The roles this entity holds in the subscriber's companies: the heart of a related party's
+    // file, and a card of its own on a customer who is also somebody's manager or partner.
+    const roles = await getPartyRoles(tx, getKeys(), id);
+    const quote = await quoteChecks(tx, [
+      ...new Set([
+        ...file.checks.map((check) => check.productCode),
+        ...(roles.roles.some((role) => role.role === 'MANAGER') ? ['MANAGER_AUTHORITY'] : []),
+      ]),
+    ]);
+    const companyRunning: Record<string, string[]> = {};
+    for (const company of roles.companies) {
+      companyRunning[company.entityId] = await openChecksFor(tx, company.entityId);
+    }
+    const mentions = file.entityType === 'PERSON' ? await getPartyMentions(tx, id) : [];
     const verifications = await getVerificationHistory(tx, id);
     const runs = await listEntityRuns(tx, id);
     const products = await listProducts(tx);
@@ -96,6 +109,9 @@ export default async function CustomerPage({
     const request = UUID.test(requestId) ? await getRequest(tx, getKeys(), requestId) : null;
     return {
       file,
+      roles,
+      companyRunning,
+      mentions,
       histories,
       quote,
       verifications,
@@ -194,6 +210,65 @@ export default async function CustomerPage({
       ? `${process.env['NX_CONSOLE_BASE_URL'] ?? ''}/p/${issued}`
       : null;
 
+  const refusals = Object.fromEntries(
+    data.quote.lines.map((line) => [line.productCode, line.allowed ? null : line.refusalAr]),
+  );
+  const companyBundles = Object.fromEntries(
+    data.roles.companies.map((company) => [company.entityId, randomUUID()]),
+  );
+
+  if (data.file.entityType === 'PERSON') {
+    // A related party is never verified on its own: its record is the verifications of the
+    // companies that named it, each with what it wrote about them.
+    const partyTimeline: TimelineEntry[] = [
+      ...data.mentions.map((mention) => ({
+        key: mention.runId,
+        titleAr: `تحقق ${nameOf.get(mention.productCode) ?? mention.productCode} · ${mention.company.name ?? 'منشأة'}`,
+        tone:
+          mention.status === 'OK' || mention.status === 'PARTIAL'
+            ? ('done' as const)
+            : mention.status === 'ERROR'
+              ? ('failed' as const)
+              : ('neutral' as const),
+        at: mention.at,
+        reference: mention.reference,
+        triggerAr: TRIGGER_LABELS[mention.triggeredBy] ?? null,
+        fields: mention.fields.map((field) => ({
+          fieldPath: field.fieldPath,
+          labelAr: fieldLabel(field.fieldPath),
+          valueAr: valueWordsAr(field.fieldPath, field.value),
+          change: field.kind,
+        })),
+      })),
+      {
+        key: 'created',
+        titleAr: 'أول ظهور في ملفات عملائك',
+        tone: 'neutral',
+        at: data.file.createdAt,
+        reference: null,
+        triggerAr: null,
+        fields: [],
+      },
+    ];
+    return (
+      <PartyFileScreen
+        action={startChecksAction}
+        sectionAction={startSectionChecksAction}
+        watch={openChecksAction}
+        view={{
+          file: data.file,
+          roles: data.roles,
+          histories: data.histories,
+          refusals,
+          running: data.companyRunning,
+          bundles: companyBundles,
+          timeline: partyTimeline,
+          now,
+        }}
+      />
+    );
+  }
+
   return (
     <CustomerFileScreen
       action={startChecksAction}
@@ -227,9 +302,7 @@ export default async function CustomerPage({
         prices: Object.fromEntries(
           data.quote.lines.map((line) => [line.productCode, line.unitPriceHalalas]),
         ),
-        refusals: Object.fromEntries(
-          data.quote.lines.map((line) => [line.productCode, line.allowed ? null : line.refusalAr]),
-        ),
+        refusals,
         fromPackage: data.quote.capacityRemaining !== null && data.quote.capacityRemaining > 0,
         showPrices: data.preferences.showPrices,
         results,
@@ -238,6 +311,9 @@ export default async function CustomerPage({
         histories: data.histories,
         timeline,
         now,
+        roles: data.roles.roles.length > 0 ? data.roles : null,
+        companyRunning: data.companyRunning,
+        companyBundles,
       }}
     />
   );

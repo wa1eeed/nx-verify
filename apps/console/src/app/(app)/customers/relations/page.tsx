@@ -60,6 +60,13 @@ export default async function RelationsPage({
         ))}
       </nav>
 
+      {view.entityType === 'PERSON' ? (
+        <p className="customers-searched" data-role="parties-note">
+          المدراء والشركاء والمصفّون وأدوارهم في منشآت عملائك في{' '}
+          <Link href="/customers/parties">الأطراف ذات العلاقة</Link>.
+        </p>
+      ) : null}
+
       {gaps.length > 0 ? (
         <Panel title="فجوات الاكتمال" aside="ما ينقص لإغلاق ملف" role="completeness">
           <ul className="panel-body stack" style={{ gap: 'var(--s-2)', margin: 0 }}>

@@ -12,6 +12,8 @@ export const ROUTES = [
   { name: 'portal-new-request', path: '/verifications/new', as: 'portal' },
   { name: 'portal-customers', path: '/customers', as: 'portal' },
   { name: 'portal-customer-file', path: '/customers/:customer', as: 'portal' },
+  { name: 'portal-parties', path: '/customers/parties', as: 'portal' },
+  { name: 'portal-party-file', path: '/customers/:party', as: 'portal' },
   { name: 'portal-relations', path: '/customers/relations', as: 'portal' },
   { name: 'portal-alerts', path: '/customers/alerts', as: 'portal' },
   { name: 'portal-reviews', path: '/customers/reviews', as: 'portal' },
@@ -83,6 +85,12 @@ export async function resolveIds(contexts, base) {
         .find((href) => /^\/customers\/[0-9a-f-]{36}$/.test(href ?? '')),
     );
   ids.customer = customer?.split('/').pop();
+  // A related party's file, from the first row of their list.
+  await portal.goto(`${base}/customers/parties`, { waitUntil: 'networkidle', timeout: 120000 });
+  const party = await portal
+    .locator('tr[data-role="party-row"]')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-party')).find(Boolean));
+  ids.party = party ?? undefined;
   await portal.close();
   const operator = await contexts.operator.newPage();
   await operator.goto(`${base}/operator/subscribers`, {
@@ -104,5 +112,6 @@ export async function resolveIds(contexts, base) {
 export function pathOf(route, ids) {
   return route.path
     .replace(':customer', ids.customer ?? 'missing')
+    .replace(':party', ids.party ?? 'missing')
     .replace(':subscriber', ids.subscriber ?? 'missing');
 }

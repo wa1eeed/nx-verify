@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import type { CustomerFile } from '@nx-verify/core';
+import type { CustomerFile, PartyRoles } from '@nx-verify/core';
 import { CheckResults, type CheckResultView } from '../check-results';
 import type { FieldHistoryView } from '../field-card';
 import { riyals } from '../format';
@@ -13,6 +13,7 @@ import {
   type TimelineEntry,
 } from './aside';
 import { FileHeader, IndicatorStrip } from './header';
+import { RolesCard } from './party';
 import { SectionCard, customerKindOf, type Action, type SectionContext } from './section';
 import type { SectionCheckAction } from './section-live';
 
@@ -50,6 +51,12 @@ export interface CustomerFileView {
   histories: Readonly<Record<string, FieldHistoryView[]>>;
   timeline: TimelineEntry[];
   now: Date;
+  /** The roles this customer also holds in other customers' companies, when it holds any. */
+  roles?: PartyRoles | null | undefined;
+  /** Per company of those roles, the checks queued or running on it. */
+  companyRunning?: Readonly<Record<string, readonly string[]>> | undefined;
+  /** Per company of those roles, the key a manager check from this file is made under. */
+  companyBundles?: Readonly<Record<string, string>> | undefined;
 }
 
 const ERRORS: Readonly<Record<string, string>> = {
@@ -187,6 +194,16 @@ export function CustomerFileScreen({
           ))}
           {file.sections.length === 0 ? (
             <p className="empty">لا أقسام لهذا النوع من السجلات.</p>
+          ) : null}
+          {view.roles ? (
+            <RolesCard
+              file={file}
+              roles={view.roles}
+              refusals={view.refusals}
+              running={view.companyRunning ?? {}}
+              bundles={view.companyBundles ?? {}}
+              sectionAction={sectionAction}
+            />
           ) : null}
         </div>
         <aside className="file-column" aria-label="المؤشرات والتقاطعات">

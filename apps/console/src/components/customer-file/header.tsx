@@ -27,7 +27,10 @@ export function FileHeader({
     <header className="page-head" data-role="header">
       <div className="page-head-text">
         <div className="file-head-title">
-          <h1 className="page-title">{file.displayName ?? 'عميل بلا اسم بعد'}</h1>
+          <h1 className="page-title">
+            {file.displayName ??
+              (file.entityType === 'PERSON' ? 'طرف بلا اسم' : 'عميل بلا اسم بعد')}
+          </h1>
           <Tag tone="brand" role="classification">
             {file.kindLabelAr}
           </Tag>

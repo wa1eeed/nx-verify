@@ -1085,7 +1085,8 @@ export function SectionCard({
           'data-requirement': section.requirement,
         }}
         head={
-          <div className="file-section-head">
+          // Keyed: an element handed over as a prop is drawn beside the body in a list.
+          <div key="head" className="file-section-head">
             <span
               className="file-section-number"
               data-done={section.done ? 'yes' : 'no'}

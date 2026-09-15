@@ -104,6 +104,8 @@ const KINDS: Readonly<
   MANAGER_IS_CUSTOMER: { labelAr: 'مدير عميل لديك', icon: 'user-round', tone: 'info' },
   MANAGES: { labelAr: 'مدير في', icon: 'briefcase', tone: 'info' },
   PARTNER_IN: { labelAr: 'شريك في', icon: 'handshake', tone: 'info' },
+  LIQUIDATOR_IN: { labelAr: 'مصفٍّ في', icon: 'scale', tone: 'attention' },
+  GUARDIAN_IN: { labelAr: 'ولي عن شريك في', icon: 'users', tone: 'info' },
 };
 
 /** The order kinds take round the ring: what weighs most first, at the top. */
@@ -113,8 +115,10 @@ const KIND_ORDER: readonly IntersectionKind[] = [
   'SHARED_MANAGER',
   'SHARED_PARTNER',
   'MANAGER_IS_CUSTOMER',
+  'LIQUIDATOR_IN',
   'MANAGES',
   'PARTNER_IN',
+  'GUARDIAN_IN',
 ];
 
 const TYPES_AR: Readonly<Record<string, string>> = {

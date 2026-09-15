@@ -1622,10 +1622,13 @@ a.frame-brand:active {
  */
 .file-parts {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
+/* One column that never grows past the card: a wide table inside scrolls in its own box. */
 .file-part {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
   min-inline-size: 0;
 }
@@ -1730,8 +1733,24 @@ a.frame-brand:active {
   display: block;
   color: var(--color-text);
 }
+.file-people {
+  min-inline-size: 0;
+}
 .file-people .table {
   min-inline-size: var(--layout-people-table);
+}
+.party-role-details {
+  display: grid;
+  gap: var(--gap-hairline);
+}
+.party-roles {
+  display: grid;
+  gap: var(--space-3);
+}
+.party-role {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
 }
 .file-other-accounts {
   display: grid;

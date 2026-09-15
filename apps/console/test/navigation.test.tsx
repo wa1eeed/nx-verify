@@ -113,6 +113,7 @@ describe('the name the loader gives a screen', () => {
   it('reads the navigation, so a tab and its loader say the same words', () => {
     expect(loadingSubjectOf('/customers')).toBe('قائمة العملاء');
     expect(loadingSubjectOf('/customers/alerts')).toBe('التنبيهات المفتوحة');
+    expect(loadingSubjectOf('/customers/parties')).toBe('الأطراف ذات العلاقة');
     expect(loadingSubjectOf('/verifications')).toBe('سجل العمليات');
     expect(loadingSubjectOf('/dashboard')).toBe('اللوحة الرئيسية');
     expect(loadingSubjectOf('/settings/developers/logs')).toBe('سجل النداءات');

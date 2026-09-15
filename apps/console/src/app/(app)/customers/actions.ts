@@ -9,6 +9,7 @@ import {
   createRequest,
   executeRequest,
   findCustomersByIdentifier,
+  findPartiesByIdentifier,
   looksLikeIdentifier,
   openChecksFor,
   parseSubject,
@@ -142,6 +143,12 @@ export async function startSectionChecksAction(
   if (started.entityId !== null) {
     revalidatePath(`/customers/${started.entityId}`);
   }
+  // Verified from another file, such as a manager's powers from the manager's own file: that
+  // file is drawn again too, so it learns its check is running.
+  const returnTo = text(formData, 'return_to');
+  if (UUID.test(returnTo) && returnTo !== started.entityId) {
+    revalidatePath(`/customers/${returnTo}`);
+  }
   return { status: 'started', error: null, at: Date.now() };
 }
 
@@ -177,4 +184,31 @@ export async function searchCustomersAction(formData: FormData): Promise<void> {
   }
   const search = params.toString();
   redirect(search === '' ? '/customers' : `/customers?${search}`);
+}
+
+const ROLES: ReadonlySet<string> = new Set(['MANAGER', 'PARTNER', 'LIQUIDATOR', 'GUARDIAN']);
+
+/**
+ * The related parties search. As with the customers, a name goes to the address and a number
+ * never does: it is looked up by its keyed hash here, and the address carries only what it found.
+ * A document number with letters (a passport) is a number too.
+ */
+export async function searchPartiesAction(formData: FormData): Promise<void> {
+  const typed = text(formData, 'q').slice(0, 40);
+  const role = text(formData, 'role');
+  const params = new URLSearchParams();
+  if (ROLES.has(role)) {
+    params.set('role', role);
+  }
+  if (typed !== '') {
+    const compact = typed.replace(/[\s-]/g, '');
+    if (/[0-9]/.test(compact) && /^[0-9A-Za-z]{4,30}$/.test(compact)) {
+      const found = await query((tx) => findPartiesByIdentifier(tx, getKeys(), compact));
+      params.set('ids', found.length === 0 ? 'none' : found.slice(0, 20).join(','));
+    } else {
+      params.set('q', typed);
+    }
+  }
+  const search = params.toString();
+  redirect(search === '' ? '/customers/parties' : `/customers/parties?${search}`);
 }

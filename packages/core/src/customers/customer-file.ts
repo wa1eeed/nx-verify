@@ -366,7 +366,9 @@ export type IntersectionKind =
   | 'SHARED_ADDRESS'
   | 'MANAGER_IS_CUSTOMER'
   | 'MANAGES'
-  | 'PARTNER_IN';
+  | 'PARTNER_IN'
+  | 'LIQUIDATOR_IN'
+  | 'GUARDIAN_IN';
 
 export interface Intersection {
   kind: IntersectionKind;
@@ -885,9 +887,20 @@ export function fileStandingOf(basis: FileBasis): FileStanding {
     ? layouts.FREELANCER
     : basis.entityType === 'BUSINESS'
       ? layouts[kind ?? 'BUSINESS']
-      : SECTION_ORDER.filter((section) =>
-          fields.some((field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)] === section),
-        ).map((section) => [section, 'OPTIONAL'] as const);
+      : SECTION_ORDER.filter(
+          (section) =>
+            // What a related party is inside a company (a signing authority, an ownership share
+            // an older product recorded on the person) is read with their roles, never as the
+            // sections of a company on their own file.
+            !(
+              basis.entityType === 'PERSON' &&
+              (section === 'CONTRACT' || section === 'MANAGERS')
+            ) && fields.some((field) => SECTION_OF_GROUP[fieldGroup(field.fieldPath)] === section),
+        ).map(
+          // A related party's file has only the sections its facts fall in, and nothing in it is
+          // optional: there is no other layout it could be measured against.
+          (section) => [section, basis.entityType === 'PERSON' ? 'REQUIRED' : 'OPTIONAL'] as const,
+        );
 
   // A freelancer's own particulars come from the certificate check, and read as the file's
   // basic data rather than as part of the certificate, as a person's do on any file.
@@ -1361,6 +1374,36 @@ export async function getCustomerFile(
       })),
     });
   }
+  const liquidatesIn = relations.filter(
+    (row) => row.rel_type === 'LIQUIDATES' && row.direction === 'in',
+  );
+  if (liquidatesIn.length > 0) {
+    intersections.push({
+      kind: 'LIQUIDATOR_IN',
+      textAr: `مصفٍّ في ${businesses(liquidatesIn.length)} من عملائك`,
+      via: null,
+      entities: liquidatesIn.map((row) => ({
+        entityId: row.other,
+        name: row.name,
+        entityType: row.entity_type,
+      })),
+    });
+  }
+  const representsIn = relations.filter(
+    (row) => row.rel_type === 'REPRESENTS' && row.direction === 'in',
+  );
+  if (representsIn.length > 0) {
+    intersections.push({
+      kind: 'GUARDIAN_IN',
+      textAr: `ولي عن شريك في ${businesses(representsIn.length)} من عملائك`,
+      via: null,
+      entities: representsIn.map((row) => ({
+        entityId: row.other,
+        name: row.name,
+        entityType: row.entity_type,
+      })),
+    });
+  }
 
   const checkableManagers = managers.filter((manager) => manager.checkable);
   const settings = await getPlatformSettings(tx);
@@ -1438,7 +1481,7 @@ export async function getCustomerFile(
       : entity.entityType === 'BUSINESS'
         ? 'منشأة'
         : entity.entityType === 'PERSON'
-          ? 'شخص'
+          ? 'طرف ذو علاقة'
           : 'حساب',
     createdAt: entity.firstSeenAt,
     identifiers: identifiers.map((identifier) => ({

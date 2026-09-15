@@ -108,6 +108,37 @@ describe('the console renders real data', () => {
     expect(html).toContain('dir="ltr"');
   });
 
+  it('lists the manager among the related parties, and opens a file shaped for a person', async () => {
+    const managerId = await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      const { rows } = await tx.query<{ to_entity: string }>(
+        `SELECT to_entity FROM entity_relations
+         WHERE tenant_id = $1 AND from_entity = $2 AND rel_type = 'MANAGES'`,
+        [tx.tenantId, entityId],
+      );
+      return rows[0]?.to_entity ?? '';
+    });
+    expect(managerId).not.toBe('');
+
+    const { default: PartiesPage } = await import('../src/app/(app)/customers/parties/page.js');
+    const list = await render(PartiesPage({ searchParams: Promise.resolve({}) }));
+    expect(list).toContain(`data-party="${managerId}"`);
+    expect(list).toContain('1098765432');
+    expect(list).not.toContain(PROVIDER_NAME);
+
+    const { default: EntityPage } = await import('../src/app/(app)/customers/[id]/page.js');
+    const file = await render(
+      EntityPage({ params: Promise.resolve({ id: managerId }), searchParams: Promise.resolve({}) }),
+    );
+    expect(file).toContain('data-file="party"');
+    expect(file).toContain('data-role="classification">طرف ذو علاقة</span>');
+    expect(file).toContain('data-role="party-company-row"');
+    expect(file).toContain(`href="/customers/${entityId}"`);
+    // No company sections on a person's file.
+    expect(file).not.toContain('data-section="MANAGERS"');
+    expect(file).not.toContain('data-section="CONTRACT"');
+    expect(file).not.toContain(PROVIDER_NAME);
+  });
+
   it('never names the provider on any screen', async () => {
     const { default: EntityPage } = await import('../src/app/(app)/customers/[id]/page.js');
     const { default: RegistryPage } = await import('../src/app/(app)/customers/page.js');
