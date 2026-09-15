@@ -19,7 +19,8 @@ export const metadata = {
  * The document.
  *
  * Full RTL, set at the root rather than patched per component, and the two faces the design
- * names: Baloo Bhaijaan 2 for headings and buttons, IBM Plex Sans Arabic for everything else.
+ * names: IBM Plex Sans Arabic for everything, titles in its bold (ADR-125, the owner's choice
+ * of the face government platforms use, in place of Baloo Bhaijaan 2 for headings).
  *
  * The progress bar sits here, above every group, because a move from the sign in page to the
  * frame is as much a wait as a move inside it (unit C4).
@@ -34,7 +35,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>

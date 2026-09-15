@@ -73,6 +73,8 @@ body {
   font-family: var(--font-product-body);
 }
 
+/* One face for the whole platform, as government platforms use (ADR-125): titles bold, the
+   words on controls a step lighter, the text of the screens in the body weights. */
 h1,
 h2,
 h3,
@@ -87,6 +89,9 @@ h6,
   font-weight: var(--font-product-heading-weight);
   /* Arabic is cursive: tracking pulls joined letters apart. */
   letter-spacing: 0;
+}
+.btn {
+  font-weight: var(--font-product-control-weight);
 }
 
 a {

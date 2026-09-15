@@ -315,11 +315,10 @@ describe('the document itself', () => {
     expect(html).toContain('dir="rtl"');
   });
 
-  it('loads the two faces the design names, and no other', () => {
+  it('loads the one face the platform uses, and no other (ADR-125)', () => {
     const html = renderToStaticMarkup(<RootLayout>{null}</RootLayout>);
-    expect(html).toContain('Baloo+Bhaijaan+2');
     expect(html).toContain('IBM+Plex+Sans+Arabic');
-    for (const banned of ['IBM+Plex+Mono', 'Inter', 'Roboto']) {
+    for (const banned of ['Baloo', 'IBM+Plex+Mono', 'Inter', 'Roboto']) {
       expect(html).not.toContain(banned);
     }
   });

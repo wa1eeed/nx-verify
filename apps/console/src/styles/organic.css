@@ -476,8 +476,10 @@ textarea.input { min-height: 90px; resize: vertical; }
 
   /* The product's faces. Caprasimo and Figtree carry no Arabic, so the README names
      these in their place, with the originals kept as the fallback. */
-  --font-product-heading: "Baloo Bhaijaan 2", "Caprasimo", system-ui, sans-serif;
+  --font-product-heading: "IBM Plex Sans Arabic", "Figtree", system-ui, sans-serif;
   --font-product-heading-weight: 700;
+  /* Buttons and the other controls that carry words: a step lighter than a title (ADR-125). */
+  --font-product-control-weight: 600;
   --font-product-body: "IBM Plex Sans Arabic", "Figtree", system-ui, sans-serif;
 
   /* Type sizes the screens use beyond the sheet's own (README, fonts). The sheet's own
