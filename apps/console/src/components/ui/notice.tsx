@@ -1,10 +1,12 @@
 import type { ReactElement, ReactNode } from 'react';
+import { Icon } from './icon';
 
 /**
  * A sentence about what just happened, above the thing it happened to (`.notice`).
  *
- * Sage when something was done, the accent when something was refused. A refusal is read out
- * at once; a confirmation waits for the reader to finish what they were doing.
+ * Green with a check when something was done, red with a warning when something was refused
+ * (ADR-122). A refusal is read out at once; a confirmation waits for the reader to finish what
+ * they were doing.
  */
 export function Notice({
   tone,
@@ -22,7 +24,8 @@ export function Notice({
       role={tone === 'refused' ? 'alert' : 'status'}
       data-role={role}
     >
-      {children}
+      <Icon name={tone === 'done' ? 'check' : 'alert-triangle'} size={16} />
+      <span>{children}</span>
     </p>
   );
 }

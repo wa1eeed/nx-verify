@@ -175,7 +175,7 @@ export function IconButton({
       type={type}
       className={buttonClass(variant, { iconOnly: true })}
       aria-label={label}
-      title={label}
+      data-tooltip={label}
     >
       <Icon name={icon} size={16} />
     </button>

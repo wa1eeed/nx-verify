@@ -494,9 +494,24 @@ dialog.dialog-backdrop:not([open]) {
 dialog.dialog-backdrop::backdrop {
   background: transparent;
 }
-/* The title is a heading for screen readers; the dialog's own gap spaces it. */
+/* The title is a heading for screen readers; the dialog's own gap spaces it. The way out sits
+   facing it, as a dialog's close does. */
 .dialog-title {
   margin: 0;
+}
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block-end: var(--space-3);
+  border-block-end: var(--size-hairline) solid var(--color-hairline);
+}
+.dialog-head .btn-icon {
+  color: var(--color-gray-500);
+}
+.dialog-head .btn-icon:hover {
+  color: var(--color-text);
 }
 /* A hairline edge, the page softened behind it, and the actions set apart (unit C5). */
 .dialog {
@@ -2645,10 +2660,24 @@ a.frame-brand:active {
 /* A sentence about what just happened: sage when something was done, the accent when it
    was refused. */
 .notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
   margin: 0;
   padding: var(--pad-note);
+  border: var(--size-hairline) solid transparent;
   border-radius: var(--radius-inset);
   font-size: var(--text-body-sm);
+}
+.notice svg {
+  flex: none;
+  margin-block-start: var(--gap-hairline);
+}
+.notice-done {
+  border-color: var(--color-green-200);
+}
+.notice-refused {
+  border-color: var(--color-red-200);
 }
 .notice-done {
   background: var(--color-accent-2-100);
@@ -3567,4 +3596,49 @@ a.frame-brand:active {
 [data-theme='dark'] .field-error,
 [data-theme='dark'] .admin-stat-line[data-tone='down'] {
   color: var(--color-red-300);
+}
+
+/* ── an icon button's words, drawn (unit C5) ──────────────────────────────── */
+
+/*
+ * An icon alone carries its words in aria-label for a screen reader, and shows them to
+ * everyone else on hover and keyboard focus, in the system's own small dark label rather than
+ * the browser's grey box, which neither follows the theme nor appears for a keyboard.
+ */
+.btn-icon[data-tooltip] {
+  position: relative;
+}
+.btn-icon[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  inset-block-end: calc(100% + var(--space-1));
+  inset-inline-start: 50%;
+  z-index: 40;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-check);
+  background: var(--color-gray-900);
+  color: var(--color-white);
+  font-family: var(--font-product-body);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(50%);
+  transition: opacity var(--duration-color) ease-out;
+}
+.btn-icon[data-tooltip]:hover::after,
+.btn-icon[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transition-delay: var(--delay-pending);
+}
+[data-theme='dark'] .btn-icon[data-tooltip]::after {
+  background: var(--color-gray-100);
+  color: var(--color-gray-900);
+}
+[data-theme='dark'] .notice-done {
+  border-color: var(--color-green-800);
+}
+[data-theme='dark'] .notice-refused {
+  border-color: var(--color-red-900);
 }

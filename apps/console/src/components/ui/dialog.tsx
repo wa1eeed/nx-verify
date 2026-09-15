@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, type ReactElement, type ReactNode } from 'react';
+import { IconButton } from './button';
 
 /**
  * A modal (`.dialog` over `.dialog-backdrop`), built on the native dialog element.
@@ -61,9 +62,12 @@ export function Dialog({
       }}
     >
       <div className="dialog">
-        <h2 className="dialog-title" id={titleId}>
-          {title}
-        </h2>
+        <div className="dialog-head">
+          <h2 className="dialog-title" id={titleId}>
+            {title}
+          </h2>
+          <IconButton icon="x" label="إغلاق" onClick={onClose} data-role="dialog-close" />
+        </div>
         <div className="dialog-body">{children}</div>
         {actions === undefined || actions === null ? null : (
           <div className="dialog-actions">{actions}</div>
