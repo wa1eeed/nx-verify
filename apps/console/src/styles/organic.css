@@ -467,6 +467,10 @@ textarea.input { min-height: 90px; resize: vertical; }
   --layout-glance: 240px;
   --duration-field-glow: 2.6s;
   --layout-history: 300px;
+  --layout-drawer: 300px;
+  /* The frame on a narrow screen fills the window edge to edge. */
+  --radius-flush: 0px;
+  --duration-drawer: 200ms;
   --text-graph-label: 11px;
   --duration-graph-sweep: 9s;
   --duration-graph-draw: 700ms;

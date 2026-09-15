@@ -313,6 +313,66 @@ if (process.env.NX_OPERATOR_TOKEN) {
   console.log('· the panel skipped: NX_OPERATOR_TOKEN is not set');
 }
 
+// ── a phone: the drawer ───────────────────────────────────────────────────
+{
+  const phone = await openContexts(browser, {
+    base: BASE,
+    token: process.env.NX_OPERATOR_TOKEN,
+    width: 390,
+  });
+  const page = await phone.portal.newPage();
+  watchConsole(page);
+  await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle', timeout: 120000 });
+  const sidebarHidden = await page.evaluate(
+    () => getComputedStyle(document.querySelector('.frame-sidebar')).visibility === 'hidden',
+  );
+  await page.click('.frame-menu-button');
+  await page.waitForTimeout(350);
+  const opened = await page.evaluate(() => ({
+    menu: document.querySelector('.frame')?.getAttribute('data-menu'),
+    inert: document.getElementById('main')?.hasAttribute('inert'),
+    expanded: document.querySelector('.frame-menu-button')?.getAttribute('aria-expanded'),
+    focusInside: Boolean(document.activeElement?.closest('.frame-sidebar')),
+  }));
+  check(
+    'a phone folds the sidebar into a drawer that opens as a modal',
+    sidebarHidden &&
+      opened.menu === 'open' &&
+      opened.inert &&
+      opened.expanded === 'true' &&
+      opened.focusInside,
+    JSON.stringify(opened),
+  );
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  const closed = await page.evaluate(() => ({
+    menu: document.querySelector('.frame')?.getAttribute('data-menu') ?? null,
+    inert: document.getElementById('main')?.hasAttribute('inert'),
+    focusOnButton: document.activeElement?.classList.contains('frame-menu-button'),
+  }));
+  check(
+    'Escape closes the drawer and hands focus back to its button',
+    closed.menu === null && !closed.inert && closed.focusOnButton,
+    JSON.stringify(closed),
+  );
+  await page.click('.frame-menu-button');
+  await page.waitForTimeout(350);
+  await page.click('.frame-sidebar nav.frame-nav a[href="/customers"]');
+  await page.waitForURL(`${BASE}/customers`, { timeout: 60000 });
+  await page.waitForTimeout(400);
+  check(
+    'choosing a place closes the drawer',
+    (await page.evaluate(
+      () => document.querySelector('.frame')?.getAttribute('data-menu') ?? null,
+    )) === null,
+  );
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  check('the customers screen fits the phone', width <= 391, `width ${width}`);
+  await phone.portal.close();
+  await phone.anonymous.close();
+  await phone.operator.close();
+}
+
 const unexpected = errors.filter((text) => !/Download the React DevTools/.test(text));
 check('no error reached the console', unexpected.length === 0, unexpected.slice(0, 3).join(' | '));
 

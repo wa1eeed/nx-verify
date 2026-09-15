@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { OPERATOR_ROLE_LABELS, type OperatorIdentity } from '@nx-verify/core';
 import { Brand } from './brand';
+import { FrameChrome } from './frame-chrome';
 import { FrameMain } from './frame-main';
 import { OPERATOR_SECTIONS } from './operator-nav';
 import { SectionNav } from './section-nav';
@@ -39,8 +40,12 @@ export function OperatorShell({
         تخطَّ إلى المحتوى
       </a>
 
-      <div className="frame" data-theme="dark" data-surface="operator">
-        <aside className="frame-sidebar">
+      <FrameChrome
+        surface="operator"
+        theme="dark"
+        brand={<Brand href="/operator" suffix="أدمن" />}
+        sidebarLabel="قائمة لوحة الإدارة"
+        sidebar={
           <div className="frame-sidebar-inner">
             <Brand href="/operator" suffix="أدمن" />
             <SectionNav sections={OPERATOR_SECTIONS} label="أقسام لوحة الإدارة" />
@@ -61,10 +66,10 @@ export function OperatorShell({
               </div>
             </div>
           </div>
-        </aside>
-
+        }
+      >
         <FrameMain>{children}</FrameMain>
-      </div>
+      </FrameChrome>
     </>
   );
 }

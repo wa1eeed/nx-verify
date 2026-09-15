@@ -16,6 +16,7 @@ import {
   Landmark,
   LayoutDashboard,
   MapPin,
+  Menu,
   Minus,
   MoreHorizontal,
   Plus,
@@ -68,6 +69,7 @@ export const ICONS = {
   'chevron-right': ChevronRight,
   'more-horizontal': MoreHorizontal,
   x: X,
+  menu: Menu,
   // The shared things of the intersections map (ADR-123).
   landmark: Landmark,
   'map-pin': MapPin,

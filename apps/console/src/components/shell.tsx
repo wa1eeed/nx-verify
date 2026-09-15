@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import type { BalanceView } from './balance-card';
 import { Brand } from './brand';
+import { FrameChrome } from './frame-chrome';
 import { FrameFactsProvider, LiveBalance, LiveNav } from './frame-facts';
 import { FrameMain } from './frame-main';
 import { Button } from './ui/button';
@@ -39,8 +40,11 @@ export function Shell({
         تخطَّ إلى المحتوى
       </a>
 
-      <div className="frame" data-surface="portal">
-        <aside className="frame-sidebar">
+      <FrameChrome
+        surface="portal"
+        brand={<Brand href="/dashboard" />}
+        sidebarLabel="قائمة المنصة"
+        sidebar={
           <FrameFactsProvider initial={{ unread, balance }}>
             <div className="frame-sidebar-inner">
               <Brand href="/dashboard" />
@@ -61,8 +65,8 @@ export function Shell({
               </div>
             </div>
           </FrameFactsProvider>
-        </aside>
-
+        }
+      >
         <FrameMain>
           {isSandbox ? (
             <p className="sandbox-note" data-role="sandbox-banner" role="status">
@@ -72,7 +76,7 @@ export function Shell({
           ) : null}
           {children}
         </FrameMain>
-      </div>
+      </FrameChrome>
     </>
   );
 }

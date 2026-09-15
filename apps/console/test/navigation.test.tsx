@@ -303,3 +303,30 @@ describe('the facts of the sidebar, as the browser reads them back', () => {
     expect(frameFactsOf({ unread: 1, balance: { kind: 'card', availableHalalas: 5 } })).toBeNull();
   });
 });
+
+describe('the frame on a narrow screen', () => {
+  it('carries a bar with the brand and a menu button that names what it does', async () => {
+    const { FrameChrome } = await import('../src/components/frame-chrome');
+    const html = renderToStaticMarkup(
+      <FrameChrome
+        surface="portal"
+        brand={<span>NX Trust</span>}
+        sidebarLabel="قائمة المنصة"
+        sidebar={<nav>places</nav>}
+      >
+        <main id="main">content</main>
+      </FrameChrome>,
+    );
+    expect(html).toContain('class="frame" data-surface="portal"');
+    expect(html).toContain('data-role="frame-topbar"');
+    const button = /<button[^>]*frame-menu-button[^>]*>/.exec(html)?.[0] ?? '';
+    expect(button).toContain('aria-expanded="false"');
+    expect(button).toContain('aria-label="فتح القائمة"');
+    const controls = /aria-controls="([^"]+)"/.exec(button)?.[1];
+    expect(html).toContain(
+      `<aside id="${controls}" class="frame-sidebar" aria-label="قائمة المنصة">`,
+    );
+    expect(html).toContain('class="frame-backdrop" aria-hidden="true"');
+    expect(html).not.toContain('data-menu');
+  });
+});

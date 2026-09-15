@@ -442,8 +442,11 @@ a.btn-ghost:active {
 
 /* ── tables ───────────────────────────────────────────────────────────── */
 
+/* A table wider than its card scrolls inside it. The containment matters on a phone: without
+   it, the overflow of a right-to-left scroll container still widens the whole page. */
 .table-scroll {
   overflow-x: auto;
+  contain: content;
 }
 /* Separate borders, so the head's band can round its ends like the controls around it. */
 .table {
@@ -3608,8 +3611,10 @@ a.frame-brand:active {
 .btn-icon[data-tooltip] {
   position: relative;
 }
+/* Not drawn at rest: an invisible label still widens the page when its button sits near an edge. */
 .btn-icon[data-tooltip]::after {
   content: attr(data-tooltip);
+  display: none;
   position: absolute;
   inset-block-end: calc(100% + var(--space-1));
   inset-inline-start: 50%;
@@ -3623,14 +3628,12 @@ a.frame-brand:active {
   font-weight: 500;
   white-space: nowrap;
   pointer-events: none;
-  opacity: 0;
   transform: translateX(50%);
-  transition: opacity var(--duration-color) ease-out;
 }
 .btn-icon[data-tooltip]:hover::after,
 .btn-icon[data-tooltip]:focus-visible::after {
-  opacity: 1;
-  transition-delay: var(--delay-pending);
+  display: block;
+  animation: data-loader-in var(--duration-color) ease-out var(--delay-pending) both;
 }
 [data-theme='dark'] .btn-icon[data-tooltip]::after {
   background: var(--color-gray-100);
@@ -3641,4 +3644,152 @@ a.frame-brand:active {
 }
 [data-theme='dark'] .notice-refused {
   border-color: var(--color-red-900);
+}
+
+/* ── every width: the drawer, the bar, and screens that fit (unit C6) ─────── */
+
+/* On a wide screen the bar and the dimmed screen are not part of the frame. */
+.frame-topbar,
+.frame-backdrop {
+  display: none;
+}
+
+/*
+ * Below 1024px the sidebar folds into a drawer (ADR-126): the frame fills the window, a bar
+ * along the top carries the brand and the menu, and the sidebar slides in from the start side
+ * over a dimmed screen. The slide is the one motion here, and it is still for a person who
+ * asked for less motion.
+ */
+@media (max-width: 1023px) {
+  body {
+    background: var(--color-ground);
+  }
+  .frame {
+    flex-direction: column;
+    min-block-size: 100dvh;
+    margin: 0;
+    border-radius: var(--radius-flush);
+    box-shadow: none;
+    overflow: visible;
+  }
+  .frame-topbar {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    border-block-end: var(--size-hairline) solid var(--color-hairline);
+    background: color-mix(in srgb, var(--color-white) 90%, transparent);
+    backdrop-filter: blur(var(--blur-backdrop));
+  }
+  .frame-topbar .frame-brand {
+    margin: 0;
+    padding: 0;
+  }
+  .frame-sidebar {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 70;
+    inline-size: min(var(--layout-drawer), 86vw);
+    border-inline-end: 0;
+    box-shadow: var(--shadow-lg);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition:
+      transform var(--duration-drawer) ease-out,
+      visibility 0s linear var(--duration-drawer);
+  }
+  .frame[data-menu='open'] .frame-sidebar {
+    transform: none;
+    visibility: visible;
+    transition: transform var(--duration-drawer) ease-out;
+  }
+  .frame-sidebar-inner {
+    position: static;
+    min-block-size: 100dvh;
+    max-block-size: none;
+  }
+  .frame-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: block;
+    background: color-mix(in srgb, var(--color-gray-900) 45%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--duration-drawer) ease-out;
+  }
+  .frame[data-menu='open'] .frame-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .frame-main {
+    padding: var(--space-6) var(--space-4);
+  }
+  [data-theme='dark'] .frame-topbar {
+    background: color-mix(in srgb, var(--dark-sidebar) 92%, transparent);
+  }
+}
+
+/* The tables the older screens draw bare scroll inside their panel too, rather than being cut. */
+@media (max-width: 1023px) {
+  table:not(.table) {
+    display: block;
+    max-inline-size: 100%;
+    overflow-x: auto;
+    contain: content;
+  }
+}
+
+/* Offers side by side need a wide screen; below it they stack. */
+@media (max-width: 1023px) {
+  .admin-offers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A phone: one column of everything, and rows that wrap rather than push past the edge. */
+@media (max-width: 767px) {
+  .frame-main {
+    padding: var(--space-4) var(--space-3);
+    gap: var(--space-6);
+  }
+  .page-title {
+    font-size: var(--text-stat);
+  }
+  .page-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .page-head-actions {
+    justify-content: flex-start;
+  }
+  .tabs {
+    align-self: stretch;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .skeleton-grid,
+  .home-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dialog {
+    inline-size: 100%;
+  }
+  .dialog-backdrop {
+    padding: var(--space-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame-sidebar,
+  .frame[data-menu='open'] .frame-sidebar,
+  .frame-backdrop {
+    transition: none;
+  }
 }
