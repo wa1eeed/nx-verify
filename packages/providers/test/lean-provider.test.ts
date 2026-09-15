@@ -240,17 +240,42 @@ describe('the open banking adapter', () => {
     expect(matched.data?.['match_result']).toBe('PERFECT_MATCH');
     expect(matched.data?.['match_confidence']).toBe(1);
 
+    // As the specification answers: both kinds of income under insights.
     const income = build([
       {
         body: {
           status: 'OK',
-          salary: {
-            currency: 'SAR',
-            total: {
-              average_monthly_amount: 18_500,
-              count: 12,
-              first_date_time: '2025-09-01T00:00:00Z',
-              last_date_time: '2026-08-01T00:00:00Z',
+          insights: {
+            salary: {
+              currency: 'SAR',
+              total: {
+                amount: 222_000,
+                average_monthly_amount: 18_500,
+                average_monthly_count: 1,
+                count: 12,
+                first_date_time: '2025-09-01T00:00:00Z',
+                last_date_time: '2026-08-01T00:00:00Z',
+                maximum_monthly_amount: { month: 3, year: 2026, amount: 21_000 },
+                minimum_monthly_amount: { month: 9, year: 2025, amount: 17_000 },
+              },
+              monthly_totals: [
+                { month: 8, year: 2026, amount: 18_500, count: 1, is_month_complete: true },
+              ],
+              transactions: [
+                {
+                  account_id: 'a1',
+                  transaction_id: 't1',
+                  transaction_information: 'SALARY',
+                  booking_date_time: '2026-08-01T00:00:00Z',
+                  amount: 18_500,
+                  income_source: { type: 'EMPLOYMENT', name: 'شركة المثال' },
+                },
+              ],
+              income_factors: { delta_min_max: 1.24, average_monthly_income_change: 0.5 },
+            },
+            non_salary: {
+              currency: 'SAR',
+              total: { amount: 4_000, count: 2, average_monthly_amount: 333 },
             },
           },
         },
@@ -262,6 +287,70 @@ describe('the open banking adapter', () => {
       credential: CREDENTIAL,
     });
     expect(verified.data?.['average_monthly_income']).toBe(18_500);
+    expect(verified.data?.['income_total']).toBe(222_000);
+    expect(verified.data?.['income_highest_month']).toBe('2026-03');
+    expect(verified.data?.['income_lowest_amount']).toBe(17_000);
+    expect(verified.data?.['income_months']).toEqual([
+      { year: 2026, month: 8, amount: 18_500, count: 1, complete: true },
+    ]);
+    expect(verified.data?.['income_sources']).toEqual(['EMPLOYMENT · شركة المثال']);
+    expect(verified.data?.['other_income_total']).toBe(4_000);
+    // The account's own references are never carried into the bag.
+    expect(JSON.stringify(verified.data)).not.toContain('t1');
     expect(verified.authority).toBe('Bank Statements');
+
+    // An older answer with the salary at the top is still read.
+    const older = build([
+      {
+        body: {
+          status: 'OK',
+          salary: { currency: 'SAR', total: { average_monthly_amount: 9_000 } },
+        },
+      },
+    ]);
+    const olderAnswer = await older.provider.execute({
+      endpoint: 'income_verification',
+      input: { entity_id: 'e1' },
+      credential: CREDENTIAL,
+    });
+    expect(olderAnswer.data?.['average_monthly_income']).toBe(9_000);
+  });
+
+  it('reads a partial name match and the bank of an account ownership answer', async () => {
+    const { provider } = build([
+      {
+        body: {
+          status: 'OK',
+          verifications: {
+            account_ownership_verified: false,
+            matching: { type: 'PARTIAL', score: 0.72 },
+            bank_details: {
+              bank_name: { en: 'AlBilad Bank', ar: 'بنك البلاد' },
+              bank_identifiers: [
+                { type: 'SWIFT_CODE', value: 'ALBISARI' },
+                { type: 'BANK_CODE', value: '15' },
+              ],
+            },
+            account_status: 'ACTIVE',
+            account_holder_name: 'NA****AL****',
+            account_currency: 'SAR',
+            verification_method: 'CONFIRMATION_OF_PAYEE_SERVICE',
+          },
+        },
+      },
+    ]);
+    const result = await provider.execute({
+      endpoint: 'bank_account_ownership',
+      input: { iban: 'SA1' },
+      credential: CREDENTIAL,
+    });
+    expect(result.data).toMatchObject({
+      match_result: 'PARTIAL',
+      match_score: 0.72,
+      bank_name: 'بنك البلاد',
+      bank_swift: 'ALBISARI',
+      bank_code: '15',
+      account_currency: 'SAR',
+    });
   });
 });

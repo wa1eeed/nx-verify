@@ -63,6 +63,19 @@ const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 
 /**
+ * What an answer did not say is left out rather than recorded as empty, as the verification
+ * products do (compact in ./verification-endpoints): a missing value is not a fact.
+ */
+function withoutEmpty(bag: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(bag).filter(
+      ([, value]) =>
+        value !== null && value !== undefined && !(Array.isArray(value) && value.length === 0),
+    ),
+  );
+}
+
+/**
  * The endpoints, as data.
  *
  * Adding one is a table entry. The bodies name the provider's fields and the maps name
@@ -95,16 +108,32 @@ export const LEAN_ENDPOINTS: Readonly<Record<string, LeanEndpointMapping>> = {
     map: (payload) => {
       const verifications = asRecord(payload['verifications']);
       const matching = asRecord(verifications['matching']);
-      return {
+      const bank = asRecord(verifications['bank_details']);
+      const bankName = asRecord(bank['bank_name']);
+      const identifiers = Array.isArray(bank['bank_identifiers'])
+        ? (bank['bank_identifiers'] as unknown[]).map(asRecord)
+        : [];
+      const bankIdentifier = (...types: string[]): unknown =>
+        identifiers.find((entry) => types.includes(String(entry['type'])))?.['value'] ?? null;
+      return withoutEmpty({
         // Our names, which step_field_map rows reference, so the product definition does
         // not move when the provider behind the step changes.
-        match_result: verifications['account_ownership_verified'] === true ? 'MATCH' : 'NO_MATCH',
+        match_result:
+          verifications['account_ownership_verified'] === true
+            ? 'MATCH'
+            : matching['type'] === 'PARTIAL'
+              ? 'PARTIAL'
+              : 'NO_MATCH',
         account_holder_name: verifications['account_holder_name'] ?? null,
         account_status: verifications['account_status'] ?? null,
         account_currency: verifications['account_currency'] ?? null,
         match_score: matching['score'] ?? null,
         verification_method: verifications['verification_method'] ?? null,
-      };
+        bank_name: bankName['ar'] ?? bankName['en'] ?? null,
+        bank_swift: bankIdentifier('SWIFT_CODE', 'BIC'),
+        bank_code: bankIdentifier('BANK_CODE'),
+        bank_clearing_id: bankIdentifier('CLEARING_ID'),
+      });
     },
     outcome: (payload) => {
       if (payload['status'] === 'OK') {
@@ -127,12 +156,12 @@ export const LEAN_ENDPOINTS: Readonly<Record<string, LeanEndpointMapping>> = {
     }),
     map: (payload) => {
       const data = asRecord(payload['data']);
-      return {
+      return withoutEmpty({
         match_result: data['match_type'] ?? null,
         name_provided: data['full_name_provided'] ?? null,
         name_retrieved: data['full_name_retrieved'] ?? null,
         match_confidence: data['confidence'] ?? null,
-      };
+      });
     },
     outcome: (payload) => (payload['status'] === 'OK' ? 'OK' : 'NOT_FOUND'),
   },
@@ -146,15 +175,67 @@ export const LEAN_ENDPOINTS: Readonly<Record<string, LeanEndpointMapping>> = {
       income_type: String(input['income_type'] ?? 'ALL'),
     }),
     map: (payload) => {
-      const salary = asRecord(payload['salary']);
+      // The specification nests both kinds of income under insights; an answer that put the
+      // salary at the top is read too, so neither shape records nothing.
+      const insights = asRecord(payload['insights']);
+      const salary = asRecord(insights['salary'] ?? payload['salary']);
+      const other = asRecord(insights['non_salary'] ?? payload['non_salary']);
       const total = asRecord(salary['total']);
-      return {
+      const otherTotal = asRecord(other['total']);
+      const factors = asRecord(salary['income_factors']);
+      /** «2026-03» for a month the answer names by its year and number. */
+      const monthOf = (value: unknown): string | null => {
+        const record = asRecord(value);
+        return typeof record['year'] === 'number' && typeof record['month'] === 'number'
+          ? `${record['year']}-${String(record['month']).padStart(2, '0')}`
+          : null;
+      };
+      const monthly = (value: unknown): Record<string, unknown>[] =>
+        Array.isArray(value)
+          ? (value as unknown[]).map(asRecord).map((entry) => ({
+              year: entry['year'] ?? null,
+              month: entry['month'] ?? null,
+              amount: entry['amount'] ?? null,
+              count: entry['count'] ?? null,
+              complete: entry['is_month_complete'] ?? null,
+            }))
+          : [];
+      // Where the income came from, by kind and name, without the account's own references.
+      const sources = (value: unknown): string[] => [
+        ...new Set(
+          (Array.isArray(value) ? (value as unknown[]) : [])
+            .map((entry) => asRecord(asRecord(entry)['income_source']))
+            .map((source) =>
+              [source['type'], source['name']]
+                .filter((part) => typeof part === 'string' && part !== '')
+                .join(' · '),
+            )
+            .filter((label) => label !== ''),
+        ),
+      ];
+      return withoutEmpty({
         income_currency: salary['currency'] ?? null,
         average_monthly_income: total['average_monthly_amount'] ?? null,
         income_payment_count: total['count'] ?? null,
         first_income_at: total['first_date_time'] ?? null,
         last_income_at: total['last_date_time'] ?? null,
-      };
+        income_total: total['amount'] ?? null,
+        income_monthly_count: total['average_monthly_count'] ?? null,
+        income_received_average: total['average_monthly_received_value'] ?? null,
+        income_highest_month: monthOf(total['maximum_monthly_amount']),
+        income_highest_amount: asRecord(total['maximum_monthly_amount'])['amount'] ?? null,
+        income_lowest_month: monthOf(total['minimum_monthly_amount']),
+        income_lowest_amount: asRecord(total['minimum_monthly_amount'])['amount'] ?? null,
+        income_months: monthly(salary['monthly_totals']),
+        income_sources: sources(salary['transactions']),
+        income_variation_ratio: factors['delta_min_max'] ?? null,
+        income_monthly_change: factors['average_monthly_income_change'] ?? null,
+        other_income_currency: other['currency'] ?? null,
+        other_income_total: otherTotal['amount'] ?? null,
+        other_income_monthly_average: otherTotal['average_monthly_amount'] ?? null,
+        other_income_count: otherTotal['count'] ?? null,
+        other_income_sources: sources(other['transactions']),
+      });
     },
     /**
      * Income is read from data the provider refreshes on its own schedule. When the data
