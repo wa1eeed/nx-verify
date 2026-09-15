@@ -14,14 +14,14 @@ import {
   listShares,
   openChecksFor,
   quoteChecks,
-  valueLabelAr,
+  valueWordsAr,
   type FieldGroup,
 } from '@nx-verify/core';
 import { getKeys } from '../../../../lib/keys';
 import { query } from '../../../../lib/context';
 import { CustomerFileScreen, type TimelineEntry } from '../../../../components/customer-file';
 import { SharePanel, type ShareRowView } from '../../../../components/share-panel';
-import { fieldLabel, formatValue, type FieldHistoryView } from '../../../../components/field-card';
+import { fieldLabel, type FieldHistoryView } from '../../../../components/field-card';
 import { TRIGGER_LABELS } from '../../../../components/verification-history';
 import { createShareAction, revokeShareAction } from './share-actions';
 import { openChecksAction, startChecksAction, startSectionChecksAction } from '../actions';
@@ -74,7 +74,7 @@ export default async function CustomerPage({
           .filter((entry) => !entry.current)
           .map((entry) => ({
             value: entry.value,
-            valueAr: valueLabelAr(field.fieldPath, entry.value) ?? formatValue(entry.value).text,
+            valueAr: valueWordsAr(field.fieldPath, entry.value),
             authority: entry.authority,
             observedAt: entry.observedAt,
             changed: entry.changed,
@@ -153,7 +153,7 @@ export default async function CustomerPage({
       fields: (fieldsOf.get(run.runId) ?? []).map((field) => ({
         fieldPath: field.fieldPath,
         labelAr: fieldLabel(field.fieldPath),
-        valueAr: valueLabelAr(field.fieldPath, field.value) ?? formatValue(field.value).text,
+        valueAr: valueWordsAr(field.fieldPath, field.value),
         change: field.kind,
       })),
     })),

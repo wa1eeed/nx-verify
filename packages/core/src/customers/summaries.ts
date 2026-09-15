@@ -257,8 +257,9 @@ export async function summarizeCustomers(
       key = await keys.encryptionKey(tx.tenantId, row.key_version);
       encryptionKeys.set(row.key_version, key);
     }
-    // Decrypted to be masked, and only the masked form and the display form are kept: a
-    // business's registry number shows in full, a person's identifier never does (ADR-127).
+    // Decrypted to be masked, and only the masked form and the display form are kept: every
+    // identifier shows in full on the signed in screen (ADR-127, ADR-128), the masked form is
+    // for everywhere else.
     const value = decryptIdentifier(key, row.id_value_enc);
     const list = identifiers.get(row.entity_id) ?? [];
     list.push({

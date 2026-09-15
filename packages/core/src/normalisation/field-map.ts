@@ -3,9 +3,28 @@ import type { EntityType } from '../repositories/entities.js';
 import type { IdentifierType } from '../crypto/identifier.js';
 
 export type EntityRole =
-  'SUBJECT' | 'MANAGER' | 'OWNER' | 'ACCOUNT_HOLDER' | 'PROPERTY_OWNER' | 'PARTNER' | 'ACCOUNT';
+  | 'SUBJECT'
+  | 'MANAGER'
+  | 'OWNER'
+  | 'ACCOUNT_HOLDER'
+  | 'PROPERTY_OWNER'
+  | 'PARTNER'
+  | 'ACCOUNT'
+  | 'LIQUIDATOR'
+  | 'GUARDIAN'
+  | 'MAIN_REGISTRY';
 export type RelationType =
-  'MANAGES' | 'OWNS' | 'HOLDS_ACCOUNT' | 'OWNS_PROPERTY' | 'SHARES_ADDRESS';
+  | 'MANAGES'
+  | 'OWNS'
+  | 'HOLDS_ACCOUNT'
+  | 'OWNS_PROPERTY'
+  | 'SHARES_ADDRESS'
+  /** From a company to whoever liquidates it. */
+  | 'LIQUIDATES'
+  /** From a company to the guardian who acts for one of its minor partners. */
+  | 'REPRESENTS'
+  /** From a branch registration to the main registration it belongs to. */
+  | 'BRANCH_OF';
 
 export interface FieldMapping {
   productCode: string;
@@ -64,6 +83,15 @@ export async function getFieldMappings(
 export function isIdentifierType(value: unknown): value is IdentifierType {
   return (
     typeof value === 'string' &&
-    ['CR', 'UNN', 'NATIONAL_ID', 'IQAMA', 'FREELANCE_DOC', 'IBAN', 'REAL_ESTATE_NO'].includes(value)
+    [
+      'CR',
+      'UNN',
+      'NATIONAL_ID',
+      'IQAMA',
+      'FREELANCE_DOC',
+      'IBAN',
+      'REAL_ESTATE_NO',
+      'PARTY_ID',
+    ].includes(value)
   );
 }

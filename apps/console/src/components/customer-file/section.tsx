@@ -1,26 +1,33 @@
 import Link from 'next/link';
 import type { ReactElement, ReactNode } from 'react';
 import {
+  PART_LABELS,
+  type AccountView,
   type CustomerFile,
+  type FieldPart,
   type FileField,
   type FileSection,
+  type IdentifierView,
+  type LiquidatorView,
   type ManagerView,
   type PartnerView,
+  type RegistryLinkView,
+  type SectionIdentifier,
 } from '@nx-verify/core';
 import type { FieldHistoryView } from '../field-card';
-import { dateAr, dayMonthAr, isoDate, shortMask } from '../format';
+import { count, dateAr, dayMonthAr, isoDate, shortMask } from '../format';
 import { Field } from '../ui/field';
 import { Card, CardTitle } from '../ui/card';
 import type { IconName } from '../ui/icon';
 import { Input } from '../ui/input';
 import { Ltr } from '../ui/ltr';
 import { SubmitButton } from '../ui/submit-button';
-import { StateTag, type TagState } from '../ui/tag';
+import { StateTag, Tag, type TagState } from '../ui/tag';
 import { Table, Th } from '../ui/table';
 import { FieldHistory } from './field-history';
 import { historyStretches } from './field-history-model';
 import { SectionLive, SectionVerifyForm, type SectionCheckAction } from './section-live';
-import { MATCH_SCORE_FIELDS, orderedFields, permissionsCountAr, renderValue } from './values';
+import { MATCH_SCORE_FIELDS, isWide, permissionsCountAr, renderValue } from './values';
 
 /**
  * One section of a customer file (README, screen 03).
@@ -227,8 +234,9 @@ function FieldCell({
   alert?: boolean;
   valueOverride?: ReactNode;
 }): ReactElement {
-  // A list takes the whole row: two long activity names side by side do not fit one column.
-  const wide = Array.isArray(field.value);
+  // A list, a table or a long text takes the whole row: two long activity names side by side
+  // do not fit one column.
+  const wide = isWide(field);
   // The value this one replaced, when the last verification changed it.
   const latest = history?.[0];
   const previous =
@@ -294,32 +302,120 @@ function FieldCell({
   );
 }
 
-function FieldsGrid({
+/** The order parts come in, the catalogue's. */
+const PART_ORDER = Object.keys(PART_LABELS) as FieldPart[];
+
+/** A number a section is about, in full, as the first line of its part (ADR-127, ADR-128). */
+function IdentifierCell({ identifier }: { identifier: SectionIdentifier }): ReactElement {
+  return (
+    <div className="file-field" data-identifier={identifier.idType} data-role="section-identifier">
+      <dt>{identifier.labelAr}</dt>
+      <dd>
+        <span className="fact-value">
+          <Ltr>{identifier.display}</Ltr>
+        </span>
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * A section's facts, split into its parts under small headings when it has more than one.
+ *
+ * The numbers the section is about lead its first part; a table that belongs to a part (the
+ * partners, the liquidators, the managers) follows that part's facts; and a part with neither
+ * facts nor a table is not drawn at all.
+ */
+function SectionParts({
   section,
-  fields,
   context,
-  children,
+  fields = section.fields,
+  identityPart,
+  extras = {},
 }: {
   section: FileSection;
-  fields: readonly FileField[];
   context: SectionContext;
-  children?: ReactNode;
+  fields?: readonly FileField[];
+  /** The part the section's identifiers lead. */
+  identityPart?: FieldPart | undefined;
+  extras?: Partial<Record<FieldPart, ReactNode>>;
 }): ReactElement | null {
-  if (fields.length === 0 && children === undefined) {
+  const identifiers = section.identifiers ?? [];
+  const byPart = new Map<FieldPart | 'general', FileField[]>();
+  for (const field of fields) {
+    const key = field.part ?? 'general';
+    byPart.set(key, [...(byPart.get(key) ?? []), field]);
+  }
+  const lead: FieldPart | 'general' = identityPart ?? fields[0]?.part ?? 'general';
+  // The parts in the order their facts come; the section's identifiers lead theirs.
+  const order: (FieldPart | 'general')[] = [];
+  if (identifiers.length > 0) {
+    order.push(lead);
+  }
+  for (const key of byPart.keys()) {
+    if (!order.includes(key)) {
+      order.push(key);
+    }
+  }
+  // A part drawn only for its table comes after the nearest part the catalogue puts before it.
+  for (const key of PART_ORDER) {
+    if (extras[key] === undefined || extras[key] === null || order.includes(key)) {
+      continue;
+    }
+    const before = PART_ORDER.slice(0, PART_ORDER.indexOf(key))
+      .reverse()
+      .find((candidate) => order.includes(candidate));
+    order.splice(before === undefined ? 0 : order.indexOf(before) + 1, 0, key);
+  }
+  if (order.length === 0) {
     return null;
   }
+  const titled = order.length > 1;
+
   return (
-    <dl className="file-fields">
-      {children}
-      {fields.map((field) => (
-        <FieldCell
-          key={field.fieldPath}
-          field={field}
-          section={section}
-          history={context.histories[field.fieldPath]}
-        />
-      ))}
-    </dl>
+    <div className="file-parts">
+      {order.map((key) => {
+        const partFields = byPart.get(key) ?? [];
+        const named = key === lead ? identifiers : [];
+        const extra = key === 'general' ? null : (extras[key] ?? null);
+        return (
+          <div className="file-part" key={key} data-part={key}>
+            {titled && key !== 'general' ? (
+              <h3 className="file-part-title">{PART_LABELS[key]}</h3>
+            ) : null}
+            {named.length > 0 || partFields.length > 0 ? (
+              <dl className="file-fields">
+                {named.map((identifier) => (
+                  <IdentifierCell key={identifier.idType} identifier={identifier} />
+                ))}
+                {partFields.map((field) => (
+                  <FieldCell
+                    key={field.fieldPath}
+                    field={field}
+                    section={section}
+                    history={context.histories[field.fieldPath]}
+                  />
+                ))}
+              </dl>
+            ) : null}
+            {extra}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Somebody's number, with the words for its kind, in full. */
+function IdentifierText({ identifier }: { identifier: IdentifierView | null }): ReactElement {
+  if (identifier === null) {
+    return <>·</>;
+  }
+  return (
+    <span className="file-identifier" data-role="identifier" data-id-type={identifier.idType}>
+      <span className="file-identifier-label">{identifier.labelAr}</span>{' '}
+      <Ltr>{shortMask(identifier.display)}</Ltr>
+    </span>
   );
 }
 
@@ -368,6 +464,20 @@ function ManagerVerify({
   );
 }
 
+function yesNo(value: boolean | null): string {
+  return value === null ? '·' : value ? 'نعم' : 'لا';
+}
+
+/** A person's details under their name: nationality and the kind of party the registry says. */
+function PersonNote({ parts }: { parts: (string | null)[] }): ReactElement | null {
+  const words = parts.filter((part): part is string => part !== null && part !== '');
+  return words.length === 0 ? null : (
+    <span className="file-cell-note" data-role="person-note">
+      {words.join(' · ')}
+    </span>
+  );
+}
+
 function ManagersTable({
   managers,
   context,
@@ -383,141 +493,399 @@ function ManagersTable({
     !context.running.has('MANAGER_AUTHORITY');
 
   return (
-    <Table label="المدراء المفوضون">
-      <thead>
-        <tr>
-          <Th>الاسم</Th>
-          <Th>الهوية</Th>
-          <Th>الصلاحية</Th>
-          <Th>نطاق التوقيع</Th>
-          <Th>حالة KYC</Th>
-        </tr>
-      </thead>
-      <tbody>
-        {managers.map((manager) => {
-          const methods = [
-            ...new Set(
-              (manager.permissions ?? [])
-                .map((permission) => permission.method)
-                .filter((method): method is string => method !== null),
-            ),
-          ];
-          return (
-            <tr key={manager.entityId} data-role="manager">
-              <td>
-                {manager.name ?? 'مدير بلا اسم'}
-                {manager.alsoManages.length > 0 ? (
-                  <span className="file-cell-note" data-role="also-manages">
-                    يدير أيضاً: <LinkList entities={manager.alsoManages} />
+    <div className="file-people">
+      <Table label="المدراء المفوضون">
+        <thead>
+          <tr>
+            <Th>الاسم</Th>
+            <Th>الهوية</Th>
+            <Th>المنصب</Th>
+            <Th>نطاق التوقيع</Th>
+            <Th>حالة KYC</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {managers.map((manager) => {
+            const methods = [
+              ...new Set(
+                (manager.permissions ?? [])
+                  .map((permission) => permission.method)
+                  .filter((method): method is string => method !== null),
+              ),
+            ];
+            return (
+              <tr key={manager.entityId} data-role="manager">
+                <td>
+                  <Link href={`/customers/${manager.entityId}`}>
+                    {manager.name ?? 'مدير بلا اسم'}
+                  </Link>
+                  <PersonNote parts={[manager.nationality, manager.managerType]} />
+                  {manager.alsoManages.length > 0 ? (
+                    <span className="file-cell-note" data-role="also-manages">
+                      يدير أيضاً: <LinkList entities={manager.alsoManages} />
+                    </span>
+                  ) : null}
+                  {manager.isCustomer ? (
+                    <span className="file-cell-note">
+                      <Link href={`/customers/${manager.entityId}`}>عميل لديك كعامل حر</Link>
+                    </span>
+                  ) : null}
+                </td>
+                <td>
+                  <IdentifierText identifier={manager.identifier} />
+                </td>
+                <td>
+                  {manager.positions.join('، ') || '·'}
+                  {manager.licensed !== null ? (
+                    <span className="file-cell-note" data-role="licensed">
+                      <Tag tone="outline">{manager.licensed ? 'مدير مرخّص' : 'غير مرخّص'}</Tag>
+                    </span>
+                  ) : null}
+                </td>
+                <td>
+                  {methods.join('، ') || '·'}
+                  {manager.permissions && manager.permissions.length > 0 ? (
+                    <details className="file-details" data-role="permissions">
+                      <summary>{permissionsCountAr(manager.permissions.length)}</summary>
+                      <ul>
+                        {manager.permissions.map((permission, index) => (
+                          <li key={`${permission.name ?? ''}-${index}`} data-role="permission">
+                            <strong>{permission.name}</strong>
+                            {permission.method ? ` · ${permission.method}` : ''}
+                            {permission.canIssuePoa !== null
+                              ? ` · يصدر توكيلاً: ${yesNo(permission.canIssuePoa)}`
+                              : ''}
+                            {permission.canDelegate !== null
+                              ? ` · يفوّض غيره: ${yesNo(permission.canDelegate)}`
+                              : ''}
+                            {permission.condition ? ` · الشرط: ${permission.condition}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </td>
+                <td>
+                  <span className="file-cell-status">
+                    {manager.permissions !== null ? (
+                      <StateTag state="VERIFIED">مُتحقق</StateTag>
+                    ) : manager.checkable ? (
+                      <>
+                        <StateTag state="PENDING">بانتظار التحقق</StateTag>
+                        {canCheck ? <ManagerVerify manager={manager} context={context} /> : null}
+                      </>
+                    ) : (
+                      <StateTag state="NOT_APPLICABLE">لا يتوفر تحقق لهذه الهوية</StateTag>
+                    )}
                   </span>
-                ) : null}
-                {manager.isCustomer ? (
-                  <span className="file-cell-note">
-                    <Link href={`/customers/${manager.entityId}`}>عميل لديك كعامل حر</Link>
-                  </span>
-                ) : null}
-              </td>
-              <td>{manager.maskedId ? <Ltr>{shortMask(manager.maskedId)}</Ltr> : '·'}</td>
-              <td>{manager.positions.join('، ') || '·'}</td>
-              <td>
-                {methods.join('، ') || '·'}
-                {manager.permissions && manager.permissions.length > 0 ? (
-                  <details className="file-details" data-role="permissions">
-                    <summary>{permissionsCountAr(manager.permissions.length)}</summary>
-                    <ul>
-                      {manager.permissions.map((permission, index) => (
-                        <li key={`${permission.name ?? ''}-${index}`}>
-                          {permission.name}
-                          {permission.method ? ` · ${permission.method}` : ''}
-                          {permission.canIssuePoa ? ' · يصدر توكيلاً' : ''}
-                          {permission.canDelegate ? ' · يفوّض' : ''}
-                          {permission.condition ? ` · ${permission.condition}` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                ) : null}
-              </td>
-              <td>
-                <span className="file-cell-status">
-                  {manager.permissions === null ? (
-                    <>
-                      <StateTag state="PENDING">بانتظار التحقق</StateTag>
-                      {canCheck && manager.maskedId !== null ? (
-                        <ManagerVerify manager={manager} context={context} />
-                      ) : null}
-                    </>
-                  ) : (
-                    <StateTag state="VERIFIED">مُتحقق</StateTag>
-                  )}
-                </span>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </Table>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </Table>
+    </div>
   );
+}
+
+function sharesAr(n: number): string {
+  return n === 1
+    ? 'حصة واحدة'
+    : n === 2
+      ? 'حصتان'
+      : n >= 3 && n <= 10
+        ? `${n} حصص`
+        : `${count(n)} حصة`;
 }
 
 function PartnersTable({ partners }: { partners: PartnerView[] }): ReactElement {
   return (
-    <Table label="الشركاء">
-      <thead>
-        <tr>
-          <Th>الشريك</Th>
-          <Th>الهوية</Th>
-          <Th>نسبة الملكية</Th>
-          <Th>الحالة</Th>
-        </tr>
-      </thead>
-      <tbody>
-        {partners.map((partner) => (
-          <tr key={partner.entityId} data-role="partner">
-            <td>
-              {partner.name ?? 'بلا اسم'}
-              {partner.alsoOwns.length > 0 ? (
-                <span className="file-cell-note">
-                  شريك أيضاً في: <LinkList entities={partner.alsoOwns} />
-                </span>
-              ) : null}
-            </td>
-            <td>
-              {partner.maskedId ? (
-                <>
-                  {partner.kind === 'BUSINESS' ? 'س.ت ' : ''}
-                  <Ltr>{shortMask(partner.maskedId)}</Ltr>
-                </>
-              ) : (
-                '·'
-              )}
-            </td>
-            <td>
-              {partner.profitPct !== null ? (
-                <Ltr>{partner.profitPct}%</Ltr>
-              ) : partner.shares !== null ? (
-                <>
-                  <Ltr>{partner.shares}</Ltr> حصة
-                </>
-              ) : (
-                '·'
-              )}
-            </td>
-            <td>
-              {partner.kind === 'PERSON' ? (
-                <StateTag state="VERIFIED">مُتحقق</StateTag>
-              ) : partner.hasOwnFile ? (
-                <Link href={`/customers/${partner.entityId}`}>
-                  <StateTag state="VERIFIED">مُتحقق</StateTag>
-                </Link>
-              ) : (
-                <StateTag state="CONFLICT">كيان مالك · يحتاج KYB منفصل</StateTag>
-              )}
-            </td>
+    <div className="file-people">
+      <Table label="الشركاء">
+        <thead>
+          <tr>
+            <Th>الشريك</Th>
+            <Th>الهوية</Th>
+            <Th>الحصص</Th>
+            <Th>الأرباح والخسائر</Th>
+            <Th>الحالة</Th>
           </tr>
-        ))}
-      </tbody>
-    </Table>
+        </thead>
+        <tbody>
+          {partners.map((partner) => (
+            <tr key={partner.entityId} data-role="partner">
+              <td>
+                <Link href={`/customers/${partner.entityId}`}>{partner.name ?? 'بلا اسم'}</Link>
+                <PersonNote parts={[partner.partyType, partner.nationality]} />
+                {partner.roles.length > 0 ? (
+                  <span className="file-cell-note" data-role="partner-roles">
+                    الصفة: {partner.roles.join('، ')}
+                  </span>
+                ) : null}
+                {partner.guardian !== null ? (
+                  <span className="file-cell-note" data-role="guardian">
+                    الولي: {partner.guardian.name ?? 'بلا اسم'}
+                    {partner.guardian.isFather ? ' (الأب)' : ''}
+                    {partner.guardian.identifier !== null ? (
+                      <>
+                        {' · '}
+                        <IdentifierText identifier={partner.guardian.identifier} />
+                      </>
+                    ) : null}
+                  </span>
+                ) : null}
+                {partner.alsoOwns.length > 0 ? (
+                  <span className="file-cell-note">
+                    شريك أيضاً في: <LinkList entities={partner.alsoOwns} />
+                  </span>
+                ) : null}
+              </td>
+              <td>
+                <IdentifierText identifier={partner.identifier} />
+                {partner.licenseNumber !== null ? (
+                  <span className="file-cell-note">
+                    رقم الترخيص <Ltr>{partner.licenseNumber}</Ltr>
+                  </span>
+                ) : null}
+              </td>
+              <td data-role="partner-shares">
+                {partner.shares !== null ? sharesAr(partner.shares) : '·'}
+                {partner.cashShares !== null || partner.inKindShares !== null ? (
+                  <span className="file-cell-note">
+                    {partner.cashShares !== null ? (
+                      <>
+                        نقدية <Ltr>{count(partner.cashShares)}</Ltr>
+                      </>
+                    ) : null}
+                    {partner.cashShares !== null && partner.inKindShares !== null ? ' · ' : null}
+                    {partner.inKindShares !== null ? (
+                      <>
+                        عينية <Ltr>{count(partner.inKindShares)}</Ltr>
+                      </>
+                    ) : null}
+                  </span>
+                ) : null}
+              </td>
+              <td data-role="partner-distribution">
+                {partner.profitPct === null && partner.lossPct === null ? (
+                  '·'
+                ) : (
+                  <>
+                    {partner.profitPct !== null ? (
+                      <span className="file-cell-line">
+                        الأرباح <Ltr>{`${partner.profitPct}%`}</Ltr>
+                      </span>
+                    ) : null}
+                    {partner.lossPct !== null ? (
+                      <span className="file-cell-line">
+                        الخسائر <Ltr>{`${partner.lossPct}%`}</Ltr>
+                      </span>
+                    ) : null}
+                  </>
+                )}
+              </td>
+              <td>
+                {partner.kind === 'PERSON' ? (
+                  <StateTag state="VERIFIED">مُتحقق</StateTag>
+                ) : partner.hasOwnFile ? (
+                  <Link href={`/customers/${partner.entityId}`}>
+                    <StateTag state="VERIFIED">مُتحقق</StateTag>
+                  </Link>
+                ) : (
+                  <StateTag state="CONFLICT">كيان مالك · يحتاج KYB منفصل</StateTag>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </div>
+  );
+}
+
+function LiquidatorsTable({ liquidators }: { liquidators: LiquidatorView[] }): ReactElement {
+  return (
+    <div className="file-people">
+      <Table label="المصفّون">
+        <thead>
+          <tr>
+            <Th>المصفّي</Th>
+            <Th>الهوية</Th>
+            <Th>الصفة</Th>
+            <Th>المنصب</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {liquidators.map((liquidator) => (
+            <tr key={liquidator.entityId} data-role="liquidator">
+              <td>
+                <Link href={`/customers/${liquidator.entityId}`}>
+                  {liquidator.name ?? 'بلا اسم'}
+                </Link>
+                <PersonNote parts={[liquidator.nationality]} />
+              </td>
+              <td>
+                <IdentifierText identifier={liquidator.identifier} />
+              </td>
+              <td>{liquidator.liquidatorType ?? '·'}</td>
+              <td>{liquidator.positions.join('، ') || '·'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </div>
+  );
+}
+
+/** The main registration a branch belongs to, and the branches registered under a business. */
+function RegistryLinks({
+  mainRegistry,
+  branches,
+}: {
+  mainRegistry: RegistryLinkView | null;
+  branches: RegistryLinkView[];
+}): ReactElement | null {
+  if (mainRegistry === null && branches.length === 0) {
+    return null;
+  }
+  const entry = (link: RegistryLinkView): ReactElement => (
+    <>
+      {link.hasOwnFile ? (
+        <Link href={`/customers/${link.entityId}`}>{link.name ?? 'منشأة'}</Link>
+      ) : (
+        (link.name ?? 'منشأة لم يُتحقق منها بعد')
+      )}
+      {link.identifier !== null ? (
+        <>
+          {' · '}
+          <IdentifierText identifier={link.identifier} />
+        </>
+      ) : null}
+    </>
+  );
+  return (
+    <dl className="file-fields file-registry-links">
+      {mainRegistry !== null ? (
+        <div className="file-field file-field-wide" data-role="main-registry">
+          <dt>السجل الرئيسي لهذا الفرع</dt>
+          <dd>{entry(mainRegistry)}</dd>
+        </div>
+      ) : null}
+      {branches.length > 0 ? (
+        <div className="file-field file-field-wide" data-role="branches">
+          <dt>الفروع المسجلة</dt>
+          <dd>
+            <ul className="file-list">
+              {branches.map((branch) => (
+                <li key={branch.entityId}>{entry(branch)}</li>
+              ))}
+            </ul>
+          </dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+/** «مطابق 92%» or «تطابق جزئي 70%», from a score of 0 to 1 or a percentage. */
+function matchWords(
+  score: number | null,
+  threshold: number,
+): { pct: number; words: string } | null {
+  if (score === null) {
+    return null;
+  }
+  const pct = Math.round(score <= 1 ? score * 100 : score);
+  return { pct, words: pct >= threshold ? 'مطابق' : 'تطابق جزئي' };
+}
+
+const ACCOUNT_STATUS_WORDS: Readonly<Record<string, string>> = {
+  ACTIVE: 'نشط',
+  BLOCKED: 'محظور',
+  INACTIVE: 'غير نشط',
+  CLOSED: 'مغلق',
+  DORMANT: 'راكد',
+  IN_LIQUIDATION: 'تحت التصفية',
+};
+
+const OWNERSHIP_WORDS: Readonly<Record<string, string>> = {
+  MATCH: 'مطابق',
+  PARTIAL: 'تطابق جزئي',
+  NO_MATCH: 'غير مطابق',
+};
+
+/** The other accounts presented for this customer, each with what its own check said. */
+function OtherAccounts({
+  accounts,
+  threshold,
+}: {
+  accounts: AccountView[];
+  threshold: number;
+}): ReactElement {
+  return (
+    <div className="file-other-accounts" data-role="accounts">
+      <h3 className="file-part-title">حسابات أخرى مقدَّمة</h3>
+      <Table label="حسابات أخرى مقدَّمة">
+        <thead>
+          <tr>
+            <Th>الآيبان</Th>
+            <Th>البنك</Th>
+            <Th>حالة الحساب</Th>
+            <Th>صاحب الحساب</Th>
+            <Th>المطابقة</Th>
+            <Th>آخر تحقق</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {accounts.map((account) => {
+            const match = matchWords(account.matchScore, threshold);
+            return (
+              <tr key={account.entityId} data-role="account">
+                <td>
+                  <Ltr>{shortMask(account.maskedIban) ?? 'آيبان'}</Ltr>
+                  {account.sharedWith.length > 0 ? (
+                    <span className="file-cell-note">مقدَّم أيضاً لعميل آخر</span>
+                  ) : null}
+                </td>
+                <td>
+                  {account.bank ?? '·'}
+                  {account.swiftCode !== null || account.bankCode !== null ? (
+                    <span className="file-cell-note">
+                      {account.swiftCode !== null ? <Ltr>{account.swiftCode}</Ltr> : null}
+                      {account.swiftCode !== null && account.bankCode !== null ? ' · ' : null}
+                      {account.bankCode !== null ? (
+                        <>
+                          رمز البنك <Ltr>{account.bankCode}</Ltr>
+                        </>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </td>
+                <td>
+                  {account.status === null
+                    ? '·'
+                    : (ACCOUNT_STATUS_WORDS[account.status] ?? account.status)}
+                </td>
+                <td>{account.holderName === null ? '·' : <Ltr>{account.holderName}</Ltr>}</td>
+                <td>
+                  {account.ownership === null
+                    ? '·'
+                    : (OWNERSHIP_WORDS[account.ownership] ?? account.ownership)}
+                  {match !== null ? (
+                    <span className="file-cell-note">
+                      مطابقة الاسم <Ltr>{`${match.pct}%`}</Ltr>
+                    </span>
+                  ) : null}
+                </td>
+                <td>
+                  {account.checkedAt === null ? '·' : <Ltr>{isoDate(account.checkedAt)}</Ltr>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </Table>
+    </div>
   );
 }
 
@@ -529,14 +897,14 @@ function BankFields({
   context: SectionContext;
 }): ReactElement | null {
   const { file } = context;
+  // The account checked last, which the bank facts of this section describe.
   const account = file.accounts[0];
-  const fields = orderedFields(
-    'BANKING',
-    section.fields.filter((field) => !MATCH_SCORE_FIELDS.has(field.fieldPath)),
-  );
+  const fields = section.fields.filter((field) => !MATCH_SCORE_FIELDS.has(field.fieldPath));
   const score = section.fields.find((field) => MATCH_SCORE_FIELDS.has(field.fieldPath));
-  const raw = typeof score?.value === 'number' ? score.value : null;
-  const pct = raw === null ? null : Math.round(raw <= 1 ? raw * 100 : raw);
+  const match = matchWords(
+    typeof score?.value === 'number' ? score.value : null,
+    file.nameMatchThresholdPct,
+  );
 
   if (account === undefined && fields.length === 0) {
     return null;
@@ -560,31 +928,23 @@ function BankFields({
             history={context.histories[field.fieldPath]}
           />
         ))}
-        {score !== undefined && pct !== null ? (
+        {score !== undefined && match !== null ? (
           <FieldCell
             field={{ ...score, labelAr: 'مطابقة الاسم' }}
             section={section}
             history={undefined}
-            alert={pct < file.nameMatchThresholdPct}
+            alert={match.pct < file.nameMatchThresholdPct}
             valueOverride={
               <>
-                {pct >= file.nameMatchThresholdPct ? 'مطابق ' : 'تطابق جزئي '}
-                <Ltr>{pct}%</Ltr>
+                {`${match.words} `}
+                <Ltr>{`${match.pct}%`}</Ltr>
               </>
             }
           />
         ) : null}
       </dl>
       {file.accounts.length > 1 ? (
-        <ul className="file-accounts" data-role="accounts">
-          {file.accounts.slice(1).map((other) => (
-            <li key={other.entityId}>
-              <Ltr>{shortMask(other.maskedIban) ?? 'آيبان'}</Ltr>
-              {other.bank ? ` · ${other.bank}` : ''}
-              {other.sharedWith.length > 0 ? ' · مقدَّم أيضاً لعميل آخر' : ''}
-            </li>
-          ))}
-        </ul>
+        <OtherAccounts accounts={file.accounts.slice(1)} threshold={file.nameMatchThresholdPct} />
       ) : null}
     </>
   );
@@ -650,25 +1010,49 @@ export function SectionCard({
   const shared = file.intersections.find((link) => link.kind === 'SHARED_ADDRESS');
   const titleId = `section-${section.section}-title`;
 
+  const extras: Partial<Record<FieldPart, ReactNode>> = {};
   let body: ReactNode = null;
-  if (section.section === 'MANAGERS') {
-    body =
-      file.managers.length > 0 ? (
-        <ManagersTable managers={file.managers} context={context} />
-      ) : null;
-  } else if (section.section === 'BANKING') {
+  if (section.section === 'BANKING') {
     body = <BankFields section={section} context={context} />;
   } else {
+    if (section.section === 'MANAGERS' && file.managers.length > 0) {
+      extras.managers = <ManagersTable managers={file.managers} context={context} />;
+    }
+    if (section.section === 'REGISTRY') {
+      if (file.mainRegistry !== null || file.branches.length > 0) {
+        extras.registration = (
+          <RegistryLinks mainRegistry={file.mainRegistry} branches={file.branches} />
+        );
+      }
+      if (file.liquidators.length > 0) {
+        extras.liquidation = <LiquidatorsTable liquidators={file.liquidators} />;
+      }
+    }
+    // The partners belong with the articles; a sole establishment has none, and its owner
+    // reads with its registration instead.
+    const partnersHere =
+      section.section === 'CONTRACT' ||
+      (section.section === 'REGISTRY' &&
+        !file.sections.some((entry) => entry.section === 'CONTRACT'));
+    if (partnersHere && file.partners.length > 0) {
+      extras.partners = <PartnersTable partners={file.partners} />;
+    }
     body = (
       <>
-        <FieldsGrid
+        <SectionParts
           section={section}
-          fields={orderedFields(section.section, section.fields)}
           context={context}
+          identityPart={
+            section.section === 'FREELANCE'
+              ? 'certificate'
+              : section.section === 'REGISTRY'
+                ? file.entityType === 'BUSINESS'
+                  ? 'registration'
+                  : 'person'
+                : undefined
+          }
+          extras={extras}
         />
-        {section.section === 'CONTRACT' && file.partners.length > 0 ? (
-          <PartnersTable partners={file.partners} />
-        ) : null}
         {section.section === 'ADDRESS' && shared !== undefined && section.fields.length > 0 ? (
           <p className="file-note" data-role="address-note">
             العنوان مطابق لعنوان <LinkList entities={shared.entities} /> ·{' '}
@@ -678,13 +1062,17 @@ export function SectionCard({
       </>
     );
   }
-  const empty =
-    section.state === 'NOT_APPLICABLE' ||
-    (section.section === 'MANAGERS'
-      ? file.managers.length === 0
-      : section.section === 'BANKING'
-        ? file.accounts.length === 0 && section.fields.length === 0
-        : section.fields.length === 0);
+  // Nothing verified in the section yet: said once, under whatever is already known of it (its
+  // number, the partners the registry named).
+  const unverified =
+    section.section === 'BANKING'
+      ? file.accounts.length === 0 && section.fields.length === 0
+      : section.section === 'MANAGERS'
+        ? file.managers.length === 0 && section.fields.length === 0
+        : section.fields.length === 0;
+  const known =
+    section.section !== 'BANKING' &&
+    ((section.identifiers ?? []).length > 0 || Object.keys(extras).length > 0);
 
   return (
     <Card as="section" labelledBy={titleId} role="file-section">
@@ -723,12 +1111,19 @@ export function SectionCard({
           </div>
         }
       >
-        {empty ? (
+        {section.state === 'NOT_APPLICABLE' ? (
           <p className="file-empty" data-role="section-empty">
             {emptyText(section, file)}
           </p>
         ) : (
-          body
+          <>
+            {unverified && !known ? null : body}
+            {unverified ? (
+              <p className="file-empty" data-role="section-empty">
+                {emptyText(section, file)}
+              </p>
+            ) : null}
+          </>
         )}
         {section.section === 'BANKING' &&
         section.checks.some((check) => check.availability === 'AVAILABLE') ? (

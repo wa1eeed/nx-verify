@@ -557,15 +557,26 @@ export {
   FIELD_CATALOGUE,
   FIELD_GROUP_LABELS,
   FIELD_GROUP_ORDER,
+  PART_LABELS,
   RELATIONSHIP_FIELDS,
   definitionOf,
   fieldGroup,
   fieldLabelAr,
+  fieldOrder,
   isHiddenField,
   isNumericField,
+  isRelationshipPath,
+  relationshipSubjectOf,
   valueLabelAr,
+  valueWordsAr,
 } from './profile/field-catalogue.js';
-export type { FieldDefinition, FieldGroup } from './profile/field-catalogue.js';
+export type {
+  FieldDefinition,
+  FieldFormat,
+  FieldGroup,
+  FieldPart,
+  ListColumn,
+} from './profile/field-catalogue.js';
 export {
   advanceCase,
   concludeCase,
@@ -698,6 +709,7 @@ export {
   SECTION_SOURCES,
   SECTION_TITLES,
   fileStandingOf,
+  arrangeFields,
   getCustomerFile,
 } from './customers/customer-file.js';
 export type {
@@ -707,14 +719,19 @@ export type {
   FileStanding,
   FileField,
   FileSection,
+  GuardianView,
+  IdentifierView,
   SectionRequirement,
   Intersection,
   IntersectionKind,
   LastRun,
   LinkedEntity,
+  LiquidatorView,
   ManagerView,
   PartnerView,
   Permission,
+  RegistryLinkView,
+  SectionIdentifier,
   SectionState,
 } from './customers/customer-file.js';
 export {

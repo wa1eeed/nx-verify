@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
-import { valueLabelAr } from '@nx-verify/core';
-import { fieldLabel, formatValue } from './field-card';
+import { valueWordsAr } from '@nx-verify/core';
+import { fieldLabel } from './field-card';
 import { Panel } from './page-header';
 
 /**
@@ -124,10 +124,7 @@ export function VerificationHistory({
                     >
                       <span style={{ minWidth: '10ch' }}>{KIND_LABELS[field.kind]}</span>
                       <span>{fieldLabel(field.fieldPath)}</span>
-                      <span>
-                        {valueLabelAr(field.fieldPath, field.value) ??
-                          formatValue(field.value).text}
-                      </span>
+                      <span>{valueWordsAr(field.fieldPath, field.value)}</span>
                     </li>
                   ))}
                 </ul>

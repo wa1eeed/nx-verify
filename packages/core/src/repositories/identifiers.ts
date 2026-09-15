@@ -243,7 +243,7 @@ export interface RevealedIdentifier {
   isPrimary: boolean;
   /** Masked for display. The full value is only produced on explicit request. */
   masked: string;
-  /** What a signed in screen shows: a business's registry number in full, else masked (ADR-127). */
+  /** What a signed in screen shows: every identifier in full but an IBAN (ADR-127, ADR-128). */
   display: string;
 }
 

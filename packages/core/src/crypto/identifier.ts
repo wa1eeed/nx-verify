@@ -20,7 +20,19 @@ import type { TenantKeyProvider } from './tenant-keys.js';
  */
 
 export type IdentifierType =
-  'CR' | 'UNN' | 'NATIONAL_ID' | 'IQAMA' | 'FREELANCE_DOC' | 'IBAN' | 'REAL_ESTATE_NO';
+  | 'CR'
+  | 'UNN'
+  | 'NATIONAL_ID'
+  | 'IQAMA'
+  | 'FREELANCE_DOC'
+  | 'IBAN'
+  | 'REAL_ESTATE_NO'
+  /**
+   * An identity of a party the registry names by a document we do not otherwise model: an
+   * endowment's deed, a government body's licence, a passport, a Gulf ID. Its own type, so it
+   * never matches a national ID or a registration that shares its digits (ADR-128).
+   */
+  | 'PARTY_ID';
 
 const DIGITS_ONLY: ReadonlySet<IdentifierType> = new Set<IdentifierType>([
   'CR',
@@ -108,17 +120,28 @@ export async function protectIdentifier(
 }
 
 /**
- * The registry numbers of a business: the commercial registration and the unified number,
- * which the Ministry of Commerce publishes for anyone to look up. The owner asked for them in
- * full on the customer file (ADR-127). They are stored exactly as every identifier is,
- * hashed for search and encrypted, and they stay out of logs, errors and responses (rule 4);
- * only the signed in console shows them. Every identifier of a person stays masked.
+ * The identifiers the signed in console masks: an IBAN, and nothing else.
+ *
+ * A business's registry numbers are published records (ADR-127). A person's identity number,
+ * a freelance certificate and the document of any other party are shown in full to the
+ * subscriber whose customer they belong to, on the owner's decision (ADR-128): a compliance
+ * officer who cannot read the number cannot match it to the document in front of them. They are
+ * stored exactly as every identifier is, hashed for search and encrypted, and they stay out of
+ * logs, errors, the public API and a file shared by link (rule 4).
  */
-export const PUBLIC_BUSINESS_IDENTIFIERS: ReadonlySet<string> = new Set(['CR', 'UNN']);
+export const MASKED_ON_SCREEN: ReadonlySet<string> = new Set(['IBAN']);
 
-/** Display only: a business's registry number in full, every other identifier masked. */
+/** Display only: every identifier in full as its authority writes it, an IBAN masked. */
 export function displayIdentifier(idType: string, value: string): string {
-  return PUBLIC_BUSINESS_IDENTIFIERS.has(idType) ? value : maskIdentifier(value);
+  if (MASKED_ON_SCREEN.has(idType)) {
+    return maskIdentifier(value);
+  }
+  // Normalising drops the dash a certificate number is written with: «FL013988291» is
+  // «FL-013988291» on the certificate.
+  if (idType === 'FREELANCE_DOC' && /^FL[0-9]+$/.test(value)) {
+    return `FL-${value.slice(2)}`;
+  }
+  return value;
 }
 
 /** Display only. Masks all but the last four characters, as the console shows them. */

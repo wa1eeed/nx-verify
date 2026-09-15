@@ -468,6 +468,8 @@ textarea.input { min-height: 90px; resize: vertical; }
   --duration-field-glow: 2.6s;
   --layout-history: 300px;
   --layout-drawer: 300px;
+  /* The people tables of a customer file keep their columns readable and scroll on a phone. */
+  --layout-people-table: 640px;
   /* The frame on a narrow screen fills the window edge to edge. */
   --radius-flush: 0px;
   --duration-drawer: 200ms;

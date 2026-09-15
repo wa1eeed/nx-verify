@@ -84,28 +84,97 @@ function inLiquidation(base: Payload): Payload {
     v['company_name'] = { ar: 'شركة اختبار تحت التصفية', en: null };
     v['status'] = { id: 5, ar: 'تحت التصفية', en: null };
     v['in_liquidation_process'] = true;
+    // The recorded liquidator, which only a company in liquidation has.
+    v['liquidators'] = structuredClone(recorded(CORPORATE_FULL)['liquidators'] ?? null);
   });
 }
 
 /**
  * The recorded example fills every field, including a suspension and a deletion date on a
- * company whose status is active. A sandbox that answers that way teaches a developer that
- * the dates mean nothing, so the active company here has none.
+ * company whose status is active, and a liquidator. A sandbox that answers that way teaches a
+ * developer that the dates mean nothing, so the active company here has none of them.
  */
 function active(base: Payload): Payload {
   return withVerifications(base, (v) => {
     v['suspension_date'] = null;
     v['deletion_date'] = null;
     v['reactivation_date'] = null;
+    v['liquidators'] = null;
+  });
+}
+
+/**
+ * The recorded address with a second one registered beside it, a branch, so a developer sees
+ * a business with more than one address and which of them is its primary.
+ */
+function withSecondAddress(base: Payload): Payload {
+  return withVerifications(base, (v) => {
+    const addresses = Array.isArray(v['addresses']) ? (v['addresses'] as Payload[]) : [];
+    const first = addresses[0];
+    if (first) {
+      addresses.push({
+        ...structuredClone(first),
+        title: 'فرع مطعم ومعجنات السندباد',
+        address: '3120 طريق الأمير محمد بن سلمان - حي الملقا',
+        address2: 'الرياض 13521 - 7811',
+        latitude: '24.80563712',
+        longitude: '46.61032418',
+        building_number: '3120',
+        street: 'طريق الأمير محمد بن سلمان',
+        district: 'حي الملقا',
+        post_code: '13521',
+        additional_number: '7811',
+        is_primary_address: 'false',
+        unit_number: '4',
+        pk_address_id: '1352131207811',
+      });
+    }
+  });
+}
+
+function recorded(base: Payload): Payload {
+  const verifications = base['verifications'];
+  return verifications && typeof verifications === 'object' && !Array.isArray(verifications)
+    ? (verifications as Payload)
+    : {};
+}
+
+/**
+ * The full record with the boards the articles example records.
+ *
+ * The specification's full example leaves both boards empty though the full record carries
+ * them, so a developer would never see a board drawn. The company's boards are the same in
+ * both answers, which is what a real registry says.
+ */
+function withBoards(base: Payload): Payload {
+  return withVerifications(base, (v) => {
+    const management = v['management'];
+    const recordedManagement = recorded(CORPORATE_CONTRACT)['management'];
+    if (
+      management &&
+      typeof management === 'object' &&
+      recordedManagement &&
+      typeof recordedManagement === 'object'
+    ) {
+      const from = recordedManagement as Payload;
+      const to = management as Payload;
+      to['management_board'] = structuredClone(from['management_board'] ?? null);
+      to['directors_board'] = structuredClone(from['directors_board'] ?? null);
+      to['dismissal_method'] = structuredClone(from['dismissal_method'] ?? null);
+    }
   });
 }
 
 function corporateAnswer(type: 'FULL' | 'CONTRACT' | 'ADDRESS', unn: string): Payload {
   const base =
-    type === 'FULL' ? CORPORATE_FULL : type === 'CONTRACT' ? CORPORATE_CONTRACT : CORPORATE_ADDRESS;
+    type === 'FULL'
+      ? withBoards(CORPORATE_FULL)
+      : type === 'CONTRACT'
+        ? CORPORATE_CONTRACT
+        : CORPORATE_ADDRESS;
   switch (unn) {
     case SANDBOX_UNN.ACTIVE:
-      return type === 'ADDRESS' ? clone(base) : active(base);
+      return type === 'ADDRESS' ? withSecondAddress(base) : active(base);
     case SANDBOX_UNN.SUSPENDED:
       // Shares its manager with the active company, so the link between the two appears in
       // both files the moment both are verified.

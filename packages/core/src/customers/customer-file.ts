@@ -4,11 +4,17 @@ import { getEntity, type EntityType } from '../repositories/entities.js';
 import { getEntityProfile, type Freshness, type ProfileField } from '../repositories/profile.js';
 import { listIdentifiers } from '../repositories/identifiers.js';
 import {
+  definitionOf,
   fieldGroup,
   fieldLabelAr,
+  fieldOrder,
   isHiddenField,
+  isRelationshipPath,
   valueLabelAr,
+  type FieldFormat,
   type FieldGroup,
+  type FieldPart,
+  type ListColumn,
 } from '../profile/field-catalogue.js';
 import {
   checksFor,
@@ -140,6 +146,9 @@ export const NAME_MATCH_THRESHOLD_PCT = 85;
 
 const SECTION_OF_GROUP: Readonly<Record<FieldGroup, ProfileSection | null>> = {
   REGISTRY: 'REGISTRY',
+  // A person's own particulars are the basic data of whichever file they are on: a
+  // freelancer's, or a manager's opened on its own.
+  PERSON: 'REGISTRY',
   CONTRACT: 'CONTRACT',
   OWNERSHIP: 'CONTRACT',
   GOVERNANCE: 'MANAGERS',
@@ -179,6 +188,21 @@ export interface FileField {
   freshness: Freshness;
   /** A change was detected on this field and nobody has acknowledged it yet. */
   changed: boolean;
+  /** The part of its section it sits in, under a small heading. */
+  part?: FieldPart | null;
+  /** How its value reads beyond its type: a date, riyals, a link, a table. */
+  format?: FieldFormat | null;
+  /** For a list of records, its columns. */
+  columns?: readonly ListColumn[] | null;
+  /** Facts read inside this one's cell: its Hijri date, its code, its English name. */
+  companions?: FileField[];
+}
+
+/** An identifier a section shows among its facts, in full (ADR-127, ADR-128). */
+export interface SectionIdentifier {
+  idType: string;
+  labelAr: string;
+  display: string;
 }
 
 export type SectionState =
@@ -223,6 +247,11 @@ export interface FileSection {
   /** Holds what it should: verified, even if it has since changed or conflicts. */
   done: boolean;
   lastRun: LastRun | null;
+  /**
+   * The numbers this section is about, read from the identifiers rather than the facts, since an
+   * identifier is never a fact (rule 4): a registration's number, a person's ID, a certificate.
+   */
+  identifiers?: SectionIdentifier[];
 }
 
 export interface LinkedEntity {
@@ -239,11 +268,24 @@ export interface Permission {
   condition: string | null;
 }
 
+/** Somebody's identifier as a file shows it: in full, with the words for its kind. */
+export interface IdentifierView {
+  idType: string;
+  /** «هوية», «إقامة», «س.ت», or the authority's own name for the document. */
+  labelAr: string;
+  display: string;
+}
+
 export interface ManagerView {
   entityId: string;
   name: string | null;
-  maskedId: string | null;
+  identifier: IdentifierView | null;
+  /** Only a national ID or a residence ID can be asked about a manager's powers. */
+  checkable: boolean;
   nationality: string | null;
+  /** What the registry calls this manager: «سعودي», «مقيم». */
+  managerType: string | null;
+  licensed: boolean | null;
   positions: string[];
   permissions: Permission[] | null;
   permissionsCheckedAt: Date | null;
@@ -254,17 +296,43 @@ export interface ManagerView {
   isCustomer: boolean;
 }
 
+export interface GuardianView {
+  entityId: string;
+  name: string | null;
+  identifier: IdentifierView | null;
+  isFather: boolean | null;
+}
+
 export interface PartnerView {
   entityId: string;
   name: string | null;
   kind: 'PERSON' | 'BUSINESS';
-  maskedId: string | null;
+  identifier: IdentifierView | null;
+  /** What kind of party the registry calls it: «شخص ذو صفة طبيعية», «وقف». */
+  partyType: string | null;
+  nationality: string | null;
   roles: string[];
   shares: number | null;
+  cashShares: number | null;
+  inKindShares: number | null;
   profitPct: number | null;
+  lossPct: number | null;
+  licenseNumber: string | null;
+  /** Who acts for a minor partner. */
+  guardian: GuardianView | null;
   alsoOwns: LinkedEntity[];
   /** True when this partner has been verified in its own right, with a file of its own. */
   hasOwnFile: boolean;
+}
+
+export interface LiquidatorView {
+  entityId: string;
+  name: string | null;
+  kind: 'PERSON' | 'BUSINESS';
+  identifier: IdentifierView | null;
+  nationality: string | null;
+  liquidatorType: string | null;
+  positions: string[];
 }
 
 export interface AccountView {
@@ -272,8 +340,23 @@ export interface AccountView {
   maskedIban: string | null;
   bank: string | null;
   ownership: string | null;
+  status: string | null;
+  holderName: string | null;
+  swiftCode: string | null;
+  bankCode: string | null;
+  method: string | null;
+  /** How closely the holder's name matched this customer's, 0 to 1. */
+  matchScore: number | null;
   checkedAt: Date | null;
   sharedWith: LinkedEntity[];
+}
+
+/** The other registrations a branch or a main registration is linked to. */
+export interface RegistryLinkView {
+  entityId: string;
+  name: string | null;
+  identifier: IdentifierView | null;
+  hasOwnFile: boolean;
 }
 
 export type IntersectionKind =
@@ -303,15 +386,20 @@ export interface CustomerFile {
   createdAt: Date;
   identifiers: { idType: string; masked: string; display: string; isPrimary: boolean }[];
   /**
-   * The number the header shows beside the name, with its short label: a business's registry
-   * number in full, a person's identifier masked (ADR-127).
+   * The number the header shows beside the name, with its short label, in full: a business's
+   * registry number (ADR-127), a person's identity number (ADR-128).
    */
   primaryIdentifier: { labelAr: string; masked: string; display: string } | null;
   status: { textAr: string | null; tone: 'fresh' | 'critical' | 'neutral' };
   sections: FileSection[];
   managers: ManagerView[];
   partners: PartnerView[];
+  liquidators: LiquidatorView[];
   accounts: AccountView[];
+  /** The main registration this business is a branch of. */
+  mainRegistry: RegistryLinkView | null;
+  /** The branches registered under this business. */
+  branches: RegistryLinkView[];
   assessment: Assessment;
   intersections: Intersection[];
   lastVerifiedAt: Date | null;
@@ -509,12 +597,24 @@ const ID_SHORT_LABELS: Readonly<Record<string, string>> = {
   UNN: 'الرقم الموحد',
   NATIONAL_ID: 'هوية',
   IQAMA: 'إقامة',
+  FREELANCE_DOC: 'وثيقة',
+  PARTY_ID: 'وثيقة',
+};
+
+/** An identifier's full name, as a line of a section names it. */
+const ID_LABELS: Readonly<Record<string, string>> = {
+  CR: 'رقم السجل التجاري',
+  UNN: 'الرقم الوطني الموحد',
+  NATIONAL_ID: 'رقم الهوية الوطنية',
+  IQAMA: 'رقم الإقامة',
+  FREELANCE_DOC: 'رقم وثيقة العمل الحر',
+  PARTY_ID: 'رقم الوثيقة',
 };
 
 export function primaryIdentifierOf(
   identifiers: readonly { idType: string; masked: string; display: string; isPrimary: boolean }[],
 ): { labelAr: string; masked: string; display: string } | null {
-  const preferred = ['CR', 'UNN', 'NATIONAL_ID', 'IQAMA']
+  const preferred = ['CR', 'UNN', 'NATIONAL_ID', 'IQAMA', 'PARTY_ID']
     .map((idType) => identifiers.find((identifier) => identifier.idType === idType))
     .find((identifier) => identifier !== undefined);
   return preferred === undefined
@@ -612,14 +712,105 @@ async function profilesOf(
   return result;
 }
 
-async function maskedPrimary(
+/**
+ * Somebody's identifier of the first of these kinds they hold, as a file shows it: in full, with
+ * the authority's own name for a document we do not otherwise model.
+ */
+async function identifierOf(
   tx: TenantTransaction,
   keys: TenantKeyProvider,
   entityId: string,
   types: readonly string[],
-): Promise<string | null> {
+  documentLabel: unknown = null,
+): Promise<IdentifierView | null> {
   const identifiers = await listIdentifiers(tx, keys, entityId);
-  return identifiers.find((identifier) => types.includes(identifier.idType))?.masked ?? null;
+  const found = types
+    .map((idType) => identifiers.find((identifier) => identifier.idType === idType))
+    .find((identifier) => identifier !== undefined);
+  if (found === undefined) {
+    return null;
+  }
+  return {
+    idType: found.idType,
+    labelAr:
+      found.idType === 'PARTY_ID' && typeof documentLabel === 'string' && documentLabel !== ''
+        ? documentLabel
+        : (ID_SHORT_LABELS[found.idType] ?? found.idType),
+    display: found.display,
+  };
+}
+
+/** The identifiers a section names among its facts, for this kind of file. */
+function sectionIdentifiersOf(
+  section: ProfileSection,
+  entityType: EntityType,
+  identifiers: readonly { idType: string; display: string }[],
+  documentLabel: unknown,
+): SectionIdentifier[] {
+  const kinds =
+    section === 'REGISTRY'
+      ? entityType === 'BUSINESS'
+        ? ['CR', 'UNN']
+        : ['NATIONAL_ID', 'IQAMA', 'PARTY_ID']
+      : section === 'FREELANCE'
+        ? ['FREELANCE_DOC']
+        : [];
+  return kinds.flatMap((idType) =>
+    identifiers
+      .filter((identifier) => identifier.idType === idType)
+      .map((identifier) => ({
+        idType,
+        labelAr:
+          idType === 'PARTY_ID' && typeof documentLabel === 'string' && documentLabel !== ''
+            ? documentLabel
+            : (ID_LABELS[idType] ?? idType),
+        display: identifier.display,
+      })),
+  );
+}
+
+function fileFieldOf(field: ProfileField, changedPaths: ReadonlySet<string>): FileField {
+  const definition = definitionOf(field.fieldPath);
+  return {
+    fieldPath: field.fieldPath,
+    labelAr: fieldLabelAr(field.fieldPath),
+    value: field.value,
+    valueLabelAr: valueLabelAr(field.fieldPath, field.value),
+    authority: field.authority,
+    observedAt: field.observedAt,
+    effectiveUntil: field.effectiveUntil,
+    freshness: field.freshness,
+    changed: changedPaths.has(field.fieldPath),
+    part: definition?.part ?? null,
+    format: definition?.format ?? null,
+    columns: definition?.columns ?? null,
+  };
+}
+
+/**
+ * A section's facts in the order the catalogue lists them, with each companion drawn inside the
+ * fact it belongs to. A companion whose fact is absent keeps a line of its own.
+ */
+export function arrangeFields(fields: readonly FileField[]): FileField[] {
+  const ordered = [...fields].sort(
+    (left, right) => fieldOrder(left.fieldPath) - fieldOrder(right.fieldPath),
+  );
+  const byPath = new Map(ordered.map((field) => [field.fieldPath, field]));
+  const companions = new Map<string, FileField[]>();
+  const placed: FileField[] = [];
+  for (const field of ordered) {
+    const host = definitionOf(field.fieldPath)?.companionOf;
+    if (host !== undefined && byPath.has(host)) {
+      companions.set(host, [...(companions.get(host) ?? []), field]);
+    } else {
+      placed.push(field);
+    }
+  }
+  return placed.map((field) =>
+    companions.has(field.fieldPath)
+      ? { ...field, companions: companions.get(field.fieldPath) ?? [] }
+      : field,
+  );
 }
 
 /** What deciding a file's sections, indicators and figures needs, however it was loaded. */
@@ -681,19 +872,11 @@ export function fileStandingOf(basis: FileBasis): FileStanding {
       ? checksFor(catalogue, kind ?? 'BUSINESS')
       : [];
 
+  // A fact true of this entity only inside another company (its shares there, its position
+  // there) belongs to that company's file, not to a section of this one.
   const fields: FileField[] = profile
-    .filter((field) => !isHiddenField(field.fieldPath))
-    .map((field) => ({
-      fieldPath: field.fieldPath,
-      labelAr: fieldLabelAr(field.fieldPath),
-      value: field.value,
-      valueLabelAr: valueLabelAr(field.fieldPath, field.value),
-      authority: field.authority,
-      observedAt: field.observedAt,
-      effectiveUntil: field.effectiveUntil,
-      freshness: field.freshness,
-      changed: changedPaths.has(field.fieldPath),
-    }));
+    .filter((field) => !isHiddenField(field.fieldPath) && !isRelationshipPath(field.fieldPath))
+    .map((field) => fileFieldOf(field, changedPaths));
 
   // Which sections this file has, in order. A customer of a known kind has its layout; a
   // related record opened on its own has the sections its facts fall in.
@@ -707,11 +890,9 @@ export function fileStandingOf(basis: FileBasis): FileStanding {
         ).map((section) => [section, 'OPTIONAL'] as const);
 
   // A freelancer's own particulars come from the certificate check, and read as the file's
-  // basic data rather than as part of the certificate.
+  // basic data rather than as part of the certificate, as a person's do on any file.
   const sectionOf = (field: FileField): ProfileSection | null =>
-    isFreelancer && field.fieldPath.startsWith('person.')
-      ? 'REGISTRY'
-      : SECTION_OF_GROUP[fieldGroup(field.fieldPath)];
+    SECTION_OF_GROUP[fieldGroup(field.fieldPath)];
 
   const drafts = layout.map(([section, requirement], index) => {
     const sectionChecks = offered.filter(
@@ -803,6 +984,8 @@ export function fileStandingOf(basis: FileBasis): FileStanding {
         : draft.observedAt;
     return {
       ...draft,
+      // Decided over every fact above; drawn in the catalogue's order with companions inside.
+      fields: arrangeFields(draft.fields),
       observedAt,
       state,
       issueAr,
@@ -883,17 +1066,32 @@ export async function getCustomerFile(
 
   // The people and accounts around this customer, and the other customers they lead to.
   const relations = await relationsOf(tx, entityId);
-  const managerIds = relations
-    .filter((row) => row.rel_type === 'MANAGES' && row.direction === 'out')
-    .map((row) => row.other);
-  const partnerRows = relations.filter((row) => row.rel_type === 'OWNS' && row.direction === 'out');
-  const accountIds = relations
-    .filter((row) => row.rel_type === 'HOLDS_ACCOUNT' && row.direction === 'out')
-    .map((row) => row.other);
+  const outgoing = (relType: string): RelationRow[] =>
+    relations.filter((row) => row.rel_type === relType && row.direction === 'out');
+  const managerIds = outgoing('MANAGES').map((row) => row.other);
+  const partnerRows = outgoing('OWNS');
+  const liquidatorRows = outgoing('LIQUIDATES');
+  const guardianRows = outgoing('REPRESENTS');
+  const mainRows = outgoing('BRANCH_OF');
+  const branchRows = relations.filter(
+    (row) => row.rel_type === 'BRANCH_OF' && row.direction === 'in',
+  );
+  const accountIds = outgoing('HOLDS_ACCOUNT').map((row) => row.other);
 
   const related = await profilesOf(tx, [
-    ...new Set([...managerIds, ...partnerRows.map((row) => row.other), ...accountIds]),
+    ...new Set([
+      ...managerIds,
+      ...partnerRows.map((row) => row.other),
+      ...liquidatorRows.map((row) => row.other),
+      ...guardianRows.map((row) => row.other),
+      ...accountIds,
+    ]),
   ]);
+  const factsOf = (id: string): Map<string, { value: unknown; observedAt: Date }> =>
+    related.get(id) ?? new Map<string, { value: unknown; observedAt: Date }>();
+  const textOf = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+  const booleanOf = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);
+
   const sharedManagers = await coLinked(tx, 'MANAGES', managerIds, entityId);
   const sharedPartners = await coLinked(
     tx,
@@ -902,27 +1100,39 @@ export async function getCustomerFile(
     entityId,
   );
   const sharedAccounts = await coLinked(tx, 'HOLDS_ACCOUNT', accountIds, entityId);
+  const linkedBusinesses = [...partnerRows, ...mainRows, ...branchRows].map((row) => row.other);
   const { rows: ownFileRows } =
-    partnerRows.length === 0
+    linkedBusinesses.length === 0
       ? { rows: [] as { entity_id: string }[] }
       : await tx.query<{ entity_id: string }>(
           `SELECT DISTINCT entity_id FROM verification_runs
            WHERE tenant_id = $1 AND entity_id = ANY($2::uuid[])`,
-          [tx.tenantId, partnerRows.map((row) => row.other)],
+          [tx.tenantId, linkedBusinesses],
         );
   const withOwnFile = new Set(ownFileRows.map((row) => row.entity_id));
 
+  const PERSON_IDS = ['NATIONAL_ID', 'IQAMA', 'PARTY_ID'] as const;
+  const BUSINESS_IDS = ['CR', 'UNN', 'PARTY_ID'] as const;
+
   const managers: ManagerView[] = [];
-  for (const row of relations.filter(
-    (relation) => relation.rel_type === 'MANAGES' && relation.direction === 'out',
-  )) {
-    const facts = related.get(row.other) ?? new Map<string, { value: unknown; observedAt: Date }>();
+  for (const row of outgoing('MANAGES')) {
+    const facts = factsOf(row.other);
     const permissions = facts.get(`manager.permissions.${entityId}`);
+    const identifier = await identifierOf(
+      tx,
+      keys,
+      row.other,
+      PERSON_IDS,
+      facts.get('party.identity_type')?.value,
+    );
     managers.push({
       entityId: row.other,
-      name: (facts.get('person.name')?.value as string | undefined) ?? row.name,
-      maskedId: await maskedPrimary(tx, keys, row.other, ['NATIONAL_ID', 'IQAMA']),
-      nationality: (facts.get('person.nationality')?.value as string | undefined) ?? null,
+      name: textOf(facts.get('person.name')?.value) ?? row.name,
+      identifier,
+      checkable: identifier?.idType === 'NATIONAL_ID' || identifier?.idType === 'IQAMA',
+      nationality: textOf(facts.get('person.nationality')?.value),
+      managerType: textOf(facts.get(`manager.type.${entityId}`)?.value),
+      licensed: booleanOf(facts.get(`manager.licensed.${entityId}`)?.value),
       positions: asStrings(facts.get(`manager.positions.${entityId}`)?.value),
       permissions: permissions ? asPermissions(permissions.value) : null,
       permissionsCheckedAt: permissions?.observedAt ?? null,
@@ -937,41 +1147,126 @@ export async function getCustomerFile(
     });
   }
 
-  const partners: PartnerView[] = [];
-  for (const row of partnerRows) {
-    const facts = related.get(row.other) ?? new Map<string, { value: unknown; observedAt: Date }>();
-    const isBusiness = row.entity_type === 'BUSINESS';
-    partners.push({
+  // The guardians this company names, by the partner each acts for.
+  const guardians = new Map<string, GuardianView>();
+  for (const row of guardianRows) {
+    const facts = factsOf(row.other);
+    const ward = textOf(facts.get(`guardian.ward.${entityId}`)?.value);
+    if (ward === null) {
+      continue;
+    }
+    guardians.set(ward, {
       entityId: row.other,
-      name: row.name,
-      kind: isBusiness ? 'BUSINESS' : 'PERSON',
-      maskedId: await maskedPrimary(
+      name: textOf(facts.get('person.name')?.value) ?? row.name,
+      identifier: await identifierOf(
         tx,
         keys,
         row.other,
-        isBusiness ? ['CR', 'UNN'] : ['NATIONAL_ID', 'IQAMA'],
+        PERSON_IDS,
+        facts.get('party.identity_type')?.value,
+      ),
+      isFather: booleanOf(facts.get(`guardian.is_father.${entityId}`)?.value),
+    });
+  }
+
+  const partners: PartnerView[] = [];
+  for (const row of partnerRows) {
+    const facts = factsOf(row.other);
+    const isBusiness = row.entity_type === 'BUSINESS';
+    const name = row.name;
+    const guardianName = textOf(facts.get(`partner.guardian.${entityId}`)?.value);
+    partners.push({
+      entityId: row.other,
+      name,
+      kind: isBusiness ? 'BUSINESS' : 'PERSON',
+      identifier: await identifierOf(
+        tx,
+        keys,
+        row.other,
+        isBusiness ? BUSINESS_IDS : PERSON_IDS,
+        facts.get('party.identity_type')?.value,
+      ),
+      partyType: textOf(facts.get(`partner.type.${entityId}`)?.value),
+      nationality: textOf(
+        facts.get(isBusiness ? 'party.nationality' : 'person.nationality')?.value,
       ),
       roles: asStrings(facts.get(`partner.roles.${entityId}`)?.value),
       shares: numberOrNull(facts.get(`partner.shares.${entityId}`)?.value),
+      cashShares: numberOrNull(facts.get(`partner.cash_shares.${entityId}`)?.value),
+      inKindShares: numberOrNull(facts.get(`partner.in_kind_shares.${entityId}`)?.value),
       profitPct: numberOrNull(facts.get(`partner.profit_pct.${entityId}`)?.value),
+      lossPct: numberOrNull(facts.get(`partner.loss_pct.${entityId}`)?.value),
+      licenseNumber: textOf(facts.get(`partner.license_number.${entityId}`)?.value),
+      guardian:
+        (name !== null ? guardians.get(name) : undefined) ??
+        (guardianName === null
+          ? null
+          : { entityId: '', name: guardianName, identifier: null, isFather: null }),
       alsoOwns: sharedPartners.get(row.other) ?? [],
       hasOwnFile: withOwnFile.has(row.other),
     });
   }
 
+  const liquidators: LiquidatorView[] = [];
+  for (const row of liquidatorRows) {
+    const facts = factsOf(row.other);
+    const isBusiness = row.entity_type === 'BUSINESS';
+    liquidators.push({
+      entityId: row.other,
+      name: row.name,
+      kind: isBusiness ? 'BUSINESS' : 'PERSON',
+      identifier: await identifierOf(
+        tx,
+        keys,
+        row.other,
+        isBusiness ? BUSINESS_IDS : PERSON_IDS,
+        facts.get('party.identity_type')?.value,
+      ),
+      nationality: textOf(
+        facts.get(isBusiness ? 'party.nationality' : 'person.nationality')?.value,
+      ),
+      liquidatorType: textOf(facts.get(`liquidator.type.${entityId}`)?.value),
+      positions: asStrings(facts.get(`liquidator.positions.${entityId}`)?.value),
+    });
+  }
+
+  const registryLink = async (row: RelationRow): Promise<RegistryLinkView> => ({
+    entityId: row.other,
+    name: row.name,
+    identifier: await identifierOf(tx, keys, row.other, ['CR', 'UNN']),
+    hasOwnFile: withOwnFile.has(row.other),
+  });
+  const mainRow = mainRows[0];
+  const mainRegistry = mainRow === undefined ? null : await registryLink(mainRow);
+  const branches: RegistryLinkView[] = [];
+  for (const row of branchRows) {
+    branches.push(await registryLink(row));
+  }
+
   const accounts: AccountView[] = [];
   for (const accountId of accountIds) {
-    const facts = related.get(accountId) ?? new Map<string, { value: unknown; observedAt: Date }>();
+    const facts = factsOf(accountId);
     const ownership = facts.get(`account.ownership.${entityId}`);
+    const iban = await identifierOf(tx, keys, accountId, ['IBAN']);
     accounts.push({
       entityId: accountId,
-      maskedIban: await maskedPrimary(tx, keys, accountId, ['IBAN']),
-      bank: (facts.get('account.bank')?.value as string | undefined) ?? null,
-      ownership: typeof ownership?.value === 'string' ? ownership.value : null,
+      maskedIban: iban?.display ?? null,
+      bank: textOf(facts.get('account.bank')?.value),
+      ownership: textOf(ownership?.value),
+      status: textOf(facts.get('account.status')?.value),
+      holderName: textOf(facts.get('account.holder_name')?.value),
+      swiftCode: textOf(facts.get('account.swift_code')?.value),
+      bankCode: textOf(facts.get('account.bank_code')?.value),
+      method: textOf(facts.get('account.verification_method')?.value),
+      matchScore: numberOrNull(facts.get(`account.match_score.${entityId}`)?.value),
       checkedAt: ownership?.observedAt ?? null,
       sharedWith: sharedAccounts.get(accountId) ?? [],
     });
   }
+  // The account checked last comes first: it is the one the bank facts above describe.
+  accounts.sort(
+    (left, right) => (right.checkedAt?.getTime() ?? 0) - (left.checkedAt?.getTime() ?? 0),
+  );
 
   // An address is not a relation: it is the same fact recorded on two files.
   const addressKey = profile.find((field) => field.fieldPath === 'address.national.key')?.value;
@@ -1067,6 +1362,7 @@ export async function getCustomerFile(
     });
   }
 
+  const checkableManagers = managers.filter((manager) => manager.checkable);
   const settings = await getPlatformSettings(tx);
   const layouts = layoutsOf(await listSectionRequirements(tx));
   const standing = fileStandingOf({
@@ -1076,7 +1372,9 @@ export async function getCustomerFile(
     profile,
     changedPaths,
     lastRuns,
-    managers: managers.map((manager) => ({
+    // Only a manager whose powers can be asked about counts towards the section: one named by
+    // a passport or a Gulf ID is listed, and never waits for a check that cannot run.
+    managers: checkableManagers.map((manager) => ({
       name: manager.name,
       hasPermissions: manager.permissions !== null,
       otherCompanies: manager.alsoManages.length,
@@ -1151,10 +1449,21 @@ export async function getCustomerFile(
     })),
     primaryIdentifier: primaryIdentifierOf(identifiers),
     status,
-    sections,
+    sections: sections.map((section) => {
+      const named = sectionIdentifiersOf(
+        section.section,
+        entity.entityType,
+        identifiers,
+        facts.get('party.identity_type')?.value,
+      );
+      return named.length === 0 ? section : { ...section, identifiers: named };
+    }),
     managers,
     partners,
+    liquidators,
     accounts,
+    mainRegistry,
+    branches,
     assessment,
     intersections,
     lastVerifiedAt,
@@ -1175,8 +1484,8 @@ export async function getCustomerFile(
         }
       : {
           verified: managersChecked,
-          total: managers.length,
-          lineAr: managersLine(managers.length, managersChecked),
+          total: checkableManagers.length,
+          lineAr: managersLine(checkableManagers.length, managersChecked),
         },
     openChanges: changedPaths.size,
     checks: standing.offered,

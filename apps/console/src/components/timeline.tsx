@@ -54,7 +54,7 @@ export function Timeline({ entries }: { entries: TimelineEntryView[] }): ReactEl
               </bdi>
             </td>
             <td>{fieldLabel(entry.fieldPath)}</td>
-            <td>{formatValue(entry.value).text}</td>
+            <td>{formatValue(entry.value, entry.fieldPath).text}</td>
             <td>{entry.authority}</td>
             <td className="muted">{TRIGGER_LABELS[entry.triggeredBy]}</td>
           </tr>

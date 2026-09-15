@@ -19,6 +19,7 @@ import {
   type TestDatabase,
 } from '../../../test/helpers/db.js';
 import { preparePricedTenant, providerFixture } from '../../../test/helpers/billing.js';
+import { scanForPlaintext } from '../../../test/helpers/plaintext-scan.js';
 import {
   SANDBOX_FREELANCER,
   SANDBOX_IBAN,
@@ -144,13 +145,131 @@ describe('the customer file', () => {
     );
   });
 
-  it('lists the managers with their masked ID, positions and powers in this company', async () => {
+  it('lists the managers with their ID in full, positions, type, licence and powers', async () => {
     const file = await fileOf(tenant.tenantId, companyId);
     expect(file?.managers.length).toBeGreaterThan(0);
     const checked = file?.managers.find((manager) => manager.permissions !== null);
     expect(checked?.permissions?.length).toBeGreaterThan(0);
-    expect(checked?.maskedId).toMatch(/•/);
-    expect(JSON.stringify(file)).not.toContain('1234567890');
+    // The owner's decision (ADR-128): a person's identity number in full on the file.
+    expect(checked?.identifier).toEqual({
+      idType: 'NATIONAL_ID',
+      labelAr: 'هوية',
+      display: '1234567890',
+    });
+    expect(checked?.checkable).toBe(true);
+    expect(checked?.managerType).toBe('سعودي');
+    expect(checked?.licensed).toBe(true);
+    expect(checked?.nationality).toBe('سعودي');
+    // An IBAN stays masked.
+    expect(file?.accounts[0]?.maskedIban).toMatch(/^•+1309$/);
+  });
+
+  it('names its registration numbers in full at the head of its basic data', async () => {
+    const file = await fileOf(tenant.tenantId, companyId);
+    const registry = file?.sections.find((section) => section.section === 'REGISTRY');
+    expect(registry?.identifiers).toEqual([
+      { idType: 'CR', labelAr: 'رقم السجل التجاري', display: '1010711252' },
+      { idType: 'UNN', labelAr: 'الرقم الوطني الموحد', display: SANDBOX_UNN.ACTIVE },
+    ]);
+  });
+
+  it('reads everything the registry returned, in parts, each Hijri date inside its day', async () => {
+    const file = await fileOf(tenant.tenantId, companyId);
+    const registry = file?.sections.find((section) => section.section === 'REGISTRY');
+    const fields = new Map(registry?.fields.map((field) => [field.fieldPath, field]));
+    // A companion is drawn inside its fact, never as a line of its own.
+    expect(fields.has('cr.issue_date_hijri')).toBe(false);
+    expect(fields.get('cr.issue_date')?.companions?.map((field) => field.value)).toEqual([
+      '1423-07-28',
+    ]);
+    expect(fields.get('cr.activities')?.companions?.[0]?.value).toEqual(['162910', '477340']);
+    expect(fields.get('cr.fiscal_year_end')?.companions?.[0]?.value).toBe('ميلادي');
+    for (const path of [
+      'cr.version_number',
+      'cr.name_language',
+      'cr.entity_characters',
+      'cr.license_issuer_number',
+      'cr.capital_currency',
+      'cr.share_value',
+      'cr.stocks',
+      'cr.e_stores',
+      'cr.contact.phone',
+      'cr.contact.email',
+      'cr.fiscal_year.is_first',
+    ]) {
+      expect(fields.has(path), path).toBe(true);
+    }
+    expect(fields.get('cr.stocks')?.format).toBe('records');
+    expect(fields.get('cr.stocks')?.columns?.map((column) => column.key)).toEqual([
+      'class_name',
+      'type',
+      'count',
+      'value',
+    ]);
+    // In the catalogue's order, part after part.
+    const parts = [...new Set(registry?.fields.map((field) => field.part))];
+    expect(parts).toEqual([
+      'registration',
+      'dates',
+      'capital',
+      'activity',
+      'contact',
+      'fiscal',
+      'liquidation',
+    ]);
+
+    const managers = file?.sections.find((section) => section.section === 'MANAGERS');
+    const boards = managers?.fields.map((field) => field.fieldPath) ?? [];
+    expect(boards).toEqual(
+      expect.arrayContaining([
+        'governance.structure',
+        'governance.dismissal_method',
+        'governance.management_board.quorum',
+        'governance.directors_board.member_count',
+        'governance.directors_board.reward_max',
+      ]),
+    );
+
+    const contract = file?.sections.find((section) => section.section === 'CONTRACT');
+    const articles = contract?.fields.find((field) => field.fieldPath === 'contract.articles');
+    expect(articles?.format).toBe('articles');
+    expect(articles?.value).toHaveLength(2);
+    expect(contract?.fields.map((field) => field.fieldPath)).toEqual(
+      expect.arrayContaining([
+        'contract.set_aside_purpose',
+        'contract.notification_channels',
+        'contract.additional_decision_text',
+        'contract.directors_board.call_mechanism',
+      ]),
+    );
+
+    const address = file?.sections.find((section) => section.section === 'ADDRESS');
+    const others = address?.fields.find((field) => field.fieldPath === 'address.national.others');
+    expect(others?.value).toEqual([expect.objectContaining({ building_number: '3120' })]);
+    expect(
+      address?.fields.find((field) => field.fieldPath === 'address.national.latitude')?.companions,
+    ).toEqual([expect.objectContaining({ fieldPath: 'address.national.longitude' })]);
+  });
+
+  it('keeps the partners with everything the registry says of them in this company', async () => {
+    const file = await fileOf(tenant.tenantId, companyId);
+    const person = file?.partners.find((partner) => partner.kind === 'PERSON');
+    expect(person).toMatchObject({
+      identifier: { idType: 'NATIONAL_ID', display: '1234567890' },
+      partyType: 'جمعية خيرية/ مؤسسة أهلية',
+      roles: ['عضو'],
+      shares: 500,
+      cashShares: 250,
+      inKindShares: 250,
+    });
+    // The endowment the articles name, under the authority's own word for its document.
+    const endowment = file?.partners.find((partner) => partner.name === 'وقف');
+    expect(endowment).toMatchObject({
+      kind: 'BUSINESS',
+      identifier: { idType: 'PARTY_ID', labelAr: 'رقم صك الوقف', display: '7111111111' },
+      profitPct: 0,
+      lossPct: 0,
+    });
   });
 
   it('explains its KYB indicators and rates a clean, checked company as low risk', async () => {
@@ -351,6 +470,47 @@ describe('the customer file', () => {
     expect(file?.sectionsRequired).toBe(3);
   });
 
+  it('lists the liquidators of a company in liquidation, and none for an active one', async () => {
+    const id = await entityFor('BUSINESS', { unn: SANDBOX_UNN.IN_LIQUIDATION }, ['CR_FULL']);
+    const file = await fileOf(tenant.tenantId, id);
+    expect(file?.liquidators).toEqual([
+      expect.objectContaining({
+        name: 'عبدالله سالم هليل الشمري',
+        kind: 'PERSON',
+        identifier: { idType: 'IQAMA', labelAr: 'إقامة', display: '2345678901' },
+        liquidatorType: 'فرد سعودي',
+        positions: ['عضو'],
+      }),
+    ]);
+    expect((await fileOf(tenant.tenantId, companyId))?.liquidators).toEqual([]);
+
+    // Shown in full, and still never stored in the clear (rule 4): the liquidator's residence ID
+    // and the endowment's deed number exist only as a keyed hash and a ciphertext.
+    for (const value of ['2345678901', '7111111111']) {
+      const hits = await withTenant(db.migratorPool, tenant.tenantId, (tx) =>
+        scanForPlaintext(tx, value),
+      );
+      expect(hits, value).toEqual([]);
+    }
+  });
+
+  it('keeps what somebody is in another company out of the sections of their own file', async () => {
+    const file = await fileOf(tenant.tenantId, companyId);
+    const manager = file?.managers.find((entry) => entry.permissions !== null);
+    const person = await fileOf(tenant.tenantId, manager?.entityId ?? '');
+    const paths = person?.sections.flatMap((section) =>
+      section.fields.map((field) => field.fieldPath),
+    );
+    expect(paths).toContain('person.name');
+    expect(paths?.some((path) => /\.[0-9a-f-]{36}$/.test(path))).toBe(false);
+    // Their own particulars read as basic data, with their number in full.
+    expect(person?.sections.map((section) => section.section)).toEqual(['REGISTRY']);
+    expect(person?.sections[0]?.identifiers).toEqual([
+      { idType: 'NATIONAL_ID', labelAr: 'رقم الهوية الوطنية', display: '1234567890' },
+    ]);
+    expect(person?.primaryIdentifier?.display).toBe('1234567890');
+  });
+
   it('reads the particulars of a freelancer as basic data, and says the address cannot be verified', async () => {
     const id = await entityFor(
       'FREELANCER',
@@ -369,6 +529,23 @@ describe('the customer file', () => {
     ).toBe(false);
     // Both are filled by the certificate check, so both offer it.
     expect(basic?.checks.map((check) => check.productCode)).toContain('FREELANCE_CERTIFICATE');
+    // The identity number and the certificate number, in full, where each belongs.
+    expect(basic?.identifiers).toEqual([
+      {
+        idType: 'NATIONAL_ID',
+        labelAr: 'رقم الهوية الوطنية',
+        display: SANDBOX_FREELANCER.NATIONAL_ID,
+      },
+    ]);
+    expect(sections.get('FREELANCE')?.identifiers).toEqual([
+      {
+        idType: 'FREELANCE_DOC',
+        labelAr: 'رقم وثيقة العمل الحر',
+        display: SANDBOX_FREELANCER.ACTIVE,
+      },
+    ]);
+    const name = basic?.fields.find((field) => field.fieldPath === 'person.name');
+    expect(name?.companions?.map((field) => field.value)).toEqual(['adel']);
 
     const address = sections.get('ADDRESS');
     expect(address?.requirement).toBe('NOT_APPLICABLE');

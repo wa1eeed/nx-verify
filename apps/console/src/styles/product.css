@@ -1615,6 +1615,130 @@ a.frame-brand:active {
   color: var(--color-neutral-700);
 }
 
+/*
+ * Every field an answer carries (the owner's ask): a long section reads in parts under small
+ * headings, a fact's companions (its Hijri date, its code, its English name) sit quietly under
+ * it, and lists of records and the articles of association read as tables and folded parts.
+ */
+.file-parts {
+  display: grid;
+  gap: var(--space-4);
+}
+.file-part {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+.file-part + .file-part {
+  padding-block-start: var(--space-4);
+  border-block-start: var(--size-hairline) solid var(--color-hairline);
+}
+.file-part-title {
+  margin: 0;
+  font-size: var(--text-caption);
+  font-weight: 700;
+  color: var(--color-green-800);
+}
+.file-field-aside {
+  display: block;
+  margin-block-start: var(--gap-hairline);
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.file-identifier-label {
+  font-size: var(--text-small);
+  color: var(--color-neutral-600);
+}
+.file-cell-line {
+  display: block;
+}
+.file-link {
+  color: var(--color-accent-700);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+  transition-property: color;
+  transition-duration: var(--duration-color);
+}
+.file-link:hover {
+  color: var(--color-accent);
+}
+.file-link:active {
+  color: var(--color-accent-800);
+}
+.file-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.file-records {
+  min-inline-size: 0;
+}
+/* A table inside a fact keeps its words whole; a wide one scrolls in its own container. */
+.file-records .table th,
+.file-records .table td {
+  overflow-wrap: normal;
+}
+.file-record-cards {
+  display: grid;
+  gap: var(--space-2);
+}
+.file-record-card {
+  padding: var(--space-3);
+  border: var(--size-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-inset);
+  background: var(--color-inset);
+}
+.file-registry-links {
+  margin-block-start: var(--space-2);
+}
+.file-articles {
+  display: grid;
+  gap: var(--space-2);
+}
+.file-articles-part {
+  border: var(--size-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-inset);
+  background: var(--color-inset);
+  padding: var(--space-2) var(--space-3);
+}
+.file-articles-part summary {
+  cursor: pointer;
+  font-size: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  transition-property: color;
+  transition-duration: var(--duration-color);
+}
+.file-articles-part summary:hover {
+  color: var(--color-accent-700);
+}
+.file-articles-part summary:active {
+  color: var(--color-accent-800);
+}
+.file-articles-part summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.file-articles-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding-inline-start: var(--space-5);
+  font-size: var(--text-body-sm);
+  color: var(--color-neutral-700);
+}
+.file-articles-title {
+  display: block;
+  color: var(--color-text);
+}
+.file-people .table {
+  min-inline-size: var(--layout-people-table);
+}
+.file-other-accounts {
+  display: grid;
+  gap: var(--space-2);
+  margin-block-start: var(--space-4);
+}
+
 .card-line {
   margin: 0;
   font-size: var(--text-body-sm);

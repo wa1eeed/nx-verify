@@ -84,7 +84,10 @@ function fileWith(sections: FileSection[]): CustomerFile {
     sections,
     managers: [],
     partners: [],
+    liquidators: [],
     accounts: [],
+    mainRegistry: null,
+    branches: [],
     assessment: {
       mode: 'KYB',
       items: [
@@ -328,5 +331,354 @@ describe('the customer file of screen 03', () => {
     expect(withHistory).toContain('يدوي من الكونسول');
     expect(withHistory).toContain('<summary>عمليات أقدم (2)</summary>');
     expect(withHistory).toContain('إنشاء الملف');
+  });
+});
+
+describe("every field an answer carries, on the file (the owner's ask)", () => {
+  const OBSERVED_AT = OBSERVED;
+  const dated = (
+    overrides: Partial<FileField> & Pick<FileField, 'fieldPath' | 'labelAr' | 'value'>,
+  ): FileField => ({
+    ...field(overrides.fieldPath, overrides.labelAr, overrides.value, 'وزارة التجارة'),
+    observedAt: OBSERVED_AT,
+    ...overrides,
+  });
+
+  const registry = section({
+    section: 'REGISTRY',
+    number: 1,
+    titleAr: 'البيانات الأساسية',
+    checks: [CR],
+    state: 'VERIFIED',
+    observedAt: OBSERVED,
+    authority: 'وزارة التجارة',
+    done: true,
+    identifiers: [
+      { idType: 'CR', labelAr: 'رقم السجل التجاري', display: '1010234567' },
+      { idType: 'UNN', labelAr: 'الرقم الوطني الموحد', display: '7001234567' },
+    ],
+    fields: [
+      dated({
+        fieldPath: 'cr.core.name',
+        labelAr: 'اسم المنشأة',
+        value: 'شركة أفق المدى للتقنية',
+        part: 'registration',
+      }),
+      dated({
+        fieldPath: 'cr.issue_date',
+        labelAr: 'تاريخ إصدار السجل',
+        value: '2002-10-05',
+        part: 'dates',
+        format: 'date',
+        companions: [
+          dated({
+            fieldPath: 'cr.issue_date_hijri',
+            labelAr: 'تاريخ إصدار السجل (هجري)',
+            value: '1423-07-28',
+            part: 'dates',
+            format: 'hijri',
+          }),
+        ],
+      }),
+      dated({
+        fieldPath: 'cr.core.capital',
+        labelAr: 'رأس المال',
+        value: 150000,
+        part: 'capital',
+        format: 'money',
+      }),
+      dated({
+        fieldPath: 'cr.stocks',
+        labelAr: 'فئات الأسهم',
+        value: [{ class_name: 'عادية', count: 11, value: 12 }],
+        part: 'capital',
+        format: 'records',
+        columns: [
+          { key: 'class_name', labelAr: 'الفئة' },
+          { key: 'type', labelAr: 'النوع' },
+          { key: 'count', labelAr: 'عدد الأسهم', format: 'code' },
+          { key: 'value', labelAr: 'القيمة الاسمية', format: 'money' },
+        ],
+      }),
+      dated({
+        fieldPath: 'cr.contact.email',
+        labelAr: 'البريد الإلكتروني',
+        value: 'info@example.sa',
+        part: 'contact',
+        format: 'email',
+      }),
+      dated({
+        fieldPath: 'cr.website',
+        labelAr: 'الموقع الإلكتروني',
+        value: 'www.example.sa',
+        part: 'contact',
+        format: 'url',
+      }),
+      dated({
+        fieldPath: 'cr.fiscal_year_end',
+        labelAr: 'نهاية السنة المالية',
+        value: '12-30',
+        part: 'fiscal',
+        format: 'month_day',
+        companions: [
+          dated({
+            fieldPath: 'cr.fiscal_year.calendar',
+            labelAr: 'تقويم السنة المالية',
+            value: 'هجري',
+            part: 'fiscal',
+          }),
+        ],
+      }),
+      dated({
+        fieldPath: 'cr.in_liquidation',
+        labelAr: 'تحت التصفية',
+        value: true,
+        valueLabelAr: 'نعم',
+        part: 'liquidation',
+      }),
+    ],
+  });
+  const contract = section({
+    section: 'CONTRACT',
+    number: 2,
+    titleAr: 'عقد التأسيس والملكية',
+    state: 'VERIFIED',
+    observedAt: OBSERVED,
+    authority: 'وزارة التجارة',
+    done: true,
+    fields: [
+      dated({
+        fieldPath: 'contract.copy_number',
+        labelAr: 'رقم نسخة العقد',
+        value: 1,
+        part: 'contract',
+        format: 'code',
+      }),
+      dated({
+        fieldPath: 'contract.articles',
+        labelAr: 'نصوص مواد العقد',
+        value: [
+          { part: 'الباب الأول', text: 'تعمل الشركة وفقاً لنظام التجارة السعودي' },
+          {
+            part: 'الباب الثاني',
+            title: 'شرط عدم المنافسة',
+            text: 'لا يجوز للشركاء ممارسة أعمال منافسة',
+          },
+        ],
+        part: 'articles',
+        format: 'articles',
+      }),
+    ],
+  });
+  const address = section({
+    section: 'ADDRESS',
+    number: 3,
+    titleAr: 'العنوان الوطني',
+    state: 'VERIFIED',
+    observedAt: OBSERVED,
+    authority: 'العنوان الوطني',
+    done: true,
+    fields: [
+      {
+        ...field('address.national.latitude', 'الموقع على الخريطة', 24.75014397, 'العنوان الوطني'),
+        part: 'address',
+        format: 'coordinates',
+        companions: [
+          field('address.national.longitude', 'خط الطول', 46.72224397, 'العنوان الوطني'),
+        ],
+      },
+      {
+        ...field(
+          'address.national.others',
+          'العناوين الأخرى المسجلة',
+          [
+            {
+              title: 'فرع',
+              line1: '3120 طريق',
+              line2: 'الرياض',
+              building_number: '3120',
+              additional_number: '7811',
+              status: 'نشط',
+            },
+          ],
+          'العنوان الوطني',
+        ),
+        part: 'other_addresses',
+        format: 'records',
+        columns: [
+          { key: 'title', labelAr: 'الاسم' },
+          { key: 'line1', labelAr: 'العنوان' },
+          { key: 'line2', labelAr: 'تتمة العنوان' },
+          { key: 'building_number', labelAr: 'المبنى', format: 'code' },
+          { key: 'additional_number', labelAr: 'الرقم الإضافي', format: 'code' },
+          { key: 'status', labelAr: 'الحالة' },
+        ],
+      },
+    ],
+  });
+
+  const file: CustomerFile = {
+    ...fileWith([
+      registry,
+      contract,
+      section({
+        section: 'MANAGERS',
+        number: 3,
+        titleAr: 'المدراء المفوضون',
+        state: 'PARTIAL',
+        issueAr: '1 من 1',
+      }),
+      address,
+    ]),
+    managers: [
+      {
+        entityId: '11111111-2222-4333-8444-555555555555',
+        name: 'محمد أحمد علي',
+        identifier: { idType: 'IQAMA', labelAr: 'إقامة', display: '2123456789' },
+        checkable: true,
+        nationality: 'مصري',
+        managerType: 'مقيم',
+        licensed: true,
+        positions: ['مدير تنفيذي'],
+        permissions: [
+          {
+            name: 'توقيع العقود',
+            method: 'مجتمعين',
+            canIssuePoa: false,
+            canDelegate: true,
+            condition: null,
+          },
+        ],
+        permissionsCheckedAt: OBSERVED,
+        observedAt: OBSERVED,
+        alsoManages: [],
+        isCustomer: false,
+      },
+      {
+        entityId: '11111111-2222-4333-8444-666666666666',
+        name: 'John Smith',
+        identifier: { idType: 'PARTY_ID', labelAr: 'جواز سفر', display: 'A1234567' },
+        checkable: false,
+        nationality: 'بريطاني',
+        managerType: null,
+        licensed: null,
+        positions: ['عضو'],
+        permissions: null,
+        permissionsCheckedAt: null,
+        observedAt: OBSERVED,
+        alsoManages: [],
+        isCustomer: false,
+      },
+    ],
+    partners: [
+      {
+        entityId: '22222222-2222-4333-8444-555555555555',
+        name: 'وقف',
+        kind: 'BUSINESS',
+        identifier: { idType: 'PARTY_ID', labelAr: 'رقم صك الوقف', display: '7111111111' },
+        partyType: 'وقف',
+        nationality: null,
+        roles: ['مؤسس'],
+        shares: 500,
+        cashShares: 250,
+        inKindShares: 250,
+        profitPct: 40,
+        lossPct: 40,
+        licenseNumber: null,
+        guardian: null,
+        alsoOwns: [],
+        hasOwnFile: false,
+      },
+    ],
+    liquidators: [
+      {
+        entityId: '33333333-2222-4333-8444-555555555555',
+        name: 'عبدالله سالم هليل الشمري',
+        kind: 'PERSON',
+        identifier: { idType: 'IQAMA', labelAr: 'إقامة', display: '2345678901' },
+        nationality: 'سعودي',
+        liquidatorType: 'فرد سعودي',
+        positions: ['عضو'],
+      },
+    ],
+  };
+  const html = render(file);
+  const part = (name: string): string =>
+    new RegExp(`data-part="${name}"[\\s\\S]*?(?=data-part="|</section>)`).exec(html)?.[0] ?? '';
+
+  it('reads a long section in parts under headings, its numbers in full leading the first', () => {
+    expect(html).toContain('<h3 class="file-part-title">بيانات السجل</h3>');
+    expect(html).toContain('<h3 class="file-part-title">التواريخ</h3>');
+    expect(html).toContain('<h3 class="file-part-title">رأس المال</h3>');
+    const registration = part('registration');
+    expect(registration).toContain('data-identifier="CR"');
+    expect(registration).toContain('<dt>رقم السجل التجاري</dt>');
+    expect(registration).toContain('<bdi dir="ltr" class="ltr">1010234567</bdi>');
+    expect(registration).toContain('<bdi dir="ltr" class="ltr">7001234567</bdi>');
+  });
+
+  it('reads a date with its Hijri day under it, riyals in words, and the fiscal year by its months', () => {
+    expect(html).toContain('الموافق <bdi dir="ltr" class="ltr">1423-07-28</bdi> هـ');
+    expect(html).toContain('<bdi dir="ltr" class="ltr">150,000</bdi> ريال');
+    expect(html).toContain('<bdi dir="ltr" class="ltr">30</bdi> ذو الحجة · هجري');
+  });
+
+  it('opens a web address and an email as links, never as anything that runs', () => {
+    expect(html).toContain(
+      'href="https://www.example.sa" target="_blank" rel="noopener noreferrer"',
+    );
+    expect(html).toContain('href="mailto:info@example.sa"');
+  });
+
+  it('draws a short list of records as a table without the columns nobody filled', () => {
+    const capital = part('capital');
+    expect(capital).toContain('<th scope="col">الفئة</th>');
+    expect(capital).not.toContain('<th scope="col">النوع</th>');
+    expect(capital).toContain('<bdi dir="ltr" class="ltr">12</bdi> ريال');
+  });
+
+  it('draws a wide list of records as cards, one address at a time', () => {
+    const others = part('other_addresses');
+    expect(others).toContain('class="file-records file-record-cards"');
+    expect(others).toContain('<dt>الرقم الإضافي</dt>');
+    expect(others).not.toContain('<table');
+  });
+
+  it('folds the articles of association by their part, each with its count', () => {
+    expect(html).toContain('<summary>الباب الأول · مادة واحدة</summary>');
+    expect(html).toContain('<strong class="file-articles-title">شرط عدم المنافسة</strong>');
+  });
+
+  it('places coordinates on a map', () => {
+    expect(html).toContain('<bdi dir="ltr" class="ltr">24.75014397, 46.72224397</bdi>');
+    expect(html).toContain('href="https://www.google.com/maps?q=24.75014397%2C46.72224397"');
+  });
+
+  it('lists the liquidators with their identity in full', () => {
+    const liquidation = part('liquidation');
+    expect(liquidation).toContain('data-role="liquidator"');
+    expect(liquidation).toContain('<bdi dir="ltr" class="ltr">2345678901</bdi>');
+    expect(liquidation).toContain('فرد سعودي');
+  });
+
+  it('shows every manager with nationality, type, licence and the full powers', () => {
+    expect(html).toContain('مصري · مقيم');
+    expect(html).toContain('مدير مرخّص');
+    expect(html).toContain(
+      '<strong>توقيع العقود</strong> · مجتمعين · يصدر توكيلاً: لا · يفوّض غيره: نعم',
+    );
+    // A manager named by a passport is listed, and never waits for a check that cannot run.
+    expect(html).toContain('جواز سفر</span> <bdi dir="ltr" class="ltr">A1234567</bdi>');
+    expect(html).toContain('لا يتوفر تحقق لهذه الهوية');
+  });
+
+  it('shows a partner with its document, role, both kinds of shares, and profits and losses', () => {
+    expect(html).toContain('رقم صك الوقف</span> <bdi dir="ltr" class="ltr">7111111111</bdi>');
+    expect(html).toContain('الصفة: مؤسس');
+    expect(html).toContain(
+      'نقدية <bdi dir="ltr" class="ltr">250</bdi> · عينية <bdi dir="ltr" class="ltr">250</bdi>',
+    );
+    expect(html).toContain('الأرباح <bdi dir="ltr" class="ltr">40%</bdi>');
+    expect(html).toContain('الخسائر <bdi dir="ltr" class="ltr">40%</bdi>');
   });
 });

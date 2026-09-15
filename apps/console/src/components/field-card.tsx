@@ -1,4 +1,4 @@
-import { fieldLabelAr } from '@nx-verify/core';
+import { fieldLabelAr, valueWordsAr } from '@nx-verify/core';
 import type { ReactElement } from 'react';
 import { FreshnessBadge, type FreshnessState } from './freshness';
 import { Identifier } from './identifier';
@@ -51,7 +51,14 @@ export function fieldLabel(fieldPath: string): string {
   return fieldLabelAr(fieldPath);
 }
 
-export function formatValue(value: unknown): { text: string; numeric: boolean } {
+/**
+ * A value as one line of text. With the field it belongs to, a coded value reads in the
+ * authority's words and a list of records reads as records rather than as raw JSON.
+ */
+export function formatValue(
+  value: unknown,
+  fieldPath?: string,
+): { text: string; numeric: boolean } {
   if (value === null || value === undefined) {
     return { text: 'غير متوفر', numeric: false };
   }
@@ -64,7 +71,10 @@ export function formatValue(value: unknown): { text: string; numeric: boolean } 
   if (typeof value === 'string') {
     return { text: value, numeric: /^[\w\-+.:/]+$/.test(value) };
   }
-  return { text: JSON.stringify(value), numeric: false };
+  return {
+    text: fieldPath === undefined ? JSON.stringify(value) : valueWordsAr(fieldPath, value),
+    numeric: false,
+  };
 }
 
 /**
@@ -81,7 +91,7 @@ export function daysUntil(date: Date | null, now = new Date()): number | null {
 }
 
 export function FieldCard({ field, now }: { field: ProfileFieldView; now?: Date }): ReactElement {
-  const formatted = formatValue(field.value);
+  const formatted = formatValue(field.value, field.fieldPath);
   const remaining = daysUntil(field.effectiveUntil, now);
 
   return (
@@ -140,7 +150,7 @@ export function FieldCard({ field, now }: { field: ProfileFieldView; now?: Date 
           </summary>
           <ul className="stack" style={{ gap: 'var(--s-2)', margin: 0, paddingInlineStart: 0 }}>
             {field.history.map((entry, index) => {
-              const previous = formatValue(entry.value);
+              const previous = formatValue(entry.value, field.fieldPath);
               return (
                 <li
                   key={`${entry.observedAt.toISOString()}-${index}`}
