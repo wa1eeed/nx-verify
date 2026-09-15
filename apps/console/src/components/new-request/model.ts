@@ -64,9 +64,9 @@ export interface LookupData {
   entityId: string | null;
   displayName: string | null;
   /** The file's own number, masked, shown in the empty number field of a known customer. */
-  identifierMasked: string | null;
+  identifier: string | null;
   kind: CustomerKind | null;
-  accountMasked: string | null;
+  account: string | null;
   managers: number;
   hasCertificate: boolean;
   standings: StandingData[];
@@ -94,10 +94,10 @@ export interface DraftData {
   entityId: string | null;
   label: string;
   /** The number the draft was saved for, masked. Null when it was saved for a file. */
-  subjectMasked: string | null;
+  subject: string | null;
   productCodes: string[];
   createdAt: string;
-  ibanMasked: string | null;
+  iban: string | null;
   hasCertificate: boolean;
 }
 

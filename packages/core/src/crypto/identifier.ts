@@ -120,26 +120,25 @@ export async function protectIdentifier(
 }
 
 /**
- * The identifiers the signed in console masks: an IBAN, and nothing else.
+ * What the signed in console shows of an identifier: every one in full.
  *
  * A business's registry numbers are published records (ADR-127). A person's identity number,
- * a freelance certificate and the document of any other party are shown in full to the
- * subscriber whose customer they belong to, on the owner's decision (ADR-128): a compliance
- * officer who cannot read the number cannot match it to the document in front of them. They are
- * stored exactly as every identifier is, hashed for search and encrypted, and they stay out of
- * logs, errors, the public API and a file shared by link (rule 4).
+ * a freelance certificate and the document of any other party (ADR-128), and an IBAN (ADR-130),
+ * are shown in full to the subscriber whose customer they belong to, on the owner's decision: a
+ * compliance officer who cannot read the number cannot match it to the document in front of
+ * them, and a payout desk cannot pay an account it can only half read. They are stored exactly
+ * as every identifier is, hashed for search and encrypted, and they stay masked in logs, errors,
+ * the public API and a file shared by link (rule 4).
  */
-export const MASKED_ON_SCREEN: ReadonlySet<string> = new Set(['IBAN']);
-
-/** Display only: every identifier in full as its authority writes it, an IBAN masked. */
 export function displayIdentifier(idType: string, value: string): string {
-  if (MASKED_ON_SCREEN.has(idType)) {
-    return maskIdentifier(value);
-  }
   // Normalising drops the dash a certificate number is written with: «FL013988291» is
   // «FL-013988291» on the certificate.
   if (idType === 'FREELANCE_DOC' && /^FL[0-9]+$/.test(value)) {
     return `FL-${value.slice(2)}`;
+  }
+  // An IBAN reads in fours, as a bank prints it: «SA28 1000 0011 1000 0046 1309».
+  if (idType === 'IBAN' && /^[A-Z]{2}[0-9A-Z]+$/.test(value)) {
+    return value.replace(/(.{4})(?=.)/g, '$1 ');
   }
   return value;
 }

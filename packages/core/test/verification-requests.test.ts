@@ -131,8 +131,8 @@ describe('verification requests', () => {
     // The certificate check does not apply to a company, so it was never queued.
     expect(view?.checks.map((check) => check.productCode)).toEqual(COMPANY_CHECKS);
     expect(view?.checks.every((check) => check.status === 'QUEUED')).toBe(true);
-    expect(view?.subjectMasked).toBe('••••••2184');
-    expect(view?.ibanMasked?.endsWith('1309')).toBe(true);
+    expect(view?.subject).toBe(SANDBOX_UNN.ACTIVE);
+    expect(view?.iban?.endsWith('1309')).toBe(true);
 
     for (const value of [SANDBOX_UNN.ACTIVE, SANDBOX_IBAN.MATCH]) {
       const hits = await inTenant(tenant.tenantId, (tx) => scanForPlaintext(tx, value));
@@ -187,7 +187,7 @@ describe('verification requests', () => {
     expect(standing('CR_FULL')?.verifiedAt).toBeInstanceOf(Date);
     expect(standing('FREELANCE_CERTIFICATE')?.state).toBe('NOT_APPLICABLE');
     expect(standing('PROPERTY_VERIFICATION')?.state).toBe('COMING_SOON');
-    expect(byUnn.accountMasked?.endsWith('1309')).toBe(true);
+    expect(byUnn.account?.endsWith('1309')).toBe(true);
 
     const byRegistration = await inTenant(tenant.tenantId, (tx) =>
       lookupCustomer(tx, keys, { kind: 'COMPANY', number: '1010711252' }),
@@ -412,7 +412,9 @@ describe('verification requests', () => {
 
     const drafts = await inTenant(tenant.tenantId, (tx) => listDrafts(tx, keys));
     expect(drafts.map((entry) => entry.requestId)).toContain(draft.requestId);
-    expect(drafts.find((entry) => entry.requestId === draft.requestId)?.label).toBe('••••••4009');
+    expect(drafts.find((entry) => entry.requestId === draft.requestId)?.label).toBe(
+      SANDBOX_FREELANCER.NATIONAL_ID,
+    );
     expect(await inTenant(other.tenantId, (tx) => listDrafts(tx, keys))).toEqual([]);
 
     for (const value of [
@@ -519,7 +521,7 @@ describe('verification requests', () => {
       status: 'DRAFT',
       productCodes: ['CR_FULL', 'NATIONAL_ADDRESS', 'IBAN_VERIFICATION'],
     });
-    expect(kept?.ibanMasked?.endsWith('1309')).toBe(true);
+    expect(kept?.iban?.endsWith('1309')).toBe(true);
   });
 
   it('takes an IBAN typed into a saved draft, sealed like the rest', async () => {
@@ -547,7 +549,7 @@ describe('verification requests', () => {
     );
     expect(hits).toEqual([]);
     const saved = await inTenant(tenant.tenantId, (tx) => getRequest(tx, keys, draft.requestId));
-    expect(saved?.ibanMasked?.endsWith('1234')).toBe(true);
+    expect(saved?.iban?.endsWith('1234')).toBe(true);
 
     await expect(
       inTenant(tenant.tenantId, (tx) =>
@@ -569,7 +571,7 @@ describe('verification requests', () => {
     );
     expect(await inTenant(tenant.tenantId, (tx) => discardDraft(tx, draft.requestId))).toBe(true);
     const view = await inTenant(tenant.tenantId, (tx) => getRequest(tx, keys, draft.requestId));
-    expect(view).toMatchObject({ status: 'CANCELLED', ibanMasked: null });
+    expect(view).toMatchObject({ status: 'CANCELLED', iban: null });
     await expect(
       inTenant(tenant.tenantId, (tx) =>
         submitDraft(tx, keys, draft.requestId, { productCodes: ['CR_FULL'] }),

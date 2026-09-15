@@ -124,15 +124,15 @@ export default async function NewRequestPage({
         status: 'NEW',
         entityId: null,
         displayName: null,
-        identifierMasked: null,
+        identifier: null,
         kind: null,
-        accountMasked: null,
+        account: null,
         managers: 0,
         hasCertificate: false,
         standings: [],
       }),
     };
-    lookup.accountMasked = draft.ibanMasked ?? lookup.accountMasked;
+    lookup.account = draft.iban ?? lookup.account;
     lookup.hasCertificate = draft.hasCertificate || lookup.hasCertificate;
   }
 
@@ -153,11 +153,11 @@ export default async function NewRequestPage({
             requestId: draft.requestId,
             kind: draft.kind,
             entityId: draft.entityId,
-            label: draft.displayName ?? draft.subjectMasked ?? '',
-            subjectMasked: draft.subjectMasked,
+            label: draft.displayName ?? draft.subject ?? '',
+            subject: draft.subject,
             productCodes: draft.productCodes,
             createdAt: draft.createdAt.toISOString(),
-            ibanMasked: draft.ibanMasked,
+            iban: draft.iban,
             hasCertificate: draft.hasCertificate,
           },
     drafts: data.drafts.map((entry) => ({ ...entry, createdAt: entry.createdAt.toISOString() })),

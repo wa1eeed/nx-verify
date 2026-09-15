@@ -313,7 +313,7 @@ export function NewRequestScreen({
   ).length;
   const totals = totalsOf(runnable, lookup, view.balance);
 
-  const accountOnFile = lookup?.accountMasked ?? draft?.ibanMasked ?? null;
+  const accountOnFile = lookup?.account ?? draft?.iban ?? null;
   const certificateOnFile = lookup?.hasCertificate === true || draft?.hasCertificate === true;
   const ibanRow = rows.find(({ product, row }) => product.needsIban && row.applicable)?.product;
   const certificateRow = rows.find(
@@ -504,12 +504,12 @@ export function NewRequestScreen({
                 maxLength={20}
                 value={
                   draft !== null
-                    ? (shortMask(draft.subjectMasked ?? lookup?.identifierMasked ?? null) ?? '')
+                    ? (shortMask(draft.subject ?? lookup?.identifier ?? null) ?? '')
                     : number
                 }
                 readOnly={draft !== null}
                 invalid={lineProblem !== null}
-                placeholder={shortMask(lookup?.identifierMasked ?? null) ?? undefined}
+                placeholder={shortMask(lookup?.identifier ?? null) ?? undefined}
                 list={samples.length > 0 && draft === null ? 'request-samples' : undefined}
                 onChange={(event) => {
                   setNumber(event.target.value);
@@ -745,7 +745,7 @@ export function NewRequestScreen({
               {view.drafts.map((entry) => (
                 <li key={entry.requestId} className="request-draft" data-draft={entry.requestId}>
                   <span className="request-draft-label">
-                    {entry.label.includes('•') ? <Ltr>{shortMask(entry.label)}</Ltr> : entry.label}{' '}
+                    {/[؀-ۿ]/.test(entry.label) ? entry.label : <Ltr>{entry.label}</Ltr>}{' '}
                     <span className="request-draft-meta">
                       · {kindLabel(entry.kind)} · {productsCountAr(entry.productCount)} ·{' '}
                       {dayMonthAr(new Date(entry.createdAt))}
@@ -766,7 +766,7 @@ export function NewRequestScreen({
                     onClick={() => discard(entry.requestId)}
                     pending={pending && busy === entry.requestId}
                     disabled={pending}
-                    aria-label={`حذف مسودة ${entry.label.includes('•') ? (shortMask(entry.label) ?? '') : entry.label}`}
+                    aria-label={`حذف مسودة ${entry.label}`}
                   >
                     حذف
                   </Button>

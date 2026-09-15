@@ -842,7 +842,7 @@ function OtherAccounts({
             return (
               <tr key={account.entityId} data-role="account">
                 <td>
-                  <Ltr>{shortMask(account.maskedIban) ?? 'آيبان'}</Ltr>
+                  <Ltr>{account.iban ?? 'آيبان'}</Ltr>
                   {account.sharedWith.length > 0 ? (
                     <span className="file-cell-note">مقدَّم أيضاً لعميل آخر</span>
                   ) : null}
@@ -912,11 +912,11 @@ function BankFields({
   return (
     <>
       <dl className="file-fields">
-        {account?.maskedIban ? (
+        {account?.iban ? (
           <div className="file-field" data-field="iban">
             <dt>الآيبان</dt>
             <dd>
-              <Ltr>{shortMask(account.maskedIban)}</Ltr>
+              <Ltr>{account.iban}</Ltr>
             </dd>
           </div>
         ) : null}

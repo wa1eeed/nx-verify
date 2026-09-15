@@ -3,9 +3,9 @@ import { NxError } from '../errors.js';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
 import {
   decryptIdentifier,
+  displayIdentifier,
   encryptIdentifier,
   hashIdentifier,
-  maskIdentifier,
   type IdentifierType,
 } from '../crypto/identifier.js';
 import { findEntityIdByIdentifier } from '../repositories/identifiers.js';
@@ -526,10 +526,10 @@ export interface RequestView {
   entityId: string | null;
   /** The customer's name, once a file holds one. */
   displayName: string | null;
-  /** The number typed for a customer not on file yet, masked. */
-  subjectMasked: string | null;
-  /** The IBAN typed with the request, masked. */
-  ibanMasked: string | null;
+  /** The number typed for a customer not on file yet, in full as the console shows it (ADR-130). */
+  subject: string | null;
+  /** The IBAN typed with the request, in full as the console shows it (ADR-130). */
+  iban: string | null;
   hasCertificate: boolean;
   productCodes: string[];
   createdAt: Date;
@@ -556,7 +556,7 @@ interface RequestRow {
   completed_at: Date | null;
 }
 
-async function masked(
+async function shown(
   tx: TenantTransaction,
   keys: TenantKeyProvider,
   version: number,
@@ -565,8 +565,10 @@ async function masked(
   if (payload === null) {
     return null;
   }
-  // Decrypted to be masked, and only the masked form leaves this function.
-  return maskIdentifier(decryptIdentifier(await keys.encryptionKey(tx.tenantId, version), payload));
+  // Decrypted for the signed in console, which shows every identifier in full (ADR-130). Never
+  // for a log line, an error or a public response (rule 4).
+  const value = decryptIdentifier(await keys.encryptionKey(tx.tenantId, version), payload);
+  return displayIdentifier(/^[A-Z]{2}[0-9]{2}/.test(value) ? 'IBAN' : 'NUMBER', value);
 }
 
 export async function getRequest(
@@ -624,8 +626,8 @@ export async function getRequest(
     kind: row.kind,
     entityId: row.entity_id,
     displayName: row.display_name,
-    subjectMasked: await masked(tx, keys, row.key_version, row.subject_enc),
-    ibanMasked: await masked(tx, keys, row.key_version, row.iban_enc),
+    subject: await shown(tx, keys, row.key_version, row.subject_enc),
+    iban: await shown(tx, keys, row.key_version, row.iban_enc),
     hasCertificate: row.certificate_enc !== null,
     productCodes: row.product_codes,
     createdAt: row.created_at,
@@ -642,7 +644,7 @@ export async function getRequest(
 export interface DraftSummary {
   requestId: string;
   kind: CustomerKind;
-  /** The customer's name, or the number typed, masked. */
+  /** The customer's name, or the number typed. */
   label: string;
   productCount: number;
   createdAt: Date;
@@ -669,7 +671,7 @@ export async function listDrafts(
     drafts.push({
       requestId: row.id,
       kind: row.kind,
-      label: row.display_name ?? (await masked(tx, keys, row.key_version, row.subject_enc)) ?? '',
+      label: row.display_name ?? (await shown(tx, keys, row.key_version, row.subject_enc)) ?? '',
       productCount: row.product_codes.length,
       createdAt: row.created_at,
     });
@@ -711,12 +713,12 @@ export interface CustomerLookup {
   status: LookupStatus;
   entityId: string | null;
   displayName: string | null;
-  /** The file's own number, masked. */
-  identifierMasked: string | null;
+  /** The file's own number, in full. */
+  identifier: string | null;
   /** The kind the file says, when it says one. The screen switches to it. */
   kind: CustomerKind | null;
-  /** The account on file, masked, so the banking row can say which it will check. */
-  accountMasked: string | null;
+  /** The account on file, in full, so the banking row can say which it will check. */
+  account: string | null;
   /** How many managers are known: a manager check is one operation for each. */
   managers: number;
   /** A certificate number is on file, so the certificate row needs none typed. */
@@ -846,9 +848,9 @@ export async function customerStandings(
     status: 'FOUND',
     entityId,
     displayName: file.displayName,
-    identifierMasked: file.primaryIdentifier?.masked ?? null,
+    identifier: file.primaryIdentifier?.display ?? null,
     kind: file.entityType === 'FREELANCER' ? 'FREELANCER' : file.kind,
-    accountMasked: file.accounts[0]?.maskedIban ?? null,
+    account: file.accounts[0]?.iban ?? null,
     managers: file.managers.length,
     hasCertificate: file.identifiers.some((identifier) => identifier.idType === 'FREELANCE_DOC'),
     standings,
@@ -866,9 +868,9 @@ export async function lookupCustomer(
     status: 'EMPTY',
     entityId: null,
     displayName: null,
-    identifierMasked: null,
+    identifier: null,
     kind: null,
-    accountMasked: null,
+    account: null,
     managers: 0,
     hasCertificate: false,
     standings: freshStandings(catalogue, input.kind),

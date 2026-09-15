@@ -208,8 +208,9 @@ describe('key rotation', () => {
     const view = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       getRequest(tx, newKeysOnly, draftId),
     );
-    expect(view?.subjectMasked).toBe('••••••6543');
-    expect(view?.ibanMasked?.endsWith('7519')).toBe(true);
+    // Shown in full on the console (ADR-130), and still never stored in the clear (below).
+    expect(view?.subject).toBe(DRAFT_UNN);
+    expect(view?.iban?.endsWith('7519')).toBe(true);
     for (const value of [DRAFT_UNN, DRAFT_IBAN]) {
       const hits = await withTenant(db.migratorPool, tenant.tenantId, (tx) =>
         scanForPlaintext(tx, value),

@@ -337,7 +337,8 @@ export interface LiquidatorView {
 
 export interface AccountView {
   entityId: string;
-  maskedIban: string | null;
+  /** In full, read in fours (ADR-130). */
+  iban: string | null;
   bank: string | null;
   ownership: string | null;
   status: string | null;
@@ -1263,7 +1264,7 @@ export async function getCustomerFile(
     const iban = await identifierOf(tx, keys, accountId, ['IBAN']);
     accounts.push({
       entityId: accountId,
-      maskedIban: iban?.display ?? null,
+      iban: iban?.display ?? null,
       bank: textOf(facts.get('account.bank')?.value),
       ownership: textOf(ownership?.value),
       status: textOf(facts.get('account.status')?.value),
@@ -1330,7 +1331,7 @@ export async function getCustomerFile(
       intersections.push({
         kind: 'SHARED_ACCOUNT',
         textAr: `الحساب البنكي نفسه مقدَّم أيضاً إلى ${otherCustomers(account.sharedWith.length)}`,
-        via: { entityId: account.entityId, name: account.maskedIban, entityType: 'BANK_ACCOUNT' },
+        via: { entityId: account.entityId, name: account.iban, entityType: 'BANK_ACCOUNT' },
         entities: account.sharedWith,
       });
     }

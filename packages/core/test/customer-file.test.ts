@@ -160,8 +160,8 @@ describe('the customer file', () => {
     expect(checked?.managerType).toBe('سعودي');
     expect(checked?.licensed).toBe(true);
     expect(checked?.nationality).toBe('سعودي');
-    // An IBAN stays masked.
-    expect(file?.accounts[0]?.maskedIban).toMatch(/^•+1309$/);
+    // An IBAN in full too, read in fours as a bank prints it (ADR-130).
+    expect(file?.accounts[0]?.iban).toBe('SA28 1000 0011 1000 0046 1309');
   });
 
   it('names its registration numbers in full at the head of its basic data', async () => {
