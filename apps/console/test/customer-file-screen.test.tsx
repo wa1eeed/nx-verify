@@ -113,6 +113,7 @@ function fileWith(sections: FileSection[]): CustomerFile {
       statusTone: 'neutral',
       standing: 'COMPLETE',
       standingAr: 'مستوفى',
+      bands: { highFrom: 60, mediumFrom: 30 },
       riskLevel: 'MEDIUM',
       riskLabelAr: 'متوسطة',
       riskScore: 46,

@@ -20,6 +20,7 @@ export function Card({
   elevation,
   id,
   role,
+  item,
   label,
   labelledBy,
   children,
@@ -32,6 +33,12 @@ export function Card({
   id?: string | undefined;
   /** A name for tests and styles to find the card by, written as data-role. */
   role?: string | undefined;
+  /**
+   * Which one of its kind this card is, written as data-item: the module, the service, the
+   * plan. A screen that repeats a card needs a way to name each, and a data attribute passed
+   * to a component that drops it is a test that silently matches nothing.
+   */
+  item?: string | undefined;
   label?: string | undefined;
   labelledBy?: string | undefined;
   children: ReactNode;
@@ -40,6 +47,7 @@ export function Card({
     <Element
       id={id}
       data-role={role}
+      data-item={item}
       className={classes(
         'card',
         `card-${variant}`,

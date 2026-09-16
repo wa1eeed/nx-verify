@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../../../packages/db/src/client.js';
-import { assessCustomer, type AssessmentInput, type FactView } from '../src/customers/indicators.js';
+import {
+  assessCustomer,
+  type AssessmentInput,
+  type FactView,
+} from '../src/customers/indicators.js';
 import {
   DEFAULT_RISK_POLICY,
   resolveRiskPolicy,
@@ -8,9 +12,11 @@ import {
 } from '../src/customers/risk-policy.js';
 import {
   riskModel,
+  setCategoryRisk,
   setProductRisk,
   setRiskBands,
   setRiskSignal,
+  setTenantCategoryRisk,
   setTenantRiskBands,
   setTenantRiskSignal,
   tenantRiskModel,
@@ -58,13 +64,16 @@ function company(over: Partial<AssessmentInput> = {}): AssessmentInput {
 
 const policyWith = (over: Partial<RiskPolicy>): RiskPolicy => ({ ...DEFAULT_RISK_POLICY, ...over });
 
-const withSignal = (code: string, over: Partial<RiskPolicy['signals'][string]>): RiskPolicy =>
-  policyWith({
-    signals: {
-      ...DEFAULT_RISK_POLICY.signals,
-      [code]: { ...DEFAULT_RISK_POLICY.signals[code]!, ...over },
-    },
+const withSignal = (code: string, over: Partial<RiskPolicy['signals'][string]>): RiskPolicy => {
+  const shipped = DEFAULT_RISK_POLICY.signals[code] ?? {
+    weight: 0,
+    enabled: true,
+    threshold: null,
+  };
+  return policyWith({
+    signals: { ...DEFAULT_RISK_POLICY.signals, [code]: { ...shipped, ...over } },
   });
+};
 
 describe('the risk model as data', () => {
   it('scores a customer the same with no policy as with the one we ship', () => {
@@ -98,9 +107,9 @@ describe('the risk model as data', () => {
 
   it('fires a signal at the threshold the policy sets, and not before it', () => {
     const managers = [{ name: 'مدير', hasPermissions: true, otherCompanies: 4 }];
-    expect(
-      assessCustomer(company({ managers })).signals.map((signal) => signal.key),
-    ).toContain('manager_many_companies');
+    expect(assessCustomer(company({ managers })).signals.map((signal) => signal.key)).toContain(
+      'manager_many_companies',
+    );
     // A subscriber for whom four other companies is ordinary says so, and the signal is silent.
     expect(
       assessCustomer(
@@ -168,9 +177,7 @@ describe('editing the risk model from the panel', () => {
   it('starts as exactly the model the code used to carry', async () => {
     const model = await riskModel(db.operatorPool);
     expect(model.bands).toEqual({ highFrom: 60, mediumFrom: 30 });
-    const weights = Object.fromEntries(
-      model.signals.map((signal) => [signal.code, signal.weight]),
-    );
+    const weights = Object.fromEntries(model.signals.map((signal) => [signal.code, signal.weight]));
     for (const [code, shipped] of Object.entries(DEFAULT_RISK_POLICY.signals)) {
       expect(weights[code]).toBe(shipped.weight);
     }
@@ -209,8 +216,51 @@ describe('editing the risk model from the panel', () => {
     // And nothing else moved.
     expect(policy.signals.liquidation?.enabled).toBe(true);
 
-    await setProductRisk(db.operatorPool, { productCode: 'IBAN_VERIFICATION', enabled: true }, staff);
+    await setProductRisk(
+      db.operatorPool,
+      { productCode: 'IBAN_VERIFICATION', enabled: true },
+      staff,
+    );
     expect((await policyOf(tenant)).signals.iban_mismatch?.enabled).toBe(true);
+  });
+
+  it('switches a whole kind of doubt off, which is the other axis an owner decides along', async () => {
+    const changed = await setCategoryRisk(
+      db.operatorPool,
+      { category: 'INTERSECTION', enabled: false },
+      staff,
+    );
+    // Three signals are intersections: a shared account, a shared address, a shared manager.
+    expect(changed).toBe(3);
+    const policy = await policyOf(tenant);
+    expect(policy.signals.shared_account?.enabled).toBe(false);
+    expect(policy.signals.shared_address?.enabled).toBe(false);
+    expect(policy.signals.manager_many_companies?.enabled).toBe(false);
+    // And a doubt of another kind is untouched.
+    expect(policy.signals.liquidation?.enabled).toBe(true);
+
+    await setCategoryRisk(db.operatorPool, { category: 'INTERSECTION', enabled: true }, staff);
+    expect((await policyOf(tenant)).signals.shared_account?.enabled).toBe(true);
+  });
+
+  it('switches a kind of doubt off for one subscriber, and back to inherited rather than on', async () => {
+    await setTenantCategoryRisk(
+      db.operatorPool,
+      { tenantId: tenant.tenantId, category: 'CHANGE', enabled: false },
+      staff,
+    );
+    expect((await policyOf(tenant)).signals.open_changes?.enabled).toBe(false);
+    expect((await policyOf(other)).signals.open_changes?.enabled).toBe(true);
+
+    // Resuming lifts their exception rather than writing «on» over it, so a later platform
+    // decision about that kind reaches them again.
+    await setTenantCategoryRisk(
+      db.operatorPool,
+      { tenantId: tenant.tenantId, category: 'CHANGE', enabled: null },
+      staff,
+    );
+    const model = await tenantRiskModel(db.operatorPool, tenant.tenantId);
+    expect(model.signals.find((signal) => signal.code === 'open_changes')?.source).toBe('platform');
   });
 
   it('refuses a weight outside the scale and a band that is upside down', async () => {
@@ -297,13 +347,16 @@ describe('editing the risk model from the panel', () => {
     expect(staffTrail.map((row) => row.action)).toContain('risk.signal_set');
     expect(staffTrail.map((row) => row.action)).toContain('risk.product_set');
 
-    const subscriberTrail = await withTenant(db.appPool, tenant.tenantId, async (tx) =>
-      (
-        await tx.query<{ action: string }>(
-          `SELECT action FROM audit_log WHERE tenant_id = $1 AND action LIKE 'risk.%'`,
-          [tx.tenantId],
-        )
-      ).rows,
+    const subscriberTrail = await withTenant(
+      db.appPool,
+      tenant.tenantId,
+      async (tx) =>
+        (
+          await tx.query<{ action: string }>(
+            `SELECT action FROM audit_log WHERE tenant_id = $1 AND action LIKE 'risk.%'`,
+            [tx.tenantId],
+          )
+        ).rows,
     );
     expect(subscriberTrail.map((row) => row.action)).toContain('risk.signal_set');
     expect(subscriberTrail.map((row) => row.action)).toContain('risk.bands_set');

@@ -5,6 +5,7 @@ import type {
   SubscriberBoardRow,
   SubscriberDetail,
   TenantModuleView,
+  TenantRiskModel,
 } from '@nx-verify/core';
 import { PageHeader } from '../page-header';
 import { Card } from '../ui/card';
@@ -20,6 +21,7 @@ import { specialLineAr } from '../admin-pricing/model';
 import { bundleLabelOf } from '../topup';
 import { STANDING_TAGS, balanceCellAr, endsAr, planCellAr } from './model';
 import { SubscriberModules } from './modules';
+import { SubscriberRisk } from './risk';
 
 /**
  * One subscriber, managed (the «إدارة» link of handoff screen 06).
@@ -44,6 +46,7 @@ export interface AdminSubscriberView {
   plans: readonly { code: string; nameAr: string }[];
   specialPrice: SpecialPrice | null;
   modules: readonly TenantModuleView[];
+  risk: TenantRiskModel;
   notice: { tone: 'done' | 'refused'; text: string } | null;
 }
 
@@ -52,7 +55,14 @@ export function AdminSubscriber({
   actions,
 }: {
   view: AdminSubscriberView;
-  actions: { setSuspended: Action; assignPlan: Action; setModule: Action };
+  actions: {
+    setSuspended: Action;
+    assignPlan: Action;
+    setModule: Action;
+    setRiskSignal: Action;
+    setRiskBands: Action;
+    setRiskCategory: Action;
+  };
 }): ReactElement {
   const { detail, row } = view;
   const standing = STANDING_TAGS[row.standing];
@@ -187,6 +197,15 @@ export function AdminSubscriber({
         modules={view.modules}
         canManage={view.canManage}
         setModule={actions.setModule}
+      />
+
+      <SubscriberRisk
+        tenantId={detail.tenantId}
+        model={view.risk}
+        canManage={view.canManage}
+        setSignal={actions.setRiskSignal}
+        setBands={actions.setRiskBands}
+        setCategory={actions.setRiskCategory}
       />
 
       <Card variant="flush" role="subscriber-bundles" labelledBy="subscriber-bundles-title">

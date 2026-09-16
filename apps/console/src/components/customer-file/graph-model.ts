@@ -200,9 +200,13 @@ function weightOf(
 
 export function relationGraphModel(
   file: Pick<CustomerFile, 'displayName' | 'intersections'> & {
-    assessment: { riskReasons: readonly { key: string; weight: number }[] };
+    assessment: {
+      riskReasons: readonly { key: string; weight: number }[];
+      bands?: { mediumFrom: number } | undefined;
+    };
   },
 ): RelationGraphModel {
+  const mediumFrom = file.assessment.bands?.mediumFrom ?? 30;
   const byKind = new Map<IntersectionKind, Intersection[]>();
   for (const intersection of file.intersections) {
     byKind.set(intersection.kind, [...(byKind.get(intersection.kind) ?? []), intersection]);
@@ -241,7 +245,9 @@ export function relationGraphModel(
       ],
       lines: group.map((entry) => entry.textAr),
       icon: meta.icon,
-      tone: weight >= 30 && meta.tone === 'info' ? 'attention' : meta.tone,
+      // Worth a look from where this subscriber says «worth a look» starts, not from a
+      // second copy of the number that would drift the moment they moved theirs (ADR-138).
+      tone: weight >= mediumFrom && meta.tone === 'info' ? 'attention' : meta.tone,
       weight,
       href: people.length === 1 && people[0] ? `/customers/${people[0].entityId}` : null,
       ...at,

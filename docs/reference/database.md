@@ -1,7 +1,7 @@
 # Database reference
 
 What exists in the database: every table, its columns and constraints, the five roles, every row
-level security policy, every vocabulary, and the 51 migrations that built it.
+level security policy, every vocabulary, and the 52 migrations that built it.
 
 This describes what **is**. `docs/02-schema.md` describes what was **designed**, in Arabic, with
 the reasoning. Where the two ever disagree, the migrations win and this page is the one that
@@ -350,6 +350,38 @@ Two functions go with them:
 - `app.service_cost(product, provider)` returns what one run of that service would cost us under
   that provider, or NULL when that provider has no price for one of its steps.
 
+### The risk model
+
+The score a customer file shows, and everything it is made of (ADR-138, migration 0052).
+
+| Table                  | What it holds                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
+| `risk_signals`         | One row per signal: its Arabic name, its category, its severity, its weight, whether it is counted, and the one number its condition compares against with a label saying what that number means |
+| `tenant_risk_signals`  | One subscriber's disagreement, field by field. Each NULL keeps inheriting the platform's answer for that one field, and a row that overrides nothing is deleted rather than kept |
+| `tenant_risk_settings` | That subscriber's bands, or NULL to inherit the platform's                                       |
+
+`platform_settings` gained `risk_high_from` (60) and `risk_medium_from` (30), with a check that
+the medium band starts below the high one.
+
+`risk_signals.product_code` names the verification service whose answers a signal reads. It has
+**no foreign key**, for the same reason `provider_usage` has none: the catalogue is a seed, so a
+migrated but unseeded database has no products and a risk model that cannot be written until
+the catalogue exists is one that cannot ship with the schema.
+
+Resolution is `resolveRiskPolicy(tx)` on the subscriber's own connection, so row level security
+is what keeps one subscriber's opinions out of another's score. `DEFAULT_RISK_POLICY` in
+`packages/core/src/customers/risk-policy.ts` carries the same numbers, so the pure assessment
+stays callable from a test or a screen with no database.
+
+A signal that is off is **not raised at all** rather than raised and weighed zero: what a reader
+is shown and what the score is made of have to be the same list.
+
+Two group controls write these rows rather than adding a flag of their own, so a score is still
+explained from one place: `setProductRisk` reaches every signal that reads one verification
+service, and `setCategoryRisk` every signal of one kind (`STATUS`, `MISMATCH`, `INTERSECTION`,
+`INCOMPLETE`, `CHANGE`, `AGE`). Their per-subscriber twins write `tenant_risk_signals`, and
+resuming a kind for a subscriber deletes their rows rather than writing «on» into them.
+
 ### The administration panel
 
 `operator_accounts` holds named platform staff: role (`OWNER`, `PRICING`, `SUPPORT`,
@@ -423,7 +455,7 @@ Four variants exist, each for a reason:
 | `USING (tenant_id IS NULL OR tenant_id = current)` with a stricter `CHECK` | `freshness_policy`, `change_severity_rules`, `decision_rulesets`, `price_book`          | Read the system defaults, write only your own                                  |
 | Isolation through a parent                                                 | `decision_rules`                                                                       | It has no `tenant_id`; it reaches one through its ruleset                      |
 | `TO nx_auth` read-only lookups                                             | `api_keys`, `users`, `user_sessions`, `user_credentials`, `tenants`, `tenant_idp`, `sso_domains`, `sso_login_requests`, `evidence`, `profile_shares` | The one class of lookup that cannot be tenant-scoped, because it is what establishes the tenant |
-| `TO nx_operator`                                                           | `tenant_provider_binding`, `tenant_commitments`, `tenant_product_overrides`, `tenant_modules`, `tenant_price_discounts` (write); `tenants`, `wallets`, `api_requests`, `margin_counters`, `topup_requests`, `bundle_grants` (read) | Configuration and money, never verification data                              |
+| `TO nx_operator`                                                           | `tenant_provider_binding`, `tenant_commitments`, `tenant_product_overrides`, `tenant_modules`, `tenant_risk_signals`, `tenant_risk_settings`, `tenant_price_discounts` (write); `tenants`, `wallets`, `api_requests`, `margin_counters`, `topup_requests`, `bundle_grants` (read) | Configuration and money, never verification data                              |
 
 ---
 
@@ -477,7 +509,7 @@ Four variants exist, each for a reason:
 
 ---
 
-## The 51 migrations
+## The 52 migrations
 
 | #    | Name                                 | What it added                                                                                                             |
 | ---- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
@@ -532,6 +564,7 @@ Four variants exist, each for a reason:
 | 0049 | `operator_second_factor`             | `credential_version`, and the sealed authenticator secret with its recovery codes                                           |
 | 0050 | `service_routing`                    | Which provider serves which verification service, what each would cost, a counter proving where the calls went, and a place in the file for the property section |
 | 0051 | `modules`                            | `modules` and `tenant_modules`; `products.module_code`; the `INCOME` section, and income verification placed in it           |
+| 0052 | `risk_policy`                        | `risk_signals`, `tenant_risk_signals`, `tenant_risk_settings`, and the two bands on `platform_settings`                       |
 
 ---
 

@@ -203,6 +203,7 @@ const file: CustomerFile = {
     statusTone: 'neutral',
     standing: 'IN_PROGRESS',
     standingAr: 'قيد الإكمال',
+    bands: { highFrom: 60, mediumFrom: 30 },
     riskLevel: 'INCOMPLETE',
     riskLabelAr: 'غير مكتمل',
     riskScore: null,

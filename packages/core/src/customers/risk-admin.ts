@@ -200,7 +200,46 @@ export async function setProductRisk(
   await operator.query(
     `INSERT INTO operator_audit (operator_id, action, target, metadata)
      VALUES ($1, 'risk.product_set', $2, $3::jsonb)`,
-    [actorId, `risk:product:${input.productCode}`, JSON.stringify({ enabled: input.enabled, signals: rowCount })],
+    [
+      actorId,
+      `risk:product:${input.productCode}`,
+      JSON.stringify({ enabled: input.enabled, signals: rowCount }),
+    ],
+  );
+  return rowCount ?? 0;
+}
+
+/**
+ * Switches a whole kind of doubt on or off for the platform.
+ *
+ * The second axis an owner decides along, beside the verification service: «stop counting
+ * intersections» or «stop counting an unfinished file» is one sentence about what the score
+ * is allowed to mean, and it reaches every signal of that kind.
+ */
+export async function setCategoryRisk(
+  operator: Queryable,
+  input: { category: RiskCategory; enabled: boolean },
+  actorId: string,
+): Promise<number> {
+  const { rowCount } = await operator.query(
+    `UPDATE risk_signals SET enabled = $2, updated_at = now(), updated_by = $3
+      WHERE category = $1`,
+    [input.category, input.enabled, actorId],
+  );
+  if ((rowCount ?? 0) === 0) {
+    throw new NxError('NX-4041', {
+      detail: `No risk signal of category ${input.category}`,
+      cause: 'لا مؤشر خطر من هذا النوع.',
+    });
+  }
+  await operator.query(
+    `INSERT INTO operator_audit (operator_id, action, target, metadata)
+     VALUES ($1, 'risk.category_set', $2, $3::jsonb)`,
+    [
+      actorId,
+      `risk:category:${input.category}`,
+      JSON.stringify({ enabled: input.enabled, signals: rowCount }),
+    ],
   );
   return rowCount ?? 0;
 }
@@ -286,8 +325,7 @@ export async function tenantRiskModel(
       highFrom: band?.high_from ?? platform.bands.highFrom,
       mediumFrom: band?.medium_from ?? platform.bands.mediumFrom,
     },
-    bandsSource:
-      band?.high_from == null && band?.medium_from == null ? 'platform' : 'subscriber',
+    bandsSource: band?.high_from == null && band?.medium_from == null ? 'platform' : 'subscriber',
     signals: platform.signals.map((signal) => {
       const own = byCode.get(signal.code);
       return {
@@ -406,4 +444,36 @@ export async function setTenantRiskBands(
      VALUES ($1, 'NX_STAFF', $2, 'risk.bands_set', 'risk:bands', $3::jsonb)`,
     [input.tenantId, actorId, JSON.stringify({ high_from: high, medium_from: medium })],
   );
+}
+
+/**
+ * The same, for one subscriber: every signal of that kind gets their own row, or gives it up.
+ *
+ * Switching a kind back on does not write «on» over their model, it lifts the exception on
+ * every signal of that kind, so each returns to inheriting what the platform says rather than
+ * freezing at whatever it happens to be today.
+ */
+export async function setTenantCategoryRisk(
+  operator: Queryable,
+  input: { tenantId: string; category: RiskCategory; enabled: boolean | null },
+  actorId: string,
+): Promise<number> {
+  const { rows } = await operator.query<{ code: string }>(
+    `SELECT code FROM risk_signals WHERE category = $1 ORDER BY position`,
+    [input.category],
+  );
+  if (rows.length === 0) {
+    throw new NxError('NX-4041', {
+      detail: `No risk signal of category ${input.category}`,
+      cause: 'لا مؤشر خطر من هذا النوع.',
+    });
+  }
+  for (const row of rows) {
+    await setTenantRiskSignal(
+      operator,
+      { tenantId: input.tenantId, code: row.code, enabled: input.enabled },
+      actorId,
+    );
+  }
+  return rows.length;
 }

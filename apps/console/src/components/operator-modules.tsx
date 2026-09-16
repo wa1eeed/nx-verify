@@ -75,7 +75,7 @@ export function OperatorModules({ view }: { view: ModulesView }): ReactElement {
           variant="flush"
           role="module"
           labelledBy={`module-${module.code}`}
-          data-module={module.code}
+          item={module.code}
         >
           <div className="admin-card-head">
             <h2 className="card-title admin-card-title" id={`module-${module.code}`}>

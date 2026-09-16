@@ -11,7 +11,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROUTES, WIDTHS, openContexts, pathOf, resolveIds } from './routes.mjs';
+import { ROUTES, WIDTHS, mintDoorCookie, openContexts, pathOf, resolveIds } from './routes.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:3101';
 const OUT = process.argv[2] || 'verify/output/all';
@@ -31,6 +31,11 @@ for (const size of sizes) {
   });
   const ids = await resolveIds(contexts, BASE);
   for (const route of ROUTES) {
+    // The half finished sign in expires in ten minutes and a sweep is longer than that, so it
+    // is minted again here rather than once at the start (SEC-02).
+    if (route.as === 'door') {
+      await mintDoorCookie(contexts.door, { base: BASE, token: process.env.NX_OPERATOR_TOKEN });
+    }
     const page = await contexts[route.as].newPage();
     const url = BASE + pathOf(route, ids);
     try {

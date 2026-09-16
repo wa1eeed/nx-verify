@@ -59,6 +59,12 @@ each fact with the authority that issued it and the moment it was observed.
 | التقاطعات | Where this customer touches another: a shared manager, a shared address, a shared account |
 | السجل الزمني | What each verification added, and how a field changed over time |
 
+**درجة المخاطر** is never a number on its own. Every point in it has a line beside it saying
+what added it and how much: a registry that is not active, a name that only partly matches, an
+address five of your other customers are registered at. If a line looks wrong for your business,
+say so to the platform team: the weights, the thresholds and the bands can all be set for your
+workspace alone, and are read-only here by design.
+
 **Three states you must not confuse.**
 
 - **منتهي الصلاحية**, neutral: the fact has aged past its time to live. Look again.

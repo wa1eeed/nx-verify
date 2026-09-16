@@ -243,6 +243,11 @@ describe('guard 02: tenant isolation', () => {
               // same kind of row as the two above it: what they bought, never whom they
               // verified (ADR-137).
               'tenant_modules',
+              // What this subscriber's risk model is: a weight, a threshold and a band.
+              // Staff set it, the subscriber reads it, and none of it names a customer of
+              // theirs (ADR-138).
+              'tenant_risk_signals',
+              'tenant_risk_settings',
               // A count and two sums per subscriber, month and product. It answers what we
               // earned on a service and cannot answer anything about whom that subscriber
               // verified, which is the whole reason it exists in that shape (ADR-080).

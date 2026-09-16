@@ -33,6 +33,7 @@ export const INTEGRATION_TABS: readonly SectionTab[] = [
   { href: '/operator/verification', label: 'الإعدادات' },
   { href: '/operator/verification/integration', label: 'الربط التقني' },
   { href: '/operator/verification/routing', label: 'المزودون والخدمات' },
+  { href: '/operator/verification/risk', label: 'مؤشرات المخاطر' },
   { href: '/operator/verification/endpoints', label: 'نقاط النهاية' },
   { href: '/operator/verification/health', label: 'صحة الخدمة' },
   { href: '/operator/verification/readiness', label: 'جاهزية النشر' },

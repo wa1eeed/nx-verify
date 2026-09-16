@@ -18,6 +18,9 @@ meaning is what is given.
 | **Authority** | الجهة | The official body that issued a fact. This is the exposed field; the provider behind it is never named |
 | **Decision** | القرار | `PASS`, `FAIL` or `REVIEW`, decided by the first matching rule, always with its reasons |
 | **Evidence** | الدليل | A sealed Arabic document for a run: stored, hashed, signed, and served rather than regenerated |
+| **Module** | الموديول | A named group of verification products that fills one section of a customer file. The unit a subscriber is sold and the unit staff switch: off for them, the section leaves their files and the API refuses its products together |
+| **Risk signal** | مؤشر الخطر | One reason a customer's score is what it is, with the weight it added. A row, not a constant: the platform sets it and a subscriber may disagree, field by field |
+| **Risk band** | حد الدرجة | Where a score stops being «منخفضة» and starts being «متوسطة» or «عالية». Moving it moves no score, only the word that describes it |
 
 ## People and places
 

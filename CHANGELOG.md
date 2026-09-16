@@ -16,6 +16,27 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ### Added
 
+- **The risk model as rows, tunable per platform and per subscriber** (ADR-138). Everything a
+  customer risk score is made of used to be a TypeScript constant: twelve weights, the two
+  bands that turn a number into «عالية» or «متوسطة», and five thresholds buried inside the
+  conditions. All of it is now `risk_signals`, with the exact values the code carried, so
+  applying the migration moves no score anywhere.
+- **A risk screen in the panel** (`/operator/verification/risk`). Every signal with its weight,
+  the number its condition compares against and what that number means, grouped by the
+  verification service whose answers it reads. That grouping is the point: «stop letting the
+  bank check move the score» is one control, not three.
+- **Risk scoring switched off per verification service or per kind of doubt** (حالة رسمية,
+  عدم تطابق, تقاطع, نقص في الملف, تغيّر مرصود, حداثة), each reaching every signal it covers.
+  Both write the signal rows rather than adding a flag of their own, so a score is still
+  explained from one place. A signal that is off is not raised at all rather than raised and weighed zero, so
+  what a reader is shown and what the number is made of stay the same list.
+- **Per-subscriber risk settings, inherited rather than copied.** A subscriber's card on their
+  own page shows what they believe instead of the platform, field by field, with everything
+  they have no opinion about still inherited. Nothing is written onto them when they are
+  created, so a later improvement to a default still reaches them and «they chose five» stays
+  distinguishable from «five was the default that March». They cannot edit it from their own
+  console: somebody who sets their own risk thresholds is marking their own examination.
+
 - **Modules: the unit a subscriber is sold, and the unit a customer file is drawn from**
   (ADR-137). A module is a named group of verification products that fills one section of a
   customer file. Every product now belongs to one, the API products included, so switching a

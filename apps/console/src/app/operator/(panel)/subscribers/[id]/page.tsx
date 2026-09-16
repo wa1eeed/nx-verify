@@ -7,12 +7,20 @@ import {
   operatorCan,
   subscribersBoard,
   tenantModules,
+  tenantRiskModel,
 } from '@nx-verify/core';
 import { AdminSubscriber } from '../../../../../components/admin-subscribers/detail';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { SUBSCRIBER_TABS } from '../../../../../components/operator-shell';
 import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
-import { assignPlanAction, setModuleAction, setSuspendedAction } from '../actions';
+import {
+  assignPlanAction,
+  setModuleAction,
+  setRiskBandsAction,
+  setRiskCategoryAction,
+  setRiskSignalAction,
+  setSuspendedAction,
+} from '../actions';
 
 /** Never prerendered, and refuses to render without a sign in. */
 export const dynamic = 'force-dynamic';
@@ -39,6 +47,18 @@ const NOTICES: Readonly<Record<string, { tone: 'done' | 'refused'; text: string 
     tone: 'refused',
     text: 'لم يُحفظ: هذا الموديول أساس كل ملف عميل ولا يمكن تعطيله.',
   },
+  'saved:risk': {
+    tone: 'done',
+    text: 'حُفظ تخصيص المؤشر لهذا المشترك. يُطبَّق على كل درجة تُحسب له من الآن، ولا يمس أحداً غيره.',
+  },
+  'saved:risk_cleared': {
+    tone: 'done',
+    text: 'رُفع التخصيص. يرث هذا المشترك نموذج المنصة مرة أخرى، ويصله أي تحسين عليه.',
+  },
+  'refused:risk': {
+    tone: 'refused',
+    text: 'لم يُحفظ: الوزن من صفر إلى مئة، والعتبة رقم موجب، وحد «المتوسطة» أقل من حد «العالية».',
+  },
 };
 
 export default async function OperatorSubscriberPage({
@@ -63,6 +83,7 @@ export default async function OperatorSubscriberPage({
     plans: await listPlans(db),
     special: (await listSpecialPrices(db)).find((entry) => entry.tenantId === id) ?? null,
     modules: await tenantModules(db, id),
+    risk: await tenantRiskModel(db, id),
   }));
   const row = data.board.rows.find((entry) => entry.tenantId === id);
   if (!data.detail || !row) {
@@ -87,12 +108,16 @@ export default async function OperatorSubscriberPage({
           plans: data.plans.map((plan) => ({ code: plan.code, nameAr: plan.nameAr })),
           specialPrice: data.special,
           modules: data.modules,
+          risk: data.risk,
           notice: key === null ? null : (NOTICES[key] ?? null),
         }}
         actions={{
           setSuspended: setSuspendedAction,
           assignPlan: assignPlanAction,
           setModule: setModuleAction,
+          setRiskSignal: setRiskSignalAction,
+          setRiskBands: setRiskBandsAction,
+          setRiskCategory: setRiskCategoryAction,
         }}
       />
     </div>

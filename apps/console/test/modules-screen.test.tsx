@@ -97,6 +97,11 @@ describe('the modules catalogue', () => {
     expect(html).toContain('يرسم قسم «البيانات الأساسية» في ملف العميل');
   });
 
+  it('names each module card, so a screen of eight of them is navigable', () => {
+    expect(html).toContain('data-item="REGISTRY"');
+    expect(html).toContain('data-item="PROPERTY"');
+  });
+
   it('counts the modules, the services under them, and the drift from the plans', () => {
     expect(html).toContain('خدمات التحقق');
     expect(html).toContain('الإضافية منها لا تُمنح إلا بقرار');

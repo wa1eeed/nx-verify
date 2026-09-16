@@ -9,7 +9,7 @@
  * wide. A table may scroll inside its own container; the page itself may not.
  */
 import { chromium } from 'playwright';
-import { ROUTES, WIDTHS, openContexts, pathOf, resolveIds } from './routes.mjs';
+import { ROUTES, WIDTHS, mintDoorCookie, openContexts, pathOf, resolveIds } from './routes.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:3101';
 const browser = await chromium.launch(
@@ -24,6 +24,11 @@ for (const size of ['tablet', 'phone']) {
   });
   const ids = await resolveIds(contexts, BASE);
   for (const route of ROUTES) {
+    // The half finished sign in expires in ten minutes and a sweep is longer than that, so it
+    // is minted again here rather than once at the start (SEC-02).
+    if (route.as === 'door') {
+      await mintDoorCookie(contexts.door, { base: BASE, token: process.env.NX_OPERATOR_TOKEN });
+    }
     const page = await contexts[route.as].newPage();
     try {
       await page.goto(BASE + pathOf(route, ids), { waitUntil: 'networkidle', timeout: 120000 });

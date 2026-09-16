@@ -49,6 +49,7 @@ export const ROUTES = [
   { name: 'operator-settings', path: '/operator/verification', as: 'operator' },
   { name: 'operator-integration', path: '/operator/verification/integration', as: 'operator' },
   { name: 'operator-routing', path: '/operator/verification/routing', as: 'operator' },
+  { name: 'operator-risk', path: '/operator/verification/risk', as: 'operator' },
   { name: 'operator-endpoints', path: '/operator/verification/endpoints', as: 'operator' },
   { name: 'operator-health', path: '/operator/verification/health', as: 'operator' },
   { name: 'operator-readiness', path: '/operator/verification/readiness', as: 'operator' },
@@ -89,29 +90,45 @@ export async function openContexts(browser, { base, token, width }) {
         route.continue({ headers: { ...route.request().headers(), 'x-nx-operator-token': token } }),
       );
     }
-    // A sign in held between the password and the code, so the second step is a screen the
-    // scripts can open. The value is the one apps/console/src/lib/operator.ts writes, minted
-    // here rather than fetched because no screen hands it out; a change to that format shows
-    // up as this route failing its `expect`.
-    const account = await accountIdOf(base, token);
-    if (account) {
-      const expires = Date.now() + 9 * 60_000;
-      const mac = createHmac('sha256', token)
-        .update(`nx-operator-pending/v1|${account}|enrol|${expires}`)
-        .digest('base64url');
-      await door.addCookies([
-        {
-          name: 'nx_operator_pending',
-          value: `p1.${account}.enrol.${expires}.${mac}`,
-          domain: new URL(base).hostname,
-          path: '/operator',
-          httpOnly: true,
-          sameSite: 'Strict',
-        },
-      ]);
-    }
+    await mintDoorCookie(door, { base, token });
   }
   return { portal, anonymous, operator, door };
+}
+
+/**
+ * A sign in held between the password and the code, so the second step is a screen the scripts
+ * can open. The value is the one apps/console/src/lib/operator.ts writes, minted here rather
+ * than fetched because no screen hands it out; a change to that format shows up as the door
+ * route failing its `expect`.
+ *
+ * It is minted again just before that route is visited rather than once at the start of a
+ * sweep. The console caps this window at ten minutes (SEC-02) and it is right to: a half
+ * finished sign in left open all afternoon is the thing the second step exists to prevent. A
+ * sweep of forty screens takes longer than that, so minting once made a correct rule look like
+ * a broken screen.
+ */
+export async function mintDoorCookie(door, { base, token }) {
+  if (!token) {
+    return;
+  }
+  const account = await accountIdOf(base, token);
+  if (!account) {
+    return;
+  }
+  const expires = Date.now() + 9 * 60_000;
+  const mac = createHmac('sha256', token)
+    .update(`nx-operator-pending/v1|${account}|enrol|${expires}`)
+    .digest('base64url');
+  await door.addCookies([
+    {
+      name: 'nx_operator_pending',
+      value: `p1.${account}.enrol.${expires}.${mac}`,
+      domain: new URL(base).hostname,
+      path: '/operator',
+      httpOnly: true,
+      sameSite: 'Strict',
+    },
+  ]);
 }
 
 /** The first member of staff, read from the panel's own screen rather than the database. */

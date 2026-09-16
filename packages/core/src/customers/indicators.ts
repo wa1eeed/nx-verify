@@ -70,6 +70,12 @@ export interface Assessment {
   standingAr: string;
   riskLevel: RiskLevel;
   riskLabelAr: string;
+  /**
+   * Where this subscriber's bands fall (ADR-138). Carried with the assessment so every screen
+   * reading it draws the same lines: a weight that reads as «worth a look» to one subscriber
+   * is an ordinary one to another, and a second copy of the number drifts.
+   */
+  bands: { highFrom: number; mediumFrom: number };
   /** Zero to one hundred. Null until there is anything to rate. */
   riskScore: number | null;
   /** The weights that make the score, heaviest first. */
@@ -155,7 +161,8 @@ export const SIGNAL_WEIGHTS: Readonly<Record<string, number>> = Object.fromEntri
 );
 
 /** Each required section still missing adds this much, for at most three of them. */
-export const INCOMPLETE_SECTION_WEIGHT = DEFAULT_RISK_POLICY.signals.incomplete_section?.weight ?? 10;
+export const INCOMPLETE_SECTION_WEIGHT =
+  DEFAULT_RISK_POLICY.signals.incomplete_section?.weight ?? 10;
 
 /**
  * Which band a score falls in.
@@ -505,6 +512,7 @@ export function assessCustomer(input: AssessmentInput): Assessment {
           : 'غير موثّق',
     statusTone: failed ? 'critical' : passed === applicable && applicable > 0 ? 'fresh' : 'neutral',
     standing,
+    bands: { highFrom: policy.highFrom, mediumFrom: policy.mediumFrom },
     standingAr: STANDING_LABELS[standing],
     riskLevel,
     riskLabelAr: RISK_LABELS[riskLevel],

@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import type { RiskCategory, RiskModel, RiskSeverity, RiskSignalRow } from '@nx-verify/core';
 import { Card } from './ui/card';
+import { Field } from './ui/field';
 import { Input } from './ui/input';
 import { Ltr } from './ui/ltr';
 import { Notice } from './ui/notice';
@@ -9,6 +10,7 @@ import { SubmitButton } from './ui/submit-button';
 import { Table, Th } from './ui/table';
 import { Tag } from './ui/tag';
 import { PageHeader } from './page-header';
+import { CATEGORY_LABELS, RiskCategories, type CategoryState } from './risk-categories';
 
 /**
  * The risk model, set from the panel (ADR-138).
@@ -23,15 +25,6 @@ import { PageHeader } from './page-header';
  * lines that made it high, each with its weight, and this screen is where those weights come
  * from. A model a reader cannot inspect is a verdict nobody can defend to an auditor.
  */
-
-export const CATEGORY_LABELS: Readonly<Record<RiskCategory, string>> = {
-  STATUS: 'حالة رسمية',
-  MISMATCH: 'عدم تطابق',
-  INTERSECTION: 'تقاطع',
-  INCOMPLETE: 'نقص في الملف',
-  CHANGE: 'تغيّر مرصود',
-  AGE: 'حداثة',
-};
 
 const SEVERITY_TONES: Readonly<Record<RiskSeverity, 'critical' | 'accent' | 'neutral'>> = {
   HIGH: 'critical',
@@ -77,16 +70,32 @@ function groupsOf(signals: readonly RiskSignalRow[]): RiskGroup[] {
   );
 }
 
+/** Each kind of doubt, how many of its signals there are and how many are counted. */
+export function categoryStates(
+  signals: readonly { category: RiskCategory; enabled: boolean }[],
+): CategoryState[] {
+  const states = new Map<RiskCategory, CategoryState>();
+  for (const signal of signals) {
+    const state = states.get(signal.category) ?? { category: signal.category, signals: 0, on: 0 };
+    state.signals += 1;
+    state.on += signal.enabled ? 1 : 0;
+    states.set(signal.category, state);
+  }
+  return [...states.values()];
+}
+
 export function OperatorRisk({
   view,
   setSignalAction,
   setBandsAction,
   setProductAction,
+  setCategoryAction,
 }: {
   view: RiskView;
   setSignalAction: (formData: FormData) => void | Promise<void>;
   setBandsAction: (formData: FormData) => void | Promise<void>;
   setProductAction: (formData: FormData) => void | Promise<void>;
+  setCategoryAction: (formData: FormData) => void | Promise<void>;
 }): ReactElement {
   const { model, canEdit } = view;
   const groups = groupsOf(model.signals);
@@ -144,33 +153,37 @@ export function OperatorRisk({
           «منخفضة». تغييرها لا يغيّر الدرجة نفسها، بل الكلمة التي تصفها.
         </p>
         {canEdit ? (
-          <form action={setBandsAction} className="row admin-inline-form">
-            <label className="field-inline" htmlFor="risk-high">
-              <span>عالية من</span>
-              <Input
-                id="risk-high"
-                name="high_from"
-                type="number"
-                min={1}
-                max={100}
-                defaultValue={model.bands.highFrom}
-                ltr
-                required
-              />
-            </label>
-            <label className="field-inline" htmlFor="risk-medium">
-              <span>متوسطة من</span>
-              <Input
-                id="risk-medium"
-                name="medium_from"
-                type="number"
-                min={1}
-                max={100}
-                defaultValue={model.bands.mediumFrom}
-                ltr
-                required
-              />
-            </label>
+          <form action={setBandsAction}>
+            <div className="admin-settings-fields">
+              <Field id="risk-high" label="تُقرأ «عالية» من">
+                {(control) => (
+                  <span className="admin-price-field">
+                    <Input
+                      {...control}
+                      name="high_from"
+                      defaultValue={model.bands.highFrom}
+                      inputMode="numeric"
+                      ltr
+                      required
+                    />
+                  </span>
+                )}
+              </Field>
+              <Field id="risk-medium" label="وتُقرأ «متوسطة» من">
+                {(control) => (
+                  <span className="admin-price-field">
+                    <Input
+                      {...control}
+                      name="medium_from"
+                      defaultValue={model.bands.mediumFrom}
+                      inputMode="numeric"
+                      ltr
+                      required
+                    />
+                  </span>
+                )}
+              </Field>
+            </div>
             <SubmitButton data-role="set-bands" pendingLabel="جارٍ الحفظ">
               حفظ الحدود
             </SubmitButton>
@@ -182,6 +195,13 @@ export function OperatorRisk({
         )}
       </Card>
 
+      <RiskCategories
+        states={categoryStates(model.signals)}
+        canEdit={canEdit}
+        action={setCategoryAction}
+        role="risk-categories"
+      />
+
       {groups.map((group) => {
         const anyOn = group.signals.some((signal) => signal.enabled);
         return (
@@ -190,7 +210,7 @@ export function OperatorRisk({
             variant="flush"
             role="risk-group"
             labelledBy={`risk-group-${group.productCode ?? 'none'}`}
-            data-product={group.productCode ?? ''}
+            item={group.productCode ?? 'none'}
           >
             <div className="admin-card-head">
               <h2
@@ -280,25 +300,25 @@ export function OperatorRisk({
                         {canEdit ? (
                           <form action={setSignalAction} className="row admin-inline-form">
                             <input type="hidden" name="code" value={signal.code} />
-                            <Input
-                              name="weight"
-                              type="number"
-                              min={0}
-                              max={100}
-                              defaultValue={signal.weight}
-                              aria-label={`وزن ${signal.nameAr}`}
-                              ltr
-                            />
-                            {signal.threshold === null ? null : (
+                            <span className="admin-price-field">
                               <Input
-                                name="threshold"
-                                type="number"
-                                min={0}
-                                step="any"
-                                defaultValue={signal.threshold}
-                                aria-label={signal.thresholdLabelAr ?? 'العتبة'}
+                                name="weight"
+                                inputMode="numeric"
+                                defaultValue={signal.weight}
+                                aria-label={`وزن ${signal.nameAr}`}
                                 ltr
                               />
+                            </span>
+                            {signal.threshold === null ? null : (
+                              <span className="admin-price-field">
+                                <Input
+                                  name="threshold"
+                                  inputMode="numeric"
+                                  defaultValue={signal.threshold}
+                                  aria-label={signal.thresholdLabelAr ?? 'العتبة'}
+                                  ltr
+                                />
+                              </span>
                             )}
                             <Select
                               name="enabled"

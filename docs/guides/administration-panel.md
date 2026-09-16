@@ -69,6 +69,19 @@ removes the decision rather than turning the module off, and returns them to the
 السجل التجاري cannot be switched off for anybody: without it there is no customer file to draw,
 and the attempt is refused rather than quietly ignored.
 
+**Their risk model** is on the same page, under **مؤشرات المخاطر**. It shows the platform's
+model with whatever this subscriber believes instead, field by field, and says of each which it
+is: **موروث** or **مخصّص**. Nothing is copied here when a subscriber is created, so an
+improvement to a platform default still reaches them, and **رفع التخصيص** returns one signal to
+being inherited rather than freezing it at today's number.
+
+The same two axes are there for one subscriber: **أنواع الخطر** switches a whole kind for them,
+and resuming one **lifts their exception** rather than writing «on» over it, so each signal
+returns to inheriting what the platform says.
+
+Subscribers cannot change any of this from their own console. Somebody who sets their own risk
+thresholds is marking their own examination.
+
 ### الحوالات, the top-ups
 
 A subscriber asks for credit, and you confirm it arrived. Confirming needs the tax invoice number
@@ -117,6 +130,40 @@ plan, and a plan nobody takes as written is a plan to redraw.
 | الأقسام المطلوبة | Which sections each kind of customer needs, and in what order |
 
 These reach every subscriber who has not overridden them.
+
+---
+
+## مؤشرات المخاطر, the risk model
+
+What raises a customer's risk score, by how much, and when (ADR-138). Every weight a subscriber
+sees on a customer file comes from a row on this screen, because a verdict nobody can inspect is
+one nobody can defend to an auditor.
+
+There are two axes to decide along, and a control for each.
+
+**By verification service.** Signals are grouped by the service whose answers they read, and
+each group has one control: **إيقاف احتساب الخطر لهذه الخدمة**. It reaches every signal that
+reads that service, so «stop letting the bank check move the score» is one decision rather than
+three.
+
+**By kind of doubt**, under **أنواع الخطر**: حالة رسمية, عدم تطابق, تقاطع, نقص في الملف, تغيّر
+مرصود, حداثة. Each says what it actually covers, and stopping one stops every signal of that
+kind. «Stop counting intersections» is a sentence about what a score is allowed to mean, and it
+belongs on its own control rather than spread across four rows.
+
+Each row carries a **weight** (0 to 100), a **threshold** where its condition has one, and
+whether it is counted. The threshold names itself, because the number means something different
+in each row: «عدد الشركات الأخرى» for a manager, «عمر السجل بالأيام» for a young business,
+«أكثر عدد أقسام تُحتسب» for an unfinished file.
+
+**A signal that is off is not raised at all**, not raised and weighed zero. What a reader is
+shown and what the number is made of are the same list.
+
+**حدود الدرجة** decides which word describes a number: «عالية» from the first, «متوسطة» from the
+second. Moving them moves no score, only the word.
+
+The count beside a signal, **خالفه N من المشتركين**, is the figure to watch. A weight a dozen
+subscribers have overridden is a weight that is wrong for the platform.
 
 ---
 

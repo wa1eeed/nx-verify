@@ -469,9 +469,11 @@ export {
 } from './routing/provider-routing.js';
 export {
   riskModel,
+  setCategoryRisk,
   setProductRisk,
   setRiskBands,
   setRiskSignal,
+  setTenantCategoryRisk,
   setTenantRiskBands,
   setTenantRiskSignal,
   tenantRiskModel,
