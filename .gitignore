@@ -11,4 +11,4 @@ coverage/
 .turbo/
 *.tsbuildinfo
 verify/output/
-.next-check/
+.next-*/

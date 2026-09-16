@@ -1,8 +1,37 @@
 import process from 'node:process';
 
+/**
+ * The headers on every response from the console (SEC-03).
+ *
+ * The policy that carries a nonce is written per request in `src/middleware.ts`; these do not
+ * change from one response to the next, so they are stated once here. HSTS is only meaningful
+ * over TLS and is only sent by a deployment, so a browser is never told to refuse the plain
+ * http a person develops against.
+ */
+const securityHeaders = [
+  // A file is what its type says it is: no sniffing a script out of a document we sent as text.
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  // Nothing outside the platform learns which screen a person came from.
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  // frame-ancestors says the same thing to a modern browser; this is for an older one.
+  { key: 'X-Frame-Options', value: 'DENY' },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  },
+  ...(process.env.NODE_ENV === 'production'
+    ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]
+    : []),
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // A version number in a header tells an attacker which flaws to try first.
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: '/:path*', headers: securityHeaders }];
+  },
   // A build run only to check the console can write somewhere else, so it never replaces the
   // output of a development server running from this folder.
   distDir: process.env.NX_CONSOLE_DIST_DIR || '.next',

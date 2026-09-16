@@ -27,6 +27,34 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     bodyLimit: 256 * 1024,
   });
 
+  /**
+   * The headers on every answer this service gives (SEC-03).
+   *
+   * Almost everything here is JSON for a program, and the one exception is a sealed document
+   * a person opens: written when the seal was made, with its own styles inside it and no
+   * script of any kind. So the policy allows a document to carry its own appearance and
+   * nothing else at all: no script, no frame, no image from anywhere, and no page may put
+   * this one inside itself.
+   *
+   * An answer is never stored: it carries a customer's verification, and a shared cache
+   * between them and us is a place it could be read from.
+   */
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('referrer-policy', 'no-referrer');
+    reply.header('x-frame-options', 'DENY');
+    reply.header(
+      'content-security-policy',
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; " +
+        "form-action 'none'; frame-ancestors 'none'",
+    );
+    reply.header('cache-control', 'no-store');
+    if (process.env['NODE_ENV'] === 'production') {
+      reply.header('strict-transport-security', 'max-age=31536000; includeSubDomains');
+    }
+    return payload;
+  });
+
   await app.register(rateLimit, {
     max: options.rateLimitMax ?? 120,
     timeWindow: '1 minute',
