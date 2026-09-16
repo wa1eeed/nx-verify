@@ -6,6 +6,8 @@ export { enforceRetention, ensureAuditPartitions, pruneRequestLogs } from './job
 export type { RetentionOptions, RetentionSummary } from './jobs/retention.js';
 export { runBatchItems } from './jobs/batches.js';
 export type { BatchItemSummary, RunBatchesOptions } from './jobs/batches.js';
+export { announceExpiries } from './jobs/expiry.js';
+export type { ExpiryAlertOptions, ExpirySummary } from './jobs/expiry.js';
 export { checkProviderHealth } from './jobs/provider-health.js';
 export {
   HEARTBEAT_STALE_SECONDS,

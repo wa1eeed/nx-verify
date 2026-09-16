@@ -36,7 +36,24 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ### Changed
 
+- **Key rotation is a scheduled job.** `rotateIdentifierKeys` existed, was tested, and nothing
+  ran it: the ninety day rotation the blueprint promises was a manual operation. It now runs
+  hourly, does nothing while every row is on the current key, and moves 500 rows a sweep once a
+  new version is activated.
 - The worker closes its retention pool on shutdown, like its other two.
+
+### Fixed (behaviour)
+
+- **`attestation.expired` had no producer.** A subscriber could subscribe to it on the
+  notifications screen and never hear from it. A daily job announces the crossing rather than
+  the state: a field that went out of date since the last sweep is announced once, and never
+  again, which needs no table to remember what was said.
+- **A worker with no mail endpoint queued notifications in silence.** It now says so at startup,
+  the way one with no retention connection does.
+- **Two queries on one connection.** Several screens gather a page's facts with `Promise.all`,
+  which is the right shape for the caller and the wrong shape for one connection: `pg` warned,
+  and from pg 9 it refuses. The queue now lives in the transaction helper, once, so a caller
+  cannot get it wrong.
 
 ### Fixed
 

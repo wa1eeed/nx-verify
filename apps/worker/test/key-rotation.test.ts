@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../../../packages/db/src/client.js';
 import {
@@ -177,6 +179,17 @@ describe('key rotation', () => {
       listIdentifiers(tx, bothKeys, entityId),
     );
     expect(identifiers.find((entry) => entry.idType === 'NATIONAL_ID')?.masked).toBe('••••••5432');
+  });
+
+  /**
+   * The promise in the blueprint is that keys rotate every ninety days. Code that can rotate
+   * and nothing that runs it keeps no promise, and this is the line that catches that: the job
+   * table is the only place a job becomes real.
+   */
+  it('is a job the worker actually runs', async () => {
+    const source = readFileSync(fileURLToPath(new URL('../src/main.ts', import.meta.url)), 'utf8');
+    expect(source).toContain('rotateIdentifierKeys');
+    expect(source).toMatch(/name: 'key-rotation'/);
   });
 
   it('moves the rows onto the new key, and says how many are left', async () => {

@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { createPool, type Queryable } from '@nx-verify/db';
+import { createPool, serialisedQuery, type Queryable } from '@nx-verify/db';
 import {
   getOperatorAccount,
   operatorCan,
@@ -299,9 +299,9 @@ export async function operatorOrSignIn(): Promise<OperatorIdentity> {
 export async function operatorQuery<T>(handler: (db: Queryable) => Promise<T>): Promise<T> {
   const client = await getPool().connect();
   try {
-    return await handler({
-      query: (text, values) => client.query(text, values as unknown[] | undefined),
-    });
+    // One statement at a time on one connection, so a screen may gather its facts with
+    // Promise.all without asking this client for two answers at once.
+    return await handler({ query: serialisedQuery(client) });
   } finally {
     client.release();
   }
@@ -315,9 +315,7 @@ export async function operatorTransaction<T>(handler: (db: Queryable) => Promise
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
-    const result = await handler({
-      query: (text, values) => client.query(text, values as unknown[] | undefined),
-    });
+    const result = await handler({ query: serialisedQuery(client) });
     await client.query('COMMIT');
     return result;
   } catch (error) {

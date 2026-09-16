@@ -60,6 +60,38 @@ export function createPool(connectionString: string): pg.Pool {
   return new Pool({ connectionString });
 }
 
+/**
+ * One statement at a time on one connection.
+ *
+ * A connection executes one statement at a time. Ask it for a second while the first is still
+ * running and `pg` warns, and from pg 9 it refuses. Several screens legitimately gather the
+ * facts of a page with `Promise.all`, which is the right shape for the caller and the wrong
+ * shape for one connection.
+ *
+ * So the queue lives here, once, rather than in every caller: statements run in the order they
+ * were issued, and a caller that writes `Promise.all` gets the answer it expects. Nothing is
+ * lost by it, because those queries were never actually running at the same time.
+ *
+ * A failed statement does not poison the queue. The next one runs and fails on its own, which
+ * is what an aborted transaction should do, rather than being swallowed here.
+ */
+export function serialisedQuery(
+  client: pg.PoolClient,
+): <R extends pg.QueryResultRow>(
+  text: string,
+  values?: readonly unknown[],
+) => Promise<pg.QueryResult<R>> {
+  let queue: Promise<unknown> = Promise.resolve();
+  return <R extends pg.QueryResultRow>(text: string, values?: readonly unknown[]) => {
+    const result = queue.then(() => client.query<R>(text, values as unknown[] | undefined));
+    queue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  };
+}
+
 export async function withTenant<T>(
   pool: pg.Pool,
   tenantId: string,
@@ -74,7 +106,7 @@ export async function withTenant<T>(
 
     const tx: TenantTransaction = {
       tenantId,
-      query: (text, values) => client.query(text, values as unknown[] | undefined),
+      query: serialisedQuery(client),
       db: drizzle(client, { schema }),
     };
 
@@ -102,7 +134,7 @@ export async function withoutTenant<T>(
   try {
     await client.query('BEGIN');
     const result = await handler({
-      query: (text, values) => client.query(text, values as unknown[] | undefined),
+      query: serialisedQuery(client),
       db: drizzle(client, { schema }),
     });
     await client.query('COMMIT');

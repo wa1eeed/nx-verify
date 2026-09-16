@@ -1,4 +1,4 @@
-export { createPool, withSavepoint, withTenant, withoutTenant } from './client.js';
+export { serialisedQuery, createPool, withSavepoint, withTenant, withoutTenant } from './client.js';
 export type { Queryable, TenantTransaction } from './client.js';
 export { assertUuid } from './sql-identifier.js';
 export { POSTGRES_IMAGE, POSTGRES_MAJOR_VERSION } from './postgres-version.js';

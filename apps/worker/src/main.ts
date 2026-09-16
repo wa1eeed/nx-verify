@@ -34,6 +34,8 @@ import {
 import { runBatchItems } from './jobs/batches.js';
 import { checkProviderHealth } from './jobs/provider-health.js';
 import { runVerificationRequests } from './jobs/requests.js';
+import { rotateIdentifierKeys } from './jobs/key-rotation.js';
+import { announceExpiries } from './jobs/expiry.js';
 
 /**
  * The worker process.
@@ -189,11 +191,37 @@ async function main(): Promise<void> {
       },
     },
     {
+      // Once a day, and it announces the crossing rather than the state: see jobs/expiry.ts.
+      name: 'expiry-alerts',
+      everySeconds: 24 * 60 * MINUTE,
+      scope: 'tenant',
+      run: async ({ tx }) => {
+        await announceExpiries(tx, { sinceHours: 24 });
+      },
+    },
+    {
       name: 'audit-partitions',
       everySeconds: 24 * 60 * MINUTE,
       scope: 'global',
       run: async ({ tx }) => {
         await ensureAuditPartitions(tx);
+      },
+    },
+    {
+      /**
+       * The ninety day rotation the blueprint promises, kept by the platform rather than by
+       * somebody remembering.
+       *
+       * It does nothing at all while every row is already on the current key: the claim is one
+       * indexed read that returns no rows. The moment a new key version is activated it starts
+       * moving rows, five hundred at a time, and stops when there are none left. It runs as the
+       * application role, which holds UPDATE on the identifiers and nothing else it needs.
+       */
+      name: 'key-rotation',
+      everySeconds: 60 * MINUTE,
+      scope: 'tenant',
+      run: async ({ tx }) => {
+        await rotateIdentifierKeys(tx, { keys });
       },
     },
     {
@@ -215,6 +243,17 @@ async function main(): Promise<void> {
         await deliverNotifications(tx, { transport: mail });
       },
     });
+  } else {
+    // Said once, loudly, like the retention warning above. Without an endpoint this job does
+    // not exist at all, and messages pile up in notification_deliveries with nothing to send
+    // them: a queue that grows in silence is worse than one that fails.
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        message:
+          'NX_MAIL_ENDPOINT is not set, so notifications will queue and nothing will be delivered',
+      }),
+    );
   }
 
   // Touched after every sweep, so the container can tell a quiet worker from a dead one

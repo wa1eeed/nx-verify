@@ -20,7 +20,9 @@ page exists.
 | `batches`               | 1 minute    | tenant  | app          | Runs up to 20 batch items                                      |
 | `provider-health`       | 5 minutes   | tenant  | app          | Tests each active binding and writes its health                |
 | `monitors`              | 15 minutes  | tenant  | app          | Runs up to 25 due monitors within their budgets                |
+| `key-rotation`          | 60 minutes  | tenant  | app          | Moves stored identifiers onto the current key, 500 at a time   |
 | `retention`             | 6 hours     | tenant  | **retention** | Destroys what is past its period, and prunes the request log  |
+| `expiry-alerts`         | 24 hours    | tenant  | app          | Announces facts that went out of date since the last sweep     |
 | `inbound-events`        | 24 hours    | global  | **retention** | Deletes callbacks older than 90 days                          |
 | `audit-partitions`      | 24 hours    | global  | app          | Creates the audit partition for this month and two ahead       |
 
@@ -132,9 +134,21 @@ weekly seven, monthly a month, and `ON_EXPIRY` re-examines daily.
 A sweep produces a run like any other, plus one `entity.changed` event per detected change and a
 refreshed score.
 
-> **Freshness alerts are not scheduled.** A field passing its time to live is computed when a
-> screen asks, and the console's alerts page is what surfaces it. The `attestation.expired`
-> event type exists and nothing emits it.
+### Expiry, and why the crossing rather than the state
+
+Freshness is arithmetic: nothing writes it, and a field passes its time to live by the clock
+alone. So for a long time nothing announced it either, and a subscriber could subscribe to
+`attestation.expired` on the notifications screen and never hear from it.
+
+`expiry-alerts` announces the **crossing**, not the state: a field whose effective date fell
+inside the window since the last sweep, once, and never again. A compliance team told every day
+about the same expiry stops reading the mail, and the alerts screen already shows the state.
+
+That choice needs no table to remember what it has said, because the window is the memory. The
+cost, stated plainly: a worker down for a whole day misses that day's crossings. They are still
+on the alerts screen.
+
+At most 200 announcements per sweep per workspace, so one bad day cannot flood a mailbox.
 
 ---
 
@@ -217,17 +231,28 @@ writes an audit row, `provider.health_changed`, with where it moved from and to.
 
 ---
 
+## Key rotation
+
+`key-rotation` runs hourly and does nothing at all while every row is already on the current
+key: the claim is one indexed read that returns no rows. The moment a new key version is
+activated it starts moving rows, 500 at a time, and stops when there are none left. It is safe
+to interrupt: a row is either fully on the old key or fully on the new one, never between.
+
+It does not touch evidence. Re-signing a seal would change a hash a customer has already shown
+to an auditor, so old evidence keeps its old key and stays verifiable for as long as that key is
+readable.
+
+This is what keeps the ninety day rotation the blueprint promises a property of the platform
+rather than of somebody remembering. The procedure for adding a key version is in
+[the secrets guide](../05-secrets.md).
+
+---
+
 ## Known gaps
 
-Recorded here rather than left to be discovered.
-
-1. **Key rotation is not scheduled.** `rotateIdentifierKeys` exists, is tested, and rewrites
-   rows from an older key version to the current one in batches of 500. Nothing calls it: it has
-   no entry in the job table. The ninety day rotation the blueprint promises is therefore a
-   manual operation today. See [rotating keys](../05-secrets.md).
-2. **`attestation.expired` has no producer.** The event type exists and has a notification
-   template; nothing queues it.
-3. **Notifications disappear silently without a mail endpoint**, unlike retention, which warns.
+None outstanding. The three that were recorded here have been closed: key rotation is scheduled,
+`attestation.expired` has a producer, and a worker with no mail endpoint now says so at startup
+the way one with no retention connection does.
 
 ---
 
