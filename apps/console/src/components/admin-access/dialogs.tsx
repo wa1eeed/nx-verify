@@ -3,6 +3,7 @@
 import { useState, type ReactElement, type ReactNode } from 'react';
 import type { OperatorRole, OperatorStatus } from '@nx-verify/core';
 import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
 import { Dialog } from '../ui/dialog';
 import { Field } from '../ui/field';
 import { Input } from '../ui/input';
@@ -133,7 +134,14 @@ export function EditStaffDialog({
   account,
 }: {
   action: Action;
-  account: { id: string; displayName: string; role: OperatorRole; status: OperatorStatus };
+  account: {
+    id: string;
+    displayName: string;
+    role: OperatorRole;
+    status: OperatorStatus;
+    /** When they enrolled an authenticator, or null if they have not (SEC-02). */
+    secondFactorAt: Date | null;
+  };
 }): ReactElement {
   return (
     <FormDialog
@@ -174,6 +182,14 @@ export function EditStaffDialog({
           />
         )}
       </Field>
+      {account.secondFactorAt === null ? null : (
+        // Somebody who lost their phone: the authenticator comes off, their sessions end with
+        // it, and they enrol a new one at their next sign in (SEC-02).
+        <Checkbox name="reset_second_factor" value="yes" data-role="reset-second-factor">
+          إعادة تعيين المصادقة الثنائية: يُلغى تطبيق المصادقة الحالي وتنتهي جلساته، ويُفعّل تطبيقاً
+          جديداً عند دخوله القادم.
+        </Checkbox>
+      )}
     </FormDialog>
   );
 }

@@ -7,6 +7,7 @@ import {
   authenticateOperator,
   createOperatorAccount,
   getOperatorAccount,
+  resetSecondFactor,
   setOperatorPassword,
   updateOperatorAccount,
   type OperatorRole,
@@ -17,6 +18,7 @@ import {
   operatorQuery,
   operatorTransaction,
   requireOperatorPermission,
+  startOperatorSession,
 } from '../../../../lib/operator';
 
 /**
@@ -70,6 +72,7 @@ export async function updateStaffAction(formData: FormData): Promise<void> {
   const actor = await requireOperatorPermission('staff');
   const id = String(formData.get('id') ?? '');
   const password = String(formData.get('password') ?? '');
+  const resetAuthenticator = formData.get('reset_second_factor') !== null;
   try {
     await operatorTransaction(async (db) => {
       await updateOperatorAccount(db, actor, id, {
@@ -79,12 +82,34 @@ export async function updateStaffAction(formData: FormData): Promise<void> {
       if (password !== '') {
         await setOperatorPassword(db, actor, id, password);
       }
+      if (resetAuthenticator) {
+        await resetSecondFactor(db, actor, id);
+      }
     });
+    await keepOwnSession(actor.id, id);
   } catch (error) {
     back({ refused: refusalOf(error) });
   }
   revalidatePath('/operator/access');
-  back({ saved: 'staff-updated' });
+  back({ saved: resetAuthenticator ? 'second-factor-reset' : 'staff-updated' });
+}
+
+/**
+ * An owner who changed their own account stays signed in (SEC-04).
+ *
+ * Every one of these changes raises the account's credential version, which is what ends the
+ * sessions opened before it. The one making the change is at their keyboard and has just
+ * proved who they are, so their own session is reissued at the new version instead; every
+ * other browser holding that account is signed out, which is the point.
+ */
+async function keepOwnSession(actorId: string, changedId: string): Promise<void> {
+  if (actorId !== changedId) {
+    return;
+  }
+  const account = await operatorQuery((db) => getOperatorAccount(db, actorId));
+  if (account !== null && account.status === 'ACTIVE' && account.secondFactorAt !== null) {
+    await startOperatorSession(account.id, account.credentialVersion);
+  }
 }
 
 export async function changeOwnPasswordAction(formData: FormData): Promise<void> {
@@ -102,6 +127,8 @@ export async function changeOwnPasswordAction(formData: FormData): Promise<void>
     await operatorTransaction((db) =>
       setOperatorPassword(db, actor, actor.id, String(formData.get('next') ?? '')),
     );
+    // Every other browser signed in as this person is now signed out; this one is not.
+    await keepOwnSession(actor.id, actor.id);
   } catch (error) {
     back({ refused: refusalOf(error) });
   }

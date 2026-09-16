@@ -47,7 +47,17 @@ export const OPERATOR_COOKIE = 'nx_operator';
 /** How long a sign in to the panel lasts before the password is asked for again. */
 export const OPERATOR_SESSION_HOURS = 8;
 
-const SESSION_LABEL = 'nx-operator-session/v2';
+const SESSION_LABEL = 'nx-operator-session/v3';
+const PENDING_LABEL = 'nx-operator-pending/v1';
+
+/** The cookie that holds a sign in between the password and the code (SEC-02). */
+export const OPERATOR_PENDING_COOKIE = 'nx_operator_pending';
+
+/** How long the second step may be left unfinished. */
+export const OPERATOR_PENDING_MINUTES = 10;
+
+/** What the second step is for: enrolling an authenticator, or proving one. */
+export type PendingStage = 'enrol' | 'verify';
 
 /** Whether this deployment has a panel at all. Without a token nobody can sign in. */
 export function operatorPanelEnabled(
@@ -60,20 +70,29 @@ export function operatorPanelEnabled(
 /**
  * The cookie value for a member of staff who signed in.
  *
- * It names the account and when the sign in ends, sealed with the deployment's token. The
- * browser never holds the token, a value stops working at its expiry, rotating the token
- * signs everybody out, and disabling an account signs that person out at their next request,
- * because the account is read back on every one.
+ * It names the account, the version of their credentials it was issued under and when the sign
+ * in ends, sealed with the deployment's token. The browser never holds the token, a value stops
+ * working at its expiry, rotating the token signs everybody out, and disabling an account signs
+ * that person out at their next request, because the account is read back on every one.
+ *
+ * The credential version is what makes a changed password, a demotion or a reset authenticator
+ * take effect at once rather than in eight hours (SEC-04).
  */
 export function operatorSessionValue(
   token: string,
   accountId: string,
+  credentialVersion: number,
   expiresAtMs: number,
 ): string {
   const mac = createHmac('sha256', token)
-    .update(`${SESSION_LABEL}|${accountId}|${expiresAtMs}`)
+    .update(`${SESSION_LABEL}|${accountId}|${credentialVersion}|${expiresAtMs}`)
     .digest('base64url');
-  return `v2.${accountId}.${expiresAtMs}.${mac}`;
+  return `v3.${accountId}.${credentialVersion}.${expiresAtMs}.${mac}`;
+}
+
+export interface OperatorSession {
+  accountId: string;
+  credentialVersion: number;
 }
 
 /** The account a session value names, when the value is ours and has not expired. */
@@ -81,12 +100,23 @@ export function readOperatorSession(
   token: string,
   value: string,
   nowMs: number = Date.now(),
-): string | null {
-  const [version, accountId, expires, mac] = value.split('.');
-  if (version !== 'v2' || !accountId || !expires || !mac || !/^[0-9a-f-]{36}$/i.test(accountId)) {
+): OperatorSession | null {
+  const [version, accountId, credentials, expires, mac] = value.split('.');
+  if (
+    version !== 'v3' ||
+    !accountId ||
+    !credentials ||
+    !expires ||
+    !mac ||
+    !/^[0-9a-f-]{36}$/i.test(accountId)
+  ) {
     return null;
   }
+  const credentialVersion = Number(credentials);
   const expiresAt = Number(expires);
+  if (!Number.isSafeInteger(credentialVersion) || credentialVersion <= 0) {
+    return null;
+  }
   if (!Number.isSafeInteger(expiresAt) || expiresAt <= nowMs) {
     return null;
   }
@@ -94,8 +124,57 @@ export function readOperatorSession(
   if (expiresAt - nowMs > OPERATOR_SESSION_HOURS * 3_600_000 + 60_000) {
     return null;
   }
-  return timingSafeEquals(value, operatorSessionValue(token, accountId, expiresAt))
-    ? accountId
+  return timingSafeEquals(
+    value,
+    operatorSessionValue(token, accountId, credentialVersion, expiresAt),
+  )
+    ? { accountId, credentialVersion }
+    : null;
+}
+
+/**
+ * The value that carries a sign in between the password and the code (SEC-02).
+ *
+ * It opens no screen of the panel: it says only that this account gave the right password a few
+ * minutes ago, and what the second step is for. Sealed and read exactly as a session is.
+ */
+export function operatorPendingValue(
+  token: string,
+  accountId: string,
+  stage: PendingStage,
+  expiresAtMs: number,
+): string {
+  const mac = createHmac('sha256', token)
+    .update(`${PENDING_LABEL}|${accountId}|${stage}|${expiresAtMs}`)
+    .digest('base64url');
+  return `p1.${accountId}.${stage}.${expiresAtMs}.${mac}`;
+}
+
+export function readOperatorPending(
+  token: string,
+  value: string,
+  nowMs: number = Date.now(),
+): { accountId: string; stage: PendingStage } | null {
+  const [version, accountId, stage, expires, mac] = value.split('.');
+  if (
+    version !== 'p1' ||
+    !accountId ||
+    (stage !== 'enrol' && stage !== 'verify') ||
+    !expires ||
+    !mac ||
+    !/^[0-9a-f-]{36}$/i.test(accountId)
+  ) {
+    return null;
+  }
+  const expiresAt = Number(expires);
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= nowMs) {
+    return null;
+  }
+  if (expiresAt - nowMs > OPERATOR_PENDING_MINUTES * 60_000 + 60_000) {
+    return null;
+  }
+  return timingSafeEquals(value, operatorPendingValue(token, accountId, stage, expiresAt))
+    ? { accountId, stage }
     : null;
 }
 
@@ -141,11 +220,19 @@ export async function currentOperator(): Promise<OperatorIdentity> {
   ) {
     return TOKEN_OPERATOR;
   }
-  const accountId =
+  const session =
     presented.session === null ? null : readOperatorSession(expected, presented.session);
-  if (accountId !== null) {
-    const account = await operatorQuery((db) => getOperatorAccount(db, accountId));
-    if (account !== null && account.status === 'ACTIVE') {
+  if (session !== null) {
+    const account = await operatorQuery((db) => getOperatorAccount(db, session.accountId));
+    if (
+      account !== null &&
+      account.status === 'ACTIVE' &&
+      // A password change, a demotion or a reset authenticator raises the version, and every
+      // session issued before it stops here (SEC-04).
+      account.credentialVersion === session.credentialVersion &&
+      // A member of staff without an authenticator cannot hold a session at all (SEC-02).
+      account.secondFactorAt !== null
+    ) {
       return { id: account.id, displayName: account.displayName, role: account.role };
     }
   }
@@ -221,21 +308,81 @@ export async function operatorTransaction<T>(handler: (db: Queryable) => Promise
   }
 }
 
-/** Starts a member of staff's sign in: the cookie, scoped to the panel's own path. */
-export async function startOperatorSession(accountId: string): Promise<void> {
+function panelToken(): string {
   const token = process.env['NX_OPERATOR_TOKEN'];
   if (!token || token.length < 24) {
     throw new Error('NX_OPERATOR_TOKEN is not set, or is too short to be one');
   }
-  const { cookies } = await import('next/headers');
-  const expiresAt = Date.now() + OPERATOR_SESSION_HOURS * 3_600_000;
-  (await cookies()).set(OPERATOR_COOKIE, operatorSessionValue(token, accountId, expiresAt), {
+  return token;
+}
+
+function cookieOptions(expiresAt: number): {
+  httpOnly: true;
+  sameSite: 'strict';
+  secure: boolean;
+  path: string;
+  expires: Date;
+} {
+  return {
     httpOnly: true,
     sameSite: 'strict',
     secure: process.env['NODE_ENV'] === 'production',
     path: '/operator',
     expires: new Date(expiresAt),
-  });
+  };
+}
+
+/** Starts a member of staff's sign in: the cookie, scoped to the panel's own path. */
+export async function startOperatorSession(
+  accountId: string,
+  credentialVersion: number,
+): Promise<void> {
+  const token = panelToken();
+  const { cookies } = await import('next/headers');
+  const expiresAt = Date.now() + OPERATOR_SESSION_HOURS * 3_600_000;
+  const jar = await cookies();
+  jar.set(
+    OPERATOR_COOKIE,
+    operatorSessionValue(token, accountId, credentialVersion, expiresAt),
+    cookieOptions(expiresAt),
+  );
+  // The second step is over: nothing should be left that could start it again.
+  jar.delete({ name: OPERATOR_PENDING_COOKIE, path: '/operator' });
+}
+
+/** Holds a sign in at its second step, for a few minutes (SEC-02). */
+export async function startOperatorSecondStep(
+  accountId: string,
+  stage: PendingStage,
+): Promise<void> {
+  const token = panelToken();
+  const { cookies } = await import('next/headers');
+  const expiresAt = Date.now() + OPERATOR_PENDING_MINUTES * 60_000;
+  (await cookies()).set(
+    OPERATOR_PENDING_COOKIE,
+    operatorPendingValue(token, accountId, stage, expiresAt),
+    cookieOptions(expiresAt),
+  );
+}
+
+/** Who is at the second step of a sign in, if anybody. */
+export async function pendingOperator(): Promise<{
+  accountId: string;
+  stage: PendingStage;
+} | null> {
+  const token = process.env['NX_OPERATOR_TOKEN'];
+  if (!token || token.length < 24) {
+    return null;
+  }
+  const { cookies } = await import('next/headers');
+  const value = (await cookies()).get(OPERATOR_PENDING_COOKIE)?.value;
+  return value ? readOperatorPending(token, value) : null;
+}
+
+/** Ends a half finished sign in, when the person gives up or starts again. */
+export async function endOperatorSecondStep(): Promise<void> {
+  const { cookies } = await import('next/headers');
+  (await cookies()).delete({ name: OPERATOR_PENDING_COOKIE, path: '/operator' });
 }
 
 async function readOperatorCredential(): Promise<{

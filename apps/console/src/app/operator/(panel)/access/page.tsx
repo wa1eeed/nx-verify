@@ -24,6 +24,10 @@ export const dynamic = 'force-dynamic';
 const NOTICES: Readonly<Record<string, { tone: 'done' | 'refused'; text: string }>> = {
   'staff-added': { tone: 'done', text: 'أُضيف العضو. يدخل ببريده وكلمة المرور التي عيّنتها.' },
   'staff-updated': { tone: 'done', text: 'حُفظت التغييرات.' },
+  'second-factor-reset': {
+    tone: 'done',
+    text: 'حُفظت التغييرات، وأُلغيت المصادقة الثنائية. يُفعّلها العضو من جديد عند دخوله القادم.',
+  },
   password: { tone: 'done', text: 'تغيّرت كلمة المرور.' },
   'refused:password': { tone: 'refused', text: 'لم يُحفظ: كلمة المرور 12 حرفاً على الأقل.' },
   'refused:exists': { tone: 'refused', text: 'لم يُحفظ: في الفريق عضو بهذا البريد.' },

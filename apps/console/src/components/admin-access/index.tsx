@@ -85,8 +85,8 @@ export function AdminAccess({
           </h2>
           <div className="admin-head-actions">
             <p className="admin-card-note">
-              كل عضو يدخل ببريده وكلمة مروره، والجلسة تنتهي بعد <Ltr>{view.sessionHours}</Ltr>{' '}
-              ساعات.
+              كل عضو يدخل ببريده وكلمة مروره ورمز من تطبيق المصادقة، والجلسة تنتهي بعد{' '}
+              <Ltr>{view.sessionHours}</Ltr> ساعات.
             </p>
             {view.selfId === null ? null : <OwnPasswordDialog action={actions.changeOwnPassword} />}
           </div>
@@ -104,6 +104,7 @@ export function AdminAccess({
                   <Th>البريد</Th>
                   <Th>الدور</Th>
                   <Th>الحالة</Th>
+                  <Th>المصادقة الثنائية</Th>
                   <Th>آخر دخول</Th>
                   {view.canManageStaff ? (
                     <Th>
@@ -114,7 +115,7 @@ export function AdminAccess({
               </thead>
               <tbody>
                 {view.accounts.map((account) => (
-                  <tr key={account.id} data-role="staff-row">
+                  <tr key={account.id} data-role="staff-row" data-staff-id={account.id}>
                     <td>
                       {account.displayName}
                       {account.id === view.selfId ? (
@@ -132,6 +133,13 @@ export function AdminAccess({
                         <Tag tone="neutral">موقوف</Tag>
                       )}
                     </td>
+                    <td data-role="second-factor">
+                      {account.secondFactorAt === null ? (
+                        <Tag tone="neutral">تُفعَّل عند الدخول</Tag>
+                      ) : (
+                        <Tag tone="accent-2">مفعّلة · {dateAr(account.secondFactorAt)}</Tag>
+                      )}
+                    </td>
                     <td>
                       {account.lastSignInAt === null
                         ? 'لم يدخل بعد'
@@ -146,6 +154,7 @@ export function AdminAccess({
                             displayName: account.displayName,
                             role: account.role,
                             status: account.status,
+                            secondFactorAt: account.secondFactorAt,
                           }}
                         />
                       </td>

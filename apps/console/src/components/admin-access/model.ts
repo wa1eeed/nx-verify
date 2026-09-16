@@ -39,6 +39,9 @@ const ACTIONS: Readonly<Record<string, string>> = {
   'staff.created': 'إضافة عضو إلى الفريق',
   'staff.updated': 'تعديل دور أو حالة',
   'staff.password_set': 'تعيين كلمة مرور',
+  'staff.second_factor_enrolled': 'تفعيل المصادقة الثنائية',
+  'staff.second_factor_reset': 'إعادة تعيين المصادقة الثنائية',
+  'staff.recovery_code_used': 'دخول برمز استرداد',
   'pricing.list_price': 'تعديل سعر منتج',
   'pricing.product_suspended': 'إيقاف بيع منتج',
   'pricing.product_resumed': 'إعادة بيع منتج',
@@ -156,6 +159,10 @@ export function auditChangeAr(row: Pick<OperatorAuditRow, 'action' | 'metadata'>
       const requirement = meta['requirement'] === 'REQUIRED' ? 'مطلوب' : 'اختياري';
       return [KIND_NAMES[String(meta['kind'])], section, requirement].filter(Boolean).join(' · ');
     }
+    case 'staff.recovery_code_used':
+      return typeof meta['remaining'] === 'number'
+        ? `بقي ${meta['remaining']} من رموز الاسترداد`
+        : '·';
     case 'staff.created':
     case 'staff.first_owner':
     case 'staff.updated': {

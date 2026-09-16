@@ -354,6 +354,7 @@ textarea.input { min-height: 90px; resize: vertical; }
   --control-brand-mark: 30px;
   --control-progress: 7px;
   --control-progress-thick: 9px;
+  --control-qr: 176px;
   --control-ring: 78px;
   --control-ring-stroke: 9px;
   --control-section-number: 28px;

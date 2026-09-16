@@ -38,12 +38,17 @@ for (const size of ['tablet', 'phone']) {
           mainVisible: width > 0 && width <= deviceWidth,
         };
       }, WIDTHS[size]);
-      const ok = facts.overflow <= 0 && facts.mainVisible;
+      // A route that names what must be on it fails when it lands somewhere else instead.
+      const present =
+        route.expect === undefined ? true : (await page.locator(route.expect).count()) > 0;
+      const ok = facts.overflow <= 0 && facts.mainVisible && present;
       if (!ok) {
         failures += 1;
       }
       console.log(
-        `${ok ? '✓' : '✖'} ${size} ${route.name}: overflow ${facts.overflow}px, main ${facts.mainVisible ? 'visible' : 'off screen'}`,
+        `${ok ? '✓' : '✖'} ${size} ${route.name}: overflow ${facts.overflow}px, main ${
+          facts.mainVisible ? 'visible' : 'off screen'
+        }${present ? '' : `, ${route.expect} missing`}`,
       );
     } catch (error) {
       failures += 1;

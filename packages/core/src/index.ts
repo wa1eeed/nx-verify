@@ -814,6 +814,27 @@ export type {
   OperatorStatus,
 } from './operators/accounts.js';
 export {
+  confirmSecondFactorEnrolment,
+  operatorHasSecondFactor,
+  recoveryCodesLeft,
+  resetSecondFactor,
+  startSecondFactorEnrolment,
+  verifyOperatorSecondFactor,
+} from './operators/second-factor.js';
+export type { SecondFactorEnrolment, SecondFactorResult } from './operators/second-factor.js';
+export {
+  base32Decode,
+  base32Encode,
+  generateTotpSecret,
+  otpauthUri,
+  readableSecret,
+  totpCode,
+  totpStep,
+  verifyTotp,
+} from './auth/totp.js';
+export { openSecret, sealSecret } from './crypto/secret-box.js';
+export { qrSvg } from './auth/qr.js';
+export {
   countOperatorAudit,
   listOperatorAudit,
   pageOperatorAudit,

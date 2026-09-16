@@ -2,10 +2,15 @@
  * NX Trust: every screen the verification scripts visit.
  *
  * `portal` screens open with the development session of the console, `operator` screens with
- * the deployment token sent on this console's /operator requests only, and `anonymous` screens
- * with no session at all. `:customer` and `:subscriber` are resolved from the first row of
- * their lists, so the scripts need no fixture ids.
+ * the deployment token sent on this console's /operator requests only, `door` screens with a
+ * sign in held at its second step, and `anonymous` screens with no session at all. `:customer`
+ * and `:subscriber` are resolved from the first row of their lists, so the scripts need no
+ * fixture ids.
+ *
+ * A route may name an `expect` selector. It must be on the screen, which is how a route that
+ * quietly redirects somewhere else fails loudly rather than passing as an empty page.
  */
+import { createHmac } from 'node:crypto';
 
 export const ROUTES = [
   { name: 'portal-dashboard', path: '/dashboard', as: 'portal' },
@@ -46,7 +51,18 @@ export const ROUTES = [
   { name: 'operator-readiness', path: '/operator/verification/readiness', as: 'operator' },
   { name: 'operator-reports', path: '/operator/reports', as: 'operator' },
   { name: 'operator-access', path: '/operator/access', as: 'operator' },
-  { name: 'anonymous-operator-login', path: '/operator/login', as: 'anonymous' },
+  {
+    name: 'anonymous-operator-login',
+    path: '/operator/login',
+    as: 'anonymous',
+    expect: '[data-role="operator-sign-in"]',
+  },
+  {
+    name: 'door-operator-code',
+    path: '/operator/login/code',
+    as: 'door',
+    expect: '[data-role="operator-second-factor"]',
+  },
 ];
 
 export const WIDTHS = { desktop: 1440, tablet: 820, phone: 390 };
@@ -62,6 +78,7 @@ export async function openContexts(browser, { base, token, width }) {
   const portal = await browser.newContext(options);
   const anonymous = await browser.newContext(options);
   const operator = await browser.newContext(options);
+  const door = await browser.newContext(options);
   if (token) {
     // Scoped to this console's panel, so the token never travels anywhere else the page loads from.
     for (const pattern of [`${base}/operator/**`, `${base}/operator`]) {
@@ -69,8 +86,38 @@ export async function openContexts(browser, { base, token, width }) {
         route.continue({ headers: { ...route.request().headers(), 'x-nx-operator-token': token } }),
       );
     }
+    // A sign in held between the password and the code, so the second step is a screen the
+    // scripts can open. The value is the one apps/console/src/lib/operator.ts writes, minted
+    // here rather than fetched because no screen hands it out; a change to that format shows
+    // up as this route failing its `expect`.
+    const account = await accountIdOf(base, token);
+    if (account) {
+      const expires = Date.now() + 9 * 60_000;
+      const mac = createHmac('sha256', token)
+        .update(`nx-operator-pending/v1|${account}|enrol|${expires}`)
+        .digest('base64url');
+      await door.addCookies([
+        {
+          name: 'nx_operator_pending',
+          value: `p1.${account}.enrol.${expires}.${mac}`,
+          domain: new URL(base).hostname,
+          path: '/operator',
+          httpOnly: true,
+          sameSite: 'Strict',
+        },
+      ]);
+    }
   }
-  return { portal, anonymous, operator };
+  return { portal, anonymous, operator, door };
+}
+
+/** The first member of staff, read from the panel's own screen rather than the database. */
+async function accountIdOf(base, token) {
+  const response = await fetch(`${base}/operator/access`, {
+    headers: { 'x-nx-operator-token': token },
+  });
+  const html = await response.text();
+  return /data-staff-id="([0-9a-f-]{36})"/.exec(html)?.[1] ?? null;
 }
 
 export async function resolveIds(contexts, base) {

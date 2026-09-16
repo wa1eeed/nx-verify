@@ -50,6 +50,13 @@ export interface OperatorAccount {
   status: OperatorStatus;
   lastSignInAt: Date | null;
   createdAt: Date;
+  /**
+   * Rises with every password, role or status change, and with an authenticator reset. A
+   * session issued under an older version is refused on its next request (SEC-04).
+   */
+  credentialVersion: number;
+  /** When this account finished enrolling an authenticator, or null while it has none (SEC-02). */
+  secondFactorAt: Date | null;
 }
 
 /** Who is acting in the panel: a member of staff, or the deployment's token itself. */
@@ -70,9 +77,12 @@ interface AccountRow {
   status: OperatorStatus;
   last_sign_in_at: Date | null;
   created_at: Date;
+  credential_version: number;
+  totp_confirmed_at: Date | null;
 }
 
-const COLUMNS = `id, email, display_name, role, status, last_sign_in_at, created_at`;
+const COLUMNS = `id, email, display_name, role, status, last_sign_in_at, created_at,
+                 credential_version, totp_confirmed_at`;
 
 function accountOf(row: AccountRow): OperatorAccount {
   return {
@@ -83,6 +93,8 @@ function accountOf(row: AccountRow): OperatorAccount {
     status: row.status,
     lastSignInAt: row.last_sign_in_at,
     createdAt: row.created_at,
+    credentialVersion: row.credential_version,
+    secondFactorAt: row.totp_confirmed_at,
   };
 }
 
@@ -310,7 +322,10 @@ export async function updateOperatorAccount(
 
   const { rows } = await db.query<AccountRow>(
     `UPDATE operator_accounts
-     SET role = COALESCE($2, role), status = COALESCE($3, status), updated_at = now()
+     SET role = COALESCE($2, role), status = COALESCE($3, status),
+         -- A demotion or a disabling takes effect at once: every session this person holds is
+         -- issued under the old version and is refused on its next request (SEC-04).
+         credential_version = credential_version + 1, updated_at = now()
      WHERE id = $1
      RETURNING ${COLUMNS}`,
     [id, change.role ?? null, change.status ?? null],
@@ -341,7 +356,9 @@ export async function setOperatorPassword(
   const { rowCount } = await db.query(
     `UPDATE operator_accounts
      SET password_hash = $2, password_salt = $3, password_params = $4::jsonb,
-         failed_attempts = 0, locked_until = NULL, updated_at = now()
+         failed_attempts = 0, locked_until = NULL,
+         -- Sessions opened with the old password stop working (SEC-04).
+         credential_version = credential_version + 1, updated_at = now()
      WHERE id = $1`,
     [id, sealed.hash, sealed.salt, JSON.stringify(sealed.params)],
   );

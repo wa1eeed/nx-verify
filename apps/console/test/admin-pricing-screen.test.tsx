@@ -387,6 +387,8 @@ describe('the staff and the trail (الصلاحيات والتدقيق)', () => 
         status: 'ACTIVE',
         lastSignInAt: null,
         createdAt: new Date('2026-09-01T00:00:00Z'),
+        credentialVersion: 1,
+        secondFactorAt: new Date('2026-09-01T00:10:00Z'),
       },
     ],
     selfId: 's-1',
