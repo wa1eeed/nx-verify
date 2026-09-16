@@ -15,6 +15,7 @@ import {
 } from '@nx-verify/providers';
 import { resolveProviders } from '@nx-verify/core';
 import { Scheduler, type JobDefinition } from './schedule.js';
+import { beat, heartbeatPath } from './heartbeat.js';
 import { activeTenantIds } from './tenants.js';
 import { runDueMonitors } from './jobs/monitors.js';
 import { resumeAwaitingRuns } from './jobs/resume.js';
@@ -216,6 +217,10 @@ async function main(): Promise<void> {
     });
   }
 
+  // Touched after every sweep, so the container can tell a quiet worker from a dead one
+  // without opening a port on it (SEC-07).
+  const heartbeat = heartbeatPath();
+
   const scheduler = new Scheduler({
     jobs,
     tenants: () => activeTenantIds(operatorPool),
@@ -228,6 +233,7 @@ async function main(): Promise<void> {
           ) => withTenant(retentionPool, tenantId, handler),
         }
       : {}),
+    ...(heartbeat === null ? {} : { onTick: () => void beat(heartbeat) }),
     // The job name and the workspace, never the row that failed: a worker log is a place
     // an identifier must not reach (rule 4).
     onError: (job, tenantId, error) => {
@@ -243,7 +249,14 @@ async function main(): Promise<void> {
   });
 
   scheduler.start();
-  console.error(JSON.stringify({ level: 'info', message: 'worker started', jobs: jobs.length }));
+  console.error(
+    JSON.stringify({
+      level: 'info',
+      message: 'worker started',
+      jobs: jobs.length,
+      heartbeat: heartbeat !== null,
+    }),
+  );
 
   const shutdown = async (signal: string): Promise<void> => {
     console.error(JSON.stringify({ level: 'info', message: 'stopping', signal }));

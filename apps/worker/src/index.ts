@@ -7,6 +7,14 @@ export type { RetentionOptions, RetentionSummary } from './jobs/retention.js';
 export { runBatchItems } from './jobs/batches.js';
 export type { BatchItemSummary, RunBatchesOptions } from './jobs/batches.js';
 export { checkProviderHealth } from './jobs/provider-health.js';
+export {
+  HEARTBEAT_STALE_SECONDS,
+  HEARTBEAT_VARIABLE,
+  beat,
+  heartbeatPath,
+  isAlive,
+  secondsSinceBeat,
+} from './heartbeat.js';
 export type { ProviderHealthOptions, ProviderHealthSummary } from './jobs/provider-health.js';
 export { canRetireKeyVersion, rotateIdentifierKeys } from './jobs/key-rotation.js';
 export type { RetirementCheck, RotationOptions, RotationSummary } from './jobs/key-rotation.js';

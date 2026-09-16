@@ -63,6 +63,14 @@ export interface SchedulerOptions {
   onError?: (job: string, tenantId: string | null, error: unknown) => void;
   /** How often the loop wakes up to see what is due. */
   tickMs?: number;
+  /**
+   * Called after every sweep, whatever the sweep did (SEC-07).
+   *
+   * A worker with nothing due does no work, which looks exactly like a worker whose loop
+   * has stopped. This is the difference: it says the loop went round, so a deployment can
+   * tell a quiet worker from a dead one without asking the database anything.
+   */
+  onTick?: () => void;
 }
 
 export interface JobRun {
@@ -114,6 +122,7 @@ export class Scheduler {
       }
     }
 
+    this.#options.onTick?.();
     return runs;
   }
 

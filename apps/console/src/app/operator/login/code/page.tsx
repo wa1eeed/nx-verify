@@ -1,6 +1,10 @@
 import type { ReactElement } from 'react';
 import { redirect } from 'next/navigation';
-import { getOperatorAccount, masterKeySourceFromEnv, startSecondFactorEnrolment } from '@nx-verify/core';
+import {
+  getOperatorAccount,
+  masterKeySourceFromEnv,
+  startSecondFactorEnrolment,
+} from '@nx-verify/core';
 import { qrSvg } from '@nx-verify/core';
 import { operatorQuery, pendingOperator } from '../../../../lib/operator';
 import { Brand } from '../../../../components/brand';

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   OPERATOR_PENDING_MINUTES,
   OPERATOR_SESSION_HOURS,
+  OPERATOR_TOKEN_MINIMUM_PRODUCTION,
   TOKEN_OPERATOR,
   currentOperator,
   operatorPanelEnabled,
@@ -128,6 +129,25 @@ describe('the deployment token', () => {
     expect(operatorTokenMatches('', { NX_OPERATOR_TOKEN: TOKEN })).toBe(false);
     expect(operatorTokenMatches(TOKEN, { NX_OPERATOR_TOKEN: TOKEN })).toBe(true);
   });
+
+  /**
+   * The token makes the first owner and seals every panel session, so in a deployment it is
+   * 32 random bytes and nothing shorter (SEC-06). A developer's token opens a developer's
+   * database, and typing 43 characters to run a script buys nothing.
+   */
+  it('asks a deployment for 32 random bytes, and a developer for less', () => {
+    const production = { NODE_ENV: 'production', NX_OPERATOR_TOKEN: TOKEN };
+    expect(TOKEN.length).toBeLessThan(OPERATOR_TOKEN_MINIMUM_PRODUCTION);
+    expect(operatorPanelEnabled(production)).toBe(false);
+    expect(operatorTokenMatches(TOKEN, production)).toBe(false);
+
+    // 32 bytes as base64 is 44 characters with its padding, 43 without.
+    const generated = Buffer.alloc(32, 5).toString('base64url');
+    expect(generated.length).toBeGreaterThanOrEqual(OPERATOR_TOKEN_MINIMUM_PRODUCTION);
+    const deployed = { NODE_ENV: 'production', NX_OPERATOR_TOKEN: generated };
+    expect(operatorPanelEnabled(deployed)).toBe(true);
+    expect(operatorTokenMatches(generated, deployed)).toBe(true);
+  });
 });
 
 describe('the token in place of a person', () => {
@@ -161,8 +181,10 @@ describe('the token in place of a person', () => {
   });
 
   it('opens nothing in production, where staff sign in as themselves', async () => {
-    process.env['NX_OPERATOR_TOKEN'] = TOKEN;
-    process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = TOKEN;
+    // Long enough for a deployment, so what is proven here is the refusal and not the length.
+    const deployed = Buffer.alloc(32, 5).toString('base64url');
+    process.env['NX_OPERATOR_TOKEN'] = deployed;
+    process.env['NX_OPERATOR_TOKEN_OVERRIDE'] = deployed;
     (process.env as Record<string, string>)['NODE_ENV'] = 'production';
     await expect(currentOperator()).rejects.toThrow(/signed in member of staff/);
   });

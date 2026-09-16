@@ -42,6 +42,26 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash scripts/check-style.sh
 
+  security:
+    # SEC-05. Two things that stop a merge: a production dependency with a known high or
+    # critical flaw, and anything shaped like a credential anywhere in this repository.
+    name: dependencies and secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The whole history: a secret removed in a later commit is still in the history,
+          # and still readable by anybody who clones.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run audit:deps
+      - run: pnpm run scan:secrets
+
   migrate:
     # Acceptance criterion 3: migrations run up and down. This applies every migration,
     # rolls all of them back, applies them again, and proves the schema is identical.

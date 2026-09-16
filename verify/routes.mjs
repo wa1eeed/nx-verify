@@ -1,3 +1,4 @@
+/* global URL, fetch -- node 20 provides both, and this file runs under node */
 /**
  * NX Trust: every screen the verification scripts visit.
  *

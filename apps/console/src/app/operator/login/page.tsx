@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { countOperatorAccounts } from '@nx-verify/core';
-import { operatorPanelEnabled, operatorQuery } from '../../../lib/operator';
+import { operatorPanelEnabled, operatorQuery, operatorTokenMinimum } from '../../../lib/operator';
 import { createFirstOwnerAction, operatorSignInAction } from './actions';
 import { Brand } from '../../../components/brand';
 import { Card, Field, Input, Ltr, Notice, SubmitButton } from '../../../components/ui';
@@ -35,6 +35,7 @@ export default async function OperatorLoginPage({
   const error = (await searchParams)['error'];
   const message = typeof error === 'string' ? (ERRORS[error] ?? ERRORS['failed']) : null;
   const enabled = operatorPanelEnabled();
+  const minimum = operatorTokenMinimum();
 
   let accounts: number | null = null;
   if (enabled) {
@@ -60,7 +61,8 @@ export default async function OperatorLoginPage({
           {!enabled ? (
             <Notice tone="refused" role="panel-disabled">
               لوحة الإدارة غير مفعّلة في هذا النشر. اضبط المتغير <Ltr>NX_OPERATOR_TOKEN</Ltr> بقيمة
-              لا تقل عن 24 حرفاً ثم أعد التشغيل.
+              عشوائية لا تقل عن <Ltr>{minimum}</Ltr> حرفاً (<Ltr>openssl rand -base64 32</Ltr>) ثم
+              أعد التشغيل.
             </Notice>
           ) : accounts === null ? (
             <Notice tone="refused" role="panel-unreachable">

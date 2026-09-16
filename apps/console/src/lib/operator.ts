@@ -59,12 +59,32 @@ export const OPERATOR_PENDING_MINUTES = 10;
 /** What the second step is for: enrolling an authenticator, or proving one. */
 export type PendingStage = 'enrol' | 'verify';
 
-/** Whether this deployment has a panel at all. Without a token nobody can sign in. */
+/**
+ * How long the deployment's token must be (SEC-06).
+ *
+ * A deployment's token makes the first owner and seals every panel session, so a guessable
+ * one is the panel. In production it must be 32 random bytes, which is 43 characters written
+ * in base64, generated the way the secrets guide says: `openssl rand -base64 32`. Outside
+ * production a shorter one is allowed, because a developer's token opens a developer's
+ * database and typing 43 characters to run a script is friction that buys nothing.
+ */
+export const OPERATOR_TOKEN_MINIMUM = 24;
+export const OPERATOR_TOKEN_MINIMUM_PRODUCTION = 43;
+
+export function operatorTokenMinimum(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): number {
+  return env['NODE_ENV'] === 'production'
+    ? OPERATOR_TOKEN_MINIMUM_PRODUCTION
+    : OPERATOR_TOKEN_MINIMUM;
+}
+
+/** Whether this deployment has a panel at all. Without a long enough token nobody signs in. */
 export function operatorPanelEnabled(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): boolean {
   const token = env['NX_OPERATOR_TOKEN'];
-  return token !== undefined && token.length >= 24;
+  return token !== undefined && token.length >= operatorTokenMinimum(env);
 }
 
 /**
@@ -184,7 +204,7 @@ export function operatorTokenMatches(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): boolean {
   const expected = env['NX_OPERATOR_TOKEN'];
-  if (!expected || expected.length < 24 || presented.length === 0) {
+  if (!expected || expected.length < operatorTokenMinimum(env) || presented.length === 0) {
     return false;
   }
   return timingSafeEquals(presented, expected);
@@ -208,7 +228,7 @@ export const TOKEN_OPERATOR: OperatorIdentity = {
  */
 export async function currentOperator(): Promise<OperatorIdentity> {
   const expected = process.env['NX_OPERATOR_TOKEN'];
-  if (!expected || expected.length < 24) {
+  if (!expected || expected.length < operatorTokenMinimum()) {
     throw new Error('NX_OPERATOR_TOKEN is not set, or is too short to be one');
   }
 
@@ -310,7 +330,7 @@ export async function operatorTransaction<T>(handler: (db: Queryable) => Promise
 
 function panelToken(): string {
   const token = process.env['NX_OPERATOR_TOKEN'];
-  if (!token || token.length < 24) {
+  if (!token || token.length < operatorTokenMinimum()) {
     throw new Error('NX_OPERATOR_TOKEN is not set, or is too short to be one');
   }
   return token;

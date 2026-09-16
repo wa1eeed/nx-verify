@@ -3,9 +3,15 @@
 # The three roles are three connection strings, not three databases: rule 12 wants the
 # owner and the application to be different roles, so the compose file passes different
 # users of the same database rather than pretending one user is enough.
+#
+# Every long running service restarts unless somebody stopped it (SEC-07). A process that
+# dies at three in the morning and stays dead until a person notices is the failure this
+# platform can least afford: the worker is what destroys data on time, delivers callbacks
+# and watches for changes, and none of that says anything when it is not running.
 services:
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${NX_POSTGRES_PASSWORD:?set NX_POSTGRES_PASSWORD}
       POSTGRES_DB: nx_verify
@@ -19,6 +25,7 @@ services:
 
   migrate:
     build: .
+    # No restart policy: it runs once and finishing is what it is for.
     command: ['pnpm', '--filter', '@nx-verify/db', 'run', 'migrate', 'up']
     env_file: .env
     depends_on:
@@ -27,6 +34,7 @@ services:
 
   api:
     build: .
+    restart: unless-stopped
     command: ['pnpm', '--filter', '@nx-verify/api', 'run', 'start']
     env_file: .env
     environment:
@@ -52,6 +60,7 @@ services:
 
   console:
     build: .
+    restart: unless-stopped
     command: ['pnpm', '--filter', '@nx-verify/console', 'run', 'start']
     env_file: .env
     environment:
@@ -68,15 +77,27 @@ services:
 
   worker:
     build: .
+    restart: unless-stopped
     command: ['pnpm', '--filter', '@nx-verify/worker', 'run', 'start']
     env_file: .env
     environment:
       NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
+      # Touched after every sweep, and read by the health check below (SEC-07).
+      NX_WORKER_HEARTBEAT: /tmp/nx-worker-heartbeat
     volumes:
       - secrets:/var/lib/nx-secrets
     depends_on:
       migrate:
         condition: service_completed_successfully
+    healthcheck:
+      # The worker answers no port: proving it is alive must not add a surface to the one
+      # process that holds the role which may delete. It reads the age of the heartbeat
+      # instead, so a loop that has stopped is caught without asking the database anything.
+      test: ['CMD', 'pnpm', '--filter', '@nx-verify/worker', 'run', 'health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   db:
