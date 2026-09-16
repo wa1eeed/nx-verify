@@ -1,13 +1,13 @@
 # Database reference
 
 What exists in the database: every table, its columns and constraints, the five roles, every row
-level security policy, every vocabulary, and the 49 migrations that built it.
+level security policy, every vocabulary, and the 50 migrations that built it.
 
 This describes what **is**. `docs/02-schema.md` describes what was **designed**, in Arabic, with
 the reasoning. Where the two ever disagree, the migrations win and this page is the one that
 matches them.
 
-Source of truth: `packages/db/migrations/0001…0049_*.up.sql` and `packages/db/src/`.
+Source of truth: `packages/db/migrations/0001…0050_*.up.sql` and `packages/db/src/`.
 
 ---
 
@@ -299,6 +299,27 @@ reason from a closed list and the person who waived it.
 | `topup_requests`, `topup_counters`                   | A bank transfer request and its one time confirmation. Excluded from every retention sweep: it is a financial record with a tax invoice |
 | `api_requests`                                       | The API call log: route **pattern**, status, latency. Never a body and never a path value        |
 
+### Provider routing per service
+
+| Table                       | What it holds                                                                                          |
+| --------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `product_provider_routing`  | For a verification service, an ordered list of providers, each `active` or `standby`. No tenant: this is the platform's choice for everybody |
+| `provider_usage`            | Calls served per provider per service per month, with failures, cost and the last call. **No tenant, no subject, no identifier**: a platform operational figure |
+
+`provider_usage` has **no foreign key to the catalogue**, deliberately: a provider that served a
+call is a fact whether or not somebody has catalogued it, and a counter that can refuse a row is
+a counter that can fail the verification it was only meant to count.
+
+Two functions go with them:
+
+- `app.resolve_service_providers(tenant, product, endpoint)` returns the candidates in order:
+  a subscriber's BYOC or endpoint-scoped binding first, then the platform's routing for that
+  service, then the subscriber's general binding. `SECURITY DEFINER`, because it reads the
+  provider catalogue that the application role deliberately cannot read (rule 5), and it hands
+  back only the names needed to place a call.
+- `app.service_cost(product, provider)` returns what one run of that service would cost us under
+  that provider, or NULL when that provider has no price for one of its steps.
+
 ### The administration panel
 
 `operator_accounts` holds named platform staff: role (`OWNER`, `PRICING`, `SUPPORT`,
@@ -424,7 +445,7 @@ Four variants exist, each for a reason:
 
 ---
 
-## The 49 migrations
+## The 50 migrations
 
 | #    | Name                                 | What it added                                                                                                             |
 | ---- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
@@ -477,6 +498,7 @@ Four variants exist, each for a reason:
 | 0047 | `admin_panel`                        | Staff accounts, platform settings, section requirements, credit bundles and grants, per-subscriber discounts                |
 | 0048 | `complete_answers`                   | Liquidators, guardians and main registries; three new relations; `PARTY_ID`; five TTLs and a severity rule                   |
 | 0049 | `operator_second_factor`             | `credential_version`, and the sealed authenticator secret with its recovery codes                                           |
+| 0050 | `service_routing`                    | Which provider serves which verification service, what each would cost, a counter proving where the calls went, and a place in the file for the property section |
 
 ---
 

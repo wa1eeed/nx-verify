@@ -467,6 +467,21 @@ export {
   setTenantBinding,
   upsertCatalogEntry,
 } from './routing/provider-routing.js';
+export {
+  costInRiyals,
+  countProviderCall,
+  listServiceRoutes,
+  marginUnder,
+  removeServiceRoute,
+  serviceRouting,
+  setServiceRoute,
+} from './routing/service-routing.js';
+export type {
+  ProviderOffer,
+  RoutingStatus,
+  ServiceRoute,
+  ServiceRouting,
+} from './routing/service-routing.js';
 export type {
   BindingLevel,
   CatalogEntry,

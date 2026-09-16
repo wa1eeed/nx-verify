@@ -16,6 +16,25 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ### Added
 
+- **A provider for each verification service, chosen from the panel** (ADR-135). A new screen,
+  «المزودون والخدمات»: who serves each service, what it costs us under every provider in the
+  catalogue, the margin each would give, and a control to switch or to carry one on standby. A
+  second provider at rank two is the answer to an outage and to a price rise alike, because it is
+  already next in line.
+- **Proof that a switch took effect.** `provider_usage` counts every call against the provider
+  that placed it, per service, per month, and the screen shows it beside the setting. Reading
+  runs across subscribers to answer that question is what rule 2 forbids, so the count is
+  aggregated as the work happens.
+- **Cost and margin computed under the provider that will actually serve**
+  (`app.service_cost`). They were computed against the provider written into a product step,
+  which went silently wrong the moment routing sent the call elsewhere.
+- **A place in the customer file for the property section** (ADR-136).
+  `PROPERTY_VERIFICATION` had been in the catalogue since migration 0045 with no row in the
+  section layout, so the service could be priced and run and its answers had nowhere to appear.
+  Optional for all three customer kinds: most customers own none, and a file is not incomplete
+  for that.
+- **A measurement of the customers list at 50,000 customers**
+  ([measurements.md](docs/explanation/measurements.md)), and the harness to re-run it.
 - **The documentation set, in English**, organised the way Diátaxis suggests: a tutorial from a
   clone to a verified customer, task guides, references for configuration, the database, the API
   and the scheduled tasks, and explanations of the architecture and the security model. The map
@@ -43,6 +62,15 @@ broken, the entry says what was broken, because that is the part worth reading a
 - The worker closes its retention pool on shutdown, like its other two.
 
 ### Fixed (behaviour)
+
+- **A service switched off for one subscriber still showed its section** in their customer
+  files, counted as missing, and refused only after somebody pressed the button. The catalogue a
+  subscriber sees is now what they are entitled to: the plan decides, an exception written for
+  them overrides it, and a product nobody has an opinion about stays offered.
+- **A subscriber's general binding silently overrode every routing choice.** Caught by a failing
+  test: it made the panel's decision unreachable for any subscriber bound to a provider, which is
+  all of them. A binding that is BYOC or names endpoints still wins, because both are deliberate
+  statements about one subscriber; a general binding now sits below the platform's choice.
 
 - **`attestation.expired` had no producer.** A subscriber could subscribe to it on the
   notifications screen and never hear from it. A daily job announces the crossing rather than

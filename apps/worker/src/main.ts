@@ -91,6 +91,7 @@ async function main(): Promise<void> {
       candidatesFor: (step) =>
         resolveProviders(tx, {
           endpoint: step.endpoint,
+          productCode: step.productCode,
           declaredProvider: step.provider,
           declaredFallback: step.fallbackProvider,
         }),

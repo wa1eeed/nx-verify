@@ -423,23 +423,35 @@ describe('the customer file', () => {
     return result.entityId ?? '';
   };
 
-  it('numbers the five sections of a company in the handoff order, each naming its source', async () => {
+  it('numbers the sections of a company in the handoff order, each naming its source', async () => {
     const file = await fileOf(tenant.tenantId, companyId);
+    // Property came last and optional in migration 0050: the service had been in the catalogue
+    // since 0045 with nowhere to appear. Most customers own none, and a file is not incomplete
+    // for that, which is why it is the one section that is not required.
     expect(file?.sections.map((section) => section.section)).toEqual([
       'REGISTRY',
       'CONTRACT',
       'MANAGERS',
       'ADDRESS',
       'BANKING',
+      'PROPERTY',
     ]);
-    expect(file?.sections.map((section) => section.number)).toEqual([1, 2, 3, 4, 5]);
-    expect(file?.sections.every((section) => section.requirement === 'REQUIRED')).toBe(true);
+    expect(file?.sections.map((section) => section.number)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(
+      file?.sections
+        .filter((section) => section.section !== 'PROPERTY')
+        .every((section) => section.requirement === 'REQUIRED'),
+    ).toBe(true);
+    expect(file?.sections.find((section) => section.section === 'PROPERTY')?.requirement).toBe(
+      'OPTIONAL',
+    );
     expect(file?.sections.map((section) => section.titleAr)).toEqual([
       SECTION_TITLES.REGISTRY,
       SECTION_TITLES.CONTRACT,
       SECTION_TITLES.MANAGERS,
       SECTION_TITLES.ADDRESS,
       SECTION_TITLES.BANKING,
+      SECTION_TITLES.PROPERTY,
     ]);
     expect(file?.sections[0]?.sourceAr).toMatch(/^مصدرها تحقق /);
 
@@ -458,7 +470,7 @@ describe('the customer file', () => {
     expect(file?.kyc.lineAr.length).toBeGreaterThan(0);
   });
 
-  it('reads an establishment with four sections, and its managers optional', async () => {
+  it('reads an establishment with its managers and its property optional', async () => {
     const id = await entityFor('BUSINESS', { unn: SANDBOX_UNN.ESTABLISHMENT }, ['CR_FULL']);
     const file = await fileOf(tenant.tenantId, id);
     expect(file?.sections.map((section) => [section.section, section.requirement])).toEqual([
@@ -466,7 +478,9 @@ describe('the customer file', () => {
       ['MANAGERS', 'OPTIONAL'],
       ['ADDRESS', 'REQUIRED'],
       ['BANKING', 'REQUIRED'],
+      ['PROPERTY', 'OPTIONAL'],
     ]);
+    // Three required, and the two optional ones do not make a file look incomplete.
     expect(file?.sectionsRequired).toBe(3);
   });
 
@@ -519,7 +533,13 @@ describe('the customer file', () => {
     );
     const file = await fileOf(tenant.tenantId, id);
     const sections = new Map(file?.sections.map((section) => [section.section, section]));
-    expect([...sections.keys()]).toEqual(['REGISTRY', 'FREELANCE', 'ADDRESS', 'BANKING']);
+    expect([...sections.keys()]).toEqual([
+      'REGISTRY',
+      'FREELANCE',
+      'ADDRESS',
+      'BANKING',
+      'PROPERTY',
+    ]);
 
     const basic = sections.get('REGISTRY');
     expect(basic?.fields.length).toBeGreaterThan(0);

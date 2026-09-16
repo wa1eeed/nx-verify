@@ -76,7 +76,46 @@ published. The signature is over the raw bytes. The body is never stored, only i
 **Rotating the address invalidates the old one at once.** Do not press it unless the source's
 dashboard is open in front of you.
 
-## 4. Bind a subscriber to it
+## 4. Choosing which provider serves a service
+
+This is the decision an owner makes when a provider raises its price, and it is made from the
+panel rather than by editing a catalogue: **إعدادات التحقق → المزودون والخدمات**.
+
+Each verification service has a row: who serves it now, our price, what it costs us under that
+provider, and the margin. Underneath, every provider in the catalogue with what **it** would cost
+and the margin it would give, so the comparison is on one screen.
+
+| Control    | Does                                                                                    |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| يخدم       | This provider takes the calls, at the rank you give it                                    |
+| احتياط     | Carried ready and tested, and not called. The answer to an outage and to a price rise alike |
+| الترتيب    | Lower runs first. A `down` provider is skipped and the next takes over with no intervention |
+| إزالة      | Takes the provider off this service entirely                                               |
+
+### How to know the calls actually moved
+
+Under the same service, a second table: **what actually happened this month and last, per
+provider**. It is a counter written as each call is placed, not a setting, so it is evidence
+rather than configuration. After a switch, the new provider's count starts rising within minutes
+of the next verification and the old one stops.
+
+A run also records the provider that served it, and the cost is attributed to that provider, so
+the margin report follows the switch too.
+
+### What the choice does not override
+
+- **A subscriber who brought their own account (BYOC)** is never moved. Their binding is their
+  contract and their credential.
+- **A subscriber bound to a provider for named endpoints** keeps that, because listing endpoints
+  is a deliberate statement about that subscriber.
+- Everything else follows the panel.
+
+Every change is written to the staff trail with the provider, the rank and where it moved from.
+«Which provider served this verification» is a question that arrives a year later.
+
+---
+
+## 5. Bind a subscriber to it
 
 The connection says where the source is. The binding says who is served by it and how:
 
@@ -90,7 +129,7 @@ docker compose run --rm --no-deps api pnpm provision provider:bind \
 call with theirs and there is no query cost to us. The mode is per (subscriber × source), not per
 subscriber.
 
-## 5. Check it
+## 6. Check it
 
 `/operator/verification/health` says whether the source answers. The worker tests every active
 binding every five minutes, and routing skips one that is `down`.

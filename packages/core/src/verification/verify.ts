@@ -251,6 +251,7 @@ export async function verify(tx: TenantTransaction, input: VerifyInput): Promise
     }
     const reference = await closeRun(tx, {
       runId,
+      productCode: product.code,
       status: 'AWAITING',
       latencyMs: outcome.latencyMs,
       steps: outcome.steps,
@@ -347,6 +348,7 @@ async function concludeRun(tx: TenantTransaction, input: ConcludeInput): Promise
 
   const reference = await closeRun(tx, {
     runId,
+    productCode: product.code,
     status: outcome.status,
     latencyMs: outcome.latencyMs,
     steps: outcome.steps,

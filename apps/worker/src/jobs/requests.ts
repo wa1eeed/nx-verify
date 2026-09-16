@@ -54,6 +54,7 @@ export async function runVerificationRequests(
           candidatesFor: (step) =>
             resolveProviders(inner, {
               endpoint: step.endpoint,
+              productCode: step.productCode,
               declaredProvider: step.provider,
               declaredFallback: step.fallbackProvider,
             }),

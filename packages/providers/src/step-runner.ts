@@ -22,6 +22,8 @@ import type { ResolvedCredential } from './types.js';
  */
 
 export interface StepDescriptor {
+  /** The verification service this step belongs to, so routing can be decided per service. */
+  productCode?: string | undefined;
   stepKey: string;
   provider: string;
   endpoint: string;

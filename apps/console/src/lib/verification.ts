@@ -63,6 +63,7 @@ export async function checkDependenciesFor(tenantId: string): Promise<RunChecksD
         candidatesFor: (step) =>
           resolveProviders(tx, {
             endpoint: step.endpoint,
+            productCode: step.productCode,
             declaredProvider: step.provider,
             declaredFallback: step.fallbackProvider,
           }),

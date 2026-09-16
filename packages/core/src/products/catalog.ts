@@ -13,6 +13,14 @@ export type PartialPolicy = 'ALL_OR_NOTHING' | 'BEST_EFFORT';
 export type SubjectType = 'BUSINESS' | 'PERSON' | 'FREELANCER' | 'BANK_ACCOUNT' | 'PROPERTY';
 
 export interface ProductStepDefinition {
+  /**
+   * The service this step belongs to.
+   *
+   * Carried on the step so that whoever places the call can ask which provider the platform
+   * routes this service to, without threading the product code through every layer between
+   * (ADR-135).
+   */
+  productCode: string;
   stepKey: string;
   seq: number;
   provider: string;
@@ -101,6 +109,7 @@ export async function getProduct(
     status: product.status,
     availability: product.availability,
     steps: stepRows.map((row) => ({
+      productCode: product.code,
       stepKey: row.step_key,
       seq: row.seq,
       provider: row.provider,

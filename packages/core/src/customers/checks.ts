@@ -58,12 +58,31 @@ export async function listChecks(tx: TenantTransaction): Promise<CheckDefinition
     availability: 'AVAILABLE' | 'COMING_SOON';
     input_schema: { required?: string[]; properties?: Record<string, unknown> };
   }>(
-    `SELECT code, name_ar, name_en, summary_ar, profile_section, applies_to, check_order,
-            availability, input_schema
-     FROM products
-     WHERE profile_section IS NOT NULL AND status = 'active'
-       AND valid_from <= now() AND (valid_to IS NULL OR valid_to > now())
-     ORDER BY check_order, code`,
+    /**
+     * What this workspace may actually use.
+     *
+     * A service switched off for one subscriber disappears from their screens entirely: no
+     * section in a customer file, no tick box on a request, nothing counted as missing. Showing
+     * a section that can never be filled is a file that looks permanently incomplete, and the
+     * refusal would only arrive after somebody pressed the button.
+     *
+     * The precedence is the entitlement's own: the plan decides, and an exception written for
+     * this subscriber overrides it (ADR-135). A product nobody has an opinion about stays
+     * offered, which is what keeps a fresh deployment usable before any plan is assigned.
+     */
+    `SELECT p.code, p.name_ar, p.name_en, p.summary_ar, p.profile_section, p.applies_to,
+            p.check_order, p.availability, p.input_schema
+     FROM products p
+     LEFT JOIN tenant_product_overrides o
+       ON o.tenant_id = nullif($1, '')::uuid AND o.product_code = p.code
+     LEFT JOIN tenant_commitments t ON t.tenant_id = nullif($1, '')::uuid
+     LEFT JOIN package_products pp
+       ON pp.package_code = t.package_code AND pp.product_code = p.code
+     WHERE p.profile_section IS NOT NULL AND p.status = 'active'
+       AND p.valid_from <= now() AND (p.valid_to IS NULL OR p.valid_to > now())
+       AND COALESCE(o.enabled, pp.enabled, true) = true
+     ORDER BY p.check_order, p.code`,
+    [tx.tenantId ?? ''],
   );
 
   return rows.map((row) => ({

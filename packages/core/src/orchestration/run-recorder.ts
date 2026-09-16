@@ -1,5 +1,6 @@
 import { withSavepoint, type TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
+import { countProviderCall } from '../routing/service-routing.js';
 import type { RunStatus, StepOutcome } from './executor.js';
 
 /**
@@ -102,6 +103,8 @@ export interface StepCharge {
 }
 
 export interface CloseRunInput {
+  /** The service that ran, so each call can be counted against the provider that served it. */
+  productCode?: string | undefined;
   runId: string;
   status: RunStatus;
   latencyMs: number;
@@ -217,6 +220,27 @@ export async function closeRun(tx: TenantTransaction, input: CloseRunInput): Pro
         step.skippedBecause ?? null,
       ],
     );
+
+    // Counted against the provider that actually took the call, as the call happens. This is
+    // what lets the panel prove that switching a provider moved the traffic, rather than
+    // asserting it: reading runs across subscribers to answer that is what rule 2 forbids.
+    // A step that never reached a provider is not a call and is not counted.
+    if (
+      input.productCode &&
+      step.provider !== '' &&
+      step.status !== 'SKIPPED' &&
+      step.status !== 'CACHED'
+    ) {
+      await countProviderCall(tx, {
+        provider: step.provider,
+        productCode: input.productCode,
+        endpoint: step.endpoint,
+        failed: step.status === 'ERROR',
+        ...(step.providerCost === undefined
+          ? {}
+          : { costHalalas: Math.round(step.providerCost * 100) }),
+      });
+    }
   }
 
   return reference;

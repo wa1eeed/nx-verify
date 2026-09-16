@@ -375,6 +375,17 @@ never announced for something that rolled back.
 
 ---
 
+## Which provider answered
+
+Nothing in any response says. The field a caller gets is `authority`, the official body, and the
+provider behind it is an operational detail that changes with contracts and prices (rule 5).
+
+Which provider actually served a call is recorded on the run and counted per service, and both
+are visible only in the administration panel. See
+[the routing guide](../guides/connect-a-data-source.md#choosing-which-provider-serves-a-service).
+
+---
+
 ## Test scenarios
 
 A sandbox key may force a specific answer instead of hunting for an input that produces it:

@@ -5,8 +5,8 @@ import { NxError } from '../errors.js';
 /**
  * Which provider serves this subscriber.
  *
- * ADR-043: the tenant's bindings decide, in priority order, and the provider named in the
- * product is the last resort. A product says which authority it needs. It does not get to
+ * ADR-043 and ADR-135: a subscriber's own binding decides first, then the platform's routing for
+ * the service being run, and the provider named in the product step is the last resort. A product says which authority it needs. It does not get to
  * say whose pipe we use to reach it, because that changes with contracts, outages and
  * prices, and a product definition should not have to be edited when any of those move.
  *
@@ -14,7 +14,7 @@ import { NxError } from '../errors.js';
  * to turn a name into a call (ADR-016). Nothing here imports a provider.
  */
 
-export type BindingLevel = 'tenant' | 'product';
+export type BindingLevel = 'tenant' | 'service' | 'product';
 
 export interface ProviderCandidate {
   provider: string;
@@ -25,6 +25,15 @@ export interface ProviderCandidate {
 
 export interface ResolveProvidersInput {
   endpoint: string;
+  /**
+   * The verification service being run.
+   *
+   * With it, the platform's own choice for that service is consulted: an owner switching a
+   * provider from the panel changes who serves every subscriber at once. Without it only a
+   * subscriber's binding and the step's declaration are considered, which is what every caller
+   * did before service routing existed.
+   */
+  productCode?: string | undefined;
   /** The provider the product step declares. Last in line, never first. */
   declaredProvider: string;
   declaredFallback?: string | null;
@@ -34,20 +43,32 @@ export async function resolveProviders(
   tx: TenantTransaction,
   input: ResolveProvidersInput,
 ): Promise<ProviderCandidate[]> {
-  const { rows } = await tx.query<{
-    provider: string;
-    mode: 'MANAGED' | 'BYOC';
-    credential_ref: string | null;
-  }>('SELECT provider, mode, credential_ref FROM app.resolve_providers($1, $2)', [
-    tx.tenantId,
-    input.endpoint,
-  ]);
+  const { rows } = input.productCode
+    ? await tx.query<{
+        provider: string;
+        mode: 'MANAGED' | 'BYOC';
+        credential_ref: string | null;
+        level: string;
+      }>(
+        'SELECT provider, mode, credential_ref, level FROM app.resolve_service_providers($1, $2, $3)',
+        [tx.tenantId, input.productCode, input.endpoint],
+      )
+    : await tx.query<{
+        provider: string;
+        mode: 'MANAGED' | 'BYOC';
+        credential_ref: string | null;
+        level: string;
+      }>(
+        `SELECT provider, mode, credential_ref, 'tenant' AS level
+         FROM app.resolve_providers($1, $2)`,
+        [tx.tenantId, input.endpoint],
+      );
 
   const candidates: ProviderCandidate[] = rows.map((row) => ({
     provider: row.provider,
     mode: row.mode,
     credentialRef: row.credential_ref,
-    level: 'tenant',
+    level: row.level === 'service' ? 'service' : 'tenant',
   }));
 
   // The product's own choice comes last, and only if no binding already named it. A

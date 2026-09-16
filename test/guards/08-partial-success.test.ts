@@ -38,6 +38,7 @@ function productFromSeed(partialPolicy: 'BEST_EFFORT' | 'ALL_OR_NOTHING'): Produ
     status: 'active',
     availability: 'AVAILABLE',
     steps: KYB.steps.map((step): ProductStepDefinition => ({
+      productCode: KYB.code,
       stepKey: step.stepKey,
       seq: step.seq,
       provider: step.provider,
