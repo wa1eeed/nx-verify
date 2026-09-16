@@ -19,6 +19,7 @@
     "style": "bash scripts/check-style.sh",
     "audit:deps": "pnpm audit --prod --audit-level high",
     "scan:secrets": "bash scripts/scan-secrets.sh",
+    "docs:check": "bash scripts/check-docs.sh",
     "security": "pnpm run audit:deps && pnpm run scan:secrets",
     "design:check": "cd apps/console && node ../../verify/check-design.mjs",
     "design:shots": "node verify/shoot.mjs",

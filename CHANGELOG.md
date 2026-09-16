@@ -24,6 +24,9 @@ broken, the entry says what was broken, because that is the part worth reading a
   fifteen minutes, and **`CONTRIBUTING.md`** with the loop, the style rules, the guards and the
   pull request checklist.
 - **This changelog**, from the first commit onwards.
+- **A link check in CI** (`pnpm run docs:check`): every markdown link in the repository must lead
+  somewhere. Documentation that points at a file which is not there is documentation nobody
+  trusts a second time.
 - **A test that keeps the API specification honest**: it asks the built server which routes it
   registered and fails when the document describes a route that does not exist, or misses one
   that does. The document had drifted by seven routes.

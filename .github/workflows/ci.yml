@@ -41,6 +41,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash scripts/check-style.sh
+      # Documentation that points at a file which is not there is documentation nobody
+      # trusts a second time.
+      - run: bash scripts/check-docs.sh
 
   security:
     # SEC-05. Two things that stop a merge: a production dependency with a known high or

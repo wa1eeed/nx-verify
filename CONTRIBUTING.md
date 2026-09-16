@@ -129,12 +129,18 @@ Before asking for a review:
 - [ ] `pnpm run guards` is green
 - [ ] `pnpm run style` is clean (no em dash, no unexplained `any` escape hatch)
 - [ ] `pnpm run security` is clean (dependency audit, secret scanner over the tree and history)
+- [ ] `pnpm run docs:check` is clean (no markdown link leads nowhere)
 - [ ] `pnpm run migrate:verify` is green, if you touched a migration
 - [ ] `pnpm design:check` is clean, if you touched the interface
 - [ ] `pnpm design:responsive` is green, if you touched a screen
 - [ ] `docs/progress.md` says what you built
 - [ ] `docs/decisions.md` has an entry, if you decided something architectural
 - [ ] `CHANGELOG.md` has an entry under `[Unreleased]`
+- [ ] The reference page your change touches is updated **in the same change**, not later:
+      [configuration](docs/reference/configuration.md) for a variable,
+      [database](docs/reference/database.md) for a migration,
+      [api](docs/reference/api.md) for an endpoint,
+      [scheduled tasks](docs/reference/scheduled-tasks.md) for a job
 
 A screen is not finished until the final checklist at the end of
 `design_handoff_verification_platform/README.md` has been worked through and the prototype has
