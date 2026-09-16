@@ -14,6 +14,32 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ## [Unreleased]
 
+### Added
+
+- **Mail is configured from the panel, not from the environment** (ADR-141). The queue, its
+  templates and its retries have worked since the notifications unit; what was missing was a
+  way to point them at a mail service without a deployment and a restart. The address, the name
+  and which service carries it are a row now. The key is not: it goes to the secret store and
+  the row keeps a `kms://` pointer, exactly as a data source's credentials do.
+- **A Resend adapter**, beside the generic HTTPS one, sending the Arabic body as a right-to-left
+  HTML document as well as text, and carrying the delivery's own id as an idempotency key so a
+  retried sweep cannot put the same message in somebody's inbox twice.
+- **A test message from the panel**, through the same transport the worker delivers with. What
+  proves a setting is a message that arrived, not a form that saved.
+- **The panel owner from the deployment's own variables** (ADR-142), for a platform put on a
+  server through a deployment tool where there is no console to run a command in.
+  `NX_OPERATOR_EMAIL` and `NX_OPERATOR_PASSWORD` are made true at every start. The variable wins
+  over the panel, and every session opened under the old password ends; the second factor is
+  never touched, so an authenticator survives a redeployment.
+- **A Coolify section in the production guide**: the short list of variables a deployment holds,
+  and why everything else belongs in the panel instead.
+
+### Fixed
+
+- **The delivery job existed only when an environment variable did**, so a deployment that
+  configured mail any other way delivered nothing until somebody restarted the worker. It is
+  always registered now and quiet when nothing is configured.
+
 ### Fixed (performance)
 
 - **The customers list works at the size a real subscriber reaches** (ADR-140). Measured first,

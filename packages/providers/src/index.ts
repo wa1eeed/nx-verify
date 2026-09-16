@@ -89,3 +89,10 @@ export {
   setProviderEndpoint,
 } from './endpoint-map.js';
 export type { SetEndpointInput, StoredEndpoint } from './endpoint-map.js';
+
+export {
+  CollectingMailTransport,
+  HttpMailTransport,
+  ResendMailTransport,
+} from './mail/transport.js';
+export type { MailTransport, OutgoingMail } from './mail/transport.js';

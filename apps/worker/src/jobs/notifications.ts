@@ -3,6 +3,8 @@ import {
   recordNotificationResult,
   type PendingNotification,
 } from '@nx-verify/core';
+import type { MailSettings } from '@nx-verify/core';
+import { HttpMailTransport, ResendMailTransport, type MailTransport } from '@nx-verify/providers';
 import type { TenantTransaction } from '@nx-verify/db';
 
 /**
@@ -16,17 +18,6 @@ import type { TenantTransaction } from '@nx-verify/db';
  * server that has refused for a day will not be persuaded by attempt two hundred, and the
  * message stays readable in the console either way.
  */
-
-export interface OutgoingMail {
-  to: string;
-  toName: string | null;
-  subject: string;
-  body: string;
-}
-
-export interface MailTransport {
-  send(mail: OutgoingMail): Promise<{ ok: boolean; error?: string }>;
-}
 
 export interface DeliverNotificationsOptions {
   transport: MailTransport;
@@ -67,6 +58,9 @@ async function send(
       toName: delivery.displayName,
       subject: delivery.subject,
       body: delivery.body,
+      // The delivery's own id: a sweep retried after a timeout must not put the same message
+      // in somebody's inbox a second time.
+      idempotencyKey: delivery.id,
     });
   } catch (error) {
     // A transport that throws is a transport that failed, and the message is ours to
@@ -75,69 +69,47 @@ async function send(
   }
 }
 
-/** For local work and tests. Keeps what it was asked to send and sends nothing. */
-export class CollectingMailTransport implements MailTransport {
-  readonly sent: OutgoingMail[] = [];
-
-  send(mail: OutgoingMail): Promise<{ ok: boolean }> {
-    this.sent.push(mail);
-    return Promise.resolve({ ok: true });
-  }
-}
-
 /**
- * Mail over an HTTP API.
+ * The transport a deployment's settings ask for, with its key fetched from the secret store.
  *
- * The one transport shipped here, because it needs no dependency and every hosted mail
- * service offers one. SMTP needs a client library and a relay, and both are deployment
- * choices rather than product ones, so an SMTP transport implements this same interface
- * wherever a deployment wants it.
+ * Returns null when nothing is configured, which is the ordinary state of a fresh deployment
+ * and not an error: messages queue where the console can still show them, and the job that
+ * calls this does nothing until somebody sets an address and a key in the panel.
  *
- * The endpoint and the token come from the environment of the process, never from the
- * database (rule 10).
+ * A key that cannot be fetched is also null rather than a throw. A secret store that is down
+ * must not take the worker's whole sweep with it, and the settings row records what happened.
  */
-export class HttpMailTransport implements MailTransport {
-  readonly #endpoint: string;
-  readonly #token: string;
-  readonly #from: string;
-
-  constructor(options: { endpoint: string; token: string; from: string }) {
-    this.#endpoint = options.endpoint;
-    this.#token = options.token;
-    this.#from = options.from;
+export async function buildMailTransport(
+  settings: MailSettings,
+  secrets: { fetch(ref: string): Promise<Readonly<Record<string, string>>> },
+): Promise<MailTransport | null> {
+  if (!settings.configured || settings.credentialRef === null || settings.fromAddress === null) {
+    return null;
   }
-
-  static fromEnv(): HttpMailTransport {
-    const endpoint = process.env['NX_MAIL_ENDPOINT'];
-    const token = process.env['NX_MAIL_TOKEN'];
-    const from = process.env['NX_MAIL_FROM'];
-    if (!endpoint || !token || !from) {
-      throw new Error('NX_MAIL_ENDPOINT, NX_MAIL_TOKEN and NX_MAIL_FROM are required');
-    }
-    return new HttpMailTransport({ endpoint, token, from });
+  const material = await secrets.fetch(settings.credentialRef).catch(() => null);
+  const key = material?.['apiKey'] ?? material?.['token'] ?? '';
+  if (key === '') {
+    return null;
   }
+  // «الاسم <العنوان>» when a name is set, because a message from a bare address is one a
+  // reader has to decode before deciding whether to open it.
+  const from =
+    settings.fromName === null
+      ? settings.fromAddress
+      : `${settings.fromName} <${settings.fromAddress}>`;
 
-  async send(mail: OutgoingMail): Promise<{ ok: boolean; error?: string }> {
-    const response = await fetch(this.#endpoint, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${this.#token}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: this.#from,
-        to: mail.to,
-        to_name: mail.toName,
-        subject: mail.subject,
-        text: mail.body,
-      }),
-    });
-
-    if (response.ok) {
-      return { ok: true };
-    }
-    // The status, not the body. A mail service that echoes the recipient back in an error
-    // would otherwise put it in our logs.
-    return { ok: false, error: `mail endpoint answered ${response.status}` };
+  if (settings.provider === 'resend') {
+    return new ResendMailTransport({ key, from, replyTo: settings.replyTo });
   }
+  if (settings.provider === 'http' && settings.endpoint !== null) {
+    return new HttpMailTransport({ endpoint: settings.endpoint, token: key, from });
+  }
+  return null;
 }
+
+export {
+  CollectingMailTransport,
+  HttpMailTransport,
+  ResendMailTransport,
+} from '@nx-verify/providers';
+export type { MailTransport, OutgoingMail } from '@nx-verify/providers';

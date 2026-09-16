@@ -505,6 +505,22 @@ export {
 } from './customers/standing.js';
 export type { StandingSummary } from './customers/standing.js';
 export type { StandingRefresh, SweepOptions } from './customers/standing.js';
+export {
+  getMailSettings,
+  recordMailResult,
+  setMailSettings,
+} from './notifications/mail-settings.js';
+export type {
+  MailProvider,
+  MailSettings,
+  SetMailSettingsInput,
+} from './notifications/mail-settings.js';
+export { bootstrapOwnerFromEnv, ensureBootstrapOwner } from './operators/bootstrap.js';
+export type {
+  BootstrapOutcome,
+  BootstrapResult,
+  BootstrapOwnerInput,
+} from './operators/bootstrap.js';
 export { listModules, setTenantModule, tenantModules } from './modules/modules.js';
 export type {
   ModuleProductView,

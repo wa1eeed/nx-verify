@@ -1,6 +1,8 @@
 import { createPool, withTenant, withoutTenant } from '@nx-verify/db';
 import {
   DerivedTenantKeyProvider,
+  bootstrapOwnerFromEnv,
+  getMailSettings,
   masterKeySourceFromEnv,
   sweepStanding,
   type TenantKeyProvider,
@@ -23,7 +25,7 @@ import { resumeAwaitingRuns } from './jobs/resume.js';
 import { deliverWebhooks } from './jobs/webhooks.js';
 import {
   deliverNotifications,
-  HttpMailTransport,
+  buildMailTransport,
   type MailTransport,
 } from './jobs/notifications.js';
 import {
@@ -76,12 +78,48 @@ async function main(): Promise<void> {
     );
   }
 
+  /**
+   * The first owner of the panel, from the deployment's own variables (ADR-142).
+   *
+   * A platform put on a server through a deployment tool has no console to run a command in,
+   * so the two variables that name the owner are made true here, at every start. Absent
+   * variables are not an error: a deployment that makes its owner from the panel's token
+   * still works.
+   */
+  const bootstrapped = await bootstrapOwnerFromEnv(operatorPool);
+  if (bootstrapped.outcome === 'skipped' && bootstrapped.reason !== undefined) {
+    console.warn(JSON.stringify({ level: 'warn', message: bootstrapped.reason }));
+  } else if (bootstrapped.outcome !== 'unchanged') {
+    // The outcome and nothing else: never the address and never the password.
+    console.warn(JSON.stringify({ level: 'info', message: `panel owner ${bootstrapped.outcome}` }));
+  }
+
   const secrets = secretStoreFromEnv();
   const registry = createProviderRegistry(providerConfigFromEnv(process.env));
   const keys: TenantKeyProvider = new DerivedTenantKeyProvider(masterKeySourceFromEnv());
-  const mail: MailTransport | null = process.env['NX_MAIL_ENDPOINT']
-    ? HttpMailTransport.fromEnv()
-    : null;
+  /**
+   * How mail leaves, read from the panel's settings rather than from this process (ADR-141).
+   *
+   * Built per sweep and cached on the moment the settings were last changed, so pointing the
+   * platform at a mail service, correcting the address it sends from or rotating a key all
+   * take effect on the next minute rather than on the next deployment.
+   *
+   * The environment still answers when nothing has been configured, so a deployment that was
+   * set up before the panel could do it keeps sending.
+   */
+  let cached: { at: number; transport: MailTransport | null } | null = null;
+  const mailFor = async (
+    tx: Parameters<JobDefinition['run']>[0]['tx'],
+  ): Promise<MailTransport | null> => {
+    const settings = await getMailSettings(tx);
+    const at = settings.updatedAt.getTime();
+    if (cached?.at === at) {
+      return cached.transport;
+    }
+    const transport = await buildMailTransport(settings, secrets);
+    cached = { at, transport };
+    return transport;
+  };
 
   // The same routing chain the API uses: the subscriber's bindings first, the product's
   // declaration last. A monitor must not take a different path to a provider than the
@@ -256,24 +294,35 @@ async function main(): Promise<void> {
     },
   ];
 
-  if (mail) {
-    jobs.push({
-      name: 'notifications',
-      everySeconds: MINUTE,
-      scope: 'tenant',
-      run: async ({ tx }) => {
-        await deliverNotifications(tx, { transport: mail });
-      },
-    });
-  } else {
-    // Said once, loudly, like the retention warning above. Without an endpoint this job does
-    // not exist at all, and messages pile up in notification_deliveries with nothing to send
-    // them: a queue that grows in silence is worse than one that fails.
+  jobs.push({
+    /**
+     * Always registered now, and quiet when nothing is configured.
+     *
+     * It used not to exist at all without an endpoint in the environment, which meant a
+     * deployment that configured mail from the panel would still deliver nothing until
+     * somebody restarted the worker.
+     */
+    name: 'notifications',
+    everySeconds: MINUTE,
+    scope: 'tenant',
+    run: async ({ tx }) => {
+      const transport = await mailFor(tx);
+      if (transport === null) {
+        return;
+      }
+      await deliverNotifications(tx, { transport });
+    },
+  });
+
+  if (!process.env['NX_MAIL_ENDPOINT']) {
+    // Said once, loudly, like the retention warning above. It is no longer fatal to delivery,
+    // because the panel can configure mail, but a deployment with neither is a queue that
+    // grows in silence and that is worse than one that fails.
     console.warn(
       JSON.stringify({
         level: 'warn',
         message:
-          'NX_MAIL_ENDPOINT is not set, so notifications will queue and nothing will be delivered',
+          'no mail is configured in the environment; set it from the panel or messages will queue',
       }),
     );
   }

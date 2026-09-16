@@ -142,3 +142,58 @@ Then:
 4. A `nx_test_` key never reaches production, and a `nx_live_` key ignores the scenario header.
 5. Every POST honours `Idempotency-Key`.
 6. `docker compose down -v` destroys the volume. Never run it on a deployment with data.
+
+---
+
+## Deploying to a server with Coolify
+
+The platform is three processes and a database: the console, the API and the worker, all from
+this repository, all reading the same variables.
+
+### The variables Coolify holds
+
+Keep this list short on purpose. **One secret belongs in the deployment; the rest belong in the
+panel**, because a key pasted into a deployment tool is a key in a second place that has to be
+rotated when somebody leaves.
+
+| Variable | Why it must be here |
+| --- | --- |
+| `NX_DATABASE_URL`, `NX_OPERATOR_DATABASE_URL`, `NX_RETENTION_DATABASE_URL`, `NX_ADMIN_DATABASE_URL` | Nothing can read anything without them |
+| `NX_MASTER_KEY` (or `NX_MASTER_KEY_SOURCE`) | Every sealed thing is sealed under it, including the secret store itself |
+| `NX_SECRETS_FILE` | Where that store lives on the volume. With it, every other key is set from the panel |
+| `NX_OPERATOR_TOKEN` | 32 random bytes. Without it there is no way into the panel at all |
+| `NX_OPERATOR_EMAIL`, `NX_OPERATOR_PASSWORD` | The first owner, made true at every start (ADR-142) |
+| `NX_CONSOLE_URL`, `NX_CONSOLE_BASE_URL` | What a link in an email points at |
+
+**Mount a volume for `NX_SECRETS_FILE`.** It holds every provider credential and the mail key,
+sealed. A container that loses it loses them, and every one has to be entered again.
+
+### What is not here, and why
+
+The data source's client id and secret, its mTLS material, and the mail service's key are all
+set from the panel: «إعدادات التحقق ← الربط التقني» and «إعدادات التحقق ← البريد». They are
+written to the sealed store and the database keeps only a `kms://` pointer (rule 10). That is
+why the list above is short.
+
+### The owner, and the one thing to know about it
+
+`NX_OPERATOR_PASSWORD` **wins over the panel**. Change it in Coolify, redeploy, and that is the
+password; every session opened under the old one stops working. A password changed inside the
+panel is overwritten at the next start, so change it in Coolify or not at all.
+
+It never touches the second factor. The owner enrols an authenticator once and it survives every
+redeployment, which is the point: a bootstrap that cleared it would turn two steps into one on
+every deploy and nobody would notice.
+
+### The order of a first deployment
+
+1. Set the variables above and deploy. The worker creates the owner and says so in its log
+   (the outcome only, never the address or the password).
+2. Sign in at `/operator/login`, enrol an authenticator, and **save the ten recovery codes**.
+   They are shown once.
+3. «إعدادات التحقق ← البريد»: choose the service, set the address it sends from, paste the key
+   once, and press «أرسل رسالة تجربة». A message that arrived is the proof; a form that saved
+   is not.
+4. «إعدادات التحقق ← الربط التقني»: the data source's credentials, the same way.
+5. «جاهزية النشر» goes green when everything a first verification needs is in place.
+

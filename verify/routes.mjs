@@ -50,6 +50,7 @@ export const ROUTES = [
   { name: 'operator-integration', path: '/operator/verification/integration', as: 'operator' },
   { name: 'operator-routing', path: '/operator/verification/routing', as: 'operator' },
   { name: 'operator-risk', path: '/operator/verification/risk', as: 'operator' },
+  { name: 'operator-mail', path: '/operator/verification/mail', as: 'operator' },
   { name: 'operator-endpoints', path: '/operator/verification/endpoints', as: 'operator' },
   { name: 'operator-health', path: '/operator/verification/health', as: 'operator' },
   { name: 'operator-readiness', path: '/operator/verification/readiness', as: 'operator' },

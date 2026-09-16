@@ -117,6 +117,15 @@ describe('announcing an expiry', () => {
     const source = readFileSync(fileURLToPath(new URL('../src/main.ts', import.meta.url)), 'utf8');
     // Said once and loudly, like the retention warning. A queue that grows in silence is
     // worse than one that fails.
-    expect(source).toContain('NX_MAIL_ENDPOINT is not set');
+    expect(source).toContain('no mail is configured in the environment');
+  });
+
+  it('registers the delivery job whether or not the environment configures mail', () => {
+    const source = readFileSync(fileURLToPath(new URL('../src/main.ts', import.meta.url)), 'utf8');
+    // It used to exist only when an environment variable did, which meant mail configured
+    // from the panel delivered nothing until somebody restarted the worker (ADR-141).
+    expect(source).toMatch(/name: 'notifications'/);
+    expect(source).not.toMatch(/if \(mail\) \{/);
+    expect(source).toContain('getMailSettings');
   });
 });
