@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
-import type { ModuleView } from '@nx-verify/core';
+import type { ModuleView, ProfileSection } from '@nx-verify/core';
+import { SECTION_TITLES } from '@nx-verify/core';
 import { Card } from './ui/card';
 import { Ltr } from './ui/ltr';
 import { Table, Th } from './ui/table';
@@ -29,6 +30,7 @@ export interface ModulesView {
 
 export function OperatorModules({ view }: { view: ModulesView }): ReactElement {
   const drifted = view.modules.filter((module) => module.switchedOn + module.switchedOff > 0);
+  const services = view.modules.reduce((sum, module) => sum + module.products.length, 0);
 
   return (
     <div className="admin-screen" data-role="operator-modules">
@@ -37,29 +39,34 @@ export function OperatorModules({ view }: { view: ModulesView }): ReactElement {
         subtitle="ما تبيعه المنصة كوحدات: ما يضيفه كل موديول لملف العميل، وما يحتويه من خدمات، وكم مشتركاً خرج عن باقته فيه."
       />
 
-      <section className="admin-tiles">
-        <Card role="modules-count" labelledBy="modules-count-title">
-          <h2 className="card-title admin-offer-title" id="modules-count-title">
-            موديولات
-          </h2>
-          <p className="admin-figure">
-            <Ltr>{count(view.modules.length)}</Ltr>
-          </p>
-          <p className="admin-card-note">
-            {`منها ${count(view.modules.filter((module) => !module.defaultOn).length)} إضافية لا تُمنح إلا بقرار.`}
-          </p>
-        </Card>
-        <Card role="modules-drift" labelledBy="modules-drift-title">
-          <h2 className="card-title admin-offer-title" id="modules-drift-title">
-            خرجت عن الباقات
-          </h2>
-          <p className="admin-figure">
-            <Ltr>{count(drifted.length)}</Ltr>
-          </p>
-          <p className="admin-card-note">
-            موديولات قُرِّر فيها لمشترك أو أكثر خلاف باقته. كثرتها تعني أن الباقات لم تعد تصف السوق.
-          </p>
-        </Card>
+      <section className="grid" data-role="module-tiles">
+        <article className="stat">
+          <span className="stat-label">موديولات</span>
+          <strong className="stat-value">
+            <bdi dir="ltr" className="mono">
+              {view.modules.length}
+            </bdi>
+          </strong>
+          <span className="stat-hint">الإضافية منها لا تُمنح إلا بقرار</span>
+        </article>
+        <article className="stat">
+          <span className="stat-label">خدمات التحقق</span>
+          <strong className="stat-value">
+            <bdi dir="ltr" className="mono">
+              {services}
+            </bdi>
+          </strong>
+          <span className="stat-hint">كل خدمة تتبع موديولاً واحداً يُمنح أو يُمنع</span>
+        </article>
+        <article className="stat" {...(drifted.length > 2 ? { 'data-tone': 'changed' } : {})}>
+          <span className="stat-label">خرجت عن الباقات</span>
+          <strong className="stat-value">
+            <bdi dir="ltr" className="mono">
+              {drifted.length}
+            </bdi>
+          </strong>
+          <span className="stat-hint">كثرتها تعني أن الباقات لم تعد تصف السوق</span>
+        </article>
       </section>
 
       {view.modules.map((module) => (
@@ -93,7 +100,7 @@ export function OperatorModules({ view }: { view: ModulesView }): ReactElement {
             {module.summaryAr}
             {module.section === null
               ? ' · لا يرسم قسماً في ملف العميل.'
-              : ` · يرسم قسم «${module.nameAr}» في ملف العميل.`}
+              : ` · يرسم قسم «${SECTION_TITLES[module.section as ProfileSection] ?? module.section}» في ملف العميل.`}
           </p>
 
           <div className="admin-table">

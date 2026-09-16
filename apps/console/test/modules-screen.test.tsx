@@ -69,6 +69,7 @@ describe('the modules catalogue', () => {
           moduleView({
             code: 'REGISTRY',
             nameAr: 'السجل التجاري',
+            section: 'REGISTRY',
             core: true,
             defaultOn: true,
             position: 1,
@@ -89,8 +90,16 @@ describe('the modules catalogue', () => {
     />,
   );
 
-  it('says of each module what it adds to a customer file', () => {
-    expect(html).toContain('يرسم قسم «العقار» في ملف العميل');
+  it('says of each module what it adds to a customer file, by the section name itself', () => {
+    // The module is «العقار» and the section it draws is «العقارات». The screen names the
+    // section, because that is what the reader will look for in the file.
+    expect(html).toContain('يرسم قسم «العقارات» في ملف العميل');
+    expect(html).toContain('يرسم قسم «البيانات الأساسية» في ملف العميل');
+  });
+
+  it('counts the modules, the services under them, and the drift from the plans', () => {
+    expect(html).toContain('خدمات التحقق');
+    expect(html).toContain('الإضافية منها لا تُمنح إلا بقرار');
   });
 
   it('marks the module that cannot be switched off, and the ones given only by decision', () => {

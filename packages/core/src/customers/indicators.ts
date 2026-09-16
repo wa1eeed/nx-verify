@@ -1,6 +1,13 @@
 import type { Freshness } from '../repositories/profile.js';
 import type { CustomerKind } from './checks.js';
 import { daysCount, detectedChanges, otherBusinesses, otherCustomers } from './arabic.js';
+import {
+  DEFAULT_RISK_POLICY,
+  signalOn,
+  thresholdOf,
+  weightOf,
+  type RiskPolicy,
+} from './risk-policy.js';
 
 /**
  * The KYB and KYC indicators of a customer file, and the signals worth a person's time.
@@ -88,7 +95,17 @@ export interface AssessmentInput {
   incompleteSections?: readonly string[];
   /** The name match an account needs to count as the customer's (screen 05). 85 when absent. */
   nameMatchThresholdPct?: number;
+  /**
+   * What each signal weighs here, what is counted at all, and where the bands fall
+   * (ADR-138). Absent means the shipped model, so this stays callable without a database.
+   */
+  riskPolicy?: RiskPolicy;
   now: Date;
+}
+
+/** The policy in force for this assessment: the subscriber's, or the one we ship. */
+function policyOf(input: AssessmentInput): RiskPolicy {
+  return input.riskPolicy ?? DEFAULT_RISK_POLICY;
 }
 
 /**
@@ -126,32 +143,31 @@ const STANDING_LABELS: Record<Standing, string> = {
 };
 
 /**
- * What each signal adds to the score.
+ * What each signal adds to the score, as the platform ships it.
  *
  * Serious signals weigh sixty, so one of them makes the level high on its own; the ones a
- * person should look at weigh thirty, the medium band's floor; the rest nudge.
+ * person should look at weigh thirty, the medium band's floor; the rest nudge. Every one of
+ * these is a row now (migration 0052) and a subscriber may disagree with any of them; this
+ * map is what answers when nobody has.
  */
-export const SIGNAL_WEIGHTS: Readonly<Record<string, number>> = {
-  registry_inactive: 60,
-  liquidation: 70,
-  iban_mismatch: 60,
-  iban_partial: 30,
-  account_inactive: 30,
-  certificate_inactive: 60,
-  certificate_not_owned: 65,
-  new_business: 10,
-  manager_many_companies: 30,
-  shared_account: 60,
-  shared_address: 14,
-  open_changes: 30,
-};
+export const SIGNAL_WEIGHTS: Readonly<Record<string, number>> = Object.fromEntries(
+  Object.entries(DEFAULT_RISK_POLICY.signals).map(([code, signal]) => [code, signal.weight]),
+);
 
 /** Each required section still missing adds this much, for at most three of them. */
-export const INCOMPLETE_SECTION_WEIGHT = 10;
-const INCOMPLETE_SECTIONS_COUNTED = 3;
+export const INCOMPLETE_SECTION_WEIGHT = DEFAULT_RISK_POLICY.signals.incomplete_section?.weight ?? 10;
 
-export function riskLevelFor(score: number): Exclude<RiskLevel, 'INCOMPLETE'> {
-  return score >= 60 ? 'HIGH' : score >= 30 ? 'MEDIUM' : 'LOW';
+/**
+ * Which band a score falls in.
+ *
+ * The two numbers are a subscriber's to set: a lender calls sixty high, and a marketplace
+ * selling stationery may not. Without a policy they are the ones the platform shipped.
+ */
+export function riskLevelFor(
+  score: number,
+  policy: RiskPolicy = DEFAULT_RISK_POLICY,
+): Exclude<RiskLevel, 'INCOMPLETE'> {
+  return score >= policy.highFrom ? 'HIGH' : score >= policy.mediumFrom ? 'MEDIUM' : 'LOW';
 }
 
 function fact(input: AssessmentInput, path: string): FactView | undefined {
@@ -319,27 +335,35 @@ function freelancerItems(input: AssessmentInput): Indicator[] {
 }
 
 function signalsFor(input: AssessmentInput): RiskSignal[] {
+  const policy = policyOf(input);
   const signals: RiskSignal[] = [];
+  // A signal switched off is not raised at all, rather than raised and weighed zero: what the
+  // reader is shown and what the score is made of must be the same list (ADR-138).
+  const raise = (signal: RiskSignal): void => {
+    if (signalOn(policy, signal.key)) {
+      signals.push(signal);
+    }
+  };
   const status = fact(input, 'cr.status_code');
   if (status !== undefined && status.value !== 1) {
-    signals.push({
+    raise({
       key: 'registry_inactive',
       severity: 'HIGH',
       textAr: `السجل التجاري غير فعّال: ${String(fact(input, 'cr.status')?.value ?? '')}.`,
     });
   }
   if (fact(input, 'cr.in_liquidation')?.value === true) {
-    signals.push({ key: 'liquidation', severity: 'HIGH', textAr: 'المنشأة في مرحلة التصفية.' });
+    raise({ key: 'liquidation', severity: 'HIGH', textAr: 'المنشأة في مرحلة التصفية.' });
   }
   const ownership = bankOwnershipOf(input)?.value;
   if (ownership === 'NO_MATCH') {
-    signals.push({
+    raise({
       key: 'iban_mismatch',
       severity: 'HIGH',
       textAr: 'الحساب البنكي المقدَّم مسجل باسم آخر.',
     });
   } else if (ownership === 'PARTIAL') {
-    signals.push({
+    raise({
       key: 'iban_partial',
       severity: 'MEDIUM',
       textAr: 'تطابق جزئي فقط بين اسم العميل واسم صاحب الحساب.',
@@ -347,18 +371,18 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
   }
   const account = fact(input, 'bank.account_status')?.value;
   if (account !== undefined && account !== 'ACTIVE') {
-    signals.push({ key: 'account_inactive', severity: 'MEDIUM', textAr: 'الحساب البنكي غير نشط.' });
+    raise({ key: 'account_inactive', severity: 'MEDIUM', textAr: 'الحساب البنكي غير نشط.' });
   }
   const certificate = fact(input, 'freelance.certificate_status')?.value;
   if (certificate !== undefined && certificate !== 'ACTIVE') {
-    signals.push({
+    raise({
       key: 'certificate_inactive',
       severity: 'HIGH',
       textAr: 'وثيقة العمل الحر غير سارية.',
     });
   }
   if (fact(input, 'freelance.ownership')?.value === 'NOT_VERIFIED') {
-    signals.push({
+    raise({
       key: 'certificate_not_owned',
       severity: 'HIGH',
       textAr: 'وثيقة العمل الحر لا تعود لصاحب الهوية.',
@@ -368,8 +392,8 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
   const issued = fact(input, 'cr.issue_date')?.value;
   if (typeof issued === 'string') {
     const age = daysBetween(new Date(issued), input.now);
-    if (age >= 0 && age < 180) {
-      signals.push({
+    if (age >= 0 && age < thresholdOf(policy, 'new_business', 180)) {
+      raise({
         key: 'new_business',
         severity: 'LOW',
         textAr: `منشأة حديثة التأسيس: صدر سجلها قبل ${daysCount(age)}.`,
@@ -378,30 +402,30 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
   }
 
   for (const manager of input.managers) {
-    if (manager.otherCompanies >= 3) {
-      signals.push({
+    if (manager.otherCompanies >= thresholdOf(policy, 'manager_many_companies', 3)) {
+      raise({
         key: 'manager_many_companies',
         severity: 'MEDIUM',
         textAr: `${manager.name ?? 'أحد المدراء'} يدير ${otherBusinesses(manager.otherCompanies)} من عملائك.`,
       });
     }
   }
-  if (input.accountsSharedWith > 0) {
-    signals.push({
+  if (input.accountsSharedWith >= thresholdOf(policy, 'shared_account', 1)) {
+    raise({
       key: 'shared_account',
       severity: 'HIGH',
       textAr: `الحساب البنكي نفسه مقدَّم أيضاً إلى ${otherCustomers(input.accountsSharedWith)} لديك.`,
     });
   }
-  if (input.addressSharedWith >= 1) {
-    signals.push({
+  if (input.addressSharedWith >= thresholdOf(policy, 'shared_address', 1)) {
+    raise({
       key: 'shared_address',
       severity: 'LOW',
       textAr: `العنوان الوطني نفسه مسجل باسم ${otherBusinesses(input.addressSharedWith)} من عملائك.`,
     });
   }
-  if (input.openChanges > 0) {
-    signals.push({
+  if (input.openChanges >= thresholdOf(policy, 'open_changes', 1)) {
+    raise({
       key: 'open_changes',
       severity: 'MEDIUM',
       textAr: `${detectedChanges(input.openChanges)} بانتظار الاطلاع.`,
@@ -426,15 +450,23 @@ export function assessCustomer(input: AssessmentInput): Assessment {
     ? fact(input, 'freelance.certificate_status')
     : fact(input, 'cr.status_code');
 
+  const policy = policyOf(input);
+  // How many unfilled sections are counted before the rest stop adding. A file missing five
+  // sections is not five times riskier than one missing a section: it is a file nobody has
+  // finished reading.
+  const sectionsCounted = signalOn(policy, 'incomplete_section')
+    ? thresholdOf(policy, 'incomplete_section', 3)
+    : 0;
+
   const riskReasons: RiskReason[] = [
     ...signals.map((signal) => ({
       key: signal.key,
-      weight: SIGNAL_WEIGHTS[signal.key] ?? 0,
+      weight: weightOf(policy, signal.key),
       textAr: signal.textAr,
     })),
-    ...(input.incompleteSections ?? []).slice(0, INCOMPLETE_SECTIONS_COUNTED).map((title) => ({
+    ...(input.incompleteSections ?? []).slice(0, sectionsCounted).map((title) => ({
       key: 'incomplete_section',
-      weight: INCOMPLETE_SECTION_WEIGHT,
+      weight: weightOf(policy, 'incomplete_section'),
       textAr: `قسم ${title} لم يكتمل بعد`,
     })),
   ]
@@ -442,7 +474,7 @@ export function assessCustomer(input: AssessmentInput): Assessment {
     .sort((left, right) => right.weight - left.weight);
 
   const rated = anchor !== undefined && known > 0;
-  const signalWeight = signals.reduce((sum, signal) => sum + (SIGNAL_WEIGHTS[signal.key] ?? 0), 0);
+  const signalWeight = signals.reduce((sum, signal) => sum + weightOf(policy, signal.key), 0);
   const riskScore =
     rated || signalWeight > 0
       ? Math.min(
@@ -450,7 +482,7 @@ export function assessCustomer(input: AssessmentInput): Assessment {
           riskReasons.reduce((sum, reason) => sum + reason.weight, 0),
         )
       : null;
-  const riskLevel: RiskLevel = riskScore === null ? 'INCOMPLETE' : riskLevelFor(riskScore);
+  const riskLevel: RiskLevel = riskScore === null ? 'INCOMPLETE' : riskLevelFor(riskScore, policy);
 
   const failed = items.some((item) => item.state === 'FAIL');
   const standing: Standing = failed

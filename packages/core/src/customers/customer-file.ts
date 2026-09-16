@@ -24,6 +24,7 @@ import {
   type ProfileSection,
 } from './checks.js';
 import { assessCustomer, type Assessment, type FactView, type Indicator } from './indicators.js';
+import { DEFAULT_RISK_POLICY, resolveRiskPolicy, type RiskPolicy } from './risk-policy.js';
 import {
   DEFAULT_PLATFORM_SETTINGS,
   getPlatformSettings,
@@ -842,6 +843,11 @@ export interface FileBasis {
   now: Date;
   /** The platform's settings (screen 05). The shipped defaults when absent. */
   settings?: { nameMatchThresholdPct: number; registryAlertDays: number } | undefined;
+  /**
+   * What each risk signal weighs for this subscriber, and where their bands fall (ADR-138).
+   * The shipped model when absent, so a caller with no database still scores.
+   */
+  riskPolicy?: RiskPolicy | undefined;
   /** Which sections each kind of file has, from the settings. The shipped layouts when absent. */
   layouts?: Layouts | undefined;
 }
@@ -991,6 +997,7 @@ export function fileStandingOf(basis: FileBasis): FileStanding {
     openChanges: basis.changedPaths.size,
     nameMatchThresholdPct:
       basis.settings?.nameMatchThresholdPct ?? DEFAULT_PLATFORM_SETTINGS.nameMatchThresholdPct,
+    riskPolicy: basis.riskPolicy ?? DEFAULT_RISK_POLICY,
     now: basis.now,
   };
   // The indicators decide which sections are in conflict, and the sections still missing
@@ -1434,9 +1441,13 @@ export async function getCustomerFile(
   const checkableManagers = managers.filter((manager) => manager.checkable);
   const settings = await getPlatformSettings(tx);
   const layouts = layoutsOf(await listSectionRequirements(tx));
+  // What this subscriber's risk model says (ADR-138). Read once per file, beside the settings
+  // it belongs with, and handed to the pure assessment as data.
+  const riskPolicy = await resolveRiskPolicy(tx);
   const standing = fileStandingOf({
     settings,
     layouts,
+    riskPolicy,
     entityType: entity.entityType,
     profile,
     changedPaths,

@@ -467,6 +467,33 @@ export {
   setTenantBinding,
   upsertCatalogEntry,
 } from './routing/provider-routing.js';
+export {
+  riskModel,
+  setProductRisk,
+  setRiskBands,
+  setRiskSignal,
+  setTenantRiskBands,
+  setTenantRiskSignal,
+  tenantRiskModel,
+} from './customers/risk-admin.js';
+export type {
+  RiskBands,
+  RiskCategory,
+  RiskModel,
+  RiskSeverity,
+  RiskSignalRow,
+  RiskSource,
+  SetRiskSignalInput,
+  SetTenantRiskSignalInput,
+  TenantRiskModel,
+  TenantRiskSignalView,
+} from './customers/risk-admin.js';
+export {
+  DEFAULT_RISK_POLICY,
+  platformRiskPolicy,
+  resolveRiskPolicy,
+} from './customers/risk-policy.js';
+export type { RiskPolicy, RiskSignalPolicy } from './customers/risk-policy.js';
 export { listModules, setTenantModule, tenantModules } from './modules/modules.js';
 export type {
   ModuleProductView,

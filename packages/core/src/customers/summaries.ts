@@ -14,6 +14,7 @@ import {
 import type { RiskLevel, Standing } from './indicators.js';
 import { getPlatformSettings, layoutsOf, listSectionRequirements } from '../settings/platform.js';
 import { listCustomers, type CustomerFilter } from './list.js';
+import { resolveRiskPolicy } from './risk-policy.js';
 
 /**
  * Every customer's standing at once: how complete the file is, where it stands, its risk.
@@ -84,6 +85,8 @@ export async function summarizeCustomers(
   const catalogue = await listChecks(tx);
   const settings = await getPlatformSettings(tx);
   const layouts = layoutsOf(await listSectionRequirements(tx));
+  // Once for the whole list, so every row is scored under the same model as the file it opens.
+  const riskPolicy = await resolveRiskPolicy(tx);
 
   const { rows: entityRows } = await tx.query<{ id: string; first_seen_at: Date }>(
     `SELECT id, first_seen_at FROM entities WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
@@ -332,6 +335,7 @@ export async function summarizeCustomers(
     const standing = fileStandingOf({
       settings,
       layouts,
+      riskPolicy,
       entityType: customer.entityType as EntityType,
       profile,
       changedPaths,
