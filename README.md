@@ -1,208 +1,148 @@
 # NX Trust
 
-بنية تحقق وتأهيل وثقة متعددة المستأجرين للسوق السعودي.
+A multi-tenant verification, onboarding and trust platform for the Saudi market.
+
+NX Trust pulls facts about a business or a person from official registries, keeps each one as a
+timestamped attestation that is never edited, and builds living entity files out of them, with
+evidence, decisions and monitoring on top.
+
+The platform is in Arabic and right to left throughout. This documentation is in English,
+because the people who run a deployment are not always the people who built it.
 
 ---
 
-**NX Trust** خمس وحدات فوق بنية واحدة:
+## What it is
 
-| الوحدة | ما تفعله |
-|---|---|
-| **Verify** | عشر وحدات تحقق: المنشأة، عقد التأسيس، صلاحيات المدير، العنوان الوطني، العمل الحر، الآيبان، الحساب البنكي، مطابقة الاسم، الدخل، الصك العقاري |
-| **Onboard** | رحلات تأهيل كصفوف، وملف لكل متقدّم بمهلة وتنازلات وقرار |
-| **Decide** | قواعد العميل نفسه، بمحاكاة قبل التفعيل، ودرجة ثقة بتفصيلها |
-| **Monitor** | مراقبة مستمرة، مدد صلاحية، رصد تغيّر، وإعادة تحقق |
-| **Act** | إجراءات مربوطة بنتيجة الملف: نداء أنظمة العميل، وتنبيه فريقه |
+Five modules over one architecture.
 
-والمزوّد تفصيل تنفيذي: اسمه لا يظهر في أي استجابة، ويُبدَّل من لوحة المشغّل بلا مساس بتكامل العميل.
+| Module      | What it does                                                                                                                                                               |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Verify**  | Commercial registration, articles of association, a manager's powers, the national address, a freelance permit, an IBAN, a bank account, name matching, income, title deeds |
+| **Onboard** | Onboarding journeys as rows, and a file per applicant with a deadline, waivers and a decision                                                                               |
+| **Decide**  | The subscriber's own rules, simulated before they are switched on, and a confidence score with its reasons                                                                  |
+| **Monitor** | Continuous watching, times to live, change detection and re-verification                                                                                                    |
+| **Act**     | Actions bound to the outcome of a file: call the subscriber's systems, alert their team                                                                                     |
 
-## بنية الحزمة
+The data source is an implementation detail. Its name appears in no public response, and it is
+changed from the administration panel without touching a single subscriber's integration.
 
-```
-nx-verify/
-├── CLAUDE.md                 القواعد التي لا تُكسر. يُقرأ كل جلسة تلقائياً
-├── README.md                 هذا الملف
-└── docs/
-    ├── 00-START-HERE.md      التوجيه وترتيب البناء والأجوبة المحسومة
-    ├── 01-blueprint.md       التصور الكامل: التموضع، الوحدات، الشاشات، التسعير
-    ├── 02-schema.md          مخطط قاعدة البيانات
-    ├── 03-products.md        كتالوج المنتجات وتنسيق الخطوات
-    ├── progress.md           سجل التقدم. يُحدَّث نهاية كل جلسة
-    └── decisions.md          سجل القرارات المعمارية
-```
+## Who it is for
+
+- **A subscriber**: a bank, a financing company, a marketplace or a payments provider that has
+  to know who it is dealing with, and has to be able to prove later that it knew.
+- **The platform's own staff**: the people who set prices, connect the data source, watch
+  balances and answer the phone, working from an administration panel that no subscriber
+  session can reach.
 
 ---
 
-## الحالة
+## Run it in fifteen minutes
 
-**المرحلتان الأولى والثانية مكتملتان، وأكثر الثالثة.** الوحدات 0 إلى 19، حراس المعمارية الثمانية خضر، 317 اختباراً يمر، سبعة عشر ترحيلاً تعمل صعوداً ونزولاً.
-
-**ما لم يُبنَ وسببه في `docs/progress.md` قسم "ما تبقى".** أبرزه: المزوّد الحقيقي ينتظر حساباً، وKMS ينتظر خزنة، وتوليد ملف PDF ينتظر عمل تصيير. القرارات في `docs/decisions.md`، سبعة وثلاثون قراراً.
-
----
-
-## التشغيل
+You need [Docker](https://docs.docker.com/get-docker/), Node 20.11 or newer, and pnpm 9.
 
 ```bash
+git clone https://github.com/wa1eeed/nx-verify.git
+cd nx-verify
 pnpm install
+cp .env.example .env    # then fill it in: see docs/reference/configuration.md
+chmod 600 .env
 ```
 
-الاختبارات تحتاج Docker مشغّلاً، لأنها تعمل على بوستجرس 16 حقيقي عبر Testcontainers (القاعدة 11).
-
-```bash
-pnpm run test              # كل الاختبارات
-pnpm run guards            # حراس المعمارية وحدهم
-pnpm run migrate:verify    # الترحيل صعوداً ونزولاً وصعوداً، ومقارنة المخطط
-pnpm run lint && pnpm run typecheck && pnpm run style
-```
-
-للتشغيل المحلي انسخ `.env.example` إلى `.env` واملأه.
-
-```bash
-pnpm --filter @nx-verify/api run dev       # الـAPI
-pnpm --filter @nx-verify/console run dev   # الكونسول
-pnpm --filter @nx-verify/worker run start  # العامل: المراقبة والدفعات والتسليم والاحتفاظ
-```
-
-العامل يحتاج اتصالين: `NX_APP_DATABASE_URL` للعمل، و`NX_OPERATOR_DATABASE_URL` لقراءة قائمة المساحات وحدها.
-
-الدخول إلى الكونسول على `/login`: كلمة مرور بمعرّف مساحة العمل، أو بريد العمل إن كانت الشركة مرتبطة بدليل موحّد. وسر عميل الدليل يُقرأ من مخزن الأسرار:
-
-```
-NX_CONSOLE_URL=https://console.example.sa
-NX_SECRETS={"kms://tenants/acme/idp":{"clientSecret":"..."}}
-```
-
-**تشغيل مزوّد حقيقي** متغير بيئة واحد، ولا سطر كود:
-
-```
-NX_PROVIDERS=wathq:https://api.example.com
-```
-
-**النشر** صورة واحدة لثلاث عمليات، والأمر يُختار عند التشغيل:
-
-```bash
-cp .env.example .env   # ثم املأه
-docker compose up --build
-```
-
-ثم التزويد، وكل سر يُطبَع مرة واحدة:
-
-```bash
-pnpm provision products:seed --provider stub
-pnpm provision tenant:create --name "شركة العميل" --slug acme --admin-email admin@acme.sa
-pnpm provision price:set --tenant <id> --product KYB_COMPLETE --amount 44.00
-pnpm provision wallet:topup --tenant <id> --amount 1000 --invoice INV-1
-pnpm provision key:issue --tenant <id> --name integration
-```
-
-ولرؤية المنصة تعمل بكل عملياتها وببيانات حقيقية مرّت من طبقة المجال لا مُدرَجة في جدول:
+The fastest way to see the whole thing working, with real data that came through the domain
+layer rather than inserted into tables:
 
 ```bash
 bash scripts/demo.sh
 ```
 
-يرفع الكل، يزوّد مساحة، يشغّل أربعة تحققات، ثم يطبع عنوان الكونسول وبيانات الدخول ومفتاح الـAPI. وكلمة المرور الأولى مؤقتة، والكونسول يطلب تغييرها قبل أي شاشة.
+It brings up every process, provisions a workspace, runs a handful of verifications, and prints
+where to go and how to sign in. The API is on port 3000 and the console on 3001.
 
-ولإثبات أن النشر يعمل فعلاً لا أن يُدّعى:
+To prove a deployment actually works rather than to look at it:
 
 ```bash
 bash scripts/smoke.sh
 ```
 
-يرفع المكدّس، يزوّد مساحة عمل كاملة، يشغّل تحققاً فوق HTTP، **يؤهّل تاجراً بنداء واحد**، ينشئ بيئة اختبار ويتأكد أن مفتاحها `nx_test_` وأن استجابتها تقول `sandbox`، ويتأكد أن مفتاح الإنتاج **يتجاهل** ترويسة فرض الحالة، ويتحقق أن لا اسم مزوّد ولا معرّف خرج في أي استجابة، وأن نفس مفتاح الـIdempotency لا يُشغّل مرتين.
+Full instructions, including what to do when a step fails, are in
+[docs/tutorials/first-verification.md](docs/tutorials/first-verification.md).
 
-الـAPI على 3000 والكونسول على 3001. و`/ready` يفحص القاعدة وخدمة المفاتيح ويعيد 503 حين يعجز، فلا تُرسَل إليه حركة وهو عاجز.
+---
 
-**خدمة المفاتيح والأسرار** في الإنتاج، ولا تُقبل البيئة بديلاً عنها هناك:
-
-```
-NX_KMS_ENDPOINT=https://kms.example.sa/decrypt
-NX_KMS_TOKEN=...
-NX_KMS_KEYS=1:<ciphertext>,2:<ciphertext>
-NX_SECRETS_ENDPOINT=https://secrets.example.sa/v1
-NX_SECRETS_TOKEN=...
-```
-
-**خادم MCP** يتيح لمساعد ذكي استخدام المنصة بمفتاح مشترك واحد. العملية الواحدة لمشترك واحد، لأن المفتاح يثبّت المستأجر ولا أداة تقبل معرّف مستأجر.
+## Working on it
 
 ```bash
-NX_API_URL=http://localhost:3000 \
-NX_API_KEY=nx_live_... \
-NX_MCP_SPEND_CEILING_HALALAS=50000 \
-pnpm run mcp
+pnpm run test              # every test, on real PostgreSQL through Testcontainers
+pnpm run guards            # the ten architecture guards on their own
+pnpm run migrate:verify    # up, down and up again, comparing the schema
+pnpm run lint && pnpm run typecheck && pnpm run style
+pnpm run security          # dependency audit and the secret scanner
 ```
 
-سقف الإنفاق يقرأه من يشغّل العملية، ولا شيء يرسله النموذج يرفعه. الأدوات: `list_products`، `quote_verification`، `run_verification`، `get_verification`، `get_entity_profile`، `get_wallet_balance`، `check_evidence`. ولا أداة تقرر حالة مراجعة ولا تغيّر مزوّداً ولا سعراً ولا سياسة.
+The tests need Docker running: they use real PostgreSQL 16, never SQLite and never a mock of
+the database layer, because row level security is a PostgreSQL feature and proving isolation
+anywhere else proves nothing (rule 11).
+
+```bash
+pnpm --filter @nx-verify/api run dev       # the API
+pnpm --filter @nx-verify/console run dev   # the console
+pnpm --filter @nx-verify/worker run start  # the worker
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, the style rules and what a pull
+request must carry.
 
 ---
 
-## بنية الكود
+## Where the code is
 
 ```
-apps/api        الـAPI العام والتشغيلي، المصادقة، Webhooks، OpenAPI
-apps/console    الكونسول (Next.js, RTL): الكيان 360، السجل، الطابور، المحافظ، اللوحة، الإعدادات
-apps/worker     المراقبة، الدفعات، تسليم Webhooks والتنبيهات، الاحتفاظ، الأقسام، تدوير المفاتيح
-apps/mcp        خادم MCP: عميل للـAPI العام لا للقاعدة، بسقف إنفاق وأدوات مقروءة
-packages/core   المجال: الإفادات، الهوية، الحداثة، المنتجات، التطبيع، التسعير،
-                القرار، المراجعة، المحافظ، الأدلة، التقارير
-packages/db     المخطط، ثلاثة وعشرون ترحيلاً، الأدوار وRLS، البذرة
-packages/providers  واجهة VerificationProvider، المزوّد الوهمي، محوّل HTTP، المصنع
+apps/api            the public and operational API, authentication, webhooks, OpenAPI
+apps/console        the console and the administration panel (Next.js, RTL)
+apps/worker         monitoring, batches, delivery, retention, partitions, key rotation
+apps/mcp            an MCP server: a client of the public API, never of the database
+packages/core       the domain: attestations, identity, freshness, products, normalisation,
+                    pricing, decisions, review, portfolios, evidence, reports
+packages/db         the schema, 49 migrations, the four roles, row level security, seeds
+packages/providers  the VerificationProvider interface and its implementations
 ```
-
-## أين تبدأ القراءة
-
-| السؤال | الملف |
-|---|---|
-| ما القواعد التي لا تُكسر؟ | `CLAUDE.md` |
-| لماذا بُني هكذا؟ | `docs/decisions.md` |
-| ما بُني وما تبقى؟ | `docs/progress.md` |
-| كيف يُضاف منتج تحقق؟ | `packages/db/src/seed/products.ts` وصفوف في قاعدة البيانات |
-| هل التجريد سليم؟ | `packages/providers/test/abstraction-boundary.test.ts` |
 
 ---
 
-## بداية كل جلسة تالية
+## The documentation
 
-```
-اقرأ CLAUDE.md و docs/progress.md. نفّذ الوحدة رقم N. اعرض خطتك أولاً.
-```
+Organised the way [Diátaxis](https://diataxis.fr) suggests: a tutorial teaches, a guide solves a
+task, a reference states facts, and an explanation gives the reasoning. Start at
+[docs/README.md](docs/README.md) for the full map.
 
-**جلسة واحدة لوحدة واحدة.** بناء عدة وحدات في جلسة يجعل آخرها أضعفها.
+| I want to…                                | Read                                                                          |
+| ----------------------------------------- | ----------------------------------------------------------------------------- |
+| Run the platform and verify something     | [tutorials/first-verification.md](docs/tutorials/first-verification.md)        |
+| Set up a development machine              | [guides/development-environment.md](docs/guides/development-environment.md)    |
+| Deploy to production                      | [guides/deploy-production.md](docs/guides/deploy-production.md)                |
+| Know what an environment variable does    | [reference/configuration.md](docs/reference/configuration.md)                  |
+| Know what a table or a column is          | [reference/database.md](docs/reference/database.md)                            |
+| Call the API                              | [reference/api.md](docs/reference/api.md)                                      |
+| Know what the worker runs and when        | [reference/scheduled-tasks.md](docs/reference/scheduled-tasks.md)              |
+| Understand the architecture               | [explanation/architecture.md](docs/explanation/architecture.md)                |
+| Understand the security model             | [explanation/security-model.md](docs/explanation/security-model.md)            |
+| Handle a secret, or a leaked one          | [05-secrets.md](docs/05-secrets.md)                                            |
+| Know what changed and when                | [CHANGELOG.md](CHANGELOG.md)                                                   |
+| Know why something was built this way     | [decisions.md](docs/decisions.md)                                              |
+| Know what is built and what is left       | [progress.md](docs/progress.md)                                                |
 
----
-
-## قواعد التشغيل
-
-1. اطلب الخطة قبل الكود دائماً
-2. لا تقبل تسليماً بلا مخرجات تشغيل حراس المعمارية
-3. ألزمه بتحديث `progress.md` نهاية كل جلسة
-4. أي قرار معماري يُسجَّل في `decisions.md`
-
-### متى تتدخل
-
-| العلامة | التصرف |
-|---|---|
-| اقترح جدولاً لكل نوع تحقق | أوقفه، القاعدة 6 و`entity_type` |
-| استخدم UPDATE على `attestations` | أوقفه فوراً، الحارس 01 كان يجب أن يفشل |
-| بنى منطق منتج في الكود | أعده للوحدة 4 |
-| اقترح تقسيم جداول أو كاش مبكراً | القاعدة 9، لا تحسين قبل قياس |
-| بنى أكثر من وحدة في جلسة | راجع كل واحدة على حدة |
-
----
-
-## نقطة القياس
-
-بعد إنهاء الوحدة 4، اختبر بنفسك: **أضف منتج تحقق جديداً بصفوف في قاعدة البيانات فقط، بلا نشر ولا كود.**
-
-نجح؟ المعمارية سليمة وستتوسع. فشل؟ قف وأصلح قبل المتابعة.
+The rules that may not be broken are in [CLAUDE.md](CLAUDE.md), and they outrank every document
+here. `docs/01-blueprint.md`, `docs/02-schema.md`, `docs/03-products.md`, `docs/decisions.md` and
+`docs/progress.md` are the project's working record and are written in Arabic; everything under
+`docs/tutorials`, `docs/guides`, `docs/reference` and `docs/explanation` is in English.
 
 ---
 
-## بالتوازي مع البناء
+## Status
 
-- [ ] تسجيل حساب Sandbox لدى المزوّد
-- [ ] إرسال طلب الشراكة وطلب مسودة العقد تحت NDA
-- [ ] استشارة نظامية على هيكل رصيد الخدمات
+The platform is built and deployable. As of 2026-09-16: 1093 tests, ten architecture guards,
+49 migrations that run up and down, and 134 recorded architecture decisions.
 
-**البناء لا ينتظر أي رد.** المزوّد الوهمي في الوحدة 3 يمكّن من بناء المنصة كاملة قبل الحصول على أي حساب حقيقي.
+What is not built, and why, is in the «ما تبقى» section of [docs/progress.md](docs/progress.md).
+The short version: production needs a key service endpoint, a data source account with working
+credentials, and an independent security review. None of those is a line of code.

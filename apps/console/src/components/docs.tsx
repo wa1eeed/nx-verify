@@ -65,7 +65,7 @@ export function Docs({ view }: { view: DocsView }): ReactElement {
           <p>
             كل خطأ يحمل رمزاً خاصاً بنا مثل{' '}
             <bdi dir="ltr" className="mono">
-              NX-4021
+              NX-4031
             </bdi>
             ، ورسالتين عربية وإنجليزية، وعَلَم{' '}
             <bdi dir="ltr" className="mono">

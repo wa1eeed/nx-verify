@@ -1,15 +1,17 @@
 import { SEED_PRODUCTS } from '@nx-verify/db';
 
 /**
- * OpenAPI 3.1, generated rather than written.
+ * OpenAPI 3.1.
  *
- * A hand written specification drifts from the implementation the first time either
- * changes, and the customer only discovers it at the worst moment. This is built from the
- * same route definitions the server registers.
+ * A hand written specification drifts from the implementation the first time either changes,
+ * and the customer only discovers it at the worst moment. This document is written here, but it
+ * cannot drift: `apps/api/test/openapi-covers-routes.test.ts` asks the built server which routes
+ * it registered and fails when one of them is missing from this file or described here and not
+ * registered. It had drifted by seven routes before that test existed.
  *
- * The product schemas are not listed here, deliberately. They live in the database and
- * are served by GET /v1/products, so a new product appears in discovery immediately
- * without regenerating anything.
+ * The product schemas are not listed here, deliberately. They live in the database and are
+ * served by GET /v1/products, so a new product appears in discovery immediately without
+ * regenerating anything.
  */
 
 export interface OpenApiOptions {
@@ -26,7 +28,7 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
         type: 'object',
         required: ['code', 'message_ar', 'message_en', 'retryable'],
         properties: {
-          code: { type: 'string', example: 'NX-4021' },
+          code: { type: 'string', example: 'NX-4031' },
           message_ar: { type: 'string' },
           message_en: { type: 'string' },
           retryable: { type: 'boolean' },
@@ -40,7 +42,7 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
     type: 'object',
     required: ['status'],
     properties: {
-      status: { enum: ['OK', 'NOT_FOUND', 'ERROR', 'SKIPPED', 'CACHED'] },
+      status: { enum: ['OK', 'NOT_FOUND', 'ERROR', 'SKIPPED', 'CACHED', 'AWAITING', 'PENDING'] },
       // The official body. The provider behind it is never named (rule 5).
       authority: { type: 'string' },
       reason: { type: 'string' },
@@ -75,7 +77,7 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
             // identifier; this is for people.
             reference: { type: 'string', example: 'VRF-2026-000019' },
             product: { type: 'string' },
-            status: { enum: ['OK', 'PARTIAL', 'NOT_FOUND', 'ERROR'] },
+            status: { enum: ['OK', 'PARTIAL', 'NOT_FOUND', 'ERROR', 'AWAITING'] },
             decision: { enum: ['PASS', 'FAIL', 'REVIEW', null] },
             entity_id: { type: ['string', 'null'], format: 'uuid' },
             results: { type: 'object', additionalProperties: stepResult },
@@ -109,6 +111,15 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
             '200': { description: 'Ready' },
             '503': { description: 'Not ready' },
           },
+        },
+      },
+      '/openapi.json': {
+        get: {
+          summary: 'This document',
+          description:
+            'The specification itself, so a client can fetch it from the deployment it is going to call rather than from a copy that may be older.',
+          security: [],
+          responses: { '200': { description: 'The specification' } },
         },
       },
       '/v1/products': {
@@ -161,6 +172,11 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
           },
           responses: {
             '201': { description: 'Completed', content: jsonRef('Verification') },
+            '202': {
+              description:
+                'Accepted, and the data source will answer later. The run is charged once, when the answer arrives, and announced by a webhook.',
+              content: jsonRef('Verification'),
+            },
             '200': {
               description: 'Replayed under the same Idempotency-Key',
               content: jsonRef('Verification'),
@@ -284,6 +300,34 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
           responses: { '200': { description: 'The queue' } },
         },
       },
+      '/v1/review-cases/{id}/assign': {
+        post: {
+          summary: 'Assign a case to a person',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Assigned' },
+            '422': {
+              description: 'Not a case that can be assigned',
+              content: jsonError(errorSchema),
+            },
+          },
+        },
+      },
+      '/v1/review-cases/{id}/return': {
+        post: {
+          summary: 'Return a decided case to the queue',
+          description:
+            'The approver disagrees. The case reopens with the reason recorded, rather than being approved to keep the queue moving.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Back in the queue' },
+            '422': {
+              description: 'Only a decided case can be returned',
+              content: jsonError(errorSchema),
+            },
+          },
+        },
+      },
       '/v1/review-cases/{id}/decide': {
         post: {
           summary: 'Decide a case',
@@ -315,11 +359,50 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
         },
         post: { summary: 'Create a portfolio', responses: { '201': { description: 'Created' } } },
       },
+      '/v1/portfolios/{id}/members': {
+        post: {
+          summary: 'Add an entity to a portfolio',
+          description:
+            'Starts monitoring as well, when the portfolio carries a default cadence and budget.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '201': { description: 'Added' },
+            '200': { description: 'Already a member' },
+          },
+        },
+      },
       '/v1/batches/preview': {
         post: {
           summary: 'Count and price a batch without creating it',
           description: 'Writes nothing. A preview is a question.',
           responses: { '200': { description: 'The estimate' } },
+        },
+      },
+      '/v1/batches': {
+        post: {
+          summary: 'Create a draft batch',
+          description: 'A draft runs nothing. It carries the estimate the confirmation is held to.',
+          responses: { '201': { description: 'Created as a draft' } },
+        },
+      },
+      '/v1/batches/{id}': {
+        get: {
+          summary: 'Read a batch and its progress',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'The batch' } },
+        },
+      },
+      '/v1/batches/{id}/cancel': {
+        post: {
+          summary: 'Cancel a batch',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Cancelled' },
+            '422': {
+              description: 'Not a batch that can be cancelled',
+              content: jsonError(errorSchema),
+            },
+          },
         },
       },
       '/v1/batches/{id}/confirm': {
@@ -340,6 +423,26 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
           description:
             'A budget is required and is not defaulted. Monitoring spends the balance automatically, so the cap and the person who activated it are both recorded.',
           responses: { '201': { description: 'Monitoring started' } },
+        },
+      },
+      '/v1/callbacks/{slug}': {
+        post: {
+          summary: 'Where a data source calls us',
+          description:
+            'Not for subscribers. The address is opaque and names no provider, the signature over the raw bytes is the authentication, and a repeated delivery is answered exactly as the first was, so a retry never becomes a second piece of work.',
+          parameters: [{ name: 'slug', in: 'path', required: true, schema: { type: 'string' } }],
+          security: [],
+          responses: {
+            '202': { description: 'Received, and matched later by the worker' },
+            '401': {
+              description: 'Unsigned, or the signature does not match',
+              content: jsonError(errorSchema),
+            },
+            '404': {
+              description: 'No callback is registered at this address',
+              content: jsonError(errorSchema),
+            },
+          },
         },
       },
       '/v1/dashboard': {

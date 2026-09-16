@@ -262,7 +262,13 @@ async function main(): Promise<void> {
     console.error(JSON.stringify({ level: 'info', message: 'stopping', signal }));
     // Let the run in flight finish rather than killing a delivery halfway.
     await scheduler.stop();
-    await Promise.all([appPool.end(), operatorPool.end()]);
+    // Every pool, the retention one included: it was left open, so a stop waited on a
+    // connection nobody was going to use.
+    await Promise.all(
+      [appPool, operatorPool, retentionPool]
+        .filter((pool) => pool !== null)
+        .map((pool) => pool.end()),
+    );
     process.exit(0);
   };
 
