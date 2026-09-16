@@ -174,6 +174,15 @@ export interface LoginSuccess {
   mustChangePassword: boolean;
 }
 
+/** Who the password proved, before anything is issued to them (ADR-143). */
+export interface VerifiedPassword {
+  tenantId: string;
+  userId: string;
+  role: UserRole;
+  displayName: string;
+  mustChangePassword: boolean;
+}
+
 interface LoginRow {
   tenant_id: string;
   user_id: string;
@@ -202,6 +211,21 @@ export async function login(
   ) => Promise<IssuedSession>,
   input: LoginInput,
 ): Promise<LoginSuccess> {
+  const verified = await verifyPassword(db, input);
+  const session = await createSessionFor(verified.tenantId, (tx) =>
+    createSession(tx, { userId: verified.userId, ip: input.ip ?? null }),
+  );
+  return { ...verified, session };
+}
+
+/**
+ * The password half, with nothing issued.
+ *
+ * Split out so a deployment that asks for a second step never mints a session that a code has
+ * not been given for. A session created and then thrown away is a session that existed, and
+ * the whole point of the second step is that it did not.
+ */
+export async function verifyPassword(db: Queryable, input: LoginInput): Promise<VerifiedPassword> {
   const { rows } = await db.query<LoginRow>(
     `SELECT tenant_id, user_id, role, display_name, password_hash, salt, params,
             must_change, recent_failures
@@ -237,16 +261,11 @@ export async function login(
     throw new NxError('NX-4011');
   }
 
-  const session = await createSessionFor(found.tenant_id, (tx) =>
-    createSession(tx, { userId: found.user_id, ip: input.ip ?? null }),
-  );
-
   return {
     tenantId: found.tenant_id,
     userId: found.user_id,
     role: found.role,
     displayName: found.display_name,
-    session,
     mustChangePassword: found.must_change,
   };
 }

@@ -133,6 +133,7 @@ function view(overrides: Partial<AdminPricingView> = {}): AdminPricingView {
       maxAttempts: 2,
       resultValidityDays: 90,
       nameMatchThresholdPct: 85,
+      userSecondStep: 'off' as const,
       registryAlertDays: 30,
     },
     sections: {

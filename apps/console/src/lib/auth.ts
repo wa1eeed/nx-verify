@@ -2,10 +2,15 @@ import { withTenant, type TenantTransaction } from '@nx-verify/db';
 import {
   beginSso,
   completeSso,
+  createSession,
+  getPlatformSettings,
+  issueLoginCode,
   login,
+  redeemLoginCode,
   type HttpJson,
   type IssuedSession,
   type SsoFetcher,
+  verifyPassword,
 } from '@nx-verify/core';
 import { getPool } from './context';
 
@@ -47,6 +52,118 @@ export async function signInWithPassword(input: {
     ip: input.ip ?? null,
   });
   return toSignedIn(result.session);
+}
+
+/** The cookie that holds a sign in between the password and the code (ADR-143). */
+export const PENDING_COOKIE = 'nx_pending';
+
+/** How long the second step may be left unfinished. The code itself expires with it. */
+export const PENDING_MINUTES = 10;
+
+export interface PendingSignIn {
+  tenantId: string;
+  handle: string;
+}
+
+/**
+ * The password half, and what to do next.
+ *
+ * `code` is returned exactly once, to be put in a message and forgotten: it is never stored
+ * in a readable form and never comes back from anywhere.
+ */
+export type PasswordOutcome =
+  | { step: 'signed-in'; signed: SignedIn }
+  | {
+      step: 'code';
+      pending: PendingSignIn;
+      code: string;
+      to: string;
+      toName: string | null;
+      expiresAt: Date;
+    };
+
+export async function beginSignIn(input: {
+  slug: string;
+  email: string;
+  password: string;
+  ip?: string | null;
+}): Promise<PasswordOutcome> {
+  const slug = input.slug.trim().toLowerCase();
+  const email = input.email.trim();
+  const verified = await verifyPassword(getPool(), {
+    slug,
+    email,
+    password: input.password,
+    ip: input.ip ?? null,
+  });
+
+  const settings = await runInTenant(verified.tenantId, (tx) => getPlatformSettings(tx));
+  if (settings.userSecondStep !== 'email') {
+    const session = await runInTenant(verified.tenantId, (tx) =>
+      createSession(tx, { userId: verified.userId, ip: input.ip ?? null }),
+    );
+    return { step: 'signed-in', signed: toSignedIn(session) };
+  }
+
+  const issued = await runInTenant(verified.tenantId, (tx) =>
+    issueLoginCode(tx, { userId: verified.userId, ip: input.ip ?? null }),
+  );
+  return {
+    step: 'code',
+    pending: { tenantId: verified.tenantId, handle: issued.handle },
+    code: issued.code,
+    to: email,
+    toName: verified.displayName,
+    expiresAt: issued.expiresAt,
+  };
+}
+
+/** Spends the code and mints the session the password alone did not. */
+export async function finishSignIn(pending: PendingSignIn, code: string): Promise<SignedIn> {
+  const session = await runInTenant(pending.tenantId, async (tx) => {
+    const redeemed = await redeemLoginCode(tx, { handle: pending.handle, code });
+    return createSession(tx, { userId: redeemed.userId });
+  });
+  return toSignedIn(session);
+}
+
+/**
+ * The value the browser carries between the two steps.
+ *
+ * The handle is the secret and is random; the workspace rides along only so the second step
+ * knows which one to look in, and a handle offered against the wrong workspace simply finds
+ * nothing.
+ */
+export function pendingCookie(pending: PendingSignIn): {
+  name: string;
+  value: string;
+  options: { httpOnly: true; sameSite: 'lax'; secure: boolean; path: string; expires: Date };
+} {
+  return {
+    name: PENDING_COOKIE,
+    value: `${pending.tenantId}.${pending.handle}`,
+    options: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env['NODE_ENV'] === 'production',
+      path: '/',
+      expires: new Date(Date.now() + PENDING_MINUTES * 60_000),
+    },
+  };
+}
+
+/** Reads it back, refusing anything that is not the shape this wrote. */
+export function readPending(value: string | undefined): PendingSignIn | null {
+  if (value === undefined) {
+    return null;
+  }
+  const at = value.indexOf('.');
+  const tenantId = value.slice(0, at);
+  const handle = value.slice(at + 1);
+  if (!/^[0-9a-f-]{36}$/i.test(tenantId) || !handle.startsWith('nxp_')) {
+    return null;
+  }
+  return { tenantId, handle };
 }
 
 /**

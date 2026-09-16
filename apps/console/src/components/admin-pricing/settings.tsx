@@ -38,7 +38,11 @@ export function VerificationSettings({
 }: {
   settings: Pick<
     PlatformSettings,
-    'maxAttempts' | 'resultValidityDays' | 'nameMatchThresholdPct' | 'registryAlertDays'
+    | 'maxAttempts'
+    | 'resultValidityDays'
+    | 'nameMatchThresholdPct'
+    | 'registryAlertDays'
+    | 'userSecondStep'
   >;
   sections: SectionsView;
   formId: string;
@@ -59,6 +63,32 @@ export function VerificationSettings({
       {editable ? <input type="hidden" form={formId} name="settings_present" value="1" /> : null}
 
       <div className="admin-settings-fields">
+        {editable ? (
+          <label className="check" htmlFor="user_second_step">
+            <input
+              id="user_second_step"
+              type="checkbox"
+              name="user_second_step"
+              value="email"
+              form={formId}
+              defaultChecked={settings.userSecondStep === 'email'}
+            />
+            <span className="box" aria-hidden="true" />
+            <span>
+              رمز بالبريد لمستخدمي المشتركين بعد كلمة المرور
+              <span className="admin-offer-terms">
+                {' · '}
+                لا تُفعّله قبل أن تصل رسالة تجربة من شاشة البريد: الدخول يتوقف إن تعذّر الإرسال
+              </span>
+            </span>
+          </label>
+        ) : (
+          <p className="admin-card-note">
+            {settings.userSecondStep === 'email'
+              ? 'مستخدمو المشتركين يُطلب منهم رمز بالبريد بعد كلمة المرور.'
+              : 'مستخدمو المشتركين يدخلون بكلمة المرور وحدها.'}
+          </p>
+        )}
         {fields.map(([name, label, value]) => (
           <Field key={name} id={name} label={label}>
             {(control) => (

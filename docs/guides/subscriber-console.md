@@ -34,6 +34,18 @@ bar, deliberately.
 
 ---
 
+### رمز الدخول, the second step
+
+Where the platform asks for it, the password is followed by six digits mailed to the same
+address you signed in with. It lasts ten minutes, it is used once, and five wrong guesses end
+it whatever the clock says.
+
+If the code does not arrive, do not keep pressing: a second code is refused for a minute so
+the button cannot be turned into a way to send mail to somebody. Start again after that, or
+ask the platform team, who can turn the step off for everyone if their mail service is down.
+
+---
+
 ## العملاء, the customers
 
 Every customer you have verified, with a completion bar, a status tag and a risk score.

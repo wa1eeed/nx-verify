@@ -515,6 +515,17 @@ export type {
   MailSettings,
   SetMailSettingsInput,
 } from './notifications/mail-settings.js';
+export {
+  CODE_TTL_MINUTES,
+  MAX_CODE_ATTEMPTS,
+  RESEND_AFTER_SECONDS,
+  issueLoginCode,
+  pruneLoginCodes,
+  redeemLoginCode,
+} from './auth/login-codes.js';
+export type { IssuedLoginCode, RedeemedLoginCode } from './auth/login-codes.js';
+export { verifyPassword } from './auth/passwords.js';
+export type { VerifiedPassword } from './auth/passwords.js';
 export { bootstrapOwnerFromEnv, ensureBootstrapOwner } from './operators/bootstrap.js';
 export type {
   BootstrapOutcome,

@@ -126,14 +126,19 @@ export async function savePricingAction(formData: FormData): Promise<void> {
           throw new Refusal('settings');
         }
         const values = change as Record<keyof typeof change, number>;
+        // Off unless the switch came back on, like every other switch on this screen
+        // (ADR-143). A deployment that cannot send mail must be able to turn it off here.
+        const userSecondStep =
+          formData.get('user_second_step') === 'email' ? ('email' as const) : ('off' as const);
         const before = await getPlatformSettings(db);
         if (
           before.maxAttempts !== values.maxAttempts ||
           before.resultValidityDays !== values.resultValidityDays ||
           before.nameMatchThresholdPct !== values.nameMatchThresholdPct ||
-          before.registryAlertDays !== values.registryAlertDays
+          before.registryAlertDays !== values.registryAlertDays ||
+          before.userSecondStep !== userSecondStep
         ) {
-          await setPlatformSettings(db, actor, values);
+          await setPlatformSettings(db, actor, { ...values, userSecondStep });
         }
 
         // A switch left off submits nothing, so every section the table lists for a kind is

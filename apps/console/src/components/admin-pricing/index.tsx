@@ -56,7 +56,11 @@ export interface AdminPricingView {
   specialPrices: readonly SpecialPrice[];
   settings: Pick<
     PlatformSettings,
-    'maxAttempts' | 'resultValidityDays' | 'nameMatchThresholdPct' | 'registryAlertDays'
+    | 'maxAttempts'
+    | 'resultValidityDays'
+    | 'nameMatchThresholdPct'
+    | 'registryAlertDays'
+    | 'userSecondStep'
   >;
   sections: SectionsView;
   subscribers: readonly { tenantId: string; legalName: string }[];

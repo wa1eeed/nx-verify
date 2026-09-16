@@ -26,6 +26,12 @@ export interface PlatformSettings {
   resultValidityDays: number;
   nameMatchThresholdPct: number;
   registryAlertDays: number;
+  /**
+   * Whether a subscriber's own users are asked for a mailed code after their password
+   * (ADR-143). Off until somebody turns it on, and it fails closed: turn it off here if mail
+   * is down. The panel's own second step is an authenticator and does not depend on mail.
+   */
+  userSecondStep: 'off' | 'email';
   updatedAt: Date | null;
   updatedBy: string | null;
 }
@@ -35,6 +41,7 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   resultValidityDays: 90,
   nameMatchThresholdPct: 85,
   registryAlertDays: 30,
+  userSecondStep: 'off',
   updatedAt: null,
   updatedBy: null,
 };
@@ -52,11 +59,12 @@ export async function getPlatformSettings(db: Queryable): Promise<PlatformSettin
     result_validity_days: number;
     name_match_threshold_pct: number;
     registry_alert_days: number;
+    user_second_step: 'off' | 'email';
     updated_at: Date;
     updated_by: string | null;
   }>(
     `SELECT max_attempts, result_validity_days, name_match_threshold_pct, registry_alert_days,
-            updated_at, updated_by
+            user_second_step, updated_at, updated_by
      FROM platform_settings WHERE id`,
   );
   const row = rows[0];
@@ -66,16 +74,18 @@ export async function getPlatformSettings(db: Queryable): Promise<PlatformSettin
         resultValidityDays: row.result_validity_days,
         nameMatchThresholdPct: row.name_match_threshold_pct,
         registryAlertDays: row.registry_alert_days,
+        userSecondStep: row.user_second_step,
         updatedAt: row.updated_at,
         updatedBy: row.updated_by,
       }
     : DEFAULT_PLATFORM_SETTINGS;
 }
 
-export type PlatformSettingsChange = Pick<
-  PlatformSettings,
-  'maxAttempts' | 'resultValidityDays' | 'nameMatchThresholdPct' | 'registryAlertDays'
->;
+export type PlatformSettingsChange = Partial<Pick<PlatformSettings, 'userSecondStep'>> &
+  Pick<
+    PlatformSettings,
+    'maxAttempts' | 'resultValidityDays' | 'nameMatchThresholdPct' | 'registryAlertDays'
+  >;
 
 export async function setPlatformSettings(
   db: Queryable,
@@ -86,18 +96,22 @@ export async function setPlatformSettings(
     throw new NxError('NX-4031', { detail: 'this role does not change verification settings' });
   }
   for (const [key, [min, max]] of Object.entries(LIMITS)) {
-    const value = change[key as keyof PlatformSettingsChange];
+    const value = change[key as keyof typeof LIMITS];
     if (!Number.isInteger(value) || value < min || value > max) {
       throw new NxError('NX-4002', {
         detail: `${key} must be a whole number from ${min} to ${max}`,
       });
     }
   }
+  const secondStep = change.userSecondStep ?? 'off';
+  if (secondStep !== 'off' && secondStep !== 'email') {
+    throw new NxError('NX-4002', { detail: 'userSecondStep is off or email' });
+  }
   const before = await getPlatformSettings(db);
   await db.query(
     `UPDATE platform_settings
      SET max_attempts = $1, result_validity_days = $2, name_match_threshold_pct = $3,
-         registry_alert_days = $4, updated_at = now(), updated_by = $5
+         registry_alert_days = $4, user_second_step = $6, updated_at = now(), updated_by = $5
      WHERE id`,
     [
       change.maxAttempts,
@@ -105,13 +119,17 @@ export async function setPlatformSettings(
       change.nameMatchThresholdPct,
       change.registryAlertDays,
       actor.id,
+      secondStep,
     ],
   );
-  const changed = Object.fromEntries(
-    (Object.keys(LIMITS) as (keyof PlatformSettingsChange)[])
+  const changed: Record<string, { from: unknown; to: unknown }> = Object.fromEntries(
+    (Object.keys(LIMITS) as (keyof typeof LIMITS)[])
       .filter((key) => before[key] !== change[key])
       .map((key) => [key, { from: before[key], to: change[key] }]),
   );
+  if (before.userSecondStep !== secondStep) {
+    changed['userSecondStep'] = { from: before.userSecondStep, to: secondStep };
+  }
   if (Object.keys(changed).length > 0) {
     await recordOperatorAudit(db, {
       operatorId: actor.id,

@@ -16,6 +16,18 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ### Added
 
+- **A second step for a subscriber's own users** (ADR-143): six digits mailed after the
+  password, off until the platform owner turns it on and only after a test message has
+  actually arrived. The panel keeps its authenticator, deliberately: a mailed code is not a
+  second factor where mail is also how a password is recovered, and the panel holds every
+  subscriber and every price.
+- **The password step now issues nothing.** `verifyPassword` is separate from minting a
+  session, so where a code is asked for no session exists until the code is spent. A session
+  created and then discarded is a session that existed.
+- **It fails closed.** If the message cannot be sent the sign in stops rather than waving
+  anybody through; the way out is the switch in the panel, whose own second step does not
+  depend on mail.
+
 - **Mail is configured from the panel, not from the environment** (ADR-141). The queue, its
   templates and its retries have worked since the notifications unit; what was missing was a
   way to point them at a mail service without a deployment and a restart. The address, the name
