@@ -44,6 +44,13 @@ The rules in [CLAUDE.md](../CLAUDE.md) outrank every document here.
 | [design-system.md](reference/design-system.md)             | Tokens, the component layer, and the rules a screen obeys                    |
 | [glossary.md](reference/glossary.md)                        | The vocabulary, in Arabic and English                                        |
 
+## User guides
+
+| Page                                                          | For                                                       |
+| ------------------------------------------------------------- | --------------------------------------------------------- |
+| [subscriber-console.md](guides/subscriber-console.md)         | The people who use the console every day                  |
+| [administration-panel.md](guides/administration-panel.md)     | Platform staff: prices, subscribers, the data source       |
+
 ## Explanation
 
 | Page                                                              | The reasoning behind                                          |
@@ -67,6 +74,7 @@ piece of history is recorded rather than explained.
 | [04-install.md](04-install.md)         | Installing a deployment, sandbox first                                 |
 | [05-secrets.md](05-secrets.md)         | Every secret, its home and its rotation (in English)                   |
 | [decisions.md](decisions.md)           | 134 architecture decisions, with what was rejected and why             |
+| [decisions-index.md](decisions-index.md) | An index of all of them, by what each decided                        |
 | [progress.md](progress.md)             | What is built, what is left, and every session's record                |
 
 And outside this folder: [CHANGELOG.md](../CHANGELOG.md) for what changed when, and

@@ -24,6 +24,9 @@ broken, the entry says what was broken, because that is the part worth reading a
   fifteen minutes, and **`CONTRIBUTING.md`** with the loop, the style rules, the guards and the
   pull request checklist.
 - **This changelog**, from the first commit onwards.
+- **Two user guides**: the console for the people who use it every day, and the administration
+  panel for staff, by role.
+- **An index of all 134 architecture decisions**, by what each one decided.
 - **A link check in CI** (`pnpm run docs:check`): every markdown link in the repository must lead
   somewhere. Documentation that points at a file which is not there is documentation nobody
   trusts a second time.
