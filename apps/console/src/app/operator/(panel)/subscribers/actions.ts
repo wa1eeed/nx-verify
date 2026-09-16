@@ -9,6 +9,7 @@ import {
   createSubscriber,
   operatorCan,
   setSubscriberSuspended,
+  setTenantModule as setModule,
 } from '@nx-verify/core';
 import type { NewSubscriberState } from '../../../../components/admin-subscribers/dialogs';
 import { getPool } from '../../../../lib/context';
@@ -109,4 +110,39 @@ export async function assignPlanAction(formData: FormData): Promise<void> {
   }
   revalidatePath('/operator/subscribers');
   redirect(`/operator/subscribers/${tenantId}?${refused ? 'refused=plan' : 'saved=plan'}`);
+}
+
+/**
+ * Gives one subscriber a module, or takes it away (ADR-137).
+ *
+ * An empty value lifts the decision rather than turning the module off, which is a different
+ * act: it returns them to their plan and the module's own default, and a later change to
+ * either reaches them again.
+ */
+export async function setModuleAction(formData: FormData): Promise<void> {
+  const actor = await requireOperatorPermission('subscribers');
+  const tenantId = tenantOf(formData);
+  const raw = String(formData.get('enabled') ?? '');
+  const enabled = raw === '' ? null : raw === 'true';
+  let refused = false;
+  try {
+    await operatorTransaction((db) =>
+      setModule(
+        db,
+        { tenantId, moduleCode: String(formData.get('module_code') ?? ''), enabled },
+        actor.id,
+      ),
+    );
+  } catch (error) {
+    if (!(error instanceof NxError)) {
+      throw error;
+    }
+    refused = true;
+  }
+  revalidatePath(`/operator/subscribers/${tenantId}`);
+  redirect(
+    `/operator/subscribers/${tenantId}?${
+      refused ? 'refused=module' : enabled === null ? 'saved=module_cleared' : 'saved=module'
+    }`,
+  );
 }

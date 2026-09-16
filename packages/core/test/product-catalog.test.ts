@@ -175,6 +175,9 @@ describe('the product catalog drives execution', () => {
       nameAr: 'التحقق من وثيقة العمل الحر',
       nameEn: 'Freelance document verification',
       subjectType: 'FREELANCER',
+      // A product declares the module that sells it, and nothing more: it still exists
+      // nowhere in the source tree, and the module is itself a row.
+      moduleCode: 'FREELANCE',
       isComposite: true,
       partialPolicy: 'BEST_EFFORT',
       inputSchema: {

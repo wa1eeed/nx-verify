@@ -15,6 +15,11 @@ import type { SeedFieldMap, SeedProduct } from './products.js';
  *   BANKING      IBAN_VERIFICATION        everyone
  *   FREELANCE    FREELANCE_CERTIFICATE    freelancer
  *   PROPERTY     PROPERTY_VERIFICATION    everyone, not enabled at the source yet
+ *   INCOME       INCOME_VERIFICATION      establishment, freelancer, awaiting a consent flow
+ *
+ * Each names the module that sells it (migration 0051), which is what a subscriber is given
+ * or refused. Section and module carry the same name today because each module draws exactly
+ * one section.
  *
  * The account holder's name, IBAN_BENEFICIARY_NAME, is sold through the API and offered on
  * no screen. The IBAN check already brings the holder's name and how well it matches, which
@@ -188,6 +193,7 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     nameEn: 'Commercial Registry',
     summaryAr: 'الاسم، النشاط، الحالة، رأس المال، تواريخ الإصدار والانتهاء',
     subjectType: 'BUSINESS',
+    moduleCode: 'REGISTRY',
     inputSchema: UNN_SCHEMA,
     profileSection: 'REGISTRY',
     appliesTo: ['COMPANY', 'ESTABLISHMENT'],
@@ -332,6 +338,7 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     nameEn: 'Articles of Association',
     summaryAr: 'الشركاء، نسب الملكية، رقم الوثيقة وتاريخها',
     subjectType: 'BUSINESS',
+    moduleCode: 'CONTRACT',
     inputSchema: UNN_SCHEMA,
     profileSection: 'CONTRACT',
     // A sole establishment has no articles.
@@ -382,6 +389,7 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     nameEn: 'Authorized Managers',
     summaryAr: 'الأسماء، الهويات، نوع الصلاحية ونطاقها',
     subjectType: 'BUSINESS',
+    moduleCode: 'MANAGERS',
     inputSchema: {
       type: 'object',
       required: ['unn', 'manager_id'],
@@ -452,6 +460,7 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     nameEn: 'National Address',
     summaryAr: 'المدينة، الحي، الشارع، الرمز البريدي، الرقم الإضافي',
     subjectType: 'BUSINESS',
+    moduleCode: 'ADDRESS',
     inputSchema: UNN_SCHEMA,
     profileSection: 'ADDRESS',
     appliesTo: ['COMPANY', 'ESTABLISHMENT'],
@@ -514,6 +523,7 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     nameEn: 'IBAN & Account',
     summaryAr: 'صحة الآيبان، اسم صاحب الحساب، مطابقته لاسم الكيان',
     subjectType: 'BUSINESS',
+    moduleCode: 'BANKING',
     inputSchema: {
       type: 'object',
       required: ['iban', 'account_type'],
@@ -611,6 +621,7 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     nameEn: 'Account Holder Name',
     summaryAr: 'اسم صاحب الحساب وحالة الحساب',
     subjectType: 'BUSINESS',
+    moduleCode: 'BANKING',
     inputSchema: {
       type: 'object',
       required: ['iban'],
@@ -649,6 +660,7 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     nameEn: 'Freelancer Certificate',
     summaryAr: 'الاسم، التخصص، التصنيف، حالة الوثيقة، تواريخ الإصدار والانتهاء',
     subjectType: 'FREELANCER',
+    moduleCode: 'FREELANCE',
     inputSchema: {
       type: 'object',
       required: ['national_id', 'certificate_number'],
@@ -723,6 +735,7 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     nameEn: 'Property Verification',
     summaryAr: 'رقم الصك وحالة العقار',
     subjectType: 'PROPERTY',
+    moduleCode: 'PROPERTY',
     inputSchema: {
       type: 'object',
       required: ['property_number'],
@@ -755,6 +768,91 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
     ],
     fieldMap: [
       { stepKey: 'property', sourcePath: '$.property_status', fieldPath: 'property.status' },
+    ],
+  },
+  {
+    /**
+     * Income, read from the customer's own account rather than from a payslip.
+     *
+     * The subject is a bank account, which is why this belongs to the individuals' side of a
+     * file: an establishment and a freelancer are natural persons with a personal account, and
+     * a company's income is revenue, a different question with a different authority.
+     *
+     * What is asked for is the fuller of the two answers available: the monthly average and
+     * the payment count, and with them where each credit came from and how steady it has been
+     * across one, two, three and six months. A lender's question is not «what does he earn»
+     * but «will he earn it again next month», and only the stability figures answer that.
+     *
+     * COMING_SOON, and for a reason no panel switch can lift: this reads a private account, so
+     * it needs that person's own consent, and the consent journey is not built. Showing it as
+     * runnable would be a promise the platform cannot keep (ADR-137).
+     */
+    code: 'INCOME_VERIFICATION',
+    nameAr: 'الدخل من الحساب البنكي',
+    nameEn: 'Bank based income verification',
+    summaryAr: 'متوسط الدخل الشهري ومصادره وثباته، من الحساب البنكي بموافقة صاحبه.',
+    subjectType: 'BANK_ACCOUNT',
+    moduleCode: 'INCOME',
+    inputSchema: {
+      type: 'object',
+      required: ['account_reference'],
+      additionalProperties: false,
+      properties: {
+        account_reference: { type: 'string', minLength: 8 },
+        start_date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+        income_type: { enum: ['SALARY', 'NON_SALARY', 'ALL'] },
+      },
+    },
+    profileSection: 'INCOME',
+    appliesTo: ['ESTABLISHMENT', 'FREELANCER'],
+    checkOrder: 60,
+    availability: 'COMING_SOON',
+    steps: [
+      {
+        stepKey: 'income',
+        seq: 1,
+        provider: PROVIDER,
+        fallbackProvider: SANDBOX,
+        endpoint: 'income_verification',
+        inputBinding: {
+          entity_id: '$.subject.account_reference',
+          start_date: '$.subject.start_date',
+          income_type: '$.subject.income_type',
+        },
+        required: true,
+        // Income is a rolling window over months of transactions, and asking again the same
+        // week returns the same months. A week of cache, as the other bank facts have.
+        cacheTtlDays: 7,
+      },
+    ],
+    fieldMap: [
+      {
+        stepKey: 'income',
+        sourcePath: '$.average_monthly_income',
+        fieldPath: 'income.monthly_average',
+      },
+      { stepKey: 'income', sourcePath: '$.income_currency', fieldPath: 'income.currency' },
+      { stepKey: 'income', sourcePath: '$.income_payment_count', fieldPath: 'income.payments' },
+      { stepKey: 'income', sourcePath: '$.last_income_at', fieldPath: 'income.last_seen' },
+      ...fields('income', {
+        first_income_at: 'income.first_seen',
+        income_total: 'income.total',
+        income_monthly_count: 'income.monthly_payments',
+        income_received_average: 'income.received_average',
+        income_highest_month: 'income.highest_month',
+        income_highest_amount: 'income.highest_amount',
+        income_lowest_month: 'income.lowest_month',
+        income_lowest_amount: 'income.lowest_amount',
+        income_months: 'income.months',
+        income_sources: 'income.sources',
+        income_variation_ratio: 'income.variation_ratio',
+        income_monthly_change: 'income.monthly_change',
+        other_income_currency: 'income.other.currency',
+        other_income_total: 'income.other.total',
+        other_income_monthly_average: 'income.other.monthly_average',
+        other_income_count: 'income.other.payments',
+        other_income_sources: 'income.other.sources',
+      }),
     ],
   },
 ];

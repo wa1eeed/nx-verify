@@ -61,7 +61,17 @@ export interface SeedPackage {
   supportTier: 'STANDARD' | 'PRIORITY' | 'DEDICATED';
   sortOrder: number;
   /** Modules this package turns on. A product absent from the list is not included. */
-  products: { code: string; monthlyQuota?: number | null; unitPriceHalalas?: number | null }[];
+  products: {
+    code: string;
+    /**
+     * False names the product and its price without including it: an add-on the plan has
+     * agreed a rate for, waiting on somebody switching its module on for the subscriber
+     * (ADR-137). Absent means included, which is what a plan usually says.
+     */
+    enabled?: boolean;
+    monthlyQuota?: number | null;
+    unitPriceHalalas?: number | null;
+  }[];
 }
 
 export const SEED_PACKAGES: readonly SeedPackage[] = [
@@ -108,7 +118,7 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'IBAN_OWNERSHIP' },
       { code: 'NAME_MATCH' },
       { code: 'BANK_ACCOUNT_OWNERSHIP' },
-      { code: 'INCOME_VERIFICATION' },
+      { code: 'INCOME_VERIFICATION', enabled: false },
       // The customer file checks, one verification each.
       { code: 'CR_FULL' },
       { code: 'ARTICLES_OF_ASSOCIATION' },
@@ -117,7 +127,7 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'IBAN_VERIFICATION' },
       { code: 'IBAN_BENEFICIARY_NAME' },
       { code: 'FREELANCE_CERTIFICATE' },
-      { code: 'PROPERTY_VERIFICATION' },
+      { code: 'PROPERTY_VERIFICATION', enabled: false },
     ],
   },
   {
@@ -170,8 +180,8 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'IBAN_OWNERSHIP', unitPriceHalalas: 25_00 },
       { code: 'NAME_MATCH', unitPriceHalalas: 25_00 },
       { code: 'BANK_ACCOUNT_OWNERSHIP', unitPriceHalalas: 25_00 },
-      { code: 'INCOME_VERIFICATION', unitPriceHalalas: 25_00 },
-      { code: 'PROPERTY_DEED', unitPriceHalalas: 25_00 },
+      { code: 'INCOME_VERIFICATION', unitPriceHalalas: 25_00, enabled: false },
+      { code: 'PROPERTY_DEED', unitPriceHalalas: 25_00, enabled: false },
       // The customer file checks. One call to the data source each, so one price each: ten
       // riyals of cost for a verification and two for the national address.
       { code: 'CR_FULL', unitPriceHalalas: 20_00 },
@@ -181,7 +191,7 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'IBAN_VERIFICATION', unitPriceHalalas: 20_00 },
       { code: 'IBAN_BENEFICIARY_NAME', unitPriceHalalas: 20_00 },
       { code: 'FREELANCE_CERTIFICATE', unitPriceHalalas: 20_00 },
-      { code: 'PROPERTY_VERIFICATION', unitPriceHalalas: 20_00 },
+      { code: 'PROPERTY_VERIFICATION', unitPriceHalalas: 20_00, enabled: false },
     ],
   },
   {
@@ -268,8 +278,8 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'IBAN_OWNERSHIP', unitPriceHalalas: 20_00 },
       { code: 'NAME_MATCH', unitPriceHalalas: 20_00 },
       { code: 'BANK_ACCOUNT_OWNERSHIP', monthlyQuota: 500, unitPriceHalalas: 20_00 },
-      { code: 'INCOME_VERIFICATION', unitPriceHalalas: 20_00 },
-      { code: 'PROPERTY_DEED', unitPriceHalalas: 20_00 },
+      { code: 'INCOME_VERIFICATION', unitPriceHalalas: 20_00, enabled: false },
+      { code: 'PROPERTY_DEED', unitPriceHalalas: 20_00, enabled: false },
       // The customer file checks. One call to the data source each, so one price each: ten
       // riyals of cost for a verification and two for the national address.
       { code: 'CR_FULL', unitPriceHalalas: 16_00 },
@@ -279,7 +289,7 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'IBAN_VERIFICATION', unitPriceHalalas: 16_00 },
       { code: 'IBAN_BENEFICIARY_NAME', unitPriceHalalas: 16_00 },
       { code: 'FREELANCE_CERTIFICATE', unitPriceHalalas: 16_00 },
-      { code: 'PROPERTY_VERIFICATION', unitPriceHalalas: 16_00 },
+      { code: 'PROPERTY_VERIFICATION', unitPriceHalalas: 16_00, enabled: false },
     ],
   },
   {
@@ -320,8 +330,8 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'IBAN_OWNERSHIP' },
       { code: 'NAME_MATCH' },
       { code: 'BANK_ACCOUNT_OWNERSHIP' },
-      { code: 'INCOME_VERIFICATION' },
-      { code: 'PROPERTY_DEED' },
+      { code: 'INCOME_VERIFICATION', enabled: false },
+      { code: 'PROPERTY_DEED', enabled: false },
       // The customer file checks, one verification each.
       { code: 'CR_FULL' },
       { code: 'ARTICLES_OF_ASSOCIATION' },
@@ -330,7 +340,7 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
       { code: 'IBAN_VERIFICATION' },
       { code: 'IBAN_BENEFICIARY_NAME' },
       { code: 'FREELANCE_CERTIFICATE' },
-      { code: 'PROPERTY_VERIFICATION' },
+      { code: 'PROPERTY_VERIFICATION', enabled: false },
     ],
   },
 ];
@@ -410,12 +420,18 @@ export async function applyPackageSeed(
       await db.query(
         `INSERT INTO package_products (package_code, product_code, enabled, monthly_quota,
                                        unit_price_halalas)
-         VALUES ($1, $2, true, $3, $4)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (package_code, product_code) DO UPDATE SET
-           enabled = true,
+           enabled = EXCLUDED.enabled,
            monthly_quota = EXCLUDED.monthly_quota,
            unit_price_halalas = EXCLUDED.unit_price_halalas`,
-        [pack.code, product.code, product.monthlyQuota ?? null, product.unitPriceHalalas ?? null],
+        [
+          pack.code,
+          product.code,
+          product.enabled ?? true,
+          product.monthlyQuota ?? null,
+          product.unitPriceHalalas ?? null,
+        ],
       );
     }
   }

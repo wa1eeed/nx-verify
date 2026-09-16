@@ -4,6 +4,7 @@ import { withTenant } from '../../../packages/db/src/client.js';
 import { runChecks, type RunChecksDependencies } from '../src/customers/checks.js';
 import { SECTION_TITLES, getCustomerFile } from '../src/customers/customer-file.js';
 import { riskLevelFor } from '../src/customers/indicators.js';
+import { setTenantModule } from '../src/modules/modules.js';
 import {
   countCustomers,
   findCustomersByIdentifier,
@@ -70,6 +71,15 @@ describe('the customer file', () => {
     other = await seedTenant(db.appPool, 'Another Subscriber');
     await preparePricedTenant(db, tenant.tenantId, { balanceHalalas: 50_000_00 });
     await preparePricedTenant(db, other.tenantId, { balanceHalalas: 50_000_00 });
+
+    // Property is an add on module: no plan includes it, so a subscriber has it when somebody
+    // decides to give it to them (ADR-137). This one bought it, which is what puts the
+    // property section in the files below.
+    await setTenantModule(
+      db.operatorPool,
+      { tenantId: tenant.tenantId, moduleCode: 'PROPERTY', enabled: true },
+      'nx-staff:test',
+    );
   });
 
   afterAll(async () => {

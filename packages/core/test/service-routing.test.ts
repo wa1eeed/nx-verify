@@ -11,6 +11,7 @@ import {
 import { resolveProviders } from '../src/routing/provider-routing.js';
 import { listChecks } from '../src/customers/checks.js';
 import { setTenantOverride } from '../src/billing/package-admin.js';
+import { setTenantModule } from '../src/modules/modules.js';
 import {
   createTestDatabase,
   seedTenant,
@@ -288,9 +289,16 @@ describe('turning a service off for one subscriber', () => {
     const codes = await offered();
     expect(codes).toContain('CR_FULL');
     expect(codes).toContain('NATIONAL_ADDRESS');
-    // The property service has been in the catalogue since migration 0045 and had no place in
-    // the file until 0050 gave it one.
-    expect(codes).toContain('PROPERTY_VERIFICATION');
+    // Property is an add on: in the catalogue since 0045, given a place in the file by 0050,
+    // and sold as a module of its own by 0051. No plan includes it, so it is absent until
+    // somebody gives it to this subscriber, and then it is there.
+    expect(codes).not.toContain('PROPERTY_VERIFICATION');
+    await setTenantModule(
+      db.operatorPool,
+      { tenantId: tenant.tenantId, moduleCode: 'PROPERTY', enabled: true },
+      'nx-staff:test',
+    );
+    expect(await offered()).toContain('PROPERTY_VERIFICATION');
   });
 
   it('takes the section away from that subscriber alone', async () => {

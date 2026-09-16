@@ -12,6 +12,8 @@ import {
   operatorCan,
 } from '@nx-verify/core';
 import { AdminPricing } from '../../../../components/admin-pricing';
+import { SectionTabs } from '../../../../components/section-tabs';
+import { PRICING_TABS } from '../../../../components/operator-shell';
 import { noticeAr } from '../../../../components/admin-pricing/model';
 import { operatorOrSignIn, operatorQuery } from '../../../../lib/operator';
 import { operatorNameOf } from '../../../../lib/operator-names';
@@ -61,36 +63,39 @@ export default async function OperatorPricingPage({
   const nameOf = new Map(data.products.map((product) => [product.productCode, product.nameAr]));
 
   return (
-    <AdminPricing
-      view={{
-        canEditPricing: operatorCan(operator.role, 'pricing'),
-        canEditSettings: operatorCan(operator.role, 'settings'),
-        lastChange:
-          data.lastChange === undefined
-            ? null
-            : { byName: operatorNameOf(data.lastChange), at: data.lastChange.at },
-        notice: noticeAr(params, (code) => nameOf.get(code) ?? code),
-        products: data.products,
-        bundles: data.bundles,
-        plans: data.plans,
-        specialPrices: data.specialPrices,
-        settings: data.settings,
-        sections: data.sections,
-        subscribers: data.subscribers
-          .filter((subscriber) => !subscriber.isSandbox)
-          .map((subscriber) => ({
-            tenantId: subscriber.tenantId,
-            legalName: subscriber.legalName,
-          })),
-        minimumMarginPct: MINIMUM_MARGIN_PCT,
-      }}
-      actions={{
-        save: savePricingAction,
-        addBundle: addBundleAction,
-        retireBundle: retireBundleAction,
-        addPlan: addPlanAction,
-        setSpecialPrice: setSpecialPriceAction,
-      }}
-    />
+    <div className="stack">
+      <SectionTabs tabs={PRICING_TABS} current="/operator/pricing" label="أقسام الأسعار" />
+      <AdminPricing
+        view={{
+          canEditPricing: operatorCan(operator.role, 'pricing'),
+          canEditSettings: operatorCan(operator.role, 'settings'),
+          lastChange:
+            data.lastChange === undefined
+              ? null
+              : { byName: operatorNameOf(data.lastChange), at: data.lastChange.at },
+          notice: noticeAr(params, (code) => nameOf.get(code) ?? code),
+          products: data.products,
+          bundles: data.bundles,
+          plans: data.plans,
+          specialPrices: data.specialPrices,
+          settings: data.settings,
+          sections: data.sections,
+          subscribers: data.subscribers
+            .filter((subscriber) => !subscriber.isSandbox)
+            .map((subscriber) => ({
+              tenantId: subscriber.tenantId,
+              legalName: subscriber.legalName,
+            })),
+          minimumMarginPct: MINIMUM_MARGIN_PCT,
+        }}
+        actions={{
+          save: savePricingAction,
+          addBundle: addBundleAction,
+          retireBundle: retireBundleAction,
+          addPlan: addPlanAction,
+          setSpecialPrice: setSpecialPriceAction,
+        }}
+      />
+    </div>
   );
 }

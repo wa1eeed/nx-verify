@@ -21,10 +21,11 @@ You will add rows to three tables and nothing else. No deployment, no release, n
 
 ```sql
 INSERT INTO products (code, name_ar, name_en, subject_type, input_schema, partial_policy,
-                      profile_section, applies_to, check_order, availability)
+                      module_code, profile_section, applies_to, check_order, availability)
 VALUES ('LICENCE_CHECK', 'رخصة النشاط', 'Activity licence', 'BUSINESS',
         '{"type":"object","required":["unn"],"properties":{"unn":{"type":"string"}}}'::jsonb,
-        'BEST_EFFORT', 'REGISTRY', ARRAY['COMPANY','ESTABLISHMENT'], 60, 'AVAILABLE');
+        'BEST_EFFORT', 'REGISTRY', 'REGISTRY', ARRAY['COMPANY','ESTABLISHMENT'], 60,
+        'AVAILABLE');
 ```
 
 `input_schema` is a JSON Schema, and it is the only thing validating what a caller sends. Get it
@@ -35,6 +36,12 @@ right and a wrong subject is refused with 422 before a single provider call is m
 
 `profile_section` and `applies_to` place the product as a section of a customer file. Either set
 both or neither.
+
+`module_code` is required, and it decides who can be given or refused the product. Join the
+module whose section this product fills, and join it even for a product sold only through the
+API: a module switched off for a subscriber must take its screen and its endpoint together, or
+the switch is a decoration. A product that needs to be sold on its own needs a module of its
+own, which is one more row in `modules` and no code at all.
 
 ## 2. The steps
 

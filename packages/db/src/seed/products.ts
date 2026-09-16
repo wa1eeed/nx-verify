@@ -48,9 +48,29 @@ export interface SeedProduct {
   fieldMap?: SeedFieldMap[];
   /** Ruleset code, resolved to its id at seed time. */
   decisionRuleset?: string;
+  /**
+   * The module that sells this product (migration 0051). Required, because a product outside
+   * every module is a product no subscriber can be given or refused.
+   */
+  moduleCode:
+    | 'REGISTRY'
+    | 'CONTRACT'
+    | 'MANAGERS'
+    | 'ADDRESS'
+    | 'BANKING'
+    | 'FREELANCE'
+    | 'PROPERTY'
+    | 'INCOME';
   /** The section of a customer file this product fills. Absent for API only products. */
   profileSection?:
-    'REGISTRY' | 'CONTRACT' | 'MANAGERS' | 'ADDRESS' | 'BANKING' | 'FREELANCE' | 'PROPERTY';
+    | 'REGISTRY'
+    | 'CONTRACT'
+    | 'MANAGERS'
+    | 'ADDRESS'
+    | 'BANKING'
+    | 'FREELANCE'
+    | 'PROPERTY'
+    | 'INCOME';
   /** The kinds of customer the check is offered for. Required with a section. */
   appliesTo?: ('COMPANY' | 'ESTABLISHMENT' | 'FREELANCER')[];
   checkOrder?: number;
@@ -69,6 +89,7 @@ const API_PRODUCTS: readonly SeedProduct[] = [
     nameAr: 'التحقق من العنوان الوطني',
     nameEn: 'National address verification',
     subjectType: 'BUSINESS',
+    moduleCode: 'ADDRESS',
     inputSchema: {
       type: 'object',
       required: ['unn'],
@@ -100,6 +121,7 @@ const API_PRODUCTS: readonly SeedProduct[] = [
     nameAr: 'التحقق من ملكية الآيبان',
     nameEn: 'IBAN ownership verification',
     subjectType: 'BANK_ACCOUNT',
+    moduleCode: 'BANKING',
     inputSchema: {
       type: 'object',
       required: ['iban', 'identifier'],
@@ -159,6 +181,7 @@ const API_PRODUCTS: readonly SeedProduct[] = [
     nameAr: 'تأكيد ملكية الحساب البنكي',
     nameEn: 'Bank account ownership confirmation',
     subjectType: 'BANK_ACCOUNT',
+    moduleCode: 'BANKING',
     inputSchema: {
       type: 'object',
       required: ['iban', 'holder'],
@@ -237,6 +260,7 @@ const API_PRODUCTS: readonly SeedProduct[] = [
     nameAr: 'مطابقة الاسم مع حساب بنكي',
     nameEn: 'Bank account name match',
     subjectType: 'BANK_ACCOUNT',
+    moduleCode: 'BANKING',
     inputSchema: {
       type: 'object',
       required: ['account_reference', 'full_name'],
@@ -269,73 +293,6 @@ const API_PRODUCTS: readonly SeedProduct[] = [
   },
   {
     /**
-     * Income, from the account rather than from a payslip.
-     *
-     * The subject here is a linked account, not a company, and the product exists for the
-     * customers who lend: an average and a payment count carry more than a document that
-     * can be edited in a word processor.
-     */
-    code: 'INCOME_VERIFICATION',
-    nameAr: 'إثبات الدخل من الحساب البنكي',
-    nameEn: 'Bank based income verification',
-    subjectType: 'BANK_ACCOUNT',
-    inputSchema: {
-      type: 'object',
-      required: ['account_reference'],
-      additionalProperties: false,
-      properties: {
-        account_reference: { type: 'string', minLength: 8 },
-        start_date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
-        income_type: { enum: ['SALARY', 'NON_SALARY', 'ALL'] },
-      },
-    },
-    steps: [
-      {
-        stepKey: 'income',
-        seq: 1,
-        provider: 'stub',
-        endpoint: 'income_verification',
-        inputBinding: {
-          entity_id: '$.subject.account_reference',
-          start_date: '$.subject.start_date',
-          income_type: '$.subject.income_type',
-        },
-        required: true,
-        cacheTtlDays: 7,
-      },
-    ],
-    fieldMap: [
-      {
-        stepKey: 'income',
-        sourcePath: '$.average_monthly_income',
-        fieldPath: 'income.monthly_average',
-      },
-      { stepKey: 'income', sourcePath: '$.income_currency', fieldPath: 'income.currency' },
-      { stepKey: 'income', sourcePath: '$.income_payment_count', fieldPath: 'income.payments' },
-      { stepKey: 'income', sourcePath: '$.last_income_at', fieldPath: 'income.last_seen' },
-      ...Object.entries({
-        first_income_at: 'income.first_seen',
-        income_total: 'income.total',
-        income_monthly_count: 'income.monthly_payments',
-        income_received_average: 'income.received_average',
-        income_highest_month: 'income.highest_month',
-        income_highest_amount: 'income.highest_amount',
-        income_lowest_month: 'income.lowest_month',
-        income_lowest_amount: 'income.lowest_amount',
-        income_months: 'income.months',
-        income_sources: 'income.sources',
-        income_variation_ratio: 'income.variation_ratio',
-        income_monthly_change: 'income.monthly_change',
-        other_income_currency: 'income.other.currency',
-        other_income_total: 'income.other.total',
-        other_income_monthly_average: 'income.other.monthly_average',
-        other_income_count: 'income.other.payments',
-        other_income_sources: 'income.other.sources',
-      }).map(([key, fieldPath]) => ({ stepKey: 'income', sourcePath: `$.${key}`, fieldPath })),
-    ],
-  },
-  {
-    /**
      * The articles of association on their own.
      *
      * It is a step inside the full company file, and it is also a service somebody buys
@@ -346,6 +303,7 @@ const API_PRODUCTS: readonly SeedProduct[] = [
     nameAr: 'عقد التأسيس',
     nameEn: 'Articles of association',
     subjectType: 'BUSINESS',
+    moduleCode: 'CONTRACT',
     inputSchema: {
       type: 'object',
       required: ['unn'],
@@ -382,6 +340,7 @@ const API_PRODUCTS: readonly SeedProduct[] = [
     nameAr: 'صلاحيات المدير',
     nameEn: 'Manager permissions verification',
     subjectType: 'BUSINESS',
+    moduleCode: 'MANAGERS',
     inputSchema: {
       type: 'object',
       required: ['unn', 'manager'],
@@ -439,6 +398,7 @@ const API_PRODUCTS: readonly SeedProduct[] = [
     nameAr: 'التحقق من وثيقة العمل الحر',
     nameEn: 'Freelancer certificate verification',
     subjectType: 'FREELANCER',
+    moduleCode: 'FREELANCE',
     inputSchema: {
       type: 'object',
       required: ['certificate_number'],
@@ -486,6 +446,7 @@ const API_PRODUCTS: readonly SeedProduct[] = [
     nameAr: 'التحقق من الصك العقاري',
     nameEn: 'Property deed verification',
     subjectType: 'PROPERTY',
+    moduleCode: 'PROPERTY',
     inputSchema: {
       type: 'object',
       required: ['deed_number'],
@@ -534,6 +495,7 @@ const API_PRODUCTS: readonly SeedProduct[] = [
     nameAr: 'التحقق الشامل للمنشأة',
     nameEn: 'Complete business verification',
     subjectType: 'BUSINESS',
+    moduleCode: 'REGISTRY',
     isComposite: true,
     partialPolicy: 'BEST_EFFORT',
     decisionRuleset: 'KYB_DEFAULT',
@@ -687,11 +649,11 @@ export async function applyProductSeed(
       `INSERT INTO products (code, name_ar, name_en, subject_type, input_schema,
                              is_composite, partial_policy, decision_ruleset,
                              profile_section, applies_to, check_order, availability,
-                             summary_ar)
+                             summary_ar, module_code)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7,
                (SELECT id FROM decision_rulesets
                 WHERE code = $8 AND tenant_id IS NULL),
-               $9, $10, $11, $12, $13)
+               $9, $10, $11, $12, $13, $14)
        ON CONFLICT (code) DO UPDATE SET
          name_ar = EXCLUDED.name_ar,
          name_en = EXCLUDED.name_en,
@@ -703,7 +665,8 @@ export async function applyProductSeed(
          profile_section = EXCLUDED.profile_section,
          applies_to = EXCLUDED.applies_to,
          check_order = EXCLUDED.check_order,
-         summary_ar = EXCLUDED.summary_ar`,
+         summary_ar = EXCLUDED.summary_ar,
+         module_code = EXCLUDED.module_code`,
       // Availability is written on insert and left alone after: once the panel marks a
       // product available, a later seed must not quietly take it away again.
       [
@@ -720,6 +683,7 @@ export async function applyProductSeed(
         product.checkOrder ?? 100,
         product.availability ?? 'AVAILABLE',
         product.summaryAr ?? null,
+        product.moduleCode,
       ],
     );
 

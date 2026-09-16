@@ -22,6 +22,12 @@ export const SUBSCRIBER_TABS: readonly SectionTab[] = [
   { href: '/operator/subscribers/topups', label: 'الحوالات' },
 ];
 
+/** What the platform sells: its prices, and the modules those prices are grouped into. */
+export const PRICING_TABS: readonly SectionTab[] = [
+  { href: '/operator/pricing', label: 'الأسعار والمنتجات' },
+  { href: '/operator/pricing/modules', label: 'الموديولات' },
+];
+
 /** Verification settings, and the connection to the data source behind them. */
 export const INTEGRATION_TABS: readonly SectionTab[] = [
   { href: '/operator/verification', label: 'الإعدادات' },

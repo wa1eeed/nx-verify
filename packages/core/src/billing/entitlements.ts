@@ -19,6 +19,7 @@ export type EntitlementRefusal =
   | 'SUBSCRIPTION_INACTIVE'
   | 'PRODUCT_NOT_IN_PACKAGE'
   | 'PRODUCT_DISABLED'
+  | 'MODULE_OFF'
   | 'QUOTA_EXHAUSTED'
   | 'CAPACITY_EXHAUSTED';
 
@@ -58,6 +59,11 @@ interface EntitlementRow {
   override_enabled: boolean | null;
   override_quota: number | null;
   override_price: number | null;
+  module_code: string;
+  module_core: boolean;
+  module_status: string;
+  /** What staff decided about this module for this subscriber. Null when nobody has. */
+  module_enabled: boolean | null;
   used: number | null;
   included_transactions: number | null;
   transactions_used: number | null;
@@ -85,8 +91,14 @@ const ENTITLEMENT_SQL = `
          s.included_transactions,
          s.transactions_used,
          pk.overage_allowed,
-         d.discount_pct::text AS discount_pct
+         d.discount_pct::text AS discount_pct,
+         p.module_code,
+         m.core AS module_core,
+         m.status AS module_status,
+         tm.enabled AS module_enabled
   FROM products p
+  JOIN modules m ON m.code = p.module_code
+  LEFT JOIN tenant_modules tm ON tm.tenant_id = $1 AND tm.module_code = p.module_code
   LEFT JOIN tenant_price_discounts d ON d.tenant_id = $1
   LEFT JOIN tenant_commitments s ON s.tenant_id = $1
   LEFT JOIN packages pk ON pk.code = s.package_code
@@ -104,7 +116,12 @@ const ENTITLEMENT_SQL = `
 function decide(row: EntitlementRow): Entitlement {
   const used = row.used ?? 0;
   const negotiated =
-    row.override_enabled !== null || row.override_quota !== null || row.override_price !== null;
+    row.override_enabled !== null ||
+    row.override_quota !== null ||
+    row.override_price !== null ||
+    // A module switched for this subscriber alone is a line written for them just as much as
+    // a price is, and the panel counts it the same way.
+    row.module_enabled !== null;
 
   const capacity = row.included_transactions;
   const capacityUsed = row.transactions_used ?? 0;
@@ -137,7 +154,21 @@ function decide(row: EntitlementRow): Entitlement {
     return refuse('PRODUCT_DISABLED');
   }
 
-  if (row.override_enabled !== true) {
+  // The module, which is the unit a subscriber is actually sold (ADR-137). Off for them means
+  // off everywhere at once: the customer file, the request screen and the API, rather than a
+  // section leaving a screen while the endpoint keeps answering. A core module is not on the
+  // switch, because the file cannot be drawn without it.
+  const moduleOff =
+    !row.module_core && (row.module_status === 'retired' || row.module_enabled === false);
+  if (moduleOff && row.override_enabled !== true) {
+    return refuse('MODULE_OFF');
+  }
+  // Switching the module on for one subscriber is the same kind of act as writing an
+  // exception for one product, and it opens the same door: their plan need not carry it.
+  const openedForThem =
+    row.override_enabled === true || (!row.module_core && row.module_enabled === true);
+
+  if (!openedForThem) {
     if (!row.package_code) {
       return refuse('NO_SUBSCRIPTION');
     }
@@ -215,6 +246,10 @@ const REFUSAL_MESSAGES: Record<EntitlementRefusal, { ar: string; en: string }> =
   PRODUCT_DISABLED: {
     ar: 'وحدة التحقق هذه معطّلة لمساحة عملك.',
     en: 'This verification module is disabled for your workspace.',
+  },
+  MODULE_OFF: {
+    ar: 'هذه الخدمة ضمن موديول غير مفعّل لمساحة عملك.',
+    en: 'This service belongs to a module that is not enabled for your workspace.',
   },
   QUOTA_EXHAUSTED: {
     ar: 'استُنفدت حصة هذه الوحدة لهذه الدورة.',

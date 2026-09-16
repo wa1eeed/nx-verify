@@ -32,6 +32,7 @@ import {
 import { Shell } from '../src/components/shell';
 import {
   INTEGRATION_TABS,
+  PRICING_TABS,
   OPERATOR_SECTIONS,
   OperatorShell,
   SCREEN_LINKED_PAGES,
@@ -747,7 +748,7 @@ describe('the administration panel', () => {
 
     const reachable = new Set([
       ...OPERATOR_SECTIONS.map((section) => section.href),
-      ...[SUBSCRIBER_TABS, INTEGRATION_TABS].flat().map((tab) => tab.href),
+      ...[SUBSCRIBER_TABS, INTEGRATION_TABS, PRICING_TABS].flat().map((tab) => tab.href),
       ...SCREEN_LINKED_PAGES,
     ]);
     const unreachable = pages.filter((page) => !page.includes('[') && !reachable.has(page));
@@ -758,6 +759,7 @@ describe('the administration panel', () => {
     for (const tab of [
       ...SUBSCRIBER_TABS,
       ...INTEGRATION_TABS,
+      ...PRICING_TABS,
       ...SCREEN_LINKED_PAGES.map((href) => ({ href })),
     ]) {
       const owners = OPERATOR_SECTIONS.filter((section) => isInSection(tab.href, section));

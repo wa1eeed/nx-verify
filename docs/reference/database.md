@@ -1,7 +1,7 @@
 # Database reference
 
 What exists in the database: every table, its columns and constraints, the five roles, every row
-level security policy, every vocabulary, and the 50 migrations that built it.
+level security policy, every vocabulary, and the 51 migrations that built it.
 
 This describes what **is**. `docs/02-schema.md` describes what was **designed**, in Arabic, with
 the reasoning. Where the two ever disagree, the migrations win and this page is the one that
@@ -279,6 +279,36 @@ subscriber signed (a term commitment drawn down by usage, not a subscription);
 calendar month for quota checks; `margin_counters` aggregates revenue and provider cost so staff
 can read margin without reading a single run.
 
+### Modules
+
+`modules` is the unit a subscriber is sold: a named group of verification products that fills
+one section of a customer file. `products.module_code` is NOT NULL, so no product can exist
+outside a module and therefore outside anybody's ability to grant or refuse it.
+`tenant_modules` is the switch for one subscriber, with who decided and when.
+
+| Column               | Meaning                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `modules.section`    | The customer-file section it draws, UNIQUE. NULL is a module sold only through the API          |
+| `modules.core`       | Cannot be switched off for anybody: without it there is no file to draw. Refused with `NX-4003` |
+| `modules.default_on` | What a subscriber gets when nobody has decided and their plan is silent. False for an add on    |
+
+The entitlement cascade, most specific first. Every consumer uses the same order, and both
+`listChecks` and `resolveEntitlement` implement it:
+
+1. `tenant_product_overrides.enabled`: one product for one subscriber, the scalpel
+2. `tenant_modules.enabled`: the module for one subscriber, the switch
+3. `package_products.enabled`: what their plan sells
+4. `modules.default_on`: what the module is worth to somebody nobody has decided about
+
+A core module answers true whatever any row says. Nothing is copied onto a subscriber when they
+are created: they inherit until somebody decides, which is what keeps a deliberate choice
+distinguishable from a default that has since changed.
+
+Switching a module off removes its section from that subscriber's customer files, takes its
+checks off their request screen, and refuses its products on the API with the refusal
+`MODULE_OFF`. The section is also **not counted as required**, so a file is not held short of
+complete for a service nobody sold them.
+
 `credit_bundles` and `bundle_grants` are the second way to pay: prepaid operations with an
 expiry, spent before the wallet. `tenant_price_discounts` is a blanket percentage for one
 subscriber.
@@ -331,7 +361,9 @@ version.
 
 `platform_settings` is a single row of global verification behaviour: `max_attempts` (1 to 5),
 `result_validity_days`, `name_match_threshold_pct`, `registry_alert_days`.
-`section_requirements` says which file sections each customer kind needs and in what order.
+`section_requirements` says which file sections each customer kind needs and in what order. It
+is the platform-wide layout; which of those sections one subscriber actually sees is decided by
+their modules, and a section no check of theirs can fill is not drawn at all.
 
 ### The one view
 
@@ -391,7 +423,7 @@ Four variants exist, each for a reason:
 | `USING (tenant_id IS NULL OR tenant_id = current)` with a stricter `CHECK` | `freshness_policy`, `change_severity_rules`, `decision_rulesets`, `price_book`          | Read the system defaults, write only your own                                  |
 | Isolation through a parent                                                 | `decision_rules`                                                                       | It has no `tenant_id`; it reaches one through its ruleset                      |
 | `TO nx_auth` read-only lookups                                             | `api_keys`, `users`, `user_sessions`, `user_credentials`, `tenants`, `tenant_idp`, `sso_domains`, `sso_login_requests`, `evidence`, `profile_shares` | The one class of lookup that cannot be tenant-scoped, because it is what establishes the tenant |
-| `TO nx_operator`                                                           | `tenant_provider_binding`, `tenant_commitments`, `tenant_product_overrides`, `tenant_price_discounts` (write); `tenants`, `wallets`, `api_requests`, `margin_counters`, `topup_requests`, `bundle_grants` (read) | Configuration and money, never verification data                              |
+| `TO nx_operator`                                                           | `tenant_provider_binding`, `tenant_commitments`, `tenant_product_overrides`, `tenant_modules`, `tenant_price_discounts` (write); `tenants`, `wallets`, `api_requests`, `margin_counters`, `topup_requests`, `bundle_grants` (read) | Configuration and money, never verification data                              |
 
 ---
 
@@ -445,7 +477,7 @@ Four variants exist, each for a reason:
 
 ---
 
-## The 50 migrations
+## The 51 migrations
 
 | #    | Name                                 | What it added                                                                                                             |
 | ---- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
@@ -499,6 +531,7 @@ Four variants exist, each for a reason:
 | 0048 | `complete_answers`                   | Liquidators, guardians and main registries; three new relations; `PARTY_ID`; five TTLs and a severity rule                   |
 | 0049 | `operator_second_factor`             | `credential_version`, and the sealed authenticator secret with its recovery codes                                           |
 | 0050 | `service_routing`                    | Which provider serves which verification service, what each would cost, a counter proving where the calls went, and a place in the file for the property section |
+| 0051 | `modules`                            | `modules` and `tenant_modules`; `products.module_code`; the `INCOME` section, and income verification placed in it           |
 
 ---
 

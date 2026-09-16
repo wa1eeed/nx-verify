@@ -467,6 +467,14 @@ export {
   setTenantBinding,
   upsertCatalogEntry,
 } from './routing/provider-routing.js';
+export { listModules, setTenantModule, tenantModules } from './modules/modules.js';
+export type {
+  ModuleProductView,
+  ModuleSource,
+  ModuleView,
+  SetTenantModuleInput,
+  TenantModuleView,
+} from './modules/modules.js';
 export {
   costInRiyals,
   countProviderCall,

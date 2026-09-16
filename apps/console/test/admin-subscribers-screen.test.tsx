@@ -300,9 +300,43 @@ describe('one subscriber, managed', () => {
             discountPct: 18,
             products: [],
           },
+          modules: [
+            {
+              code: 'REGISTRY',
+              nameAr: 'السجل التجاري',
+              summaryAr: 'بيانات المنشأة كما تقولها الجهة.',
+              section: 'REGISTRY',
+              position: 1,
+              core: true,
+              enabled: true,
+              source: 'core',
+              decided: null,
+              decidedBy: null,
+              decidedAt: null,
+              note: null,
+              products: 2,
+              productsInPlan: 2,
+            },
+            {
+              code: 'INCOME',
+              nameAr: 'الدخل',
+              summaryAr: 'الدخل من الحساب البنكي بموافقة صاحبه.',
+              section: 'INCOME',
+              position: 8,
+              core: false,
+              enabled: false,
+              source: 'default',
+              decided: null,
+              decidedBy: null,
+              decidedAt: null,
+              note: null,
+              products: 1,
+              productsInPlan: 0,
+            },
+          ],
           notice: null,
         }}
-        actions={{ setSuspended: noop, assignPlan: noop }}
+        actions={{ setSuspended: noop, assignPlan: noop, setModule: noop }}
       />,
     );
 

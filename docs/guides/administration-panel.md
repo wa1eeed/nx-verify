@@ -54,6 +54,21 @@ you never know their password.
 their people. From here you can suspend them, move them to another package, or write an exception
 against their standard price.
 
+**Their modules** sit on the same page, one switch each. A module is a named group of
+verification services that fills one section of a customer file, and the switch is what a
+subscriber is actually sold. Switching one off does three things at once, which is why the card
+says so before you press anything: the section leaves every customer file they open, the checks
+leave their request screen, and the API refuses those services.
+
+The **source** column beside each switch is worth reading. Nothing is copied onto a subscriber
+when they are created, so a module reads as **من الباقة** or **الافتراضي** until somebody
+decides for them, and only then as **قرار خاص بهذا المشترك**. That is how, a year later, a
+deliberate choice is still distinguishable from a default that has since changed. **رفع القرار**
+removes the decision rather than turning the module off, and returns them to their plan.
+
+السجل التجاري cannot be switched off for anybody: without it there is no customer file to draw,
+and the attempt is refused rather than quietly ignored.
+
 ### الحوالات, the top-ups
 
 A subscriber asks for credit, and you confirm it arrived. Confirming needs the tax invoice number
@@ -74,6 +89,20 @@ March can still be recomputed in September.
 
 Also here: **credit bundles** (prepaid operations with an expiry) and **packages** (a term
 commitment drawn down by usage, not a monthly subscription).
+
+### الموديولات, the modules
+
+The catalogue of what the platform sells as units: what each module adds to a customer file,
+the services inside it, and whether each of those shows in the file or is sold only through the
+API.
+
+Two modules are **add ons**, off unless somebody gives them: **العقار** and **الدخل**. Every
+plan names a price for them and includes neither, so the agreed rate is already there when you
+switch one on.
+
+The figure to watch is **خرجت عن الباقات**: how many subscribers were decided for by hand in
+each module. A module switched by hand for thirty subscribers is a module that belongs in a
+plan, and a plan nobody takes as written is a plan to redraw.
 
 ---
 

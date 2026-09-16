@@ -26,6 +26,7 @@ const check = (productCode: string, nameAr: string, section: ProfileSection): Ch
   nameEn: productCode,
   summaryAr: null,
   section,
+  moduleCode: section,
   appliesTo: ['COMPANY'],
   order: 1,
   availability: 'AVAILABLE',

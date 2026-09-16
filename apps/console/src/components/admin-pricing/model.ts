@@ -154,6 +154,7 @@ export const SECTION_TAGS: Readonly<Record<ProfileSection, { name: string; short
   BANKING: { name: 'الآيبان', short: 'الآيبان' },
   FREELANCE: { name: 'شهادة الفريلانسر', short: 'شهادة الفريلانسر' },
   PROPERTY: { name: 'العقارات', short: 'العقارات' },
+  INCOME: { name: 'الدخل الشهري', short: 'الدخل' },
 };
 
 /** «المدراء · اختياري». */

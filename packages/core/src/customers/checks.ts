@@ -28,7 +28,14 @@ import { verify } from '../verification/verify.js';
 
 export type CustomerKind = 'COMPANY' | 'ESTABLISHMENT' | 'FREELANCER';
 export type ProfileSection =
-  'REGISTRY' | 'CONTRACT' | 'MANAGERS' | 'ADDRESS' | 'BANKING' | 'FREELANCE' | 'PROPERTY';
+  | 'REGISTRY'
+  | 'CONTRACT'
+  | 'MANAGERS'
+  | 'ADDRESS'
+  | 'BANKING'
+  | 'FREELANCE'
+  | 'PROPERTY'
+  | 'INCOME';
 
 export interface CheckDefinition {
   productCode: string;
@@ -37,6 +44,8 @@ export interface CheckDefinition {
   /** What the check brings back, in a line. Null for a product that does not say. */
   summaryAr: string | null;
   section: ProfileSection;
+  /** The module that sells it, which is the switch a subscriber is given or refused. */
+  moduleCode: string;
   appliesTo: CustomerKind[];
   order: number;
   availability: 'AVAILABLE' | 'COMING_SOON';
@@ -57,6 +66,7 @@ export async function listChecks(tx: TenantTransaction): Promise<CheckDefinition
     check_order: number;
     availability: 'AVAILABLE' | 'COMING_SOON';
     input_schema: { required?: string[]; properties?: Record<string, unknown> };
+    module_code: string;
   }>(
     /**
      * What this workspace may actually use.
@@ -66,13 +76,17 @@ export async function listChecks(tx: TenantTransaction): Promise<CheckDefinition
      * a section that can never be filled is a file that looks permanently incomplete, and the
      * refusal would only arrive after somebody pressed the button.
      *
-     * The precedence is the entitlement's own: the plan decides, and an exception written for
-     * this subscriber overrides it (ADR-135). A product nobody has an opinion about stays
-     * offered, which is what keeps a fresh deployment usable before any plan is assigned.
+     * The precedence runs from the most specific decision to the least (ADR-137): an exception
+     * written for one product, then the module switched for this subscriber, then what their
+     * plan sells, then what the module is worth to somebody nobody has decided about. A core
+     * module answers yes whatever anybody wrote, because the file cannot be drawn without it.
      */
     `SELECT p.code, p.name_ar, p.name_en, p.summary_ar, p.profile_section, p.applies_to,
-            p.check_order, p.availability, p.input_schema
+            p.check_order, p.availability, p.input_schema, p.module_code
      FROM products p
+     JOIN modules m ON m.code = p.module_code AND m.status = 'active'
+     LEFT JOIN tenant_modules tm
+       ON tm.tenant_id = nullif($1, '')::uuid AND tm.module_code = p.module_code
      LEFT JOIN tenant_product_overrides o
        ON o.tenant_id = nullif($1, '')::uuid AND o.product_code = p.code
      LEFT JOIN tenant_commitments t ON t.tenant_id = nullif($1, '')::uuid
@@ -80,7 +94,8 @@ export async function listChecks(tx: TenantTransaction): Promise<CheckDefinition
        ON pp.package_code = t.package_code AND pp.product_code = p.code
      WHERE p.profile_section IS NOT NULL AND p.status = 'active'
        AND p.valid_from <= now() AND (p.valid_to IS NULL OR p.valid_to > now())
-       AND COALESCE(o.enabled, pp.enabled, true) = true
+       AND (CASE WHEN m.core THEN true
+                 ELSE COALESCE(o.enabled, tm.enabled, pp.enabled, m.default_on) END) = true
      ORDER BY p.check_order, p.code`,
     [tx.tenantId ?? ''],
   );
@@ -91,6 +106,7 @@ export async function listChecks(tx: TenantTransaction): Promise<CheckDefinition
     nameEn: row.name_en,
     summaryAr: row.summary_ar,
     section: row.profile_section,
+    moduleCode: row.module_code,
     appliesTo: row.applies_to,
     order: row.check_order,
     availability: row.availability,

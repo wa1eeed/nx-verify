@@ -25,6 +25,7 @@ const REFUSALS: Readonly<Record<EntitlementRefusal, string>> = {
   SUBSCRIPTION_INACTIVE: 'الاشتراك غير نشط',
   PRODUCT_NOT_IN_PACKAGE: 'غير مشمولة في باقتك',
   PRODUCT_DISABLED: 'معطّلة لمساحة عملك',
+  MODULE_OFF: 'ضمن موديول غير مفعّل لمساحة عملك',
   QUOTA_EXHAUSTED: 'استُنفدت حصتها لهذه الدورة',
   CAPACITY_EXHAUSTED: 'استُنفدت سعة الباقة',
 };

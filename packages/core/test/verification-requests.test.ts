@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { withTenant } from '../../../packages/db/src/client.js';
 import { runChecks, type RunChecksDependencies } from '../src/customers/checks.js';
+import { setTenantModule } from '../src/modules/modules.js';
 import {
   createRequest,
   discardDraft,
@@ -94,6 +95,13 @@ describe('verification requests', () => {
     other = await seedTenant(db.appPool, 'Another Subscriber');
     await preparePricedTenant(db, tenant.tenantId, { balanceHalalas: 50_000_00 });
     await preparePricedTenant(db, other.tenantId, { balanceHalalas: 50_000_00 });
+    // An add on module nobody's plan includes, bought by this subscriber (ADR-137), so the
+    // standing below is «coming soon» rather than «not sold to you».
+    await setTenantModule(
+      db.operatorPool,
+      { tenantId: tenant.tenantId, moduleCode: 'PROPERTY', enabled: true },
+      'nx-staff:test',
+    );
   });
 
   afterAll(async () => {

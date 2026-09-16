@@ -239,6 +239,10 @@ describe('guard 02: tenant isolation', () => {
               'audit_log',
               'tenant_commitments',
               'tenant_product_overrides',
+              // Which modules a subscriber was sold, with who decided and when. It is the
+              // same kind of row as the two above it: what they bought, never whom they
+              // verified (ADR-137).
+              'tenant_modules',
               // A count and two sums per subscriber, month and product. It answers what we
               // earned on a service and cannot answer anything about whom that subscriber
               // verified, which is the whole reason it exists in that shape (ADR-080).

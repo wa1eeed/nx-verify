@@ -54,7 +54,7 @@ each fact with the authority that issued it and the moment it was observed.
 | Part | What it tells you |
 | --- | --- |
 | The head | Who this is, their identifiers in full, and four numbers: sections complete, powers proven, connections, and what needs a look |
-| The sections | السجل التجاري, عقد التأسيس والملكية, المدراء المفوضون, العنوان الوطني, الحسابات البنكية, شهادة العمل الحر. Each says where it came from and when |
+| The sections | السجل التجاري, عقد التأسيس والملكية, المدراء المفوضون, العنوان الوطني, المعلومات المصرفية, شهادة العمل الحر, العقارات, الدخل الشهري. Each says where it came from and when |
 | Each field | Its value, its authority, and its freshness |
 | التقاطعات | Where this customer touches another: a shared manager, a shared address, a shared account |
 | السجل الزمني | What each verification added, and how a field changed over time |
@@ -67,6 +67,14 @@ each fact with the authority that issued it and the moment it was observed.
 
 A section with a conflict carries its own «تحقق» button, so you can re-verify that section alone
 without paying for the whole file.
+
+**You will not see every section.** A file draws the sections your workspace was sold. A module
+your organisation does not have simply is not there: no locked card, no upgrade prompt, and it
+is not counted against how complete the file is. العقارات and الدخل الشهري are add ons, so most
+workspaces will not see them, and الدخل الشهري belongs to a person's file (a sole establishment
+or a freelancer) rather than to a company's, because a company's income is revenue and a
+different question. Ask the platform team to switch a module on; it cannot be turned on from
+here.
 
 ### Verifying
 

@@ -10,6 +10,7 @@ import { Button } from './ui/button';
 export {
   INTEGRATION_TABS,
   OPERATOR_SECTIONS,
+  PRICING_TABS,
   SCREEN_LINKED_PAGES,
   SUBSCRIBER_TABS,
 } from './operator-nav';

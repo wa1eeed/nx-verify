@@ -16,6 +16,32 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ### Added
 
+- **Modules: the unit a subscriber is sold, and the unit a customer file is drawn from**
+  (ADR-137). A module is a named group of verification products that fills one section of a
+  customer file. Every product now belongs to one, the API products included, so switching a
+  module off removes its section from that subscriber's customer files, takes its checks off
+  their request screen and refuses its products on the API, all at once. A screen that hides a
+  service whose endpoint keeps answering is not a switch.
+- **A modules screen in the panel** (`/operator/pricing/modules`): what each module adds to a
+  customer file, the services it sells and whether each shows in the file or only on the API,
+  and how many subscribers were switched by hand. That last figure is the one worth reading: a
+  module switched by hand for thirty subscribers belongs in a plan.
+- **Module switches on a subscriber's own page**, beside their plan and their prices, each
+  saying where its answer came from: it cannot be switched off, a decision written for them,
+  their plan, or the default. Nothing is copied onto a subscriber at onboarding; they inherit
+  until somebody decides, so a year later a deliberate choice is still distinguishable from a
+  default that has since changed.
+- **Income verification, in the right section of the right files** (ADR-137). It had been in
+  the catalogue since the first seed, sold through the API and drawn nowhere. It is now the
+  `INCOME` section of an establishment's and a freelancer's file, and of no company's: the
+  subject is a natural person's bank account, and a company's income is revenue, a different
+  question with a different authority. Routed to the data source that returns each credit's
+  source by name and its stability across one, two, three and six months, because a lender's
+  question is not what somebody earns but whether they will earn it again. Marked coming soon
+  for a reason no switch can lift: it reads a private account and needs that person's consent,
+  and the consent journey is not built.
+- **Property and income sold as add ons.** No plan includes either. Each plan names a price for
+  them and leaves them off, so the agreed rate survives and the module is given by decision.
 - **A provider for each verification service, chosen from the panel** (ADR-135). A new screen,
   «المزودون والخدمات»: who serves each service, what it costs us under every provider in the
   catalogue, the margin each would give, and a control to switch or to carry one on standby. A
@@ -85,6 +111,12 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ### Fixed
 
+- **A subscriber was punished for a service they did not buy.** The layout of a customer file
+  came from `section_requirements`, which knows nothing about any subscriber, so a service
+  switched off left its section in every one of their files: required, with nothing to fill it
+  and no button to press. Completeness was capped short of a hundred for ever, the standing
+  score was lowered with it, and every such file sat in the incomplete bucket on the home
+  screen. A section nobody sold them is no longer a section they are missing.
 - **The OpenAPI document described seven routes fewer than the server has**: assigning and
   returning a review case, adding a portfolio member, creating, reading and cancelling a batch,
   and the inbound callback endpoint. It also omitted the 202 a verification returns when the

@@ -1,6 +1,11 @@
 import Link from 'next/link';
 import type { ReactElement } from 'react';
-import type { SpecialPrice, SubscriberBoardRow, SubscriberDetail } from '@nx-verify/core';
+import type {
+  SpecialPrice,
+  SubscriberBoardRow,
+  SubscriberDetail,
+  TenantModuleView,
+} from '@nx-verify/core';
 import { PageHeader } from '../page-header';
 import { Card } from '../ui/card';
 import { Field } from '../ui/field';
@@ -14,6 +19,7 @@ import { count, dateAr, riyals, termPhrase } from '../format';
 import { specialLineAr } from '../admin-pricing/model';
 import { bundleLabelOf } from '../topup';
 import { STANDING_TAGS, balanceCellAr, endsAr, planCellAr } from './model';
+import { SubscriberModules } from './modules';
 
 /**
  * One subscriber, managed (the «إدارة» link of handoff screen 06).
@@ -37,6 +43,7 @@ export interface AdminSubscriberView {
   canManage: boolean;
   plans: readonly { code: string; nameAr: string }[];
   specialPrice: SpecialPrice | null;
+  modules: readonly TenantModuleView[];
   notice: { tone: 'done' | 'refused'; text: string } | null;
 }
 
@@ -45,7 +52,7 @@ export function AdminSubscriber({
   actions,
 }: {
   view: AdminSubscriberView;
-  actions: { setSuspended: Action; assignPlan: Action };
+  actions: { setSuspended: Action; assignPlan: Action; setModule: Action };
 }): ReactElement {
   const { detail, row } = view;
   const standing = STANDING_TAGS[row.standing];
@@ -174,6 +181,13 @@ export function AdminSubscriber({
           </Link>
         </Card>
       </div>
+
+      <SubscriberModules
+        tenantId={detail.tenantId}
+        modules={view.modules}
+        canManage={view.canManage}
+        setModule={actions.setModule}
+      />
 
       <Card variant="flush" role="subscriber-bundles" labelledBy="subscriber-bundles-title">
         <div className="admin-card-head">

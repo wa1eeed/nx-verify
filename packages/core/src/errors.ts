@@ -9,6 +9,7 @@
 export type NxErrorCode =
   | 'NX-4001'
   | 'NX-4002'
+  | 'NX-4003'
   | 'NX-4011'
   | 'NX-4029'
   | 'NX-4031'
@@ -36,6 +37,14 @@ const CATALOG: Record<NxErrorCode, NxErrorShape> = {
     retryable: false,
     messageAr: 'المدخلات لا تطابق مخطط المنتج',
     messageEn: 'Input does not match the product schema',
+  },
+  // A change that is well formed and still refused, because the thing being changed is not a
+  // choice: switching off a module every customer file is drawn from, for one.
+  'NX-4003': {
+    status: 422,
+    retryable: false,
+    messageAr: 'تغيير غير مسموح',
+    messageEn: 'The change is not allowed',
   },
   'NX-4011': {
     status: 401,

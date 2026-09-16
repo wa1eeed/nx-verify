@@ -60,6 +60,7 @@ export const SECTION_TITLES: Readonly<Record<ProfileSection, string>> = {
   BANKING: 'المعلومات المصرفية',
   FREELANCE: 'شهادة العمل الحر',
   PROPERTY: 'العقارات',
+  INCOME: 'الدخل الشهري',
 };
 
 /**
@@ -77,6 +78,7 @@ export const SECTION_SOURCES: Readonly<Record<ProfileSection, string>> = {
   BANKING: 'مصدرها تحقق الآيبان والحساب',
   FREELANCE: 'مصدرها تحقق شهادة الفريلانسر',
   PROPERTY: 'مصدرها تحقق العقار',
+  INCOME: 'مصدرها تحقق الدخل من الحساب البنكي',
 };
 
 export type SectionRequirement = 'REQUIRED' | 'OPTIONAL' | 'NOT_APPLICABLE';
@@ -908,12 +910,35 @@ export function fileStandingOf(basis: FileBasis): FileStanding {
   const sectionOf = (field: FileField): ProfileSection | null =>
     SECTION_OF_GROUP[fieldGroup(field.fieldPath)];
 
-  const drafts = layout.map(([section, requirement], index) => {
-    const sectionChecks = offered.filter(
+  const checksOfSection = (section: ProfileSection): CheckDefinition[] =>
+    offered.filter(
       (check) =>
         check.section === section ||
         (isFreelancer && section === 'REGISTRY' && check.section === 'FREELANCE'),
     );
+
+  /**
+   * A section no check fills for this subscriber is not drawn at all (ADR-137).
+   *
+   * Switching a module off, or writing an exception against one product, used to leave its
+   * section in every file of theirs: REQUIRED, with nothing to fill it and no button to press.
+   * Completeness was capped short of a hundred for ever, the standing score was lowered with
+   * it, and every such file sat in the incomplete bucket on the home screen. A section they
+   * were never sold is not a section they are missing.
+   *
+   * NOT_APPLICABLE rows stay, because they are an answer rather than an absence: a
+   * freelancer has no commercial address, and the file says so.
+   */
+  const hasCatalogueLayout = isFreelancer || basis.entityType === 'BUSINESS';
+  const drawn = hasCatalogueLayout
+    ? layout.filter(
+        ([section, requirement]) =>
+          requirement === 'NOT_APPLICABLE' || checksOfSection(section).length > 0,
+      )
+    : layout;
+
+  const drafts = drawn.map(([section, requirement], index) => {
+    const sectionChecks = checksOfSection(section);
     const sectionFields =
       requirement === 'NOT_APPLICABLE'
         ? []
