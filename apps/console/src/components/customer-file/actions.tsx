@@ -27,7 +27,6 @@ export function DialogButton({
   title,
   icon,
   variant = 'secondary',
-  initiallyOpen = false,
   role,
   children,
 }: {
@@ -35,12 +34,10 @@ export function DialogButton({
   title: string;
   icon?: IconName | undefined;
   variant?: 'primary' | 'secondary' | undefined;
-  /** Open on arrival, as the share dialog is right after a link was issued. */
-  initiallyOpen?: boolean | undefined;
   role?: string | undefined;
   children: ReactNode;
 }): ReactElement {
-  const [open, setOpen] = useState(initiallyOpen);
+  const [open, setOpen] = useState(false);
   return (
     <>
       <Button variant={variant} icon={icon} onClick={() => setOpen(true)} data-role={role}>

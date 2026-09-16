@@ -15,13 +15,8 @@ export const dynamic = 'force-dynamic';
  * Someone who may not administer sees the list and no controls. They are colleagues, and
  * knowing who else is here is not privileged: what they cannot do is change it.
  */
-export default async function UsersPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}): Promise<ReactElement> {
+export default async function UsersPage(): Promise<ReactElement> {
   const actor = await actingUser();
-  const params = await searchParams;
 
   const { users, activeAdmins } = await query(async (tx) => ({
     users: await listUsers(tx),
@@ -37,13 +32,6 @@ export default async function UsersPage({
     isSelf: user.userId === actor.userId,
   }));
 
-  const created = params['created'];
-  const password = params['password'];
-  const issuedPassword =
-    typeof created === 'string' && typeof password === 'string'
-      ? { email: created, password }
-      : null;
-
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
       <PageHeader title="المستخدمون" subtitle="من يدخل مساحة عملك، وصلاحيات كل منهم." />
@@ -51,7 +39,6 @@ export default async function UsersPage({
         <UserAdmin
           users={rows}
           activeAdmins={activeAdmins}
-          issuedPassword={issuedPassword}
           createAction={createUserAction}
           roleAction={setRoleAction}
           statusAction={setStatusAction}

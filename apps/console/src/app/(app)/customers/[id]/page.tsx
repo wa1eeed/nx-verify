@@ -204,12 +204,6 @@ export default async function CustomerPage({
     state: share.state,
   }));
 
-  const issued = query_['share'];
-  const issuedLink =
-    typeof issued === 'string' && issued !== ''
-      ? `${process.env['NX_CONSOLE_BASE_URL'] ?? ''}/p/${issued}`
-      : null;
-
   const refusals = Object.fromEntries(
     data.quote.lines.map((line) => [line.productCode, line.allowed ? null : line.refusalAr]),
   );
@@ -275,13 +269,11 @@ export default async function CustomerPage({
       sectionAction={startSectionChecksAction}
       watch={openChecksAction}
       share={{
-        open: issuedLink !== null,
         panel: (
           <SharePanel
             entityId={id}
             availableGroups={availableGroups}
             shares={shares}
-            issuedLink={issuedLink}
             createAction={createShareAction}
             revokeAction={revokeShareAction}
             bare

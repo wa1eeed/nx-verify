@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { issueApiKey, revokeApiKey } from '@nx-verify/core';
 import { query } from '../../../../lib/context';
+import type { IssuedKeyState } from '../../../../components/issued-once';
 
 /**
  * Issuing and revoking.
@@ -23,19 +24,25 @@ const DEFAULT_SCOPES = [
   'wallet:read',
 ];
 
-/** The secret, returned to the page that asked, and stored nowhere. */
-export async function issueKeyAction(formData: FormData): Promise<void> {
+/**
+ * The secret, returned to the page that asked, and stored nowhere.
+ *
+ * It used to come back in the address, which put it in the browser's history, in the referrer
+ * of the next request and in every access log on the way (SEC-10). It is the result of this
+ * action now: it reaches the screen that asked and goes nowhere else.
+ */
+export async function issueKeyAction(
+  _previous: IssuedKeyState,
+  formData: FormData,
+): Promise<IssuedKeyState> {
   const name = String(formData.get('name') ?? '').trim();
   if (name === '') {
-    return;
+    return { secret: null };
   }
 
   const issued = await query((tx) => issueApiKey(tx, { name, scopes: DEFAULT_SCOPES }));
-
-  // Carried back in the address for one render and never written down. A cookie would
-  // outlive the page, and the database already refuses to hold it.
-  const { redirect } = await import('next/navigation');
-  redirect(`/settings/developers?issued=${encodeURIComponent(issued.secret)}`);
+  revalidatePath('/settings/developers');
+  return { secret: issued.secret };
 }
 
 export async function revokeKeyAction(formData: FormData): Promise<void> {

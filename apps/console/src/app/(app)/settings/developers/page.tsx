@@ -9,14 +9,7 @@ import { DEVELOPER_TABS, SETTINGS_TABS } from '../../../../components/nav';
 /** Never prerendered: one workspace's credentials, read at request time. */
 export const dynamic = 'force-dynamic';
 
-export default async function ApiKeysPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}): Promise<ReactElement> {
-  const params = await searchParams;
-  const issued = params['issued'];
-
+export default async function ApiKeysPage(): Promise<ReactElement> {
   const keys = await query(async (tx) =>
     (await listApiKeys(tx)).map((key): ApiKeyView => ({
       id: key.id,
@@ -38,12 +31,7 @@ export default async function ApiKeysPage({
         current="/settings/developers"
         label="أقسام مفاتيح الربط"
       />
-      <ApiKeys
-        keys={keys}
-        issuedSecret={typeof issued === 'string' ? issued : null}
-        issueAction={issueKeyAction}
-        revokeAction={revokeKeyAction}
-      />
+      <ApiKeys keys={keys} issueAction={issueKeyAction} revokeAction={revokeKeyAction} />
     </div>
   );
 }

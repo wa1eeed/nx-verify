@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { audit, createShare, revokeShare, type FieldGroup } from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
+import type { IssuedShareState } from '../../../../components/issued-once';
 
 /**
  * Issuing and withdrawing a link to a profile.
@@ -11,11 +12,16 @@ import { actingUser, query } from '../../../../lib/context';
  * data is exactly the kind of action that gets asked about months later, and the answer
  * cannot be "we think Ahmed did it".
  *
- * The token is returned once, through the redirect, and never read again. Nothing here
- * can produce it a second time, including us.
+ * The token is returned once, to the screen that asked, and never read again. Nothing here
+ * can produce it a second time, including us. It used to come back in the address, which put
+ * a live link into the browser's history and into every access log between here and the
+ * browser (SEC-10).
  */
 
-export async function createShareAction(formData: FormData): Promise<void> {
+export async function createShareAction(
+  _previous: IssuedShareState,
+  formData: FormData,
+): Promise<IssuedShareState> {
   const user = await actingUser();
   const entityId = String(formData.get('entity_id') ?? '');
   const groups = formData.getAll('groups').map((value) => String(value)) as FieldGroup[];
@@ -23,7 +29,7 @@ export async function createShareAction(formData: FormData): Promise<void> {
   const purpose = String(formData.get('purpose') ?? '').trim();
 
   if (entityId === '' || groups.length === 0) {
-    return;
+    return { link: null };
   }
 
   const created = await query(async (tx) => {
@@ -49,10 +55,9 @@ export async function createShareAction(formData: FormData): Promise<void> {
   });
 
   revalidatePath(`/customers/${entityId}`);
-  const { redirect } = await import('next/navigation');
   // Shown once, on the screen that asked for it. A refresh loses it, which is correct:
   // a link that can be recovered from a page is a link that never really expires.
-  redirect(`/customers/${entityId}?share=${encodeURIComponent(created.token)}`);
+  return { link: `${process.env['NX_CONSOLE_BASE_URL'] ?? ''}/p/${created.token}` };
 }
 
 export async function revokeShareAction(formData: FormData): Promise<void> {

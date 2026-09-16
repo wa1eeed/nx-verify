@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { FIELD_GROUP_LABELS, type FieldGroup } from '@nx-verify/core';
+import { ShareForm, type IssuedShareState } from './issued-once';
 
 /**
  * Sharing a profile, and taking it back.
@@ -12,7 +13,9 @@ import { FIELD_GROUP_LABELS, type FieldGroup } from '@nx-verify/core';
  *
  * The link is shown once and then never again. There is no way to read it back, from this
  * screen or from the database, because a link that can be recovered is a link that never
- * really expires.
+ * really expires. It comes back as the result of the action that made it rather than in the
+ * address of this page, which would leave it in the browser's history and in every access log
+ * on the way (SEC-10).
  *
  * And every link on the list can be withdrawn from here, with the date it was opened last
  * beside it. Sharing without revoking is publishing.
@@ -40,9 +43,7 @@ export interface SharePanelProps {
   /** Only the groups this entity actually has facts in. An empty group is not offered. */
   availableGroups: FieldGroup[];
   shares: ShareRowView[];
-  /** Present for one render, straight after issuing. Never fetched, never stored. */
-  issuedLink?: string | null;
-  createAction: string | ((formData: FormData) => void | Promise<void>);
+  createAction: (previous: IssuedShareState, formData: FormData) => Promise<IssuedShareState>;
   revokeAction: string | ((formData: FormData) => void | Promise<void>);
   /** Inside a dialog that already carries the title and the surface. */
   bare?: boolean;
@@ -52,7 +53,6 @@ export function SharePanel({
   entityId,
   availableGroups,
   shares,
-  issuedLink = null,
   createAction,
   revokeAction,
   bare = false,
@@ -70,34 +70,7 @@ export function SharePanel({
         </p>
       </div>
 
-      {issuedLink ? (
-        <div
-          className="stack"
-          data-role="issued-link"
-          style={{
-            gap: 'var(--s-2)',
-            border: '1px solid var(--fresh-line)',
-            background: 'var(--fresh-bg)',
-            borderRadius: 'var(--radius)',
-            padding: 'var(--s-3)',
-          }}
-        >
-          <strong>انسخ الرابط الآن</strong>
-          <code
-            className="mono"
-            dir="ltr"
-            data-role="share-link"
-            style={{ wordBreak: 'break-all' }}
-          >
-            {issuedLink}
-          </code>
-          <span className="stat-hint">
-            لن يُعرض مرة أخرى. لا نحتفظ به، ولا يمكننا استخراجه. إن ضاع فاسحب الرابط وأصدر غيره.
-          </span>
-        </div>
-      ) : null}
-
-      <form action={createAction} className="stack" style={{ gap: 'var(--s-3)' }}>
+      <ShareForm action={createAction}>
         <input type="hidden" name="entity_id" value={entityId} />
 
         <fieldset className="stack" style={{ gap: 'var(--s-2)', border: 0, padding: 0, margin: 0 }}>
@@ -140,7 +113,7 @@ export function SharePanel({
         >
           إصدار رابط
         </button>
-      </form>
+      </ShareForm>
 
       {shares.length > 0 ? (
         <div className="table-scroll">

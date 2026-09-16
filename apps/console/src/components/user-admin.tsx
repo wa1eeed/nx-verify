@@ -1,5 +1,9 @@
 import type { ReactElement } from 'react';
 import type { UserRole } from '@nx-verify/core';
+import { AddPerson, type IssuedPasswordState } from './issued-once';
+import { ROLE_LABELS } from './roles';
+
+export { ROLE_LABELS };
 
 /**
  * Who is in this workspace, and what each of them may do.
@@ -25,27 +29,15 @@ export interface UserRowView {
   isSelf: boolean;
 }
 
-export const ROLE_LABELS: Record<UserRole, string> = {
-  VIEWER: 'مطّلع',
-  ANALYST: 'محلل',
-  APPROVER: 'معتمِد',
-  ADMIN: 'مسؤول',
-};
-
-const ROLE_HINTS: Record<UserRole, string> = {
-  VIEWER: 'يقرأ الملفات ولا يغيّر شيئاً',
-  ANALYST: 'يشغّل التحقق ويبتّ في حالات المراجعة',
-  APPROVER: 'يعتمد ما بتّ فيه المحلل',
-  ADMIN: 'كل ما سبق، ويدير المستخدمين والمفاتيح والإعدادات',
-};
-
 export interface UserAdminProps {
   users: UserRowView[];
   /** How many administrators are still active. The last one cannot be removed. */
   activeAdmins: number;
-  /** Present for one render, straight after creating an account. */
-  issuedPassword?: { email: string; password: string } | null;
-  createAction: string | ((formData: FormData) => void | Promise<void>);
+  /**
+   * Making an account returns its temporary password to this screen and to nothing else
+   * (SEC-10): it is in no address, no cookie and no log.
+   */
+  createAction: (previous: IssuedPasswordState, formData: FormData) => Promise<IssuedPasswordState>;
   roleAction: string | ((formData: FormData) => void | Promise<void>);
   statusAction: string | ((formData: FormData) => void | Promise<void>);
 }
@@ -53,72 +45,13 @@ export interface UserAdminProps {
 export function UserAdmin({
   users,
   activeAdmins,
-  issuedPassword = null,
   createAction,
   roleAction,
   statusAction,
 }: UserAdminProps): ReactElement {
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      {issuedPassword ? (
-        <section
-          className="card stack"
-          data-role="issued-password"
-          style={{
-            gap: 'var(--s-2)',
-            border: '1px solid var(--fresh-line)',
-            background: 'var(--fresh-bg)',
-          }}
-        >
-          <strong>كلمة مرور مؤقتة لـ {issuedPassword.email}</strong>
-          <code className="mono" dir="ltr" data-role="temporary-password">
-            {issuedPassword.password}
-          </code>
-          <span className="stat-hint">
-            سلّمها بقناة تثق بها، ولن تُعرض مرة أخرى. سيُطلب منه تغييرها عند أول دخول، فلن تعرف أنت
-            كلمة مروره بعدها.
-          </span>
-        </section>
-      ) : null}
-
-      <section className="card stack" data-role="invite" style={{ gap: 'var(--s-3)' }}>
-        <div>
-          <h2 style={{ margin: 0 }}>إضافة شخص</h2>
-          <p className="faint" style={{ margin: 0 }}>
-            يدخل ببريده وكلمة مرور مؤقتة، ويغيّرها عند أول دخول.
-          </p>
-        </div>
-        <form action={createAction} className="row" style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}>
-          <label className="stack" style={{ gap: 'var(--s-1)', flex: 1, minWidth: '200px' }}>
-            <span className="stat-label">البريد</span>
-            <input name="email" type="email" dir="ltr" className="mono" required />
-          </label>
-          <label className="stack" style={{ gap: 'var(--s-1)', flex: 1, minWidth: '160px' }}>
-            <span className="stat-label">الاسم</span>
-            <input name="display_name" required />
-          </label>
-          <label className="stack" style={{ gap: 'var(--s-1)' }}>
-            <span className="stat-label">الدور</span>
-            <select name="role" defaultValue="ANALYST" style={{ width: 'auto' }}>
-              {(Object.keys(ROLE_LABELS) as UserRole[]).map((role) => (
-                <option key={role} value={role}>
-                  {ROLE_LABELS[role]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="submit" className="btn btn-primary" data-role="create-user">
-            إضافة
-          </button>
-        </form>
-        <ul className="stack faint" style={{ gap: 'var(--s-1)', margin: 0 }}>
-          {(Object.keys(ROLE_LABELS) as UserRole[]).map((role) => (
-            <li key={role}>
-              <strong>{ROLE_LABELS[role]}</strong>: {ROLE_HINTS[role]}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <AddPerson action={createAction} />
 
       <div className="table-scroll">
         <table data-role="user-list">

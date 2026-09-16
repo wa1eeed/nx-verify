@@ -78,8 +78,8 @@ export function CustomerFileScreen({
   sectionAction?: SectionCheckAction | undefined;
   /** Asks which of this customer's checks are still running, while some are. */
   watch?: ((entityId: string) => Promise<string[]>) | undefined;
-  /** The share panel, drawn by the page, and whether its dialog opens on arrival. */
-  share: { panel: ReactNode; open: boolean };
+  /** The share panel, drawn by the page. */
+  share: { panel: ReactNode };
 }): ReactElement {
   const { file } = view;
   const runnable = file.checks.filter((check) => check.availability === 'AVAILABLE');
@@ -118,12 +118,7 @@ export function CustomerFileScreen({
         actions={
           <>
             <ExportFileButton />
-            <DialogButton
-              label="مشاركة الملف"
-              title="مشاركة الملف"
-              initiallyOpen={share.open}
-              role="open-share"
-            >
+            <DialogButton label="مشاركة الملف" title="مشاركة الملف" role="open-share">
               {share.panel}
             </DialogButton>
             {runnable.length > 0 ? (

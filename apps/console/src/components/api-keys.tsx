@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { EmptyState, PageHeader, Panel } from './page-header';
+import { IssueApiKey, type IssuedKeyState } from './issued-once';
 
 /**
  * The keys a workspace uses to call the API.
@@ -31,14 +32,15 @@ const ENVIRONMENT_LABELS: Record<string, string> = {
 
 export function ApiKeys({
   keys,
-  issuedSecret,
   issueAction,
   revokeAction,
 }: {
   keys: ApiKeyView[];
-  /** Shown once, immediately after issuing, and never again. */
-  issuedSecret?: string | null;
-  issueAction: string | ((formData: FormData) => void | Promise<void>);
+  /**
+   * Issuing returns the secret to this screen and to nothing else (SEC-10): it is in no
+   * address, no cookie and no log.
+   */
+  issueAction: (previous: IssuedKeyState, formData: FormData) => Promise<IssuedKeyState>;
   revokeAction: string | ((formData: FormData) => void | Promise<void>);
 }): ReactElement {
   const active = keys.filter((key) => key.revokedAt === null);
@@ -49,19 +51,6 @@ export function ApiKeys({
         title="مفاتيح الـAPI"
         subtitle="مفتاح لكل نظام يتصل بك. السر يظهر مرة واحدة عند الإصدار."
       />
-
-      {issuedSecret ? (
-        <section className="card stack" data-role="issued-secret">
-          <strong>المفتاح الجديد</strong>
-          <bdi dir="ltr" className="mono" data-role="secret-value">
-            {issuedSecret}
-          </bdi>
-          <p className="muted">
-            انسخه الآن. لا نخزّنه، ولا يمكن عرضه مرة أخرى. فقده يعني إصدار مفتاح بديل، وهذا هو
-            الجواب الصحيح لا نقصاً في المنصة.
-          </p>
-        </section>
-      ) : null}
 
       <Panel title="المفاتيح" aside={`${active.length} مفعّل`}>
         {keys.length === 0 ? (
@@ -137,19 +126,7 @@ export function ApiKeys({
         )}
       </Panel>
 
-      <Panel title="إصدار مفتاح">
-        <form action={issueAction} className="panel-body stack">
-          <label htmlFor="key-name">الاسم</label>
-          <input id="key-name" name="name" required placeholder="نظام الفوترة" />
-          <p className="muted">
-            الصلاحيات تُمنح كما هي لباقي مفاتيح مساحة العمل. البيئة تتبع مساحة العمل التي أنت فيها،
-            فلا يمكن إصدار مفتاح إنتاج من بيئة الاختبار.
-          </p>
-          <button type="submit" className="btn btn-primary" data-role="issue-key">
-            إصدار
-          </button>
-        </form>
-      </Panel>
+      <IssueApiKey action={issueAction} />
     </div>
   );
 }

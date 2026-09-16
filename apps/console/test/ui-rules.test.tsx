@@ -23,6 +23,12 @@ import { RulesStudio, describeCondition } from '../src/components/rules-studio';
 import { NotificationSettings, eventLabel } from '../src/components/notification-settings';
 import { ChangePassword } from '../src/components/change-password';
 import { ApiKeys } from '../src/components/api-keys';
+import {
+  IssuedKey,
+  IssuedPassword,
+  type IssuedKeyState,
+  type IssuedPasswordState,
+} from '../src/components/issued-once';
 import { Shell } from '../src/components/shell';
 import {
   INTEGRATION_TABS,
@@ -1027,6 +1033,10 @@ describe('the profile a third party sees', () => {
   });
 });
 
+/** Actions the rendered forms never run: these tests read markup, not behaviour. */
+const noAccount = async (): Promise<IssuedPasswordState> => ({ account: null, refusalAr: null });
+const noKey = async (): Promise<IssuedKeyState> => ({ secret: null });
+
 describe('administering people', () => {
   const render = (activeAdmins: number) =>
     renderToStaticMarkup(
@@ -1058,7 +1068,7 @@ describe('administering people', () => {
             isSelf: false,
           },
         ]}
-        createAction="/c"
+        createAction={noAccount}
         roleAction="/r"
         statusAction="/s"
       />,
@@ -1087,17 +1097,24 @@ describe('administering people', () => {
 
   it('shows a temporary password once and says it will not be shown again', () => {
     const html = renderToStaticMarkup(
-      <UserAdmin
-        activeAdmins={2}
-        users={[]}
-        issuedPassword={{ email: 'new@acme.sa', password: 'nx-temporary-value' }}
-        createAction="/c"
-        roleAction="/r"
-        statusAction="/s"
-      />,
+      <IssuedPassword email="new@acme.sa" password="nx-temporary-value" />,
     );
     expect(html).toContain('nx-temporary-value');
     expect(html).toContain('لن تُعرض مرة أخرى');
+  });
+
+  it('keeps that password out of the address it came back through (SEC-10)', () => {
+    // The screen reads no search parameter at all: the password is the result of the action.
+    const screen = readFileSync(
+      fileURLToPath(new URL('../src/app/(app)/settings/page.tsx', import.meta.url)),
+      'utf8',
+    );
+    expect(screen).not.toContain('searchParams');
+    const actions = readFileSync(
+      fileURLToPath(new URL('../src/app/(app)/settings/actions.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(actions).not.toMatch(/redirect\([^)]*password/);
   });
 });
 
@@ -1420,7 +1437,7 @@ describe('the subscriber portal', () => {
 
   it('shows the prefix and never a secret, and says which environment each key is for', () => {
     const html = renderToStaticMarkup(
-      <ApiKeys keys={keys} issueAction="/issue" revokeAction="/revoke" />,
+      <ApiKeys keys={keys} issueAction={noKey} revokeAction="/revoke" />,
     );
     expect(html).toContain('nx_live_ab12');
     expect(html).toContain('data-role="environment"');
@@ -1434,12 +1451,23 @@ describe('the subscriber portal', () => {
   });
 
   it('shows a freshly issued secret once, and says it cannot be recovered', () => {
-    const html = renderToStaticMarkup(
-      <ApiKeys keys={keys} issuedSecret="nx_live_secret" issueAction="/i" revokeAction="/r" />,
-    );
+    const html = renderToStaticMarkup(<IssuedKey secret="nx_live_secret" />);
     expect(html).toContain('data-role="secret-value"');
     expect(html).toContain('nx_live_secret');
     expect(html).toContain('لا يمكن عرضه مرة أخرى');
+  });
+
+  it('keeps that secret out of the address it came back through (SEC-10)', () => {
+    const screen = readFileSync(
+      fileURLToPath(new URL('../src/app/(app)/settings/developers/page.tsx', import.meta.url)),
+      'utf8',
+    );
+    expect(screen).not.toContain('searchParams');
+    const actions = readFileSync(
+      fileURLToPath(new URL('../src/app/(app)/settings/developers/actions.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(actions).not.toMatch(/redirect\([^)]*issued/);
   });
 
   it('says why a module is off rather than greying it out', () => {

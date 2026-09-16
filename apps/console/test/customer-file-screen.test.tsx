@@ -168,11 +168,7 @@ function render(
     now: new Date('2026-09-14T09:00:00Z'),
   };
   return renderToStaticMarkup(
-    <CustomerFileScreen
-      view={view}
-      action="/customers/verify"
-      share={{ panel: null, open: false }}
-    />,
+    <CustomerFileScreen view={view} action="/customers/verify" share={{ panel: null }} />,
   );
 }
 

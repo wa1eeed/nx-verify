@@ -3,6 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import {
+  NxError,
   assertRole,
   canAdminister,
   createUser,
@@ -13,6 +14,7 @@ import {
   type UserRole,
 } from '@nx-verify/core';
 import { actingUser, query } from '../../../lib/context';
+import type { IssuedPasswordState } from '../../../components/issued-once';
 
 /**
  * Adding someone, moving them, and taking them out.
@@ -22,7 +24,18 @@ import { actingUser, query } from '../../../lib/context';
  * one: the check that matters is the one on the way in.
  */
 
-export async function createUserAction(formData: FormData): Promise<void> {
+/**
+ * A new account, and the one time its password exists in plain text.
+ *
+ * It used to come back in the address, which put it in the browser's history, in the referrer
+ * of the next request and in every access log on the way (SEC-10). It is the result of this
+ * action now: it reaches the screen that asked and goes nowhere else. A refresh loses it, and
+ * the way back is a new password rather than a second look at the old one.
+ */
+export async function createUserAction(
+  _previous: IssuedPasswordState,
+  formData: FormData,
+): Promise<IssuedPasswordState> {
   const actor = await actingUser();
   assertRole(actor.role, canAdminister);
 
@@ -32,7 +45,7 @@ export async function createUserAction(formData: FormData): Promise<void> {
   const displayName = String(formData.get('display_name') ?? '').trim();
   const role = String(formData.get('role') ?? 'ANALYST') as UserRole;
   if (email === '' || displayName === '') {
-    return;
+    return { account: null, refusalAr: 'لم يُضَف: البريد والاسم مطلوبان.' };
   }
 
   // Temporary by construction, exactly as provisioning does it: the person is made to
@@ -40,18 +53,26 @@ export async function createUserAction(formData: FormData): Promise<void> {
   // it ends up with.
   const password = `nx-${randomUUID()}`;
 
-  await query(async (tx) => {
-    const userId = await createUser(tx, { email, displayName, role });
-    await setPassword(tx, { userId, password, mustChange: true });
-  });
+  try {
+    await query(async (tx) => {
+      const userId = await createUser(tx, { email, displayName, role });
+      await setPassword(tx, { userId, password, mustChange: true });
+    });
+  } catch (error) {
+    if (!(error instanceof NxError)) {
+      throw error;
+    }
+    return {
+      account: null,
+      refusalAr:
+        error.code === 'NX-4091'
+          ? 'لم يُضَف: في مساحة العمل شخص بهذا البريد.'
+          : 'لم يُضَف: تحقق من البريد والاسم والدور.',
+    };
+  }
 
   revalidatePath('/settings');
-  const { redirect } = await import('next/navigation');
-  // Shown once, on the screen that asked for it. A refresh loses it, and the way back is
-  // to issue a new one rather than to read the old one again.
-  redirect(
-    `/settings?created=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
-  );
+  return { account: { email, password }, refusalAr: null };
 }
 
 export async function setRoleAction(formData: FormData): Promise<void> {
