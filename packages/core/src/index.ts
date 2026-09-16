@@ -496,6 +496,15 @@ export {
   resolveRiskPolicy,
 } from './customers/risk-policy.js';
 export type { RiskPolicy, RiskSignalPolicy } from './customers/risk-policy.js';
+export {
+  markStandingStale,
+  markStandingStaleFromRun,
+  refreshStanding,
+  sweepStanding,
+  writeStanding,
+} from './customers/standing.js';
+export type { StandingSummary } from './customers/standing.js';
+export type { StandingRefresh, SweepOptions } from './customers/standing.js';
 export { listModules, setTenantModule, tenantModules } from './modules/modules.js';
 export type {
   ModuleProductView,
@@ -965,6 +974,7 @@ export {
   findCustomersByIdentifier,
   listCustomers,
   looksLikeIdentifier,
+  pickCustomers,
 } from './customers/list.js';
 export { summarizeCustomers } from './customers/summaries.js';
 export { homeOverview, riyadhMonthStart } from './customers/home.js';

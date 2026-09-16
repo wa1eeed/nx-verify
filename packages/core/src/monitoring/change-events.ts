@@ -1,6 +1,7 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { readPage, type Page, type PageRequest } from '../pagination.js';
 import { canonicalJson } from '../canonical-json.js';
+import { markStandingStale } from '../customers/standing-stale.js';
 
 /**
  * Change detection, step 4 of the sequence in docs/02-schema.md section 7.
@@ -202,10 +203,16 @@ export async function acknowledgeChange(
   changeEventId: string,
   actor: string,
 ): Promise<void> {
-  await tx.query(
+  const { rows } = await tx.query<{ entity_id: string | null }>(
     `UPDATE change_events
      SET acknowledged_by = $3, acknowledged_at = now()
-     WHERE tenant_id = $1 AND id = $2 AND acknowledged_at IS NULL`,
+     WHERE tenant_id = $1 AND id = $2 AND acknowledged_at IS NULL
+     RETURNING entity_id`,
     [tx.tenantId, changeEventId, actor],
   );
+  // One fewer thing open on that customer, which is a facet on the list (ADR-140).
+  const entityId = rows[0]?.entity_id;
+  if (entityId != null) {
+    await markStandingStale(tx, [entityId]);
+  }
 }

@@ -13,7 +13,7 @@ import {
 } from './customer-file.js';
 import type { RiskLevel, Standing } from './indicators.js';
 import { getPlatformSettings, layoutsOf, listSectionRequirements } from '../settings/platform.js';
-import { listCustomers, type CustomerFilter } from './list.js';
+import { listCustomers, profileOfEach, type CustomerFilter } from './list.js';
 import { resolveRiskPolicy } from './risk-policy.js';
 
 /**
@@ -94,7 +94,7 @@ export async function summarizeCustomers(
   );
   const firstSeen = new Map(entityRows.map((row) => [row.id, row.first_seen_at]));
 
-  const { rows: profileRows } = await tx.query<{
+  const profileRows = await profileOfEach<{
     entity_id: string;
     field_path: string;
     value: unknown;
@@ -107,12 +107,13 @@ export async function summarizeCustomers(
     freshness: Freshness;
     attestation_id: string;
   }>(
+    tx,
+    ids,
     `SELECT entity_id, field_path, value, authority, observed_at, effective_until, ttl_days,
             weight, confidence, freshness, attestation_id
-     FROM entity_profile
-     WHERE tenant_id = $1 AND entity_id = ANY($2::uuid[])
-     ORDER BY entity_id, field_path`,
-    [tx.tenantId, ids],
+       FROM entity_profile
+      WHERE tenant_id = $1 AND entity_id = $2
+      ORDER BY field_path`,
   );
   const profiles = group(profileRows, (row) => row.entity_id);
 
@@ -156,28 +157,22 @@ export async function summarizeCustomers(
        AND r.rel_type = 'MANAGES' AND r.ended_at IS NULL`,
     [tx.tenantId, ids],
   );
+  // Grouped once rather than filtered per customer: a linear scan of every manager inside a
+  // loop over every customer is the same N+1 the bulk query was written to avoid (ADR-140).
+  const managersOf = group(managerRows, (row) => row.company);
   const people = [...new Set(managerRows.map((row) => row.person))];
-  const { rows: personFacts } =
-    people.length === 0
-      ? {
-          rows: [] as {
-            entity_id: string;
-            field_path: string;
-            value: unknown;
-            observed_at: Date;
-          }[],
-        }
-      : await tx.query<{
-          entity_id: string;
-          field_path: string;
-          value: unknown;
-          observed_at: Date;
-        }>(
-          `SELECT entity_id, field_path, value, observed_at FROM entity_profile
-           WHERE tenant_id = $1 AND entity_id = ANY($2::uuid[])
-             AND (field_path = 'person.name' OR field_path LIKE 'manager.%')`,
-          [tx.tenantId, people],
-        );
+  const personFacts = await profileOfEach<{
+    entity_id: string;
+    field_path: string;
+    value: unknown;
+    observed_at: Date;
+  }>(
+    tx,
+    people,
+    `SELECT entity_id, field_path, value, observed_at FROM entity_profile
+      WHERE tenant_id = $1 AND entity_id = $2
+        AND (field_path = 'person.name' OR field_path LIKE 'manager.%')`,
+  );
   const factsOfPerson = new Map<string, Map<string, { value: unknown; observedAt: Date }>>();
   for (const row of personFacts) {
     const facts = factsOfPerson.get(row.entity_id) ?? new Map();
@@ -203,6 +198,7 @@ export async function summarizeCustomers(
        AND rel_type = 'HOLDS_ACCOUNT' AND ended_at IS NULL`,
     [tx.tenantId, ids],
   );
+  const accountsOf = group(accountRows, (row) => row.holder);
   const accounts = [...new Set(accountRows.map((row) => row.account))];
   const { rows: holderRows } =
     accounts.length === 0
@@ -225,11 +221,15 @@ export async function summarizeCustomers(
     addressKeys.length === 0
       ? { rows: [] as { key: string; entities: string }[] }
       : await tx.query<{ key: string; entities: string }>(
-          `SELECT value::text AS key, count(DISTINCT entity_id)::text AS entities
-           FROM entity_profile
-           WHERE tenant_id = $1 AND field_path = 'address.national.key'
-             AND value = ANY($2::jsonb[])
-           GROUP BY value`,
+          // Asked of the attestations rather than of the profile view: the question is how
+          // many customers share an address, which needs no time to live resolved. Against
+          // the view it had no entity to narrow by, so it rebuilt the whole workspace's
+          // profile a second time on every page load (ADR-140).
+          `SELECT a.value::text AS key, count(DISTINCT a.entity_id)::text AS entities
+           FROM attestations a
+           WHERE a.tenant_id = $1 AND a.field_path = 'address.national.key'
+             AND a.superseded_by IS NULL AND a.value = ANY($2::jsonb[])
+           GROUP BY a.value`,
           [tx.tenantId, addressKeys],
         );
   // Compared as parsed JSON: the database writes jsonb text its own way.
@@ -300,31 +300,26 @@ export async function summarizeCustomers(
         },
       ]),
     );
-    const managers: FileBasis['managers'] = managerRows
-      .filter((row) => row.company === id)
-      .map((row) => {
-        const facts = factsOfPerson.get(row.person);
-        const permissions = facts?.get(`manager.permissions.${id}`);
-        return {
-          name: (facts?.get('person.name')?.value as string | undefined) ?? row.name,
-          hasPermissions: permissions !== undefined && Array.isArray(permissions.value),
-          otherCompanies: (companiesOf.get(row.person) ?? []).filter(
-            (entry) => entry.company !== id,
-          ).length,
-          permissionsCheckedAt: permissions?.observedAt ?? null,
-          observedAt:
-            facts?.get(`manager.positions.${id}`)?.observedAt ??
-            facts?.get('person.name')?.observedAt ??
-            null,
-        };
-      });
-    const accountsSharedWith = accountRows
-      .filter((row) => row.holder === id)
-      .reduce(
-        (sum, row) =>
-          sum + (holdersOf.get(row.account) ?? []).filter((entry) => entry.holder !== id).length,
-        0,
-      );
+    const managers: FileBasis['managers'] = (managersOf.get(id) ?? []).map((row) => {
+      const facts = factsOfPerson.get(row.person);
+      const permissions = facts?.get(`manager.permissions.${id}`);
+      return {
+        name: (facts?.get('person.name')?.value as string | undefined) ?? row.name,
+        hasPermissions: permissions !== undefined && Array.isArray(permissions.value),
+        otherCompanies: (companiesOf.get(row.person) ?? []).filter((entry) => entry.company !== id)
+          .length,
+        permissionsCheckedAt: permissions?.observedAt ?? null,
+        observedAt:
+          facts?.get(`manager.positions.${id}`)?.observedAt ??
+          facts?.get('person.name')?.observedAt ??
+          null,
+      };
+    });
+    const accountsSharedWith = (accountsOf.get(id) ?? []).reduce(
+      (sum, row) =>
+        sum + (holdersOf.get(row.account) ?? []).filter((entry) => entry.holder !== id).length,
+      0,
+    );
     const address = addressOf.get(id);
     const addressSharedWith =
       address === undefined

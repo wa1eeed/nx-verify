@@ -2,6 +2,7 @@ import { createPool, withTenant, withoutTenant } from '@nx-verify/db';
 import {
   DerivedTenantKeyProvider,
   masterKeySourceFromEnv,
+  sweepStanding,
   type TenantKeyProvider,
 } from '@nx-verify/core';
 import {
@@ -159,6 +160,26 @@ async function main(): Promise<void> {
           registryFor: panelRegistryFor,
           inTenant: (work) => withTenant(appPool, tenantId, work),
         });
+      },
+    },
+    {
+      /**
+       * Keeping the customers list honest (ADR-140).
+       *
+       * Two kinds of row are swept: the ones stamped because a customer was verified again or
+       * a change on them was read, and then simply the oldest, so a risk weight or a module
+       * changed in the panel reaches every facet within an hour without a staff connection
+       * ever writing to a table keyed on somebody's customers.
+       *
+       * Bounded on purpose. A workspace of fifty thousand is swept over hours rather than in
+       * one transaction holding a connection for minutes: the whole point of the table is that
+       * nothing ever waits for every customer at once.
+       */
+      name: 'standing-sweep',
+      everySeconds: MINUTE,
+      scope: 'tenant',
+      run: async ({ tx }) => {
+        await sweepStanding(tx, keys, { batch: 200, maxAgeMinutes: 60 });
       },
     },
     {

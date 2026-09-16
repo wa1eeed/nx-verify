@@ -14,6 +14,32 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ## [Unreleased]
 
+### Fixed (performance)
+
+- **The customers list works at the size a real subscriber reaches** (ADR-140). Measured first,
+  as rule 9 requires: at 50,000 customers and a million attestations the unfiltered list **did
+  not answer inside ten minutes**, and the filtered cases took twenty four seconds. It joined
+  every entity to the profile view, aggregated, sorted on an aggregate and only then took a
+  hundred rows, so a million rows were built to return a hundred. The screen asked for five
+  thousand summaries whatever page it was showing, filtered them in JavaScript and sliced the
+  result in memory: `?page=4&size=25` and `?page=1&size=100` cost the database the same.
+  A page is now chosen in the database from one indexed row per customer, and only that page is
+  read.
+- **`customer_standing`**, one row per customer with what the list filters, orders and counts
+  by. Not a copy of the file: the rows a screen draws are still summarised live, so a row and
+  the file it opens can never disagree. Two of the seven facet counts are the model's answers
+  and can lag a sweep behind; the rows never do.
+- **Three queries that asked the profile view without narrowing it first.** The worst rebuilt
+  the whole workspace's profile a second time on every page load, to count how many customers
+  share an address.
+- **Never ask that view with an array of ids.** It reads as one qual over the whole view:
+  measured at 1.9 s for twenty five customers against 11 ms for one. Walking the ids with a
+  lateral turns it back into constant lookups the view pushes down.
+- **Two indexes the list had always needed**, on `verification_runs` and `change_events` by
+  entity, and one that was **narrowed after measuring**: a general index over every live
+  attestation made reading a single customer's file jump from 2 ms to a second, because it was
+  a usable path for a question nobody asks.
+
 ### Changed
 
 - **The type face is served by us** (ADR-139). It was fetched from a public font service, which

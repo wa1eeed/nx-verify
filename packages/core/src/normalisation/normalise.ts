@@ -8,6 +8,7 @@ import { getFieldMappings, isIdentifierType, type FieldMapping } from './field-m
 import { readMatches, resolveReference } from './paths.js';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
 import type { StepOutcome } from '../orchestration/executor.js';
+import { markStandingStale } from '../customers/standing-stale.js';
 
 /**
  * The normalisation layer.
@@ -186,6 +187,11 @@ export async function normaliseRun(
       }
     }
   }
+
+  // The customers whose facts just moved. Stamped here rather than when the run closed,
+  // because that is before a single attestation exists: what the list navigates by is read
+  // from the answers, so it has to be read after they land (ADR-140).
+  await markStandingStale(tx, [...new Set(result.attestations.map((row) => row.entityId))]);
 
   return result;
 }

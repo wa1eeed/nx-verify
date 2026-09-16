@@ -45,6 +45,59 @@ problem is the list, not the projection.
 optimisation is now warranted rather than speculative. What it does **not** license is
 optimising anything else on a hunch.
 
+---
+
+## 2026-09-16, later the same day: the same list, after ADR-140
+
+Same shape, same machine, same seed. Nothing else running: the first attempt at this table was
+taken while the test suite was running beside it and every figure was ten times worse, which is
+worth saying because it is the easiest way to measure nothing at all.
+
+| What                                     | Rows returned | Before      | After      |
+| ---------------------------------------- | ------------: | ----------: | ---------: |
+| Customers list, first 100, no filter     |           100 | **timed out at 600,000 ms** | **290 ms** |
+| Customers list, freelancers only         |           100 |  23,998 ms  |    193 ms  |
+| Customers list, name search              |            11 |  20,377 ms  |     78 ms  |
+| Workspace summary, first 100             |           100 |  24,665 ms  |    370 ms  |
+| One customer file, every field           |            20 |       2 ms  |      2 ms  |
+
+And the figures for what the console actually does now, which had no «before» because the screen
+did not work this way:
+
+| What                                        | Rows | Time     |
+| ------------------------------------------- | ---: | -------: |
+| A page of 25, chosen from the standing table |   25 |  119 ms  |
+| That page summarised live                    |   25 |   80 ms  |
+| The seven facet counts                       |    7 |  127 ms  |
+| One sweep of 200 customers, in the worker    |  200 |  588 ms  |
+
+**The one number that decided the design.** The same twenty five customers' profiles, three
+ways:
+
+| How                                     | Rows | Time      |
+| --------------------------------------- | ---: | --------: |
+| `entity_id = $2`, one customer           |   20 |    2 ms   |
+| `entity_id = ANY(array of 25)`           |  500 |  782 ms   |
+| One query each, in a loop                |  500 |   35 ms   |
+
+`entity_profile` is a `DISTINCT ON` whose keys include `entity_id`, so a **constant** on that
+column is pushed into it. An array is one qual over the whole view and is not, and a `LATERAL`
+over the ids is a parameterised one and is not either: that was measured at twenty seconds and
+is the worst of the three. So the loop is the fast path, not a fallback, and twenty five round
+trips on one connection cost twenty times less than the one query that reads better.
+
+**An index that was added and then narrowed.** A general
+`(tenant_id, field_path, entity_id) WHERE superseded_by IS NULL` was added for the facets and
+measured: reading a **single** customer's file went from 2 ms to **1,008 ms**, because that
+index is a usable path for «every live attestation» and the planner took it for a question
+nobody asked. It is a single-field-path partial index now, and the file read is 2 ms again.
+Adding an index is a change that has to be measured like any other.
+
+**What is still true.** Rule 9 has not been suspended. Nothing else on this list has been
+optimised, because nothing else has a number saying it should be.
+
+---
+
 **Where a real subscriber sits.** A bank onboarding a hundred merchants a month reaches 50,000
 customers in forty years and 5,000 in four. A payments provider onboarding a hundred a day
 reaches 50,000 in eighteen months. So this is not a distant problem for the second kind of

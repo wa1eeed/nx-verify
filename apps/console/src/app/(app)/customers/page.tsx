@@ -1,6 +1,13 @@
 import type { ReactElement } from 'react';
 import { redirect } from 'next/navigation';
-import { slicePage, summarizeCustomers, type CustomerKind } from '@nx-verify/core';
+import {
+  countCustomers,
+  pageWindow,
+  pickCustomers,
+  summarizeCustomers,
+  writeStanding,
+  type CustomerKind,
+} from '@nx-verify/core';
 import { pageRequestFrom } from '../../../lib/pagination';
 import { query } from '../../../lib/context';
 import { getKeys } from '../../../lib/keys';
@@ -20,10 +27,18 @@ export const dynamic = 'force-dynamic';
 /**
  * The customers a subscriber verified (handoff screen 04).
  *
- * Every customer is summarised once, and the filters, the counts and the rows are all read
- * from those summaries, so the counts beside the filters always add up to what the filters
- * show. The related records behind them moved to their own tab; an old address that still
- * asks for one of those views is sent there rather than shown an empty list.
+ * One page is chosen in the database and only that page is summarised (ADR-140). It used to
+ * ask for five thousand summaries whatever page it was showing, filter them in JavaScript and
+ * slice the result in memory, which is why at fifty thousand customers the screen stopped
+ * answering at all.
+ *
+ * The counts beside the filters come from one row per customer rather than from the summaries,
+ * so they still add up to what the filters show. Two of them, «مكتمل» and «تنبيهات», are the
+ * model's answers and are read from the standing the worker keeps: they can lag a sweep behind
+ * what a row shows, and a row is never wrong because it is summarised live.
+ *
+ * The related records behind them moved to their own tab; an old address that still asks for
+ * one of those views is sent there rather than shown an empty list.
  */
 
 const KINDS = new Set<CustomerKind>(['COMPANY', 'ESTABLISHMENT', 'FREELANCER']);
@@ -61,34 +76,48 @@ export default async function CustomersPage({
             .slice(0, 20),
         );
 
-  const all = await query((tx) => summarizeCustomers(tx, getKeys(), { limit: 5_000 }));
-
-  const needle = search.toLowerCase();
-  const rows = all.filter(
-    (summary) =>
-      (kind === null || summary.kind === kind) &&
-      (!alertsOnly || summary.openAlerts > 0) &&
-      (ids === null || ids.has(summary.entityId)) &&
-      (needle === '' || (summary.displayName ?? '').toLowerCase().includes(needle)),
-  );
-  const complete = all.filter((summary) => summary.completeness === 100).length;
+  const request = pageRequestFrom(params);
+  const data = await query(async (tx) => {
+    const keys = getKeys();
+    const filter = {
+      kind,
+      alertsOnly,
+      search,
+      ...(ids === null ? {} : { entityIds: [...ids] }),
+    };
+    // Which customers, and how many there are under this filter, before anything is read
+    // about any of them.
+    const first = await pickCustomers(tx, keys, { ...filter, limit: request.size });
+    const window = pageWindow(request, first.total);
+    const picked =
+      window.offset === 0
+        ? first
+        : await pickCustomers(tx, keys, { ...filter, limit: window.limit, offset: window.offset });
+    const rows = await summarizeCustomers(tx, keys, { entityIds: picked.entityIds });
+    // The page was summarised live anyway, so its standing is written back rather than thrown
+    // away: the list heals whatever anybody actually looks at, and the worker is left with the
+    // customers nobody has opened (ADR-140).
+    await writeStanding(tx, rows, picked.entityIds);
+    // Counted after that write, not before it, so the facets agree with the page they sit
+    // above. Customers nobody has opened still wait for the worker.
+    const counts = await countCustomers(tx);
+    return { counts, window, total: picked.total, rows };
+  });
 
   return (
     <div className="stack" style={{ gap: 'var(--layout-content-gap)' }}>
       <SectionTabs tabs={CUSTOMER_TABS} current="/customers" label="أقسام العملاء" />
       <Customers
         view={{
-          page: slicePage(rows, pageRequestFrom(params)),
-          params,
-          counts: {
-            all: all.length,
-            companies: all.filter((summary) => summary.kind === 'COMPANY').length,
-            establishments: all.filter((summary) => summary.kind === 'ESTABLISHMENT').length,
-            freelancers: all.filter((summary) => summary.kind === 'FREELANCER').length,
-            complete,
-            incomplete: all.length - complete,
-            alerts: all.filter((summary) => summary.openAlerts > 0).length,
+          page: {
+            rows: data.rows,
+            total: data.total,
+            page: data.window.page,
+            size: request.size,
+            pages: data.window.pages,
           },
+          params,
+          counts: data.counts,
           filter: (kind ?? 'all') as CustomersFilter,
           alertsOnly,
           search,

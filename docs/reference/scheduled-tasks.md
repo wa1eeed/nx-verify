@@ -18,6 +18,7 @@ page exists.
 | `verification-requests` | 30 seconds  | tenant  | app          | Picks up requests left behind and settles their checks         |
 | `notifications`         | 1 minute    | tenant  | app          | Delivers up to 50 messages. **Only registered when `NX_MAIL_ENDPOINT` is set** |
 | `batches`               | 1 minute    | tenant  | app          | Runs up to 20 batch items                                      |
+| `standing-sweep`        | 1 minute    | tenant  | app          | Recomputes up to 200 customers' standing: the ones stamped as moved, then the oldest |
 | `provider-health`       | 5 minutes   | tenant  | app          | Tests each active binding and writes its health                |
 | `monitors`              | 15 minutes  | tenant  | app          | Runs up to 25 due monitors within their budgets                |
 | `key-rotation`          | 60 minutes  | tenant  | app          | Moves stored identifiers onto the current key, 500 at a time   |
@@ -287,3 +288,24 @@ A sandbox account with the data source, the partnership request and the contract
 a legal opinion on the service credit structure, a mail delivery endpoint, and a card payment
 gateway. None of these is a line of code; all of them are in
 [progress.md](../progress.md) under «ما تبقى».
+
+## `standing-sweep`, every minute, per tenant
+
+Keeps `customer_standing` true, which is what the customers list filters, orders and counts by
+(ADR-140).
+
+Two kinds of row are taken, in this order: the ones **stamped** because a customer was verified
+again or a change on them was read, and then simply the **oldest**. The second half is the
+important one, and it is why the job has no trigger: the risk model and the modules are edited
+on a staff connection, and a staff connection has no business writing a table keyed on a
+subscriber's customers (guard 02). So a weight changed in the panel reaches every facet within
+`maxAgeMinutes` without anybody reaching across that boundary.
+
+Bounded at two hundred customers a sweep. A workspace of fifty thousand is therefore swept over
+hours rather than in one transaction holding a connection for minutes, which is the whole point
+of the table: no request ever waits for every customer.
+
+**If this job does not run**, nothing breaks and nothing lies about a customer: the rows a
+screen draws are summarised live. Two facet counts, «مكتمل» and «تنبيهات», go stale, and the
+customers screen still heals the page anybody opens because it writes back what it just
+summarised.

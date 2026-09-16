@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../../packages/db/src/client.js';
-import { listCustomers } from '../../packages/core/src/customers/list.js';
+import {
+  countCustomers,
+  listCustomers,
+  pickCustomers,
+} from '../../packages/core/src/customers/list.js';
 import { summarizeCustomers } from '../../packages/core/src/customers/summaries.js';
+import { sweepStanding } from '../../packages/core/src/customers/standing.js';
 import {
   createTestDatabase,
   seedTenant,
@@ -65,8 +70,9 @@ describe.skipIf(!asked)('how the lists behave at size', () => {
 
       // A product to hang the runs on. The catalogue is rows, and this measurement needs one.
       await tx.query(
-        `INSERT INTO products (code, name_ar, name_en, subject_type, input_schema)
-         VALUES ('MEASURE_PRODUCT', 'قياس', 'Measure', 'BUSINESS', '{"type":"object"}'::jsonb)
+        `INSERT INTO products (code, name_ar, name_en, subject_type, input_schema, module_code)
+         VALUES ('MEASURE_PRODUCT', 'قياس', 'Measure', 'BUSINESS', '{"type":"object"}'::jsonb,
+                 'REGISTRY')
          ON CONFLICT (code) DO NOTHING`,
       );
 
@@ -103,6 +109,27 @@ describe.skipIf(!asked)('how the lists behave at size', () => {
         [tenant.tenantId, FIELDS_EACH],
       );
 
+      // One row per customer, as migration 0053 backfills it on a real deployment. The two
+      // columns the list navigates by are read from the answers; the two the model decides are
+      // spread deterministically, because what is measured is the read and not the sweep.
+      await tx.query(
+        `INSERT INTO customer_standing
+           (tenant_id, entity_id, kind, last_verified_at, completeness, open_alerts, computed_at)
+         SELECT $1, e.id,
+                CASE WHEN e.entity_type = 'FREELANCER' THEN 'FREELANCER'
+                     WHEN (hashtext(e.id::text) % 2) = 0 THEN 'COMPANY'
+                     ELSE 'ESTABLISHMENT' END,
+                (SELECT max(a.observed_at) FROM attestations a
+                  WHERE a.tenant_id = $1 AND a.entity_id = e.id),
+                ((hashtext(e.id::text || 'c') % 101 + 101) % 101),
+                ((hashtext(e.id::text || 'a') % 4 + 4) % 4),
+                now()
+           FROM entities e
+          WHERE e.tenant_id = $1
+         ON CONFLICT (tenant_id, entity_id) DO NOTHING`,
+        [tenant.tenantId],
+      );
+
       await tx.query(`ANALYZE`);
     });
   }, 900_000);
@@ -128,6 +155,80 @@ describe.skipIf(!asked)('how the lists behave at size', () => {
       ),
     );
     expect(rows.length).toBe(100);
+  }, 600_000);
+
+  it('opens the page the screen actually asks for', async () => {
+    // What the console does now: choose twenty five, then summarise those twenty five.
+    const picked = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      time('page of 25, chosen', () => pickCustomers(tx, keys, { limit: 25 })),
+    );
+    expect(picked.entityIds.length).toBe(25);
+    expect(picked.total).toBeGreaterThan(0);
+
+    const rows = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      time('page of 25, summarised', () =>
+        summarizeCustomers(tx, keys, { entityIds: picked.entityIds }),
+      ),
+    );
+    expect(rows.length).toBe(25);
+  }, 600_000);
+
+  it('asks the profile view for a page, both ways', async () => {
+    // The awkward question: `entity_id = ANY(array)` is one qual over the whole view, and a
+    // LATERAL over the ids is a parameterised one. Neither is obviously pushed down, so both
+    // are timed here in the same process against the same data rather than argued about.
+    const ids = (
+      await withTenant(db.appPool, tenant.tenantId, (tx) => pickCustomers(tx, keys, { limit: 25 }))
+    ).entityIds;
+
+    await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      await time(
+        'profile of 25, by array',
+        async () =>
+          (
+            await tx.query(
+              `SELECT entity_id, field_path, value, observed_at, freshness FROM entity_profile
+                WHERE tenant_id = $1 AND entity_id = ANY($2::uuid[])`,
+              [tenant.tenantId, ids],
+            )
+          ).rows,
+      );
+      await time('profile of 25, one query each', async () => {
+        let rows = 0;
+        for (const id of ids) {
+          rows += (
+            await tx.query(
+              `SELECT entity_id, field_path, value, observed_at, freshness FROM entity_profile
+                  WHERE tenant_id = $1 AND entity_id = $2`,
+              [tenant.tenantId, id],
+            )
+          ).rows.length;
+        }
+        return new Array(rows);
+      });
+    });
+  }, 600_000);
+
+  it('counts the facets beside the filters', async () => {
+    const counts = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      time('facet counts', () => countCustomers(tx)),
+    );
+    expect(counts.all).toBeGreaterThan(0);
+  }, 600_000);
+
+  it('sweeps a batch of standing rows', async () => {
+    const swept = await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      // Stamped first, because the sweep is meant to find work rather than make it: what is
+      // timed is recomputing two hundred customers, not deciding there are none.
+      await tx.query(
+        `UPDATE customer_standing SET stale_at = now()
+          WHERE tenant_id = $1 AND entity_id IN (
+            SELECT entity_id FROM customer_standing WHERE tenant_id = $1 LIMIT 200)`,
+        [tenant.tenantId],
+      );
+      return time('standing sweep, 200 customers', () => sweepStanding(tx, keys, { batch: 200 }));
+    });
+    expect(swept.refreshed).toBe(200);
   }, 600_000);
 
   it('opens it filtered by kind', async () => {

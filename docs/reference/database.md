@@ -1,7 +1,7 @@
 # Database reference
 
 What exists in the database: every table, its columns and constraints, the five roles, every row
-level security policy, every vocabulary, and the 52 migrations that built it.
+level security policy, every vocabulary, and the 53 migrations that built it.
 
 This describes what **is**. `docs/02-schema.md` describes what was **designed**, in Arabic, with
 the reasoning. Where the two ever disagree, the migrations win and this page is the one that
@@ -382,6 +382,41 @@ service, and `setCategoryRisk` every signal of one kind (`STATUS`, `MISMATCH`, `
 `INCOMPLETE`, `CHANGE`, `AGE`). Their per-subscriber twins write `tenant_risk_signals`, and
 resuming a kind for a subscriber deletes their rows rather than writing «on» into them.
 
+### The customers list
+
+`customer_standing` is one row per customer holding what the list filters, orders and counts by
+(ADR-140, migration 0053): `kind`, `last_verified_at`, `completeness`, `open_alerts`,
+`risk_score`, and `stale_at`.
+
+It is **not a copy of the customer file**. The rows a screen draws are summarised live from the
+model, so a row and the file it opens can never disagree; this table answers only «which twenty
+five, in what order, and how many of each», which is the part that cannot wait for the model to
+run over everybody.
+
+| Column             | Kept true by                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| `kind`             | Written as the answers land, from the latest live `cr.kind`                                  |
+| `last_verified_at` | The same, from `max(observed_at)`                                                            |
+| `completeness`, `open_alerts`, `risk_score` | The model, so the worker computes them                               |
+| `stale_at`         | Stamped by the path that moved the customer: a run closing, a change acknowledged            |
+
+The worker's `standing-sweep` takes the stamped rows first, then simply the oldest, which is how
+a risk weight or a module changed in the panel reaches every facet without a staff connection
+writing to a table keyed on a subscriber's customers. The customers screen also writes back the
+standing of the page it just summarised, so the list heals whatever anybody looks at.
+
+Three indexes on `attestations`, `verification_runs` and `change_events` came with it. One of
+them was **narrowed after measurement**: a general
+`(tenant_id, field_path, entity_id) WHERE superseded_by IS NULL` is a usable path for «every
+live attestation», and the planner took it for reading a single customer's file, which went
+from 2 ms to a second. It is a single-field-path partial index now.
+
+**Never ask the profile view with `entity_id = ANY(array)`.** That reads as one qual over the
+whole view and the planner builds the entire workspace's profile: measured at 1.9 s for
+twenty five customers against 11 ms for one. Walk the ids with a `LATERAL` so each lookup is a
+constant the view's own distinct key pushes down (`PROFILE_OF_EACH` in
+`packages/core/src/customers/list.ts`).
+
 ### The administration panel
 
 `operator_accounts` holds named platform staff: role (`OWNER`, `PRICING`, `SUPPORT`,
@@ -509,7 +544,7 @@ Four variants exist, each for a reason:
 
 ---
 
-## The 52 migrations
+## The 53 migrations
 
 | #    | Name                                 | What it added                                                                                                             |
 | ---- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
@@ -565,6 +600,7 @@ Four variants exist, each for a reason:
 | 0050 | `service_routing`                    | Which provider serves which verification service, what each would cost, a counter proving where the calls went, and a place in the file for the property section |
 | 0051 | `modules`                            | `modules` and `tenant_modules`; `products.module_code`; the `INCOME` section, and income verification placed in it           |
 | 0052 | `risk_policy`                        | `risk_signals`, `tenant_risk_signals`, `tenant_risk_settings`, and the two bands on `platform_settings`                       |
+| 0053 | `customer_standing`                  | One row per customer for the list to filter, order and count by, the indexes it needed, and the backfill                     |
 
 ---
 

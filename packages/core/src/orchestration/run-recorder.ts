@@ -2,6 +2,7 @@ import { withSavepoint, type TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { countProviderCall } from '../routing/service-routing.js';
 import type { RunStatus, StepOutcome } from './executor.js';
+import { markStandingStaleFromRun } from '../customers/standing-stale.js';
 
 /**
  * Persisting a run and its steps.
@@ -242,6 +243,10 @@ export async function closeRun(tx: TenantTransaction, input: CloseRunInput): Pro
       });
     }
   }
+
+  // The customer this run was about has moved, so the list's standing of them is out of date
+  // (ADR-140). Stamped rather than recomputed: a verification does not wait for a score.
+  await markStandingStaleFromRun(tx, input.runId);
 
   return reference;
 }
