@@ -14,6 +14,16 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ## [Unreleased]
 
+### Changed
+
+- **The type face is served by us** (ADR-139). It was fetched from a public font service, which
+  put two foreign origins in the content policy and made every employee's browser announce
+  itself to a third party in order to read an internal screen. Two subsets and four weights
+  ship, because the platform writes Arabic and writes identifiers in Latin and nothing else.
+  The Organic sheet's own two faces, which no screen has ever drawn because the product
+  overrides both, are no longer loaded or named in any stack. The policy now names no origin
+  but our own, and a test refuses any `https://` in it.
+
 ### Added
 
 - **The risk model as rows, tunable per platform and per subscriber** (ADR-138). Everything a

@@ -39,10 +39,13 @@ describe('the console content security policy', () => {
     expect(contentSecurityPolicy('n0nce', false)).toContain('upgrade-insecure-requests');
   });
 
-  it('allows the type faces, and nothing else from anywhere else', () => {
+  it('names no origin but our own, the type face included', () => {
     const policy = contentSecurityPolicy('n0nce', false);
-    expect(policy).toContain(`style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`);
-    expect(policy).toContain(`font-src 'self' https://fonts.gstatic.com`);
+    // The face is served by us (ADR-139), so nothing here points anywhere else and a page
+    // that reaches another host is a page that has been tampered with.
+    expect(policy).toContain(`style-src 'self' 'unsafe-inline'`);
+    expect(policy).toContain(`font-src 'self'`);
+    expect(policy).not.toContain('https://');
     expect(policy).toContain(`connect-src 'self'`);
     expect(policy).toContain(`default-src 'self'`);
     // No screen is embedded anywhere, and none embeds anything.

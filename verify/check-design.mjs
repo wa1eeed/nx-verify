@@ -13,7 +13,10 @@ const ROOT = "src";
 const TOKENS = ["src/styles/organic.css", "src/styles/organic.scss"];
 const EXT = new Set([".ts", ".tsx", ".js", ".jsx", ".vue", ".svelte", ".css", ".scss"]);
 
-const ALLOWED_FONTS = ["Baloo Bhaijaan 2", "IBM Plex Sans Arabic", "Caprasimo", "Figtree"];
+// One face, served by us (ADR-125, ADR-139). Caprasimo and Figtree belong to the Organic
+// sheet and are neither loaded nor named in a stack any more, so naming one now is a
+// third party contacted for a face nobody reads.
+const ALLOWED_FONTS = ["IBM Plex Sans Arabic"];
 const BANNED_FONTS = ["Inter", "Roboto", "Arial", "Helvetica", "Poppins", "Montserrat", "Cairo", "Tajawal"];
 
 if (!existsSync(ROOT)) {

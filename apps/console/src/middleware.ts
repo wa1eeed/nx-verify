@@ -14,20 +14,19 @@ import { NextResponse, type NextRequest } from 'next/server';
  * set spacing through the `style` attribute from design tokens, and a browser cannot tell an
  * attribute written by us from one written by anybody else.
  *
- * The type faces are the only thing loaded from anywhere else, so they are the only origins
- * beyond ourselves in the policy.
+ * Every origin in the policy is our own (ADR-139). The type face used to be fetched from a
+ * font service, which put two hosts in the policy and made every employee's browser announce
+ * itself to a third party to read a screen; it is served by us now, so a page that reaches
+ * anywhere else is a page that has been tampered with.
  */
-
-const FONT_STYLES = 'https://fonts.googleapis.com';
-const FONT_FILES = 'https://fonts.gstatic.com';
 
 export function contentSecurityPolicy(nonce: string, development: boolean): string {
   return [
     `default-src 'self'`,
     // A development build compiles in the browser and needs eval for it; a deployment never does.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
-    `style-src 'self' 'unsafe-inline' ${FONT_STYLES}`,
-    `font-src 'self' ${FONT_FILES}`,
+    `style-src 'self' 'unsafe-inline'`,
+    `font-src 'self'`,
     `img-src 'self' data:`,
     `connect-src 'self'`,
     // Nothing is embedded and nothing embeds us: no plugins, no frames, no clickjacking.

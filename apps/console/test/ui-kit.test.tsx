@@ -347,13 +347,27 @@ describe('The design check from the handoff', () => {
     expect(run.status).toBe(0);
   });
 
-  it('keeps the token sheet as delivered, with the product block only appended after it', () => {
+  /**
+   * The delivered sheet is kept byte for byte, with exactly one named deviation.
+   *
+   * That deviation is its `@import` of Caprasimo and Figtree. The product overrides both with
+   * the one face ADR-125 names, so those two were fetched from a font service on every page
+   * load to be drawn nowhere (ADR-139). Naming the exception here rather than relaxing the
+   * comparison keeps it a single documented change instead of an open door.
+   */
+  it('keeps the token sheet as delivered, but for the fonts it fetched and nobody drew', () => {
     const delivered = readFileSync(
       join(repoRoot, 'design_handoff_verification_platform', 'design-system', 'styles.css'),
       'utf8',
     );
     const sheet = readFileSync(join(consoleRoot, 'src', 'styles', 'organic.css'), 'utf8');
-    expect(sheet.startsWith(delivered)).toBe(true);
-    expect(sheet.slice(delivered.length)).toContain('NX Trust product tokens');
+    const fontImport = /^@import url\('https:\/\/fonts\.googleapis\.com[^\n]*\n/m;
+    expect(delivered).toMatch(fontImport);
+    const withoutFonts = delivered.replace(fontImport, '');
+    const ours = sheet.replace(/^\/\* The sheet's own two faces[\s\S]*?\*\/\n/m, '');
+    expect(ours.startsWith(withoutFonts)).toBe(true);
+    expect(ours.slice(withoutFonts.length)).toContain('NX Trust product tokens');
+    // And nothing else in the sheet reaches outside.
+    expect(sheet).not.toContain('https://');
   });
 });

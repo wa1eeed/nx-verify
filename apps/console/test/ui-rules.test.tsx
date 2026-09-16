@@ -322,12 +322,40 @@ describe('the document itself', () => {
     expect(html).toContain('dir="rtl"');
   });
 
-  it('loads the one face the platform uses, and no other (ADR-125)', () => {
+  it('loads the one face the platform uses, from us, and no other (ADR-125, ADR-139)', () => {
     const html = renderToStaticMarkup(<RootLayout>{null}</RootLayout>);
-    expect(html).toContain('IBM+Plex+Sans+Arabic');
-    for (const banned of ['Baloo', 'IBM+Plex+Mono', 'Inter', 'Roboto']) {
-      expect(html).not.toContain(banned);
-    }
+    // The document asks nobody for anything: the face is imported and served by us, so there
+    // is no stylesheet link and no preconnect to a font service left in the head.
+    expect(html).not.toContain('https://');
+    expect(html).not.toContain('<link');
+
+    const layout = readFileSync(
+      fileURLToPath(new URL('../src/app/layout.tsx', import.meta.url)),
+      'utf8',
+    );
+    const imported = [...layout.matchAll(/@fontsource\/ibm-plex-sans-arabic\/([a-z0-9-]+)\.css/g)]
+      .map((match) => match[1])
+      .sort();
+    // Two subsets and four weights: the platform writes Arabic, and writes identifiers and
+    // product codes in Latin. Every other alphabet is a face nobody here draws.
+    expect(imported).toEqual([
+      'arabic-400',
+      'arabic-500',
+      'arabic-600',
+      'arabic-700',
+      'latin-400',
+      'latin-500',
+      'latin-600',
+      'latin-700',
+    ]);
+    // And the imports name no other face. Checked on the imports rather than the whole file,
+    // because the comment above them names Baloo Bhaijaan 2 as the face it replaced.
+    const faceImports = [...layout.matchAll(/^import '([^']*)';$/gm)]
+      .map((match) => match[1] ?? '')
+      .filter((path) => path.includes('font'));
+    expect(faceImports.every((path) => path.startsWith('@fontsource/ibm-plex-sans-arabic/'))).toBe(
+      true,
+    );
   });
 
   it('takes every colour and shadow from the tokens, outside the token sheet', () => {
