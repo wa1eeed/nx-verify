@@ -1,5 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { NxError } from '../errors.js';
-import { EnvMasterKeySource, type MasterKeySource } from './master-key.js';
+import {
+  EnvMasterKeySource,
+  FileMasterKeySource,
+  type MasterKeySource,
+} from './master-key.js';
 
 /**
  * The root key, from a key management service.
@@ -213,10 +218,20 @@ export function masterKeySourceFromEnv(
   if (env['NX_KMS_ENDPOINT']) {
     return KmsMasterKeySource.fromEnv(env);
   }
+  if (env['NX_MASTER_KEY_FILE']) {
+    // A file at 0600 on a volume, which production accepts for the same reason it already
+    // accepts one for the sealed secret store (ADR-151): an environment variable is readable
+    // by anything that can run `docker inspect`, read `/proc/<pid>/environ`, or look at the
+    // deployment tool's own form. The key that seals every provider credential has no
+    // business being held to a weaker standard than the credentials it seals.
+    return new FileMasterKeySource(env['NX_MASTER_KEY_FILE'], (at) =>
+      readFileSync(at, 'utf8'),
+    );
+  }
   if (env['NODE_ENV'] === 'production') {
     // A convenience that survives into a deployment is not a convenience. The same
     // argument the console makes about its development session fallback.
-    throw new Error('NX_KMS_ENDPOINT is required in production');
+    throw new Error('NX_KMS_ENDPOINT or NX_MASTER_KEY_FILE is required in production');
   }
   return new EnvMasterKeySource(env);
 }

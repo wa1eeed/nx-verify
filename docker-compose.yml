@@ -25,9 +25,19 @@ services:
 
   migrate:
     build: .
-    # No restart policy: it runs once and finishing is what it is for.
-    command: ['pnpm', '--filter', '@nx-verify/db', 'run', 'migrate', 'up']
+    # No restart policy: it runs once and finishing is what it is for. It makes the root key
+    # before it migrates, because everything sealed afterwards is sealed under it.
+    command:
+      - sh
+      - -c
+      - >-
+        node scripts/ensure-master-key.mjs &&
+        pnpm --filter @nx-verify/db run migrate up
     env_file: .env
+    environment:
+      NX_MASTER_KEY_FILE: /var/lib/nx-keys/master
+    volumes:
+      - keys:/var/lib/nx-keys
     depends_on:
       db:
         condition: service_healthy
@@ -41,8 +51,13 @@ services:
       # Connection secrets set from the administration panel, sealed on a shared volume
       # and never in the database (rule 10, ADR-108).
       NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
+      # The root key those are sealed under. A file rather than a variable, because a
+      # variable is readable by anything that can run `docker inspect` (ADR-151). A key
+      # service is better where there is one: set NX_KMS_ENDPOINT instead and this is ignored.
+      NX_MASTER_KEY_FILE: /var/lib/nx-keys/master
     volumes:
       - secrets:/var/lib/nx-secrets
+      - keys:/var/lib/nx-keys
     ports:
       - '3000:3000'
     depends_on:
@@ -67,8 +82,10 @@ services:
       # Connection secrets set from the administration panel, sealed on a shared volume
       # and never in the database (rule 10, ADR-108).
       NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
+      NX_MASTER_KEY_FILE: /var/lib/nx-keys/master
     volumes:
       - secrets:/var/lib/nx-secrets
+      - keys:/var/lib/nx-keys
     ports:
       - '3001:3000'
     depends_on:
@@ -82,10 +99,12 @@ services:
     env_file: .env
     environment:
       NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
+      NX_MASTER_KEY_FILE: /var/lib/nx-keys/master
       # Touched after every sweep, and read by the health check below (SEC-07).
       NX_WORKER_HEARTBEAT: /tmp/nx-worker-heartbeat
     volumes:
       - secrets:/var/lib/nx-secrets
+      - keys:/var/lib/nx-keys
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -104,3 +123,8 @@ volumes:
   # Sealed connection secrets. Back it up separately from the database, and never
   # together with the master key.
   secrets:
+  # The root key everything above is sealed under. **Back this up somewhere else again**:
+  # together with `secrets` it is the plaintext, and together with `db` it is every
+  # identifier this platform holds. Losing it alone loses every provider credential and
+  # every stored identifier, and no backup of the other two brings them back.
+  keys:

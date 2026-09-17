@@ -13,7 +13,7 @@ decides which one a call reaches.
 
 | Blocking | What                                                                                     |
 | -------- | ----------------------------------------------------------------------------------------- |
-| Yes      | A key service endpoint. Production refuses to start on an environment key, by design       |
+| Yes      | A root key. A key service (`NX_KMS_ENDPOINT`) where there is one, or a file on a protected volume (`NX_MASTER_KEY_FILE`). Production refuses an environment **variable** either way, by design (ADR-151) |
 | Yes      | A secret manager or a protected volume for the sealed store                                |
 | Yes      | Working data source credentials for the live environment                                   |
 | Yes      | `NX_OPERATOR_TOKEN` of 32 random bytes                                                     |
@@ -147,53 +147,157 @@ Then:
 
 ## Deploying to a server with Coolify
 
-The platform is three processes and a database: the console, the API and the worker, all from
-this repository, all reading the same variables.
+The platform is three processes and a database, all from this repository and all reading the
+same variables: `api`, `console`, `worker`, `db`. `docker-compose.yml` describes the four and a
+one-shot `migrate` that runs before them.
 
-### The variables Coolify holds
+### 0. What the server needs
 
-Keep this list short on purpose. **One secret belongs in the deployment; the rest belong in the
-panel**, because a key pasted into a deployment tool is a key in a second place that has to be
-rotated when somebody leaves.
+A VPS with Coolify installed, 2 vCPU and 4 GB of memory as a floor, and about 10 GB free. The
+build compiles the console, which is the heaviest step; a 2 GB machine will run out of memory
+during it.
 
-| Variable | Why it must be here |
-| --- | --- |
-| `NX_DATABASE_URL`, `NX_OPERATOR_DATABASE_URL`, `NX_RETENTION_DATABASE_URL`, `NX_ADMIN_DATABASE_URL` | Nothing can read anything without them |
-| `NX_MASTER_KEY` (or `NX_MASTER_KEY_SOURCE`) | Every sealed thing is sealed under it, including the secret store itself |
-| `NX_SECRETS_FILE` | Where that store lives on the volume. With it, every other key is set from the panel |
-| `NX_OPERATOR_TOKEN` | 32 random bytes. Without it there is no way into the panel at all |
-| `NX_PANEL_OWNER_EMAIL`, `NX_PANEL_OWNER_PASSWORD` | The first owner of the panel, made true at every start (ADR-142). Not `NX_OPERATOR_PASSWORD`, which is a database role |
-| `NX_CONSOLE_URL`, `NX_CONSOLE_BASE_URL` | What a link in an email points at |
+Two subdomains pointed at the server's address, because the console and the API are separate
+and a browser must reach one without reaching the other:
 
-**Mount a volume for `NX_SECRETS_FILE`.** It holds every provider credential and the mail key,
-sealed. A container that loses it loses them, and every one has to be entered again.
+```
+app.example.sa   → the console, where people sign in
+api.example.sa   → the public API, where integrations call
+```
 
-### What is not here, and why
+### 1. Make the resource
 
-The data source's client id and secret, its mTLS material, and the mail service's key are all
-set from the panel: «إعدادات التحقق ← الربط التقني» and «إعدادات التحقق ← البريد». They are
-written to the sealed store and the database keeps only a `kms://` pointer (rule 10). That is
-why the list above is short.
+In Coolify: **Project → New Resource → Docker Compose**, source *Public Repository* (or your
+private repository with a deploy key), repository `https://github.com/wa1eeed/nx-verify`, branch
+`main`, and **Docker Compose Location** `/docker-compose.yml`.
 
-### The owner, and the one thing to know about it
+Coolify reads the file and lists five services. Do not deploy yet.
 
-`NX_PANEL_OWNER_PASSWORD` **wins over the panel**. Change it in Coolify, redeploy, and that is the
-password; every session opened under the old one stops working. A password changed inside the
-panel is overwritten at the next start, so change it in Coolify or not at all.
+### 2. The variables
 
-It never touches the second factor. The owner enrols an authenticator once and it survives every
-redeployment, which is the point: a bootstrap that cleared it would turn two steps into one on
-every deploy and nobody would notice.
+**Environment Variables → paste from .env**, then paste this, replacing every
+`CHANGE_ME`. Generate each password and the token with
+`openssl rand -base64 32` — a different one per line.
 
-### The order of a first deployment
+```
+NX_POSTGRES_PASSWORD=CHANGE_ME
+NX_MIGRATOR_PASSWORD=CHANGE_ME
+NX_APP_PASSWORD=CHANGE_ME
+NX_RETENTION_PASSWORD=CHANGE_ME
+NX_OPERATOR_PASSWORD=CHANGE_ME
 
-1. Set the variables above and deploy. The worker creates the owner and says so in its log
-   (the outcome only, never the address or the password).
-2. Sign in at `/operator/login`, enrol an authenticator, and **save the ten recovery codes**.
-   They are shown once.
+NX_ADMIN_DATABASE_URL=postgres://postgres:THE_POSTGRES_PASSWORD@db:5432/nx_verify
+NX_APP_DATABASE_URL=postgres://nx_app:THE_APP_PASSWORD@db:5432/nx_verify
+NX_RETENTION_DATABASE_URL=postgres://nx_retention:THE_RETENTION_PASSWORD@db:5432/nx_verify
+NX_OPERATOR_DATABASE_URL=postgres://nx_operator:THE_OPERATOR_PASSWORD@db:5432/nx_verify
+
+NX_OPERATOR_TOKEN=CHANGE_ME
+NX_PANEL_OWNER_EMAIL=you@example.sa
+NX_PANEL_OWNER_PASSWORD=CHANGE_ME
+NX_PANEL_OWNER_NAME=مالك المنصة
+
+NX_PROVIDERS=stub
+NX_PUBLIC_BASE_URL=https://api.example.sa
+NX_CONSOLE_URL=https://app.example.sa
+NX_CONSOLE_BASE_URL=https://app.example.sa
+NX_SUPPORT_EMAIL=support@example.sa
+```
+
+Four things about that list.
+
+**The host is `db`, not `localhost`.** The four connection strings reach the database service by
+its name inside the stack.
+
+**`NX_OPERATOR_PASSWORD` is a database role**, not your sign in. Your sign in is
+`NX_PANEL_OWNER_PASSWORD`. They were one variable once and that was a mistake: a password typed
+into a browser must never also be a connection credential.
+
+**The panel owner variables win over the panel.** Change `NX_PANEL_OWNER_PASSWORD` here and
+redeploy and that is the password; one changed inside the panel is written over at the next
+start, and every session opened under the old one ends. The authenticator is never touched, so
+two steps survive a redeployment.
+
+**A token shorter than 32 random bytes is refused** (SEC-06). There is no way into the panel
+without it.
+
+### 3. The domains
+
+Coolify → **Configuration → Domains**, per service:
+
+| Service | Domain | Port |
+| --- | --- | --- |
+| `console` | `https://app.example.sa` | 3000 |
+| `api` | `https://api.example.sa` | 3000 |
+
+Leave `db`, `migrate` and `worker` with no domain. The worker answers no port on purpose: the
+one process holding the role that may delete should not also hold a listening socket.
+
+Coolify issues the certificates. Nothing in this platform terminates TLS itself.
+
+### 4. Deploy
+
+Press **Deploy**. The first build takes several minutes: one image, used by all three
+processes, so what runs in production is byte for byte what was tested.
+
+Watch the `migrate` logs. On a first deployment they say:
+
+```
+{"level":"warn","message":"a new root key was made on this deployment"}
+{"level":"warn","message":"back up the volume holding it, separately from ..."}
+0001 applied  ...
+```
+
+Then `api`, `console` and `worker` start. `migrate` exits 0 and stays exited: that is what it is
+for, and Coolify showing it as stopped is correct.
+
+### 5. Back up the key, before anything real
+
+The stack keeps three volumes and **they must not be backed up to the same place**:
+
+| Volume | Holds | If you lose it |
+| --- | --- | --- |
+| `db` | Every attestation, entity and ledger row | Everything, unless restored |
+| `secrets` | Provider credentials and the mail key, sealed | Re-enter them in the panel |
+| `keys` | The root key everything above is sealed under | **Every sealed credential and every stored identifier becomes unreadable, and no backup of the other two brings them back** |
+
+`keys` together with `secrets` is the plaintext of every credential. `keys` together with `db`
+is every identifier this platform holds. That is why they are three volumes and not one, and
+why the guidance is to hold them in three places.
+
+Where you have a key service, set `NX_KMS_ENDPOINT`, `NX_KMS_TOKEN` and `NX_KMS_KEYS` instead;
+the key file is then ignored and the root key never reaches the machine at all. That is better,
+and «جاهزية النشر» says so.
+
+### 6. The first sign in
+
+1. Open `https://app.example.sa/operator/login` and sign in with `NX_PANEL_OWNER_EMAIL` and
+   `NX_PANEL_OWNER_PASSWORD`.
+2. Enrol an authenticator and **save the ten recovery codes**. They are shown once.
 3. «إعدادات التحقق ← البريد»: choose the service, set the address it sends from, paste the key
-   once, and press «أرسل رسالة تجربة». A message that arrived is the proof; a form that saved
+   once, then press «أرسل رسالة تجربة». A message that arrived is the proof; a form that saved
    is not.
 4. «إعدادات التحقق ← الربط التقني»: the data source's credentials, the same way.
 5. «جاهزية النشر» goes green when everything a first verification needs is in place.
 
+### What is *not* in the variables, and why
+
+The data source's client id and secret, its mTLS material, and the mail service's key are all
+set from the panel. They go to the sealed store and the database keeps a `kms://` pointer
+(rule 10). Keep the list above short on purpose: a key pasted into a deployment tool is a key in
+a second place, which has to be rotated when somebody leaves.
+
+### When something is wrong
+
+| What you see | What it is |
+| --- | --- |
+| `NX_KMS_ENDPOINT or NX_MASTER_KEY_FILE is required in production` | The `keys` volume is not mounted on that service |
+| The stack builds and `migrate` fails on connect | A connection string still says `localhost`; it must say `db` |
+| `console` starts, sign in refuses everything | `NX_PANEL_OWNER_*` unset, so no owner was made. Set them and redeploy |
+| Panel reachable, «جاهزية النشر» red on «تسليم البريد» | Mail is configured in the panel, not here. Expected until step 6.3 |
+| `worker` marked unhealthy after a minute | It reports on a heartbeat file. Check its logs for a job throwing on every sweep |
+
+### Updating
+
+Push to `main` and press **Redeploy**. Migrations run first, in their own container, before any
+process serves. A migration that fails stops the deployment with the old one still running,
+which is the behaviour you want.

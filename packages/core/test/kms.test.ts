@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { randomBytes } from 'node:crypto';
-import { HttpKmsClient, KmsMasterKeySource, type Fetcher } from '../src/crypto/kms.js';
+import {
+  HttpKmsClient,
+  KmsMasterKeySource,
+  masterKeySourceFromEnv,
+  type Fetcher,
+} from '../src/crypto/kms.js';
+import { FileMasterKeySource } from '../src/crypto/master-key.js';
 import { DerivedTenantKeyProvider } from '../src/crypto/tenant-keys.js';
 import { HttpSecretStore } from '../../providers/src/credentials.js';
 
@@ -178,5 +184,68 @@ describe('the secret manager store', () => {
     expect(String(error)).toContain('kms://tenants/acme/idp');
     expect(String(error)).toContain('403');
     expect(String(error)).not.toContain('the-secret');
+  });
+});
+
+/**
+ * The root key from a file, so a platform on one machine can run in production (ADR-151).
+ *
+ * The property that matters is the one the refusal exists for: an environment variable stays
+ * refused in production, because it is readable by anything that can run `docker inspect` or
+ * read `/proc/<pid>/environ`. A file is accepted for exactly the same reason the sealed
+ * secret store already accepts one.
+ */
+describe('where the root key comes from', () => {
+  const KEY = Buffer.alloc(32, 7).toString('base64');
+  const SECOND = Buffer.alloc(32, 9).toString('base64');
+
+  const fileWith = (contents: string): FileMasterKeySource =>
+    new FileMasterKeySource('/keys/master', () => contents);
+
+  it('reads one key with no version as version 1, exactly as the variable does', async () => {
+    const source = fileWith(`${KEY}\n`);
+    expect(await source.currentVersion()).toBe(1);
+    expect((await source.masterKey(1)).length).toBe(32);
+  });
+
+  it('reads several versions, and the highest is the one written with', async () => {
+    const source = fileWith(`1:${KEY}\n2:${SECOND}\n`);
+    expect(await source.currentVersion()).toBe(2);
+    expect(await source.availableVersions()).toEqual([1, 2]);
+  });
+
+  it('ignores comments and blank lines, so a file can say when a version was added', async () => {
+    const source = fileWith(`# added 2026-09-01\n\n1:${KEY}\n\n# rotated\n2:${SECOND}\n`);
+    expect(await source.currentVersion()).toBe(2);
+  });
+
+  it('refuses a file with nothing in it rather than starting with no key', () => {
+    expect(() => fileWith('\n# only a comment\n')).toThrow(/holds no key/);
+  });
+
+  it('refuses a key too short to be one, and never says what it was', () => {
+    let message = '';
+    try {
+      fileWith(Buffer.alloc(16, 1).toString('base64'));
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain('32 bytes');
+    expect(message).not.toContain('AQEB');
+  });
+
+  it('still refuses the environment in production, and accepts a file there', () => {
+    expect(() => masterKeySourceFromEnv({ NODE_ENV: 'production', NX_MASTER_KEY: KEY })).toThrow(
+      /NX_KMS_ENDPOINT or NX_MASTER_KEY_FILE/,
+    );
+    // And a key service is still tried first where there is one.
+    expect(
+      masterKeySourceFromEnv({
+        NODE_ENV: 'production',
+        NX_KMS_ENDPOINT: 'https://kms.example',
+        NX_KMS_TOKEN: 'token',
+        NX_KMS_KEYS: '1:ZW5j',
+      }),
+    ).toBeDefined();
   });
 });

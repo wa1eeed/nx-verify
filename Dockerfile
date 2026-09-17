@@ -34,10 +34,13 @@ RUN pnpm --filter @nx-verify/console run build
 
 FROM build AS runtime
 ENV NODE_ENV=production
-# The sealed secret file lives on a volume the three processes share. The directory is
-# made here and owned by the process user, because a named volume takes its ownership from
-# the image on first mount, and a root owned volume would refuse the panel's first save.
-RUN mkdir -p /var/lib/nx-secrets && chown node:node /var/lib/nx-secrets && chmod 700 /var/lib/nx-secrets
+# The sealed secret file and the root key that seals it live on volumes the three processes
+# share. Both directories are made here and owned by the process user, because a named volume
+# takes its ownership from the image on first mount, and a root owned volume would refuse the
+# panel's first save and the key file's first write.
+RUN mkdir -p /var/lib/nx-secrets /var/lib/nx-keys \
+  && chown node:node /var/lib/nx-secrets /var/lib/nx-keys \
+  && chmod 700 /var/lib/nx-secrets /var/lib/nx-keys
 # Never root. A process that only reads its own source has no business owning it.
 USER node
 EXPOSE 3000

@@ -93,6 +93,75 @@ export class EnvMasterKeySource implements MasterKeySource {
   }
 }
 
+/**
+ * Reads the keys from a file rather than from the environment (ADR-151).
+ *
+ *   NX_MASTER_KEY_FILE=/var/lib/nx-keys/master
+ *
+ * The file holds what the variables would have held: one base64 key on a line, or several
+ * `<version>:<base64>` lines. Blank lines and `#` comments are ignored, so a deployment can
+ * say in the file itself when a version was added.
+ *
+ * **Why a file is allowed in production where a variable is not.** An environment variable is
+ * readable by anything that can call `docker inspect`, anything that can read
+ * `/proc/<pid>/environ`, every crash reporter that dumps the environment, and the deployment
+ * tool's own interface, where it is typed into a form and then displayed back. A file at 0600
+ * on a volume is readable by the process user and by root, which is the same audience that
+ * could read the process memory anyway. That is the same argument that already lets the
+ * sealed secret store hold every provider credential in a file in production, and the master
+ * key has no business being held to a weaker standard than the things it seals.
+ *
+ * A key service is still the right answer where there is one, and it is still tried first.
+ * This exists so that a platform on one machine is not forced to choose between standing up
+ * a key service and running with `NODE_ENV=development`, which would switch off far more than
+ * this one check.
+ */
+export class FileMasterKeySource implements MasterKeySource {
+  readonly #inner: MasterKeySource;
+
+  constructor(path: string, read: (at: string) => string) {
+    const contents = read(path);
+    const lines = contents
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('#'));
+
+    if (lines.length === 0) {
+      throw new Error('NX_MASTER_KEY_FILE holds no key');
+    }
+
+    // One line with no version is version 1, exactly as NX_MASTER_KEY is.
+    const versioned = lines.some((line) => /^\d+:/.test(line));
+    const keys = new Map<number, Buffer>();
+    for (const line of lines) {
+      if (!versioned) {
+        keys.set(1, decode(line, 'NX_MASTER_KEY_FILE'));
+        continue;
+      }
+      const separator = line.indexOf(':');
+      const version = Number.parseInt(line.slice(0, separator), 10);
+      if (!Number.isInteger(version) || version <= 0) {
+        throw new Error('NX_MASTER_KEY_FILE versions must be positive integers');
+      }
+      keys.set(version, decode(line.slice(separator + 1), `NX_MASTER_KEY_FILE v${version}`));
+    }
+
+    this.#inner = new StaticMasterKeySource(keys);
+  }
+
+  currentVersion(): Promise<number> {
+    return this.#inner.currentVersion();
+  }
+
+  masterKey(version: number): Promise<Buffer> {
+    return this.#inner.masterKey(version);
+  }
+
+  availableVersions(): Promise<number[]> {
+    return this.#inner.availableVersions();
+  }
+}
+
 /** For tests and for a KMS backed implementation to model. */
 export class StaticMasterKeySource implements MasterKeySource {
   readonly #keys: Map<number, Buffer>;

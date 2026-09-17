@@ -206,12 +206,26 @@ function keysCheck(env: Readonly<Record<string, string | undefined>>): Readiness
       fixAr: null,
     };
   }
+  if (env['NX_MASTER_KEY_FILE']) {
+    // Accepted in production, and still second best (ADR-151). A file at 0600 on a volume is
+    // readable by the process user and by root; a key service holds a key that never leaves
+    // it at all, and that difference is worth stating on the screen that says whether a
+    // deployment is ready.
+    return {
+      id: 'keys',
+      titleAr: 'خدمة المفاتيح',
+      state: 'warn',
+      detailAr:
+        'المفتاح الجذر من ملف على القرص. يعمل، والأفضل منه خدمة مفاتيح لا يغادرها المفتاح أصلاً.',
+      fixAr: 'NX_KMS_ENDPOINT و NX_KMS_TOKEN، متى توفّرت خدمة مفاتيح',
+    };
+  }
   return {
     id: 'keys',
     titleAr: 'خدمة المفاتيح',
     state: env['NODE_ENV'] === 'production' ? 'blocked' : 'warn',
     detailAr: 'المفتاح الجذر من متغيّر بيئة. يصلح للتطوير ولا يصلح لبيانات حقيقية.',
-    fixAr: 'NX_KMS_ENDPOINT و NX_KMS_TOKEN',
+    fixAr: 'NX_KMS_ENDPOINT، أو NX_MASTER_KEY_FILE على قرص دائم',
   };
 }
 

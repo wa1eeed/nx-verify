@@ -22,7 +22,11 @@ export type {
   PublicStepStatus,
 } from './public-view.js';
 
-export { EnvMasterKeySource, StaticMasterKeySource } from './crypto/master-key.js';
+export {
+  EnvMasterKeySource,
+  FileMasterKeySource,
+  StaticMasterKeySource,
+} from './crypto/master-key.js';
 export type { MasterKeySource } from './crypto/master-key.js';
 export { DerivedTenantKeyProvider } from './crypto/tenant-keys.js';
 export type { TenantKeyProvider } from './crypto/tenant-keys.js';
