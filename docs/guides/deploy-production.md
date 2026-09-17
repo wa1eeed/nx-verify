@@ -212,16 +212,20 @@ appears for a service Coolify knows publishes a port. The compose file declares 
 with `SERVICE_FQDN_CONSOLE_3000` and `SERVICE_FQDN_API_3000`, so the fields are there on a
 first load rather than after a deploy.
 
-Coolify → the resource → **Domains**, per service. **Include the container port**, which is
-3000 for both:
+**Set them as variables, not in the domain field.** The generator's last two lines do it:
 
-| Service | Domain |
-| --- | --- |
-| `console` | `https://example.sa:3000` |
-| `api` | `https://api.example.sa:3000` |
+```
+SERVICE_FQDN_CONSOLE_3000=https://example.sa
+SERVICE_FQDN_API_3000=https://api.example.sa
+```
+
+The compose file declares those names, so Coolify treats itself as their owner and writes the
+domain field back to a generated value every time it re-reads the file: anything typed into
+that field reverts on the next save. A variable is not regenerated.
 
 The console and the landing page are one application, so the console's domain is the address a
-visitor, a subscriber and a member of staff all arrive at.
+visitor, a subscriber and a member of staff all arrive at. `db`, `migrate` and `worker` get
+none.
 
 Leave `db`, `migrate` and `worker` with no domain. The worker answers no port on purpose: the
 one process holding the role that may delete should not also hold a listening socket.

@@ -7,6 +7,11 @@
 # using «Developer view». Every secret is made here, by openssl, and appears nowhere else:
 # not in this repository, not in a chat, not in a ticket. That is the point of a generator
 # rather than a list of values somebody copies from a document.
+#
+# The two SERVICE_FQDN lines at the end are the domains, and they are variables rather than
+# something typed into Coolify's domain field on purpose: the compose file declares those
+# names, so Coolify treats itself as their owner and regenerates the field's value every time
+# it re-reads the file. A variable is not regenerated, so the domain stays what you set.
 set -euo pipefail
 
 CONSOLE_DOMAIN="${1:?usage: coolify-env.sh <console-domain> <api-domain> <owner-email>}"
@@ -48,6 +53,9 @@ NX_PUBLIC_BASE_URL=https://${API_DOMAIN}
 NX_CONSOLE_URL=https://${CONSOLE_DOMAIN}
 NX_CONSOLE_BASE_URL=https://${CONSOLE_DOMAIN}
 NX_SUPPORT_EMAIL=${OWNER_EMAIL}
+
+SERVICE_FQDN_CONSOLE_3000=https://${CONSOLE_DOMAIN}
+SERVICE_FQDN_API_3000=https://${API_DOMAIN}
 VARS
 
 cat >&2 <<NOTE
