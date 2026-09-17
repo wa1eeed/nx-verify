@@ -207,12 +207,21 @@ without it.
 
 ### 3. The domains
 
-Coolify → **Configuration → Domains**, per service:
+Domains belong to a **service inside the resource**, not to the project, and the field only
+appears for a service Coolify knows publishes a port. The compose file declares that outright,
+with `SERVICE_FQDN_CONSOLE_3000` and `SERVICE_FQDN_API_3000`, so the fields are there on a
+first load rather than after a deploy.
 
-| Service | Domain | Port |
-| --- | --- | --- |
-| `console` | `https://app.example.sa` | 3000 |
-| `api` | `https://api.example.sa` | 3000 |
+Coolify → the resource → **Domains**, per service. **Include the container port**, which is
+3000 for both:
+
+| Service | Domain |
+| --- | --- |
+| `console` | `https://example.sa:3000` |
+| `api` | `https://api.example.sa:3000` |
+
+The console and the landing page are one application, so the console's domain is the address a
+visitor, a subscriber and a member of staff all arrive at.
 
 Leave `db`, `migrate` and `worker` with no domain. The worker answers no port on purpose: the
 one process holding the role that may delete should not also hold a listening socket.
