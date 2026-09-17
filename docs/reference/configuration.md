@@ -115,9 +115,9 @@ depends on which provider is configured.
 | ------------------- | ------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------ |
 | `NX_MAIL_ENDPOINT`  | worker  | **Superseded by the panel** (ADR-141). Mail is configured under «إعدادات التحقق ← البريد» and the key goes to the secret store. This is kept only so a deployment set up before that keeps sending. | Optional | No |
 | `NX_MAIL_TOKEN`     | worker  | Bearer token for that endpoint.                                                                                | Required whenever `NX_MAIL_ENDPOINT` is set  | Yes    |
-| `NX_OPERATOR_EMAIL` | worker  | The panel owner's address, made true at every start (ADR-142).                                                 | Optional                                     | No     |
-| `NX_OPERATOR_PASSWORD` | worker | That owner's password. **The variable wins**: changing it and redeploying changes the password and ends every session opened under the old one. A password changed inside the panel is overwritten at the next start. | Required whenever `NX_OPERATOR_EMAIL` is set | Yes |
-| `NX_OPERATOR_NAME`  | worker  | The name shown beside that owner. «مالك المنصة» when absent.                                                    | Optional                                     | No     |
+| `NX_PANEL_OWNER_EMAIL` | worker  | The panel owner's address, made true at every start (ADR-142). Named for the panel, not the operator: `NX_OPERATOR_PASSWORD` is the `nx_operator` **database role**, a different secret entirely.                                                 | Optional                                     | No     |
+| `NX_PANEL_OWNER_PASSWORD` | worker | That owner's password, typed into the sign in form by a person. **The variable wins**: changing it and redeploying changes the password and ends every session opened under the old one. A password changed inside the panel is overwritten at the next start. | Required whenever `NX_PANEL_OWNER_EMAIL` is set | Yes |
+| `NX_PANEL_OWNER_NAME`  | worker  | The name shown beside that owner. «مالك المنصة» when absent.                                                    | Optional                                     | No     |
 | `NX_MAIL_FROM`      | worker  | The from address on outgoing notification mail.                                                                | Required whenever `NX_MAIL_ENDPOINT` is set  | No     |
 
 ---

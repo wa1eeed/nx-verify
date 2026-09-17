@@ -95,6 +95,36 @@ describe('the owner a deployment configures', () => {
     expect((await bootstrapOwnerFromEnv(owner(), {})).outcome).toBe('skipped');
   });
 
+  it('reads the panel owner, and never the database role that has a similar name', async () => {
+    // `NX_OPERATOR_PASSWORD` is the password of the `nx_operator` DATABASE ROLE, set by the
+    // migrate runner. If this ever read it, a deployment's database credential would become
+    // the password somebody types into a sign in form, and the sign in password would be a
+    // connection credential. They are not the same secret and must never share a name.
+    expect(
+      (
+        await bootstrapOwnerFromEnv(owner(), {
+          NX_OPERATOR_EMAIL: 'role@nx.local',
+          NX_OPERATOR_PASSWORD: 'the database role password',
+        })
+      ).outcome,
+    ).toBe('skipped');
+    const { rows } = await owner().query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM operator_accounts WHERE lower(email) = 'role@nx.local'`,
+    );
+    expect(rows[0]?.count).toBe('0');
+
+    expect(
+      (
+        await bootstrapOwnerFromEnv(owner(), {
+          NX_PANEL_OWNER_EMAIL: 'panel@nx.local',
+          NX_PANEL_OWNER_PASSWORD: PASSWORD,
+          NX_PANEL_OWNER_NAME: 'مالك اللوحة',
+        })
+      ).outcome,
+    ).toBe('created');
+    expect((await authenticateOperator(owner(), 'panel@nx.local', PASSWORD)).role).toBe('OWNER');
+  });
+
   const credentialVersion = async (): Promise<number> => {
     const { rows } = await owner().query<{ version: number }>(
       `SELECT credential_version AS version FROM operator_accounts WHERE lower(email) = 'boss@nx.local'`,

@@ -124,19 +124,30 @@ export async function ensureBootstrapOwner(
 /**
  * The same, from a process environment. Absent variables mean «nobody configured this», which
  * is not a failure: a deployment that makes its first owner from the panel's token still works.
+ *
+ * Named for the panel rather than for the operator, deliberately. `NX_OPERATOR_PASSWORD` was
+ * already taken, by the password of the `nx_operator` **database role**, and the two are not the
+ * same secret in any sense: one is a connection string's credential, the other is typed into a
+ * sign in form by a person. Sharing the name would have made the panel's password a database
+ * credential and the database credential something a person types into a browser.
  */
 export async function bootstrapOwnerFromEnv(
   db: Queryable,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): Promise<BootstrapResult> {
-  const email = env['NX_OPERATOR_EMAIL'];
-  const password = env['NX_OPERATOR_PASSWORD'];
+  const email = env['NX_PANEL_OWNER_EMAIL'];
+  const password = env['NX_PANEL_OWNER_PASSWORD'];
   if (!email || !password) {
-    return { outcome: 'skipped', reason: 'NX_OPERATOR_EMAIL and NX_OPERATOR_PASSWORD are not set' };
+    return {
+      outcome: 'skipped',
+      reason: 'NX_PANEL_OWNER_EMAIL and NX_PANEL_OWNER_PASSWORD are not set',
+    };
   }
   return ensureBootstrapOwner(db, {
     email,
     password,
-    ...(env['NX_OPERATOR_NAME'] === undefined ? {} : { displayName: env['NX_OPERATOR_NAME'] }),
+    ...(env['NX_PANEL_OWNER_NAME'] === undefined
+      ? {}
+      : { displayName: env['NX_PANEL_OWNER_NAME'] }),
   });
 }

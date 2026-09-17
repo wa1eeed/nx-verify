@@ -56,7 +56,7 @@ broken, the entry says what was broken, because that is the part worth reading a
   proves a setting is a message that arrived, not a form that saved.
 - **The panel owner from the deployment's own variables** (ADR-142), for a platform put on a
   server through a deployment tool where there is no console to run a command in.
-  `NX_OPERATOR_EMAIL` and `NX_OPERATOR_PASSWORD` are made true at every start. The variable wins
+  `NX_PANEL_OWNER_EMAIL` and `NX_PANEL_OWNER_PASSWORD` are made true at every start. Named for the panel because `NX_OPERATOR_PASSWORD` was already the `nx_operator` database role's password, and a sign in password must never be a connection credential. The variable wins
   over the panel, and every session opened under the old password ends; the second factor is
   never touched, so an authenticator survives a redeployment.
 - **A Coolify section in the production guide**: the short list of variables a deployment holds,

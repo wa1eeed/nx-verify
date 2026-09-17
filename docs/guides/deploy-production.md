@@ -162,7 +162,7 @@ rotated when somebody leaves.
 | `NX_MASTER_KEY` (or `NX_MASTER_KEY_SOURCE`) | Every sealed thing is sealed under it, including the secret store itself |
 | `NX_SECRETS_FILE` | Where that store lives on the volume. With it, every other key is set from the panel |
 | `NX_OPERATOR_TOKEN` | 32 random bytes. Without it there is no way into the panel at all |
-| `NX_OPERATOR_EMAIL`, `NX_OPERATOR_PASSWORD` | The first owner, made true at every start (ADR-142) |
+| `NX_PANEL_OWNER_EMAIL`, `NX_PANEL_OWNER_PASSWORD` | The first owner of the panel, made true at every start (ADR-142). Not `NX_OPERATOR_PASSWORD`, which is a database role |
 | `NX_CONSOLE_URL`, `NX_CONSOLE_BASE_URL` | What a link in an email points at |
 
 **Mount a volume for `NX_SECRETS_FILE`.** It holds every provider credential and the mail key,
@@ -177,7 +177,7 @@ why the list above is short.
 
 ### The owner, and the one thing to know about it
 
-`NX_OPERATOR_PASSWORD` **wins over the panel**. Change it in Coolify, redeploy, and that is the
+`NX_PANEL_OWNER_PASSWORD` **wins over the panel**. Change it in Coolify, redeploy, and that is the
 password; every session opened under the old one stops working. A password changed inside the
 panel is overwritten at the next start, so change it in Coolify or not at all.
 
