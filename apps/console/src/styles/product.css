@@ -1690,6 +1690,17 @@ a.frame-brand:active {
   border-radius: var(--radius-inset);
   background: var(--color-inset);
 }
+
+/*
+ * One notification address inside the addresses card: its own surface, so a list of four
+ * reads as four things rather than one long column of controls (ADR-145).
+ */
+.channel-card {
+  padding: var(--space-3);
+  border: var(--size-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-inset);
+  background: var(--color-inset);
+}
 .file-registry-links {
   margin-block-start: var(--space-2);
 }

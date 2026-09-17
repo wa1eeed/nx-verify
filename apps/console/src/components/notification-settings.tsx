@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { EmptyState, PageHeader, Panel } from './page-header';
+import { SubmitButton } from './ui/submit-button';
 
 /**
  * Who gets told what.
@@ -116,7 +117,12 @@ export function NotificationSettings({
       </p>
 
       <Panel title="إضافة عنوان">
-        <form action={addAction} className="stack" data-role="add-channel" style={{ gap: 'var(--s-3)' }}>
+        <form
+          action={addAction}
+          className="stack"
+          data-role="add-channel"
+          style={{ gap: 'var(--s-3)' }}
+        >
           <div className="row" style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}>
             <label className="stack" style={{ gap: 'var(--s-1)', flex: 1, minWidth: '220px' }}>
               <span className="stat-label">البريد</span>
@@ -130,9 +136,11 @@ export function NotificationSettings({
           <span className="stat-hint">
             يُرسل رمز إلى العنوان أولاً، ولا يُخطَر بشيء قبل إدخال ذلك الرمز.
           </span>
-          <button type="submit" className="btn btn-secondary" data-role="add-channel-submit">
-            إضافة وإرسال رمز
-          </button>
+          <div>
+            <SubmitButton data-role="add-channel-submit" pendingLabel="جارٍ الإرسال">
+              إضافة وإرسال رمز
+            </SubmitButton>
+          </div>
         </form>
       </Panel>
 
@@ -181,7 +189,12 @@ function ChannelCard({
   const remaining = Object.keys(EVENT_LABELS).filter((event) => !subscribed.has(event));
 
   return (
-    <article className="stack" data-role="channel" data-item={channel.id} style={{ gap: 'var(--s-3)' }}>
+    <article
+      className="stack channel-card"
+      data-role="channel"
+      data-item={channel.id}
+      style={{ gap: 'var(--s-3)' }}
+    >
       <div className="row" style={{ gap: 'var(--s-3)', flexWrap: 'wrap', alignItems: 'baseline' }}>
         <bdi dir="ltr" className="mono">
           {channel.address}
@@ -200,9 +213,9 @@ function ChannelCard({
         )}
         <form action={removeAction} style={{ marginInlineStart: 'auto' }}>
           <input type="hidden" name="channel_id" value={channel.id} />
-          <button type="submit" className="btn btn-secondary" data-role="remove-channel">
+          <SubmitButton variant="secondary" data-role="remove-channel" pendingLabel="جارٍ الإزالة">
             إزالة
-          </button>
+          </SubmitButton>
         </form>
       </div>
 
@@ -228,13 +241,13 @@ function ChannelCard({
               style={{ width: '9ch' }}
             />
           </label>
-          <button type="submit" className="btn btn-secondary" data-role="prove-submit">
+          <SubmitButton data-role="prove-submit" pendingLabel="جارٍ الإثبات">
             إثبات
-          </button>
+          </SubmitButton>
           <span data-role="resend">
-            <button type="submit" className="btn btn-ghost" formAction={resendAction}>
+            <SubmitButton variant="ghost" formAction={resendAction} pendingLabel="جارٍ الإرسال">
               إرسال رمز جديد
-            </button>
+            </SubmitButton>
           </span>
         </form>
       )}
@@ -253,9 +266,13 @@ function ChannelCard({
                   </span>
                   <form action={unsubscribeAction}>
                     <input type="hidden" name="rule_id" value={rule.ruleId} />
-                    <button type="submit" className="btn btn-ghost" data-role="unsubscribe">
+                    <SubmitButton
+                      variant="ghost"
+                      data-role="unsubscribe"
+                      pendingLabel="جارٍ الإيقاف"
+                    >
                       إيقاف
-                    </button>
+                    </SubmitButton>
                   </form>
                 </li>
               ))}
@@ -290,9 +307,9 @@ function ChannelCard({
                   ))}
                 </select>
               </label>
-              <button type="submit" className="btn btn-secondary" data-role="subscribe-submit">
+              <SubmitButton data-role="subscribe-submit" pendingLabel="جارٍ الحفظ">
                 اشتراك
-              </button>
+              </SubmitButton>
             </form>
           )}
         </div>
