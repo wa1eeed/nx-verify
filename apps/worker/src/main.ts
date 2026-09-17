@@ -5,6 +5,7 @@ import {
   getMailSettings,
   masterKeySourceFromEnv,
   pruneLoginCodes,
+  renewTerm,
   sweepStanding,
   type TenantKeyProvider,
 } from '@nx-verify/core';
@@ -242,6 +243,24 @@ async function main(): Promise<void> {
         // And the half finished sign ins: spent or stale after a day, and worth clearing
         // for the same reason as everything else here rather than kept forever (ADR-143).
         await pruneLoginCodes(tx);
+      },
+    },
+    {
+      /**
+       * A subscription term that has run out rolls over (ADR-150).
+       *
+       * `renewTerm` had no schedule, so a term simply lapsed at its end date: the commitment
+       * stopped covering anything and nobody was told, which shows up as a subscriber whose
+       * verifications start being refused on a Monday morning for no reason they can see.
+       *
+       * Hourly rather than daily, because a term that ended at midnight should not leave a
+       * workspace uncovered until the next sweep.
+       */
+      name: 'commitment-renewal',
+      everySeconds: 60 * MINUTE,
+      scope: 'tenant',
+      run: async ({ tx }) => {
+        await renewTerm(tx, tx.tenantId);
       },
     },
     {

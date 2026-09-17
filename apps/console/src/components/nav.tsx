@@ -55,6 +55,7 @@ export const SETTINGS_TABS: readonly SectionTab[] = [
   { href: '/settings/rules', label: 'قواعد القرار' },
   { href: '/settings/portfolios', label: 'المجموعات' },
   { href: '/settings/freshness', label: 'مدد الصلاحية' },
+  { href: '/settings/audit', label: 'سجل التدقيق' },
   { href: '/settings/support', label: 'الدعم' },
 ];
 

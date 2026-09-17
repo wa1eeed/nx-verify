@@ -37,6 +37,13 @@ gaps. A tab in the navigation promised a subscriber something there was no way t
   called `registerEndpoint` while the tab was named for webhooks and offered only API keys. No
   subscriber could ever receive one. We generate the signing secret, show it once, and keep
   only a `kms://` pointer.
+- **The audit trail can be read** (ADR-150). `audit()` is written on dozens of paths and
+  `readAudit` had no caller in any application, so «who shared this customer's file» had no
+  answer short of a database connection. A screen under settings shows who by name, what in
+  Arabic, and the details exactly as stored, which is to say already redacted.
+- **A subscription term renews instead of lapsing.** `renewTerm` had no schedule, so a term
+  simply ran out at its end date and nobody was told; it shows up as a subscriber whose
+  verifications start being refused on a Monday for no reason they can see.
 - **A workspace can have decision rules of its own** (ADR-149). Both buttons on the rules
   screen were dead and, unlike the rest of this sweep, nothing in the domain stood behind
   them: the engine could read a ruleset, decide with one and simulate one, and no code
