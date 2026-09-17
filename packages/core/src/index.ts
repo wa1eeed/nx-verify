@@ -181,6 +181,12 @@ export {
 } from './verification/verify.js';
 export type { ResumeInput, VerifyInput, VerifyResult } from './verification/verify.js';
 export {
+  IDENTIFIER_TYPES,
+  inferIdentifiers,
+  isIdentifierTypeName,
+} from './verification/subject-identifiers.js';
+export type { DeclaredIdentifierType } from './verification/subject-identifiers.js';
+export {
   countRecentRuns,
   countRuns,
   listEntityRuns,

@@ -37,6 +37,15 @@ gaps. A tab in the navigation promised a subscriber something there was no way t
   called `registerEndpoint` while the tab was named for webhooks and offered only API keys. No
   subscriber could ever receive one. We generate the signing secret, show it once, and keep
   only a `kms://` pointer.
+- **An onboarding file can be opened from the console** (ADR-148). The list screen's primary
+  action pointed at a route nobody had built, so it fell through to the `[id]` route and a
+  404: the only way into onboarding from this console was broken. Opening now runs the file,
+  the way the API does, because a person opening one wants an answer and not a handle. A
+  pending check can be run or waived from the case screen, and a waive records why from a
+  closed set of reasons rather than free text.
+- **The reachability guard was widened precisely**, not by excusing directories. The test that
+  walks the file system and demands every screen be reachable from a tab is what would have
+  caught that 404; it now also allows a «new» screen reached from its own list.
 - **A portfolio can be created**, with its policy asked for at the moment it is made. The
   screen promised per-group durations, rules and monitoring and offered no way to have a group
   at all. Monitoring with no ceiling is refused: that is how a group quietly spends a

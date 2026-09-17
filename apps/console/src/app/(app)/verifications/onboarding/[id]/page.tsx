@@ -7,15 +7,19 @@ import {
   type CaseStepView,
 } from '../../../../../components/onboarding-case';
 import { query } from '../../../../../lib/context';
+import { advanceCaseAction, waiveStepAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function OnboardingCasePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ outcome?: string }>;
 }): Promise<ReactElement> {
   const { id } = await params;
+  const { outcome } = await searchParams;
 
   const view = await query(async (tx): Promise<CaseDetailView | null> => {
     const onboarding = await getCase(tx, id);
@@ -93,5 +97,12 @@ export default async function OnboardingCasePage({
     notFound();
   }
 
-  return <OnboardingCaseView view={view} />;
+  return (
+    <OnboardingCaseView
+      view={view}
+      outcome={outcome}
+      advanceAction={advanceCaseAction}
+      waiveAction={waiveStepAction}
+    />
+  );
 }

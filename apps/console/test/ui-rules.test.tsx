@@ -714,8 +714,13 @@ describe('the console shell', () => {
         .flat()
         .map((tab) => tab.href),
     ]);
-    // A detail screen is reached from its list.
-    const unreachable = pages.filter((page) => !page.includes('[') && !reachable.has(page));
+    // A detail screen is reached from its list, and so is the screen that opens a new one:
+    // both hang off a row or the primary button on the list above them. This guard is what
+    // would have caught «فتح ملف» pointing at a route nobody had built (ADR-148), so the
+    // allowance is written narrowly rather than by excusing whole directories.
+    const fromItsList = (page: string): boolean =>
+      page.includes('[') || (page.endsWith('/new') && reachable.has(page.replace(/\/new$/, '')));
+    const unreachable = pages.filter((page) => !fromItsList(page) && !reachable.has(page));
     expect(unreachable).toEqual([]);
   });
 

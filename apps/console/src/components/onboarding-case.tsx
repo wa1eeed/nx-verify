@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { PageHeader, Panel } from './page-header';
 import { StatusBadge, caseStatusLabel } from './onboarding';
+import { SubmitButton } from './ui/submit-button';
 
 /**
  * One file, and everything that was done to it.
@@ -71,8 +72,37 @@ export function waiveReasonLabel(reason: string): string {
   return WAIVE_LABELS[reason] ?? reason;
 }
 
-export function OnboardingCaseView({ view }: { view: CaseDetailView }): ReactElement {
+const OUTCOMES: Record<string, { tone: 'done' | 'refused'; text: string }> = {
+  advanced: { tone: 'done', text: 'شُغّلت الفحوص الباقية.' },
+  waived: { tone: 'done', text: 'سُجّل تجاوز الفحص بسببه.' },
+  number: { tone: 'refused', text: 'اكتب رقم المنشأة لتشغيل ما تبقّى.' },
+  closed: { tone: 'refused', text: 'هذا الملف مغلق. لا فحوص تُشغَّل عليه.' },
+  failed: { tone: 'refused', text: 'لم يُنفَّذ الإجراء. حاول مرة أخرى.' },
+};
+
+export function caseNotice(
+  outcome: string | undefined,
+): { tone: 'done' | 'refused'; text: string } | null {
+  return outcome === undefined ? null : (OUTCOMES[outcome] ?? null);
+}
+
+type Action = (formData: FormData) => void | Promise<void>;
+
+export function OnboardingCaseView({
+  view,
+  outcome,
+  advanceAction,
+  waiveAction,
+}: {
+  view: CaseDetailView;
+  outcome?: string | undefined;
+  /** Absent on a screen that only reports. */
+  advanceAction?: Action | undefined;
+  waiveAction?: Action | undefined;
+}): ReactElement {
   const done = view.steps.filter((step) => step.status !== 'PENDING').length;
+  const notice = caseNotice(outcome);
+  const open = view.status !== 'CLOSED' && view.steps.some((step) => step.status === 'PENDING');
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
@@ -87,6 +117,46 @@ export function OnboardingCaseView({ view }: { view: CaseDetailView }): ReactEle
           ) : undefined
         }
       />
+
+      {notice === null ? null : (
+        <p
+          className={`notice notice-${notice.tone}`}
+          data-role="case-notice"
+          data-tone={notice.tone}
+          style={{ margin: 0 }}
+        >
+          {notice.text}
+        </p>
+      )}
+
+      {open && advanceAction !== undefined ? (
+        <Panel
+          title="واصل الفحوص"
+          note="الرقم يُطلب في كل مرة ولا يُحفَظ على الملف: المعرّفات لا تُخزَّن صريحة (القاعدة 4)."
+        >
+          <form
+            action={advanceAction}
+            className="panel-body row"
+            data-role="advance-case"
+            style={{ gap: 'var(--s-2)', flexWrap: 'wrap', alignItems: 'flex-end' }}
+          >
+            <input type="hidden" name="case_id" value={view.caseId} />
+            <label className="stack" style={{ gap: 'var(--s-1)' }}>
+              <span className="stat-label">الرقم الموحد أو السجل التجاري</span>
+              <input
+                name="number"
+                dir="ltr"
+                inputMode="numeric"
+                required
+                style={{ width: '16ch' }}
+              />
+            </label>
+            <SubmitButton variant="primary" data-role="advance-submit" pendingLabel="جارٍ التشغيل">
+              شغّل ما تبقّى
+            </SubmitButton>
+          </form>
+        </Panel>
+      ) : null}
 
       <section className="grid" data-role="case-indicators">
         <article className="stat">
@@ -165,6 +235,37 @@ export function OnboardingCaseView({ view }: { view: CaseDetailView }): ReactEle
                           {step.runReference ?? 'عرض'}
                         </bdi>
                       </Link>
+                    ) : step.status === 'PENDING' && waiveAction !== undefined ? (
+                      // A waive is not a pass: it records why nobody ran this, from a closed
+                      // set of reasons, so the answer reads the same on every screen.
+                      <form
+                        action={waiveAction}
+                        className="row"
+                        data-role="waive-step"
+                        style={{ gap: 'var(--s-2)', alignItems: 'flex-end' }}
+                      >
+                        <input type="hidden" name="case_id" value={view.caseId} />
+                        <input type="hidden" name="step_key" value={step.stepKey} />
+                        <select
+                          name="reason"
+                          defaultValue="NOT_APPLICABLE"
+                          aria-label={`سبب تجاوز ${step.productNameAr}`}
+                          style={{ width: 'auto' }}
+                        >
+                          {Object.entries(WAIVE_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        <SubmitButton
+                          variant="ghost"
+                          data-role="waive-submit"
+                          pendingLabel="جارٍ التسجيل"
+                        >
+                          تجاوز
+                        </SubmitButton>
+                      </form>
                     ) : (
                       <span className="muted">لا يوجد</span>
                     )}

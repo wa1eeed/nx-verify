@@ -7,6 +7,8 @@ import {
   buildEvidenceDocument,
   evidenceStorageKey,
   getVerification,
+  IDENTIFIER_TYPES,
+  inferIdentifiers,
   halalasToRiyals,
   renderEvidenceHtml,
   resolvePublicEvidence,
@@ -25,16 +27,6 @@ import type { AppContext } from '../context.js';
  * never does. The envelope below is fixed and validated by Zod; the subject inside it is
  * validated against the product's own JSON Schema, which lives in a database row.
  */
-
-const IDENTIFIER_TYPES = [
-  'CR',
-  'UNN',
-  'NATIONAL_ID',
-  'IQAMA',
-  'FREELANCE_DOC',
-  'IBAN',
-  'REAL_ESTATE_NO',
-] as const;
 
 const envelope = z.object({
   product: z.string().min(1).max(64),
@@ -316,35 +308,3 @@ function headerValue(value: string | string[] | undefined): string | null {
  * else. Guessing more widely would resolve the wrong entity, and a wrong merge is far
  * harder to undo than a 400.
  */
-/**
- * Reads whatever identifiers the subject happens to carry.
- *
- * Shared with the onboarding routes, which take the same applicant record: one reading of
- * a subject rather than two that could disagree about what counts as an identifier.
- */
-export function inferIdentifiers(subject: Record<string, unknown>): IdentifierInput[] {
-  const identifiers: IdentifierInput[] = [];
-  const add = (idType: IdentifierInput['idType'], value: unknown): void => {
-    if (typeof value === 'string' && value.length > 0) {
-      identifiers.push({ idType, value });
-    }
-  };
-
-  add('UNN', subject['unn']);
-  add('CR', subject['cr_number']);
-  add('IBAN', subject['iban']);
-
-  const identifier = subject['identifier'];
-  if (identifier && typeof identifier === 'object') {
-    const record = identifier as Record<string, unknown>;
-    const type = record['type'];
-    if (
-      typeof type === 'string' &&
-      IDENTIFIER_TYPES.includes(type as (typeof IDENTIFIER_TYPES)[number])
-    ) {
-      add(type as IdentifierInput['idType'], record['value']);
-    }
-  }
-
-  return identifiers;
-}

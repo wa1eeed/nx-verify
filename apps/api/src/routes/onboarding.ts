@@ -3,6 +3,7 @@ import {
   NxError,
   advanceCase,
   getCase,
+  inferIdentifiers,
   listCases,
   listJourneys,
   openOnboardingCase,
@@ -10,7 +11,6 @@ import {
   type WaiveReason,
 } from '@nx-verify/core';
 import { assertNoProviderLeak } from '@nx-verify/core';
-import { inferIdentifiers } from './verifications.js';
 import { callerOf, requireAuth } from '../auth.js';
 import type { AppContext } from '../context.js';
 import type { FastifyInstance } from 'fastify';
