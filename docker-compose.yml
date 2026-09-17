@@ -20,12 +20,20 @@
 # pointing at that same file. A service that loaded nothing came up with no database url at
 # all and restarted until the deployment timed out, which reads as a hang rather than as a
 # missing variable. Interpolation works under both.
+#
+# And every interpolation is plain `${VAR}`. Compose's `${VAR:?message}` says «refuse to start
+# and name what is missing», which is the right behaviour under `docker compose` and is read by
+# a deployment tool as a **default value**: Coolify created a variable holding the message
+# itself and it won over the real one, so a connection string arrived as the words «set
+# NX_ADMIN_DATABASE_URL» and the database host resolved to nothing. Every process here already
+# refuses to start with its own named error when a variable it needs is missing, so the compose
+# level check bought nothing and cost an evening.
 services:
   db:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: ${NX_POSTGRES_PASSWORD:?set NX_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${NX_POSTGRES_PASSWORD}
       POSTGRES_DB: nx_verify
     volumes:
       - db:/var/lib/postgresql/data
@@ -48,7 +56,7 @@ services:
     environment:
       # The owner connection: it creates the roles and owns the tables, and nothing else in
       # this file uses it (rule 12).
-      NX_ADMIN_DATABASE_URL: ${NX_ADMIN_DATABASE_URL:?set NX_ADMIN_DATABASE_URL}
+      NX_ADMIN_DATABASE_URL: ${NX_ADMIN_DATABASE_URL}
       # The migrate runner assigns these to the roles migration 0001 creates.
       NX_MIGRATOR_PASSWORD: ${NX_MIGRATOR_PASSWORD:-}
       NX_APP_PASSWORD: ${NX_APP_PASSWORD:-}
@@ -67,7 +75,7 @@ services:
     command: ['pnpm', '--filter', '@nx-verify/api', 'run', 'start']
     environment:
       # One connection, and it owns nothing and never bypasses row level security (rule 12).
-      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL:?set NX_APP_DATABASE_URL}
+      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL}
       NX_PROVIDERS: ${NX_PROVIDERS:-stub}
       NX_OPENBANKING_PROVIDERS: ${NX_OPENBANKING_PROVIDERS:-}
       # Printed on every sealed document, as the address its code is checked at.
@@ -110,11 +118,11 @@ services:
     restart: unless-stopped
     command: ['pnpm', '--filter', '@nx-verify/console', 'run', 'start']
     environment:
-      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL:?set NX_APP_DATABASE_URL}
+      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL}
       # The panel reads a second connection, on a role that can see no subscriber's data.
-      NX_OPERATOR_DATABASE_URL: ${NX_OPERATOR_DATABASE_URL:?set NX_OPERATOR_DATABASE_URL}
+      NX_OPERATOR_DATABASE_URL: ${NX_OPERATOR_DATABASE_URL}
       # Without it there is no way into the panel at all (SEC-06).
-      NX_OPERATOR_TOKEN: ${NX_OPERATOR_TOKEN:?set NX_OPERATOR_TOKEN}
+      NX_OPERATOR_TOKEN: ${NX_OPERATOR_TOKEN}
       NX_PROVIDERS: ${NX_PROVIDERS:-stub}
       NX_CONSOLE_URL: ${NX_CONSOLE_URL:-}
       NX_CONSOLE_BASE_URL: ${NX_CONSOLE_BASE_URL:-}
@@ -148,9 +156,9 @@ services:
     environment:
       # Three connections, because the worker does three different jobs: the application's
       # work, the operator's list of workspaces, and the one role that may delete (ADR-056).
-      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL:?set NX_APP_DATABASE_URL}
-      NX_OPERATOR_DATABASE_URL: ${NX_OPERATOR_DATABASE_URL:?set NX_OPERATOR_DATABASE_URL}
-      NX_RETENTION_DATABASE_URL: ${NX_RETENTION_DATABASE_URL:?set NX_RETENTION_DATABASE_URL}
+      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL}
+      NX_OPERATOR_DATABASE_URL: ${NX_OPERATOR_DATABASE_URL}
+      NX_RETENTION_DATABASE_URL: ${NX_RETENTION_DATABASE_URL}
       # The first owner of the panel, made true at every start (ADR-142).
       NX_PANEL_OWNER_EMAIL: ${NX_PANEL_OWNER_EMAIL:-}
       NX_PANEL_OWNER_PASSWORD: ${NX_PANEL_OWNER_PASSWORD:-}
