@@ -45,8 +45,17 @@ services:
 
   migrate:
     build: .
-    # No restart policy: it runs once and finishing is what it is for. It makes the root key
-    # before it migrates, because everything sealed afterwards is sealed under it.
+    # It runs once and finishing is what it is for. It makes the root key before it migrates,
+    # because everything sealed afterwards is sealed under it.
+    #
+    # **Both lines below exist because a one-shot service confuses a deployment tool.** A tool
+    # that waits for «every container running» waits forever for one designed to stop: Coolify
+    # read the clean exit as a failure, restarted it, watched it exit again, and never finished
+    # the deployment. The migrations had already applied; the log just said «nothing to apply»
+    # fifteen times while the dependents sat waiting.
+    restart: 'no'
+    labels:
+      exclude_from_hc: true
     command:
       - sh
       - -c

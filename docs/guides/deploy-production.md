@@ -288,6 +288,8 @@ a second place, which has to be rotated when somebody leaves.
 | What you see | What it is |
 | --- | --- |
 | `migrate` restarts for minutes and the deploy times out with no error | Read its container logs, not the deployment log. `NX_ADMIN_DATABASE_URL is not set` means the variables never reached it |
+| `migrate` logs «nothing to apply» over and over and the deploy never finishes | The migrations are done. A deployment tool is restarting a container built to exit; `exclude_from_hc: true` on that service tells it not to wait |
+| `db` exits within a second, «dependency failed to start» | `NX_POSTGRES_PASSWORD` is empty. Its own log says so in one line |
 | `NX_KMS_ENDPOINT or NX_MASTER_KEY_FILE is required in production` | The `keys` volume is not mounted on that service |
 | The stack builds and `migrate` fails on connect | A connection string still says `localhost`; it must say `db` |
 | `console` starts, sign in refuses everything | `NX_PANEL_OWNER_*` unset, so no owner was made. Set them and redeploy |
