@@ -656,7 +656,12 @@ describe('the console shell', () => {
     // would have caught «فتح ملف» pointing at a route nobody had built (ADR-148), so the
     // allowance is written narrowly rather than by excusing whole directories.
     const fromItsList = (page: string): boolean =>
-      page.includes('[') || (page.endsWith('/new') && reachable.has(page.replace(/\/new$/, '')));
+      page.includes('[') ||
+      (page.endsWith('/new') && reachable.has(page.replace(/\/new$/, ''))) ||
+      // Reached by the redirect that follows registration, never from a tab: it is the first
+      // screen after an account is made and has no place in the navigation of a console the
+      // reader has not used yet (ADR-154).
+      page === '/welcome';
     const unreachable = pages.filter((page) => !fromItsList(page) && !reachable.has(page));
     expect(unreachable).toEqual([]);
   });

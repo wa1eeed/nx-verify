@@ -1,4 +1,19 @@
 export { NxError } from './errors.js';
+export {
+  MAX_SIGNUP_ATTEMPTS,
+  SIGNUP_RESEND_AFTER_SECONDS,
+  SIGNUP_TTL_MINUTES,
+  completeSignup,
+  pruneSignupIntents,
+  slugFrom,
+  startSignup,
+} from './signup/signup.js';
+export type {
+  CompletedSignup,
+  SignupAnswers,
+  StartSignupInput,
+  StartedSignup,
+} from './signup/signup.js';
 export { PAGE_SIZES, pageRequestOf, pageWindow, readPage, slicePage } from './pagination.js';
 export type { Page, PageRequest, PageSize } from './pagination.js';
 export type { NxErrorCode, NxErrorOptions } from './errors.js';
@@ -555,13 +570,20 @@ export type {
   BootstrapResult,
   BootstrapOwnerInput,
 } from './operators/bootstrap.js';
-export { listModules, setTenantModule, tenantModules } from './modules/modules.js';
+export {
+  listModules,
+  ownModules,
+  setOwnModule,
+  setTenantModule,
+  tenantModules,
+} from './modules/modules.js';
 export type {
   ModuleProductView,
   ModuleSource,
   ModuleView,
   SetTenantModuleInput,
   TenantModuleView,
+  OwnModuleView,
 } from './modules/modules.js';
 export {
   costInRiyals,

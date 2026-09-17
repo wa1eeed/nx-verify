@@ -154,6 +154,20 @@ export function OperatorIntegration({
         subtitle="مفاتيح الربط مع مصدر البيانات وسر توقيع الإشعارات، لكل بيئة على حدة. لا يراها أي مشترك."
       />
 
+      {/*
+        Which environment a subscriber actually reaches is not a switch anybody flips: a
+        sandbox workspace is a workspace linked to a parent, and every other workspace is
+        live. So this is not «put the platform into production», it is «these are the
+        credentials production uses», and the sentence below says so because the difference
+        matters on the day of a launch (ADR-155).
+      */}
+      <p className="admin-card-note" data-role="environment-note" style={{ margin: 0 }}>
+        كل مشترك حقيقي يعمل على <strong>{ENVIRONMENT_LABELS.live}</strong> دائماً؛ بيئة الاختبار
+        لمساحات العمل التجريبية المرتبطة بمشترك. فما تضبطه هنا تحت «{ENVIRONMENT_LABELS.live}» هو ما
+        تستعمله عمليات عملائك فعلاً، ولا يلزم تبديل شيء بعد الإطلاق: يكفي أن تكون بياناتها محفوظة
+        و«جاهزية النشر» خضراء.
+      </p>
+
       <SectionTabs
         label="البيئة"
         current={`/operator/verification/integration?env=${view.environment}`}

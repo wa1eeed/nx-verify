@@ -14,6 +14,30 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ## [Unreleased]
 
+### Added
+
+- **A landing page** (ADR-154). `/` redirected to the dashboard, so somebody without an account
+  found nothing to read. It is built from the product's own tokens rather than a marketing
+  theme, names no data source, claims no customers it cannot show, and puts a customer file in
+  miniature beside the headline rather than adjectives.
+- **A company can register itself.** Deferred since the beginning for a stated reason:
+  registration without proving an address is an abuse surface, not a feature. The platform can
+  send mail now, so it is buildable. **No workspace exists until the address is proved**, and
+  what stops abuse afterwards is the wallet: a new workspace has no balance and nothing runs
+  without one, so a hundred registrations are a hundred empty workspaces that cost nothing.
+- **The unified number is sealed the moment it is stored.** There is no tenant yet to hold a
+  per-tenant key, so the answers are encrypted under one derived from the platform root and
+  opened once, when the workspace is made. Rule 4 has no exception for a registration form.
+- **A welcome screen** that asks one question: which services do you need. A subscriber may
+  switch their own add-ons on, because doing so costs nothing by itself; the core module
+  refuses with the same code and sentence the panel gives.
+- **A banner on the wallet** when the balance is zero, pointing at the bank transfer. A banner
+  rather than a dialog: a dialog is dismissed and never seen again, and this matters until it
+  is done.
+- **The integration screen says what an environment means** (ADR-155). Every real subscriber
+  runs live from their first day; a sandbox is a workspace linked to a parent. There is no
+  switch to flip at launch, and now the screen says so.
+
 ### Fixed (screens that reported and could not act)
 
 A sweep of the platform found several screens that read and displayed and could do nothing:

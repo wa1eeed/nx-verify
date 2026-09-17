@@ -1,4 +1,4 @@
-import type { Queryable } from '@nx-verify/db';
+import type { Queryable, TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 
 /**
@@ -270,5 +270,101 @@ export async function setTenantModule(
       `module:${input.moduleCode}`,
       JSON.stringify({ enabled: input.enabled, note: input.note ?? null }),
     ],
+  );
+}
+
+export interface OwnModuleView {
+  code: string;
+  nameAr: string;
+  summaryAr: string;
+  core: boolean;
+  /** On for this workspace right now, whatever decided it. */
+  enabled: boolean;
+  /** What the products under it are called, for a screen that is choosing between them. */
+  products: { code: string; nameAr: string }[];
+}
+
+/**
+ * The modules as the subscriber themselves sees them (ADR-154).
+ *
+ * Read in the workspace's own scope, so it says what *this* workspace has and cannot be asked
+ * about another. The resolution is the same cascade the entitlement check uses: an explicit
+ * row wins, then the plan, then the module's own default, and core is always on.
+ */
+export async function ownModules(tx: TenantTransaction): Promise<OwnModuleView[]> {
+  const { rows } = await tx.query<{
+    code: string;
+    name_ar: string;
+    summary_ar: string;
+    core: boolean;
+    enabled: boolean;
+    products: { code: string; nameAr: string }[] | null;
+  }>(
+    `SELECT m.code, m.name_ar, m.summary_ar, m.core,
+            COALESCE(tm.enabled, m.default_on) OR m.core AS enabled,
+            (SELECT json_agg(json_build_object('code', p.code, 'nameAr', p.name_ar)
+                               ORDER BY p.code)
+               FROM products p
+              WHERE p.module_code = m.code AND p.status = 'active') AS products
+       FROM modules m
+       LEFT JOIN tenant_modules tm
+         ON tm.module_code = m.code AND tm.tenant_id = $1
+      WHERE m.status = 'active'
+      ORDER BY m.core DESC, m.position, m.code`,
+    [tx.tenantId],
+  );
+
+  return rows.map((row) => ({
+    code: row.code,
+    nameAr: row.name_ar,
+    summaryAr: row.summary_ar,
+    core: row.core,
+    enabled: row.enabled,
+    products: row.products ?? [],
+  }));
+}
+
+/**
+ * A subscriber switching an add-on on or off for themselves.
+ *
+ * Safe to let them do, because switching a module on costs nothing: it decides which sections
+ * their customer files draw and which products their calls may use, and every one of those
+ * still spends from a wallet that an operator has to fund. Turning everything on and having no
+ * balance buys exactly nothing.
+ *
+ * Core refuses, with the same code and the same sentence the panel gives, so a subscriber and
+ * a member of staff are told the same thing about the same rule.
+ */
+export async function setOwnModule(
+  tx: TenantTransaction,
+  input: { moduleCode: string; enabled: boolean; userId: string },
+): Promise<void> {
+  const { rows } = await tx.query<{ core: boolean; name_ar: string }>(
+    `SELECT core, name_ar FROM modules WHERE code = $1 AND status = 'active'`,
+    [input.moduleCode],
+  );
+  const module = rows[0];
+  if (!module) {
+    throw new NxError('NX-4041', {
+      detail: `No such module: ${input.moduleCode}`,
+      cause: 'لا يوجد موديول بهذا الرمز.',
+    });
+  }
+  if (module.core && !input.enabled) {
+    throw new NxError('NX-4003', {
+      detail: `Module ${input.moduleCode} is core and cannot be switched off`,
+      cause: `«${module.name_ar}» أساس كل ملف عميل ولا يمكن تعطيله.`,
+    });
+  }
+
+  await tx.query(
+    `INSERT INTO tenant_modules (tenant_id, module_code, enabled, decided_by, note)
+     VALUES ($1, $2, $3, $4, 'اختيار المشترك')
+     ON CONFLICT (tenant_id, module_code) DO UPDATE SET
+       enabled = EXCLUDED.enabled,
+       decided_by = EXCLUDED.decided_by,
+       decided_at = now(),
+       note = EXCLUDED.note`,
+    [tx.tenantId, input.moduleCode, input.enabled, input.userId],
   );
 }

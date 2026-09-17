@@ -4006,3 +4006,199 @@ a.frame-brand:active {
     transition: none;
   }
 }
+
+/* ── the landing page (ADR-154) ───────────────────────────────────────────────────────────
+ *
+ * The one screen somebody sees before they have an account. It uses the same tokens as every
+ * other screen, because a marketing page that looks like a different product is a promise the
+ * product does not keep: whoever signs up should recognise what they signed up for.
+ *
+ * Wider than the console on purpose. The console is a working surface read at arm's length;
+ * this is read once, scrolled, and decided on.
+ */
+.landing {
+  --landing-max: 1120px;
+  color: var(--color-text);
+}
+
+.landing-bar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-block-end: var(--size-hairline) solid var(--color-hairline);
+}
+.landing-bar-actions {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.landing-section {
+  max-inline-size: var(--landing-max);
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-6);
+}
+
+.landing-hero {
+  display: grid;
+  gap: var(--space-6);
+  align-items: center;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  padding-block: calc(var(--space-8) * 1.6);
+}
+.landing-hero h1 {
+  font-size: clamp(30px, 4.6vw, 52px);
+  line-height: 1.15;
+  margin: 0 0 var(--space-4);
+}
+.landing-lede {
+  font-size: clamp(16px, 1.6vw, 19px);
+  line-height: 1.7;
+  color: var(--color-neutral-700);
+  margin: 0 0 var(--space-6);
+  max-inline-size: 54ch;
+}
+.landing-cta {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* The proof panel beside the hero: one customer file, abbreviated, because showing the
+ * product beats describing it. */
+.landing-proof {
+  border: var(--size-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+}
+.landing-proof-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-inset);
+}
+.landing-proof-row strong {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+.landing-proof-meta {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.landing-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.landing-card {
+  border: var(--size-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-6);
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  box-shadow: var(--shadow-sm);
+}
+.landing-card h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.landing-card p {
+  margin: 0;
+  color: var(--color-neutral-700);
+  line-height: 1.7;
+}
+.landing-card-mark {
+  inline-size: 34px;
+  block-size: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent-100);
+  color: var(--color-accent-700);
+  margin-block-end: var(--space-2);
+}
+
+.landing-band {
+  background: var(--color-inset);
+  border-block: var(--size-hairline) solid var(--color-hairline);
+}
+
+.landing-steps {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  counter-reset: landing-step;
+}
+.landing-step {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+.landing-step::before {
+  counter-increment: landing-step;
+  content: counter(landing-step);
+  inline-size: 30px;
+  block-size: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent);
+  color: var(--color-white);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-head {
+  max-inline-size: 60ch;
+  margin-block-end: var(--space-6);
+}
+.landing-head h2 {
+  font-size: clamp(22px, 2.8vw, 32px);
+  margin: 0 0 var(--space-2);
+}
+.landing-head p {
+  margin: 0;
+  color: var(--color-neutral-700);
+  line-height: 1.7;
+}
+
+.landing-foot {
+  border-block-start: var(--size-hairline) solid var(--color-hairline);
+  color: var(--color-neutral-600);
+  font-size: 12px;
+}
+
+@media (max-width: 860px) {
+  .landing-hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: var(--space-8);
+  }
+  .landing-section {
+    padding-inline: var(--space-4);
+  }
+  .landing-bar {
+    padding-inline: var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-bar {
+    backdrop-filter: none;
+  }
+}

@@ -11,6 +11,7 @@ import { BundleOffer } from '../../../components/bundle-offer';
 import { requestBundleAction } from './bundle-actions';
 import { Usage, type EntitlementView, type UsageView } from '../../../components/usage';
 import { query } from '../../../lib/context';
+import { FundBanner, LowBanner } from '../../../components/fund-banner';
 import { SectionTabs } from '../../../components/section-tabs';
 import { BILLING_TABS } from '../../../components/nav';
 
@@ -60,6 +61,12 @@ export default async function UsagePage(): Promise<ReactElement> {
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
       <SectionTabs tabs={BILLING_TABS} current="/billing" label="أقسام الاشتراك والرصيد" />
+      {/*
+        Said where somebody would go looking, rather than left to be discovered as a refusal
+        in the middle of a first verification (ADR-154).
+      */}
+      <FundBanner availableHalalas={view.availableHalalas} />
+      {view.isLow ? <LowBanner availableHalalas={view.availableHalalas} /> : null}
       <Usage view={view} />
       <BundleOffer
         balance={bundles.balance}

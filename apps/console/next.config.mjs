@@ -110,7 +110,10 @@ const nextConfig = {
         destination: '/operator/verification/readiness',
         permanent: false,
       },
-      { source: '/', destination: '/dashboard', permanent: false },
+      // `/` was the dashboard's address back when every visitor to this console already had
+      // an account. It is the landing page now (ADR-154), so the redirect is gone: somebody
+      // who signs in still lands on /dashboard, and somebody who has never been here reads
+      // what this is first.
     ];
   },
   webpack: (config) => {
