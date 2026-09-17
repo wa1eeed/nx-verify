@@ -55,10 +55,6 @@ services:
       # variable is readable by anything that can run `docker inspect` (ADR-151). A key
       # service is better where there is one: set NX_KMS_ENDPOINT instead and this is ignored.
       NX_MASTER_KEY_FILE: /var/lib/nx-keys/master
-      # Coolify reads this and puts a domain in front of container port 3000. Declared with
-      # no value so the platform supplies it: empty under a plain `docker compose up`, which
-      # reaches the service through the published port below instead.
-      SERVICE_FQDN_API_3000: ${SERVICE_FQDN_API_3000:-}
     volumes:
       - secrets:/var/lib/nx-secrets
       - keys:/var/lib/nx-keys
@@ -90,9 +86,6 @@ services:
       # and never in the database (rule 10, ADR-108).
       NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
       NX_MASTER_KEY_FILE: /var/lib/nx-keys/master
-      # The console and the landing page are one application, so this is the domain a
-      # visitor, a subscriber and a member of staff all arrive at.
-      SERVICE_FQDN_CONSOLE_3000: ${SERVICE_FQDN_CONSOLE_3000:-}
     volumes:
       - secrets:/var/lib/nx-secrets
       - keys:/var/lib/nx-keys

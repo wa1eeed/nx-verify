@@ -207,25 +207,24 @@ without it.
 
 ### 3. The domains
 
-Domains belong to a **service inside the resource**, not to the project, and the field only
-appears for a service Coolify knows publishes a port. The compose file declares that outright,
-with `SERVICE_FQDN_CONSOLE_3000` and `SERVICE_FQDN_API_3000`, so the fields are there on a
-first load rather than after a deploy.
+Domains belong to a **service inside the resource**, not to the project, and the fields appear
+only once Coolify has actually parsed the compose file. If they are missing, the file was not
+found: the path is `/docker-compose.yml`, and Coolify's default guess is `/docker-compose.yaml`.
 
-**Set them as variables, not in the domain field.** The generator's last two lines do it:
+The compose file deliberately declares no `SERVICE_FQDN_*`. Declaring one makes Coolify the
+owner of that value, which locks the domain field and rewrites it to a generated address on
+every read of the file.
 
-```
-SERVICE_FQDN_CONSOLE_3000=https://example.sa
-SERVICE_FQDN_API_3000=https://api.example.sa
-```
+Coolify → the resource → the service → **Domains**. Include the container port, 3000 for both:
 
-The compose file declares those names, so Coolify treats itself as their owner and writes the
-domain field back to a generated value every time it re-reads the file: anything typed into
-that field reverts on the next save. A variable is not regenerated.
+| Service | Domain |
+| --- | --- |
+| `console` | `https://example.sa:3000` |
+| `api` | `https://api.example.sa:3000` |
 
 The console and the landing page are one application, so the console's domain is the address a
 visitor, a subscriber and a member of staff all arrive at. `db`, `migrate` and `worker` get
-none.
+none: the worker answers no port on purpose, and a database is never reachable from outside.
 
 Leave `db`, `migrate` and `worker` with no domain. The worker answers no port on purpose: the
 one process holding the role that may delete should not also hold a listening socket.
