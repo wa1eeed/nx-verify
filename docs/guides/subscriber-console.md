@@ -117,6 +117,12 @@ another.
 Every link on the list can be withdrawn, with the date it was last opened beside it. Sharing
 without revoking is publishing.
 
+**Or send it.** Write an address in «إرسال إلى بريد» and the link is mailed instead of shown:
+the copy in that mailbox is the only one. The message names what is being opened and the day it
+stops working, and carries no identifier. The address you sent it to is recorded in your audit
+log, because the question months later is who you sent this customer's file to. If the message
+cannot be sent, the link is withdrawn rather than left live for nobody.
+
 ---
 
 ## الأطراف ذات العلاقة, related parties
@@ -182,7 +188,7 @@ Your balance, what you have spent, your invoices and your prices.
 | Screen | For |
 | --- | --- |
 | المستخدمون | Who is in your workspace, and what each may do. An administrator adds people; nobody can disable their own account or remove the last administrator |
-| الإشعارات | Which address hears about what, at what severity. Nothing is sent to an address that has not been proved |
+| الإشعارات | Which address hears about what, at what severity. Add an address and a code is mailed to it; nothing else is sent until somebody enters that code |
 | مفاتيح الربط | API keys. The secret is shown once and cannot be recovered; the prefix is what support can safely quote |
 | الحداثة | How long each kind of fact stays fresh for you, over the platform's defaults |
 | المحافظ | Saved groupings that carry policy: a default product, monitoring, alerts |

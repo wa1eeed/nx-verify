@@ -601,6 +601,9 @@ Four variants exist, each for a reason:
 | 0051 | `modules`                            | `modules` and `tenant_modules`; `products.module_code`; the `INCOME` section, and income verification placed in it           |
 | 0052 | `risk_policy`                        | `risk_signals`, `tenant_risk_signals`, `tenant_risk_settings`, and the two bands on `platform_settings`                       |
 | 0053 | `customer_standing`                  | One row per customer for the list to filter, order and count by, the indexes it needed, and the backfill                     |
+| 0054 | `mail_settings`                      | One row for the platform: how mail leaves, and a `kms://` reference to the key rather than the key                            |
+| 0055 | `user_login_codes`                   | The second step a subscriber's users take, and the switch on `platform_settings` that asks for it                             |
+| 0056 | `channel_proof`                      | The code that proves a notification address belongs to whoever typed it, held on the channel row as a digest                  |
 
 ---
 

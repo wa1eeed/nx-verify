@@ -35,6 +35,8 @@ export interface NotificationChannel {
   displayName: string | null;
   verified: boolean;
   status: 'active' | 'disabled';
+  /** A code is in the mailbox and has not expired. The screen offers a field, not a button. */
+  awaitingProof: boolean;
 }
 
 export interface Message {
@@ -154,8 +156,18 @@ export interface AddChannelInput {
 export async function addChannel(tx: TenantTransaction, input: AddChannelInput): Promise<string> {
   const { rows } = await tx
     .query<{ id: string }>(
+      // Adding back an address that was removed revives its row rather than refusing:
+      // the alternative is a subscriber who deletes an address by accident and can never
+      // add it again, and a row that is disabled is not a channel anybody is using.
+      // A live one is still refused below, because two rows for one mailbox means two
+      // copies of every message.
       `INSERT INTO notification_channels (tenant_id, kind, address, display_name, verified_at)
        VALUES ($1, 'EMAIL', $2, $3, CASE WHEN $4 THEN now() ELSE NULL END)
+       ON CONFLICT (tenant_id, kind, lower(address))
+         DO UPDATE SET status = 'active', display_name = EXCLUDED.display_name,
+                       verified_at = EXCLUDED.verified_at, proof_hash = NULL,
+                       proof_attempts = 0, proof_expires_at = NULL, proof_sent_at = NULL
+         WHERE notification_channels.status = 'disabled'
        RETURNING id`,
       [tx.tenantId, input.address.trim(), input.displayName ?? null, input.verified ?? false],
     )
@@ -165,6 +177,14 @@ export async function addChannel(tx: TenantTransaction, input: AddChannelInput):
       }
       throw error;
     });
+
+  // A conflict on a live row updates nothing and returns nothing, which is the refusal.
+  if (rows.length === 0) {
+    throw new NxError('NX-4091', {
+      detail: 'that address is already a channel here',
+      cause: 'هذا العنوان مسجّل بالفعل.',
+    });
+  }
 
   const id = rows[0]?.id;
   if (!id) {
@@ -189,8 +209,10 @@ export async function listChannels(tx: TenantTransaction): Promise<NotificationC
     display_name: string | null;
     verified_at: Date | null;
     status: 'active' | 'disabled';
+    awaiting: boolean;
   }>(
-    `SELECT id, kind, address, display_name, verified_at, status
+    `SELECT id, kind, address, display_name, verified_at, status,
+            (proof_hash IS NOT NULL AND proof_expires_at > now()) AS awaiting
      FROM notification_channels WHERE tenant_id = $1 ORDER BY created_at`,
     [tx.tenantId],
   );
@@ -202,6 +224,7 @@ export async function listChannels(tx: TenantTransaction): Promise<NotificationC
     displayName: row.display_name,
     verified: row.verified_at !== null,
     status: row.status,
+    awaitingProof: row.awaiting,
   }));
 }
 

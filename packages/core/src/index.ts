@@ -607,6 +607,15 @@ export {
   unsubscribe,
   verifyChannel,
 } from './notifications/notifications.js';
+export {
+  MAX_PROOF_ATTEMPTS,
+  PROOF_RESEND_AFTER_SECONDS,
+  PROOF_TTL_MINUTES,
+  proveChannel,
+  removeChannel,
+  startChannelProof,
+} from './notifications/channel-proof.js';
+export type { IssuedProof } from './notifications/channel-proof.js';
 export type {
   AddChannelInput,
   Message,

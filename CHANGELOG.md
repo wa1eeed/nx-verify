@@ -16,6 +16,13 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ### Added
 
+- **A subscriber can finally subscribe to notifications** (ADR-145). The queue has always
+  refused to deliver to an address nobody proved, and nothing could prove one: `verifyChannel`
+  was called from tests alone and the settings screen had no form. Now an address is added,
+  mailed a code, and told nothing until somebody reads that mail.
+- **Adding back a removed address revives its row** instead of refusing it forever, and it
+  comes back unproved. Removing an address disables it rather than deleting it, because the
+  delivery history cascades from it and what was sent is a fact.
 - **A customer's file can be sent to a mailbox** (ADR-144): an optional address on the share
   panel. Write one and the link is mailed rather than shown, because two copies of a one-time
   link is one copy too many. The message names what is being opened and the day it stops

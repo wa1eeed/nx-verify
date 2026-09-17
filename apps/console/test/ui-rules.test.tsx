@@ -528,6 +528,7 @@ describe('the rules studio', () => {
  * recipients is deciding who gets mail from us.
  */
 describe('the notifications screen', () => {
+  const noop = async (): Promise<void> => {};
   const html = renderToStaticMarkup(
     <NotificationSettings
       channels={[
@@ -537,6 +538,7 @@ describe('the notifications screen', () => {
           displayName: 'الامتثال',
           verified: true,
           status: 'active',
+          awaitingProof: false,
           events: [{ ruleId: 'r1', eventType: 'entity.changed', minSeverity: 'WARNING' }],
         },
         {
@@ -545,11 +547,30 @@ describe('the notifications screen', () => {
           displayName: null,
           verified: false,
           status: 'active',
+          awaitingProof: true,
           events: [],
         },
       ]}
+      addAction={noop}
+      proveAction={noop}
+      resendAction={noop}
+      removeAction={noop}
+      subscribeAction={noop}
+      unsubscribeAction={noop}
     />,
   );
+
+  it('offers a way to add an address, and says the code comes first', () => {
+    expect(html).toContain('data-role="add-channel"');
+    expect(html).toContain('ولا يُخطَر بشيء قبل إدخال ذلك الرمز');
+  });
+
+  it('offers the code field only on the address that is not proved yet', () => {
+    expect(html.match(/data-role="prove-channel"/g)).toHaveLength(1);
+    // And the subscription controls only on the one that is. An address nobody proved
+    // cannot usefully subscribe to anything: nothing would be delivered to it.
+    expect(html.match(/data-role="subscribe"/g)).toHaveLength(1);
+  });
 
   it('says plainly that a message carries nothing about the subject', () => {
     expect(html).toContain('data-role="content-notice"');
