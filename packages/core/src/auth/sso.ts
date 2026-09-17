@@ -765,3 +765,214 @@ function decodeJson(segment: string): unknown {
 function sha256(value: string): Buffer {
   return createHash('sha256').update(value, 'utf8').digest();
 }
+
+/**
+ * Claiming a domain, and proving it by DNS (ADR-153).
+ *
+ * `verified_at` has gated routing since single sign on was built, and nothing could set it, so
+ * the feature could be configured and could never work while its form sat on the login screen
+ * of every deployment.
+ *
+ * A TXT record is the proof because publishing DNS for a domain is the one thing only its
+ * owner can do. Not a mailbox at the domain, which is not the domain; not a file on a web
+ * server, which proves only that somebody can write to one host.
+ */
+
+const PROOF_PREFIX = 'nx-verify-domain=';
+
+export interface SsoDomainRow {
+  domain: string;
+  verified: boolean;
+  /** What to publish, while it is unproved. Cleared once the domain is proved. */
+  proofToken: string | null;
+  checkedAt: Date | null;
+  lastError: string | null;
+}
+
+/** The exact record a subscriber has to publish. */
+export function proofRecordFor(token: string): string {
+  return `${PROOF_PREFIX}${token}`;
+}
+
+export async function listSsoDomains(tx: TenantTransaction): Promise<SsoDomainRow[]> {
+  const { rows } = await tx.query<{
+    domain: string;
+    verified_at: Date | null;
+    proof_token: string | null;
+    checked_at: Date | null;
+    last_error: string | null;
+  }>(
+    `SELECT domain, verified_at, proof_token, checked_at, last_error
+       FROM sso_domains WHERE tenant_id = $1 ORDER BY domain`,
+    [tx.tenantId],
+  );
+  return rows.map((row) => ({
+    domain: row.domain,
+    verified: row.verified_at !== null,
+    proofToken: row.proof_token,
+    checkedAt: row.checked_at,
+    lastError: row.last_error,
+  }));
+}
+
+/**
+ * Claims a domain, unproved, with the token it must publish.
+ *
+ * A domain already claimed anywhere is refused: the unique index across every workspace says
+ * so, and it is the whole point. Two companies cannot both route `example.com`.
+ */
+export async function claimSsoDomain(tx: TenantTransaction, domain: string): Promise<SsoDomainRow> {
+  const value = domain
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '');
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(value)) {
+    throw new NxError('NX-4002', {
+      detail: 'that is not a domain',
+      cause: 'اكتب نطاقاً مثل example.sa.',
+    });
+  }
+
+  const token = randomBytes(16).toString('hex');
+  await tx
+    .query(
+      `INSERT INTO sso_domains (tenant_id, domain, proof_token)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (tenant_id, domain) DO UPDATE
+         SET proof_token = CASE WHEN sso_domains.verified_at IS NULL
+                                THEN EXCLUDED.proof_token ELSE NULL END`,
+      [tx.tenantId, value, token],
+    )
+    .catch((error: unknown) => {
+      if ((error as { code?: string }).code === '23505') {
+        throw new NxError('NX-4091', {
+          detail: 'that domain is already claimed',
+          cause: 'هذا النطاق مسجّل بالفعل.',
+        });
+      }
+      throw error;
+    });
+
+  const rows = await listSsoDomains(tx);
+  const row = rows.find((entry) => entry.domain === value);
+  if (!row) {
+    throw new NxError('NX-5001', { detail: 'the domain was not stored' });
+  }
+  return row;
+}
+
+/**
+ * Looks the record up and proves the domain if it is there.
+ *
+ * The resolver is passed in rather than imported, so the domain layer stays testable without
+ * a network and a deployment can put its own resolver in front of this.
+ *
+ * A failure is recorded on the row rather than thrown. «Not published yet» is the normal case
+ * on the first attempt, not an error: somebody has just been told to edit their DNS, and zones
+ * take minutes to propagate.
+ */
+export async function verifySsoDomain(
+  tx: TenantTransaction,
+  domain: string,
+  resolveTxt: (name: string) => Promise<string[][]>,
+): Promise<SsoDomainRow> {
+  const { rows } = await tx.query<{ proof_token: string | null; verified_at: Date | null }>(
+    `SELECT proof_token, verified_at FROM sso_domains WHERE tenant_id = $1 AND domain = $2`,
+    [tx.tenantId, domain],
+  );
+  const pending = rows[0];
+  if (!pending) {
+    throw new NxError('NX-4041', { detail: 'no such domain', cause: 'لا نطاق بهذا الاسم.' });
+  }
+  if (pending.verified_at !== null) {
+    const current = await listSsoDomains(tx);
+    return current.find((entry) => entry.domain === domain) as SsoDomainRow;
+  }
+
+  const expected = proofRecordFor(pending.proof_token ?? '');
+  const records = await resolveTxt(domain).catch(() => [] as string[][]);
+  // A TXT record arrives as chunks that must be joined before comparing: a value longer than
+  // 255 characters is split by the protocol itself, and a resolver hands back the pieces.
+  const found = records.some((chunks) => chunks.join('').trim() === expected);
+
+  if (!found) {
+    await tx.query(
+      `UPDATE sso_domains SET checked_at = now(), last_error = $3
+        WHERE tenant_id = $1 AND domain = $2`,
+      [tx.tenantId, domain, 'the TXT record was not found'],
+    );
+  } else {
+    await tx.query(
+      `UPDATE sso_domains
+          SET verified_at = now(), proof_token = NULL, checked_at = now(), last_error = NULL
+        WHERE tenant_id = $1 AND domain = $2`,
+      [tx.tenantId, domain],
+    );
+  }
+
+  const after = await listSsoDomains(tx);
+  return after.find((entry) => entry.domain === domain) as SsoDomainRow;
+}
+
+/** Gives up a domain. Whoever owns it can claim it afterwards. */
+export async function removeSsoDomain(tx: TenantTransaction, domain: string): Promise<void> {
+  await tx.query(`DELETE FROM sso_domains WHERE tenant_id = $1 AND domain = $2`, [
+    tx.tenantId,
+    domain,
+  ]);
+}
+
+/** What is configured now, for the screen that configures it. Never the client secret. */
+export interface IdpView {
+  issuer: string;
+  clientId: string;
+  /** That a secret is stored, never which one or where. */
+  hasSecret: boolean;
+  discoveryUrl: string;
+  roleClaim: string;
+  roleMap: Record<string, SsoRole>;
+  defaultRole: SsoRole | null;
+  allowJit: boolean;
+  enforceSso: boolean;
+  /** When the provider's endpoints were last read from its discovery document. */
+  discoveredAt: Date | null;
+}
+
+export async function getIdp(tx: TenantTransaction): Promise<IdpView | null> {
+  const { rows } = await tx.query<{
+    issuer: string;
+    client_id: string;
+    client_secret_ref: string;
+    discovery_url: string;
+    role_claim: string;
+    role_map: Record<string, SsoRole>;
+    default_role: SsoRole | null;
+    allow_jit: boolean;
+    enforce_sso: boolean;
+    discovered_at: Date | null;
+  }>(
+    `SELECT issuer, client_id, client_secret_ref, discovery_url, role_claim, role_map,
+            default_role, allow_jit, enforce_sso, discovered_at
+       FROM tenant_idp WHERE tenant_id = $1`,
+    [tx.tenantId],
+  );
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+  return {
+    issuer: row.issuer,
+    clientId: row.client_id,
+    // The reference is deliberately not carried out of here: a pointer on a page is one
+    // lookup from the secret it points at.
+    hasSecret: row.client_secret_ref !== '',
+    discoveryUrl: row.discovery_url,
+    roleClaim: row.role_claim,
+    roleMap: row.role_map,
+    defaultRole: row.default_role,
+    allowJit: row.allow_jit,
+    enforceSso: row.enforce_sso,
+    discoveredAt: row.discovered_at,
+  };
+}

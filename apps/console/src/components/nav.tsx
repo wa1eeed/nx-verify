@@ -32,6 +32,7 @@ export const CUSTOMER_TABS: readonly SectionTab[] = [
   { href: '/customers/parties', label: 'الأطراف ذات العلاقة' },
   { href: '/customers/relations', label: 'التقاطعات والعلاقات' },
   { href: '/customers/alerts', label: 'التنبيهات المفتوحة' },
+  { href: '/customers/monitoring', label: 'المراقبة' },
   { href: '/customers/reviews', label: 'بانتظار قرار' },
 ];
 
@@ -55,6 +56,7 @@ export const SETTINGS_TABS: readonly SectionTab[] = [
   { href: '/settings/rules', label: 'قواعد القرار' },
   { href: '/settings/portfolios', label: 'المجموعات' },
   { href: '/settings/freshness', label: 'مدد الصلاحية' },
+  { href: '/settings/sso', label: 'الدخول الموحّد' },
   { href: '/settings/audit', label: 'سجل التدقيق' },
   { href: '/settings/support', label: 'الدعم' },
 ];

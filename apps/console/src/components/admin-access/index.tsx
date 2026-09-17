@@ -137,7 +137,23 @@ export function AdminAccess({
                       {account.secondFactorAt === null ? (
                         <Tag tone="neutral">تُفعَّل عند الدخول</Tag>
                       ) : (
-                        <Tag tone="accent-2">مفعّلة · {dateAr(account.secondFactorAt)}</Tag>
+                        <>
+                          <Tag tone="accent-2">مفعّلة · {dateAr(account.secondFactorAt)}</Tag>
+                          {/*
+                            Ten codes are issued once and each works once. Somebody down to
+                            their last two is one lost phone from being locked out, and the
+                            only way back is another owner resetting them (ADR-152).
+                          */}
+                          <div
+                            className="faint"
+                            data-role="recovery-left"
+                            data-low={account.recoveryCodesLeft <= 3 ? 'true' : 'false'}
+                          >
+                            {account.recoveryCodesLeft === 0
+                              ? 'لا رموز استرداد متبقية'
+                              : `${account.recoveryCodesLeft} رموز استرداد متبقية`}
+                          </div>
+                        </>
                       )}
                     </td>
                     <td>

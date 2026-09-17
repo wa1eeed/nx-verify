@@ -37,6 +37,28 @@ gaps. A tab in the navigation promised a subscriber something there was no way t
   called `registerEndpoint` while the tab was named for webhooks and offered only API keys. No
   subscriber could ever receive one. We generate the signing secret, show it once, and keep
   only a `kms://` pointer.
+- **A monitor can be stopped** (ADR-152). `pauseMonitor` had no caller and there was no
+  monitors screen at all, so one started kept spending until it hit its ceiling and nothing
+  could stop it. Money leaving with no brake is the dead control that gets expensive rather
+  than merely annoying. Paused and exhausted ones are listed too, since an exhausted one is
+  why a customer quietly stopped being watched.
+- **Provider callbacks have a screen**, which is the first thing anybody asks for when a run
+  is stuck waiting for an answer that may or may not have arrived.
+- **Key rotation has its control.** The job has always moved rows onto «the current key» and
+  nothing could declare a new one or retire an old one. The order is enforced and stated,
+  because getting it wrong is not recoverable: retiring a version a row still reads makes that
+  row unreadable, and a sealed evidence document uncheckable.
+- **Remaining recovery codes are shown** beside the authenticator. Somebody down to their last
+  one is a lost phone away from being locked out of the panel.
+- **Single sign on can actually be configured** (ADR-153). Its form has sat on the login screen
+  of every deployment since the unit was built, unable to work: nothing could write an IdP
+  configuration or prove a domain, and it failed with the same message a wrong password gets,
+  so a broken feature was indistinguishable from a typo. Domains are proved by a DNS TXT
+  record, because publishing DNS is the one thing only a domain's owner can do. The switch
+  that closes the password door appears only once a domain is proved, and is refused in the
+  action too: turning it on with a broken configuration locks a workspace out of itself.
+- **`entity-360.tsx` is gone**, a component superseded by `customer-file/` that no route
+  rendered; the design rules it asserted are pinned on the real screen.
 - **The audit trail can be read** (ADR-150). `audit()` is written on dozens of paths and
   `readAudit` had no caller in any application, so «who shared this customer's file» had no
   answer short of a database connection. A screen under settings shows who by name, what in

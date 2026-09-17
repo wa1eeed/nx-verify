@@ -389,6 +389,7 @@ describe('the staff and the trail (الصلاحيات والتدقيق)', () => 
         lastSignInAt: null,
         createdAt: new Date('2026-09-01T00:00:00Z'),
         credentialVersion: 1,
+        recoveryCodesLeft: 10,
         secondFactorAt: new Date('2026-09-01T00:10:00Z'),
       },
     ],

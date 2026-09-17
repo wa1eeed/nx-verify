@@ -281,7 +281,9 @@ export {
   createMonitor,
   findExpiringFields,
   nextRunFor,
+  listMonitors,
   pauseMonitor,
+  resumeMonitor,
   recordMonitorSpend,
   scheduleNextRun,
 } from './monitoring/monitors.js';
@@ -290,6 +292,7 @@ export type {
   CreateMonitorInput,
   DueMonitor,
   ExpiryAlert,
+  MonitorRow,
 } from './monitoring/monitors.js';
 export { computeScore, storeScore } from './monitoring/scoring.js';
 export { trustBandFor, trustBands } from './monitoring/trust-band.js';
@@ -604,6 +607,15 @@ export type { RenderOptions } from './evidence/render.js';
 export { FilesystemEvidenceStore, InMemoryEvidenceStore } from './evidence/store.js';
 export type { EvidenceStore } from './evidence/store.js';
 export { addSsoDomain, beginSso, completeSso, configureIdp, verifyIdToken } from './auth/sso.js';
+export {
+  claimSsoDomain,
+  getIdp,
+  listSsoDomains,
+  proofRecordFor,
+  removeSsoDomain,
+  verifySsoDomain,
+} from './auth/sso.js';
+export type { IdpView, SsoDomainRow, SsoRole } from './auth/sso.js';
 export type {
   BeginSsoInput,
   CompleteSsoInput,

@@ -242,3 +242,78 @@ export async function findExpiringFields(
     freshness: row.freshness,
   }));
 }
+
+export interface MonitorRow {
+  id: string;
+  entityId: string;
+  productCode: string;
+  fieldPaths: string[];
+  cadence: Cadence;
+  nextRunAt: Date;
+  /** In halalas. */
+  budgetCap: number;
+  spentThisPeriod: number;
+  status: 'active' | 'paused' | 'budget_exhausted';
+  activatedBy: string;
+  createdAt: Date;
+}
+
+/**
+ * Every monitor this workspace has, for the screen that manages them (ADR-152).
+ *
+ * Paused and exhausted ones included. A monitor that stopped because it ran out of budget is
+ * exactly the row somebody needs to see: it is why a customer stopped being watched, and it
+ * is invisible if the list only shows what is running.
+ */
+export async function listMonitors(tx: TenantTransaction): Promise<MonitorRow[]> {
+  const { rows } = await tx.query<{
+    id: string;
+    entity_id: string;
+    product_code: string;
+    field_paths: string[];
+    cadence: Cadence;
+    next_run_at: Date;
+    budget_cap_sar: string;
+    spent_this_period: string;
+    status: MonitorRow['status'];
+    activated_by: string;
+    created_at: Date;
+  }>(
+    `SELECT id, entity_id, product_code, field_paths, cadence, next_run_at,
+            budget_cap_sar, spent_this_period, status, activated_by, created_at
+       FROM monitors WHERE tenant_id = $1 ORDER BY created_at DESC`,
+    [tx.tenantId],
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    entityId: row.entity_id,
+    productCode: row.product_code,
+    fieldPaths: row.field_paths,
+    cadence: row.cadence,
+    nextRunAt: row.next_run_at,
+    budgetCap: Math.round(Number(row.budget_cap_sar) * 100),
+    spentThisPeriod: Math.round(Number(row.spent_this_period) * 100),
+    status: row.status,
+    activatedBy: row.activated_by,
+    createdAt: row.created_at,
+  }));
+}
+
+/**
+ * Starts a paused monitor again.
+ *
+ * Only a paused one: a monitor stopped because its budget ran out is not restarted by
+ * pressing a button, because nothing about the budget changed and it would stop again on its
+ * next sweep. Raise the cap and it resumes by itself.
+ *
+ * The next run is pushed to now, so a monitor paused for a fortnight checks once when it
+ * comes back rather than sitting until its old schedule comes round again.
+ */
+export async function resumeMonitor(tx: TenantTransaction, monitorId: string): Promise<void> {
+  await tx.query(
+    `UPDATE monitors SET status = 'active', next_run_at = now()
+      WHERE tenant_id = $1 AND id = $2 AND status = 'paused'`,
+    [tx.tenantId, monitorId],
+  );
+}

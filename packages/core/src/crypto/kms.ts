@@ -1,10 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { NxError } from '../errors.js';
-import {
-  EnvMasterKeySource,
-  FileMasterKeySource,
-  type MasterKeySource,
-} from './master-key.js';
+import { EnvMasterKeySource, FileMasterKeySource, type MasterKeySource } from './master-key.js';
 
 /**
  * The root key, from a key management service.
@@ -224,9 +220,7 @@ export function masterKeySourceFromEnv(
     // by anything that can run `docker inspect`, read `/proc/<pid>/environ`, or look at the
     // deployment tool's own form. The key that seals every provider credential has no
     // business being held to a weaker standard than the credentials it seals.
-    return new FileMasterKeySource(env['NX_MASTER_KEY_FILE'], (at) =>
-      readFileSync(at, 'utf8'),
-    );
+    return new FileMasterKeySource(env['NX_MASTER_KEY_FILE'], (at) => readFileSync(at, 'utf8'));
   }
   if (env['NODE_ENV'] === 'production') {
     // A convenience that survives into a deployment is not a convenience. The same

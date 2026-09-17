@@ -57,6 +57,14 @@ export interface OperatorAccount {
   credentialVersion: number;
   /** When this account finished enrolling an authenticator, or null while it has none (SEC-02). */
   secondFactorAt: Date | null;
+  /**
+   * Recovery codes still unused (ADR-152).
+   *
+   * Ten are issued once, at enrolment, and each works once. Somebody who has spent nine of
+   * them is one lost phone away from being locked out of the panel, and the only way back is
+   * another owner resetting them. That is worth seeing before it happens rather than after.
+   */
+  recoveryCodesLeft: number;
 }
 
 /** Who is acting in the panel: a member of staff, or the deployment's token itself. */
@@ -79,10 +87,13 @@ interface AccountRow {
   created_at: Date;
   credential_version: number;
   totp_confirmed_at: Date | null;
+  recovery_codes_left: number;
 }
 
 const COLUMNS = `id, email, display_name, role, status, last_sign_in_at, created_at,
-                 credential_version, totp_confirmed_at`;
+                 credential_version, totp_confirmed_at,
+                 (SELECT count(*) FROM jsonb_array_elements(coalesce(recovery_codes, '[]'::jsonb)) c
+                   WHERE c->>'used_at' IS NULL)::int AS recovery_codes_left`;
 
 function accountOf(row: AccountRow): OperatorAccount {
   return {
@@ -95,6 +106,7 @@ function accountOf(row: AccountRow): OperatorAccount {
     createdAt: row.created_at,
     credentialVersion: row.credential_version,
     secondFactorAt: row.totp_confirmed_at,
+    recoveryCodesLeft: row.recovery_codes_left,
   };
 }
 

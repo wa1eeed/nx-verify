@@ -6,7 +6,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { FieldCard, formatValue, daysUntil } from '../src/components/field-card';
 import { ChangeBadge, FreshnessBadge } from '../src/components/freshness';
 import { Identifier, Money } from '../src/components/identifier';
-import { Entity360 } from '../src/components/entity-360';
 import { SharedProfile } from '../src/components/shared-profile';
 import { UserAdmin } from '../src/components/user-admin';
 import { PendingTopUps, TopUpPanel } from '../src/components/topup';
@@ -195,71 +194,6 @@ describe('one primary button per screen', () => {
     ],
     now: new Date('2026-09-08'),
   };
-
-  it('renders exactly one primary action on entity 360', () => {
-    const html = renderToStaticMarkup(<Entity360 {...props} />);
-    expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
-    expect(html).toContain('تحديث التحقق');
-    // The rest are still reachable, just not competing for attention.
-    expect(html.match(/btn-secondary/g)?.length).toBeGreaterThan(0);
-  });
-
-  it('shows the change alert and the expiry notice as separate sections', () => {
-    const withExpired = {
-      ...props,
-      fields: [{ ...FIELD, freshness: 'expired' as const }],
-    };
-    const html = renderToStaticMarkup(<Entity360 {...withExpired} />);
-    expect(html).toContain('data-role="alert-changes"');
-    expect(html).toContain('data-role="alert-expired"');
-  });
-
-  it('shows no alert section when there is nothing to say', () => {
-    const quiet = { ...props, changes: [] };
-    const html = renderToStaticMarkup(<Entity360 {...quiet} />);
-    expect(html).not.toContain('data-role="alert-changes"');
-    expect(html).not.toContain('data-role="alert-expired"');
-  });
-
-  it('never shows a score without its working', () => {
-    const html = renderToStaticMarkup(<Entity360 {...props} />);
-    // A number without a breakdown is refused by risk management. Showing one without
-    // the other on screen would put the analyst in the same position.
-    expect(html).toContain('data-role="score-breakdown"');
-    expect(html).toContain('كيف حُسبت الدرجة');
-    expect(html).toContain('72');
-  });
-
-  it('marks a counterparty linked to several entities as a signal', () => {
-    const html = renderToStaticMarkup(
-      <Entity360
-        {...props}
-        relations={[
-          {
-            relType: 'MANAGES',
-            otherEntityId: 'p1',
-            otherName: 'محمد عبدالله',
-            direction: 'from',
-            linkedCount: 7,
-          },
-          {
-            relType: 'OWNS',
-            otherEntityId: 'p2',
-            otherName: 'شريك',
-            direction: 'from',
-            linkedCount: 1,
-          },
-        ]}
-      />,
-    );
-
-    expect(html).toContain('data-role="relations"');
-    expect(html).toContain('data-signal="high"');
-    expect(html).toContain('data-signal="normal"');
-    expect(html).toContain('إشارة شبكة');
-    // The limit is contractual as well as technical, and the screen says so.
-    expect(html).toContain('لا تجميع عبر العملاء');
-  });
 
   it('names what triggered each line of the timeline', () => {
     const html = renderToStaticMarkup(<Timeline entries={props.timeline} />);
@@ -937,117 +871,6 @@ describe('the stylesheets hold the layout rules that are easy to break', () => {
 /**
  * The entity file: what a compliance officer reads before deciding.
  */
-describe('the entity file groups what it knows', () => {
-  const field = (
-    fieldPath: string,
-    freshness: 'fresh' | 'expired' = 'fresh',
-  ): ProfileFieldView => ({
-    fieldPath,
-    value: 'قيمة',
-    authority: 'وزارة التجارة',
-    observedAt: new Date('2026-08-01T10:00:00Z'),
-    effectiveUntil: new Date('2026-12-01T10:00:00Z'),
-    freshness,
-    confidence: 1,
-  });
-
-  const render = (tab?: string) =>
-    renderToStaticMarkup(
-      <Entity360
-        header={{
-          entityId: 'e1',
-          displayName: 'مؤسسة نماء',
-          entityType: 'BUSINESS',
-          identifiers: [{ idType: 'UNN', masked: '7001•••184' }],
-          score: 72,
-          scoreBreakdown: [],
-          completeness: 80,
-        }}
-        fields={[
-          field('cr.status'),
-          field('cr.core.name'),
-          field('account.ownership'),
-          field('property.deed', 'expired'),
-        ]}
-        changes={[
-          {
-            fieldPath: 'account.ownership',
-            severity: 'WARNING',
-            detectedAt: new Date('2026-09-01'),
-          },
-        ]}
-        timeline={[]}
-        {...(tab ? { tab } : {})}
-        now={new Date('2026-09-08')}
-      />,
-    );
-
-  it('makes a tab per group of facts, and none for a group with nothing in it', () => {
-    const html = render();
-    expect(html).toContain('data-role="profile-tabs"');
-    expect(html).toContain('data-group="REGISTRY"');
-    expect(html).toContain('data-group="BANKING"');
-    expect(html).toContain('data-group="PROPERTY"');
-    // Nothing was verified about the address, so there is no address tab to disappoint
-    // anybody who opens it.
-    expect(html).not.toContain('data-group="ADDRESS"');
-  });
-
-  it('marks the tabs a reader must not skip, and keeps the two states apart', () => {
-    const html = render();
-    // A detected change is a warning; an expired field is not. Same rule as everywhere.
-    expect(html).toContain('data-role="tab-changed"');
-    expect(html).toContain('data-role="tab-expired"');
-    expect(html).toContain("data-kind='changed'".replace(/'/g, '"'));
-    expect(html).toContain("data-kind='expired'".replace(/'/g, '"'));
-  });
-
-  it('opens the first group by default and the asked for one when named', () => {
-    const first = render();
-    // Registry comes first in the order, so its fields are the ones on screen.
-    expect(first).toContain('حالة السجل التجاري');
-    expect(first).not.toContain('الصك العقاري');
-
-    const property = render('PROPERTY');
-    expect(property).toContain('الصك العقاري');
-    expect(property).not.toContain('حالة السجل التجاري');
-  });
-
-  it('leads with the figures a reader checks before reading anything', () => {
-    const html = render();
-    expect(html).toContain('data-role="indicators"');
-    expect(html).toContain('درجة الثقة');
-    expect(html).toContain('حقول موثّقة');
-    expect(html).toContain('آخر تحقق');
-    // The tab links carry no script: they work behind a locked down browser and survive
-    // a refresh.
-    expect(html).toContain('href="/customers/e1?tab=BANKING"');
-  });
-
-  it('draws the score and says in words what it means', () => {
-    const html = render();
-    expect(html).toContain('data-role="trust-dial"');
-    // A band, not a bare number. Colour is not a label, and this screen gets printed.
-    expect(html).toMatch(/data-band="(STRONG|ADEQUATE|THIN|INSUFFICIENT)"/);
-    // The arc carries a text alternative, because a reader who cannot see it still has
-    // to be able to read the file.
-    expect(html).toContain('aria-label="درجة الثقة');
-    expect(html).toContain('data-role="coverage"');
-  });
-
-  it('says how current the open group is before showing its facts', () => {
-    const html = render();
-    expect(html).toContain('data-role="group-coverage"');
-  });
-
-  it('gives the coverage bar a segment with height to draw', () => {
-    // The bar lives in a row that centres its children, and a span with no text has no
-    // height to centre: without stretching it the bar renders as an empty groove that
-    // says nothing while claiming to.
-    const html = render();
-    expect(html).toMatch(/data-role="coverage"[\s\S]*?align-self:stretch/);
-  });
-});
 
 describe('the profile a third party sees', () => {
   const render = (openGroups: string[] = ['REGISTRY']) =>

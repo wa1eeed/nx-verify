@@ -7,7 +7,7 @@ that file for the number.
 The records themselves are in Arabic, because they are the project's own working history. This
 index exists so a decision can be found by what it was about.
 
-There are 151 of them, and the most recent are at the end of the file.
+There are 153 of them, and the most recent are at the end of the file.
 
 | # | What it decided |
 | --- | --- |
@@ -162,3 +162,5 @@ There are 151 of them, and the most recent are at the end of the file.
 | `ADR-149` | قواعد القرار: لا شيء كان يستطيع كتابتها |
 | `ADR-150` | سجلٌّ يُكتب ولا يُقرأ، ومدةٌ تنقضي بلا تجديد |
 | `ADR-151` | المفتاح الجذر من ملف، لا من متغيّر |
+| `ADR-152` | ثلاث مقابض ناقصة: إيقاف الإنفاق، ورؤية النداءات، وإعلان المفتاح |
+| `ADR-153` | الدخول الموحّد: نموذجٌ لا يعمل، ونطاقٌ بلا إثبات |
