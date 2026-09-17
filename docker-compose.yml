@@ -8,6 +8,18 @@
 # dies at three in the morning and stays dead until a person notices is the failure this
 # platform can least afford: the worker is what destroys data on time, delivers callbacks
 # and watches for changes, and none of that says anything when it is not running.
+#
+# **Every variable a service needs is named in its own `environment:` block**, rather than
+# handed over wholesale with `env_file`. Two reasons, and the second is why this file changed.
+#
+# It says what each process actually reads. The worker needs three connection strings and the
+# API needs one, and a reader should not have to open four packages to learn that.
+#
+# And a deployment tool manages the environment itself. Coolify writes its own `.env` and
+# interpolates `${...}` from it, but does not necessarily honour an `env_file:` directive
+# pointing at that same file. A service that loaded nothing came up with no database url at
+# all and restarted until the deployment timed out, which reads as a hang rather than as a
+# missing variable. Interpolation works under both.
 services:
   db:
     image: postgres:16
@@ -33,8 +45,15 @@ services:
       - >-
         node scripts/ensure-master-key.mjs &&
         pnpm --filter @nx-verify/db run migrate up
-    env_file: .env
     environment:
+      # The owner connection: it creates the roles and owns the tables, and nothing else in
+      # this file uses it (rule 12).
+      NX_ADMIN_DATABASE_URL: ${NX_ADMIN_DATABASE_URL:?set NX_ADMIN_DATABASE_URL}
+      # The migrate runner assigns these to the roles migration 0001 creates.
+      NX_MIGRATOR_PASSWORD: ${NX_MIGRATOR_PASSWORD:-}
+      NX_APP_PASSWORD: ${NX_APP_PASSWORD:-}
+      NX_RETENTION_PASSWORD: ${NX_RETENTION_PASSWORD:-}
+      NX_OPERATOR_PASSWORD: ${NX_OPERATOR_PASSWORD:-}
       NX_MASTER_KEY_FILE: /var/lib/nx-keys/master
     volumes:
       - keys:/var/lib/nx-keys
@@ -46,8 +65,18 @@ services:
     build: .
     restart: unless-stopped
     command: ['pnpm', '--filter', '@nx-verify/api', 'run', 'start']
-    env_file: .env
     environment:
+      # One connection, and it owns nothing and never bypasses row level security (rule 12).
+      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL:?set NX_APP_DATABASE_URL}
+      NX_PROVIDERS: ${NX_PROVIDERS:-stub}
+      NX_OPENBANKING_PROVIDERS: ${NX_OPENBANKING_PROVIDERS:-}
+      # Printed on every sealed document, as the address its code is checked at.
+      NX_PUBLIC_BASE_URL: ${NX_PUBLIC_BASE_URL:-}
+      NX_CONSOLE_BASE_URL: ${NX_CONSOLE_BASE_URL:-}
+      # A key service where there is one. Set these and the key file below is ignored.
+      NX_KMS_ENDPOINT: ${NX_KMS_ENDPOINT:-}
+      NX_KMS_TOKEN: ${NX_KMS_TOKEN:-}
+      NX_KMS_KEYS: ${NX_KMS_KEYS:-}
       # Connection secrets set from the administration panel, sealed on a shared volume
       # and never in the database (rule 10, ADR-108).
       NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
@@ -80,8 +109,25 @@ services:
     build: .
     restart: unless-stopped
     command: ['pnpm', '--filter', '@nx-verify/console', 'run', 'start']
-    env_file: .env
     environment:
+      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL:?set NX_APP_DATABASE_URL}
+      # The panel reads a second connection, on a role that can see no subscriber's data.
+      NX_OPERATOR_DATABASE_URL: ${NX_OPERATOR_DATABASE_URL:?set NX_OPERATOR_DATABASE_URL}
+      # Without it there is no way into the panel at all (SEC-06).
+      NX_OPERATOR_TOKEN: ${NX_OPERATOR_TOKEN:?set NX_OPERATOR_TOKEN}
+      NX_PROVIDERS: ${NX_PROVIDERS:-stub}
+      NX_CONSOLE_URL: ${NX_CONSOLE_URL:-}
+      NX_CONSOLE_BASE_URL: ${NX_CONSOLE_BASE_URL:-}
+      NX_PUBLIC_BASE_URL: ${NX_PUBLIC_BASE_URL:-}
+      NX_SUPPORT_EMAIL: ${NX_SUPPORT_EMAIL:-}
+      # Where a subscriber transfers to. Unset, the billing screen says so rather than
+      # printing an account that is not ours.
+      NX_BANK_ACCOUNT_NAME: ${NX_BANK_ACCOUNT_NAME:-}
+      NX_BANK_NAME: ${NX_BANK_NAME:-}
+      NX_BANK_IBAN: ${NX_BANK_IBAN:-}
+      NX_KMS_ENDPOINT: ${NX_KMS_ENDPOINT:-}
+      NX_KMS_TOKEN: ${NX_KMS_TOKEN:-}
+      NX_KMS_KEYS: ${NX_KMS_KEYS:-}
       # Connection secrets set from the administration panel, sealed on a shared volume
       # and never in the database (rule 10, ADR-108).
       NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
@@ -99,8 +145,23 @@ services:
     build: .
     restart: unless-stopped
     command: ['pnpm', '--filter', '@nx-verify/worker', 'run', 'start']
-    env_file: .env
     environment:
+      # Three connections, because the worker does three different jobs: the application's
+      # work, the operator's list of workspaces, and the one role that may delete (ADR-056).
+      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL:?set NX_APP_DATABASE_URL}
+      NX_OPERATOR_DATABASE_URL: ${NX_OPERATOR_DATABASE_URL:?set NX_OPERATOR_DATABASE_URL}
+      NX_RETENTION_DATABASE_URL: ${NX_RETENTION_DATABASE_URL:?set NX_RETENTION_DATABASE_URL}
+      # The first owner of the panel, made true at every start (ADR-142).
+      NX_PANEL_OWNER_EMAIL: ${NX_PANEL_OWNER_EMAIL:-}
+      NX_PANEL_OWNER_PASSWORD: ${NX_PANEL_OWNER_PASSWORD:-}
+      NX_PANEL_OWNER_NAME: ${NX_PANEL_OWNER_NAME:-}
+      NX_PROVIDERS: ${NX_PROVIDERS:-stub}
+      NX_OPENBANKING_PROVIDERS: ${NX_OPENBANKING_PROVIDERS:-}
+      NX_CONSOLE_URL: ${NX_CONSOLE_URL:-}
+      NX_PUBLIC_BASE_URL: ${NX_PUBLIC_BASE_URL:-}
+      NX_KMS_ENDPOINT: ${NX_KMS_ENDPOINT:-}
+      NX_KMS_TOKEN: ${NX_KMS_TOKEN:-}
+      NX_KMS_KEYS: ${NX_KMS_KEYS:-}
       NX_SECRETS_FILE: /var/lib/nx-secrets/connections.sealed
       NX_MASTER_KEY_FILE: /var/lib/nx-keys/master
       # Touched after every sweep, and read by the health check below (SEC-07).

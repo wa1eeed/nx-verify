@@ -287,6 +287,7 @@ a second place, which has to be rotated when somebody leaves.
 
 | What you see | What it is |
 | --- | --- |
+| `migrate` restarts for minutes and the deploy times out with no error | Read its container logs, not the deployment log. `NX_ADMIN_DATABASE_URL is not set` means the variables never reached it |
 | `NX_KMS_ENDPOINT or NX_MASTER_KEY_FILE is required in production` | The `keys` volume is not mounted on that service |
 | The stack builds and `migrate` fails on connect | A connection string still says `localhost`; it must say `db` |
 | `console` starts, sign in refuses everything | `NX_PANEL_OWNER_*` unset, so no owner was made. Set them and redeploy |
