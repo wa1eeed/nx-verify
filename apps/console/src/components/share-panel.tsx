@@ -105,6 +105,25 @@ export function SharePanel({
           </label>
         </div>
 
+        {/*
+          An address turns the button from «show me a link» into «send it». Empty is the
+          default and stays the default: a link you copy yourself goes nowhere you did not
+          put it, and that is the safer of the two.
+        */}
+        <label className="stack" style={{ gap: 'var(--s-1)' }}>
+          <span className="stat-label">إرسال إلى بريد، اختياري</span>
+          <input
+            name="recipient"
+            type="email"
+            dir="ltr"
+            autoComplete="off"
+            placeholder="bank@example.com"
+          />
+          <span className="stat-hint">
+            إن كتبت بريداً أُرسل الرابط إليه ولم يُعرض هنا، وسُجّل المستلم في سجل التدقيق.
+          </span>
+        </label>
+
         <button
           type="submit"
           className="btn btn-secondary"

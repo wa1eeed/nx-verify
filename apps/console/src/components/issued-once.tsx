@@ -166,9 +166,41 @@ export function AddPerson({
 export interface IssuedShareState {
   /** The whole link, once, straight after issuing. Never fetched, never stored. */
   link: string | null;
+  /** Where it went instead, when it left by mail. The link itself is not shown then. */
+  sentTo: string | null;
+  /** Why nothing was issued: a mistyped address, or mail that could not leave. */
+  refused: 'address' | 'mail' | null;
 }
 
-const NO_LINK: IssuedShareState = { link: null };
+const NO_LINK: IssuedShareState = { link: null, sentTo: null, refused: null };
+
+const REFUSALS: Record<NonNullable<IssuedShareState['refused']>, string> = {
+  address: 'لم يُرسل شيء: راجع البريد المكتوب.',
+  mail: 'تعذّر إرسال البريد، وسُحب الرابط. جرّب لاحقاً أو أصدره بلا بريد وانسخه بنفسك.',
+};
+
+/** What happened, when it was not a link on the screen. */
+export function ShareOutcome({ state }: { state: IssuedShareState }): ReactElement | null {
+  if (state.refused !== null) {
+    return (
+      <p className="notice notice-refused" data-role="share-refused" style={{ margin: 0 }}>
+        {REFUSALS[state.refused]}
+      </p>
+    );
+  }
+  if (state.sentTo !== null) {
+    return (
+      <p className="notice notice-done" data-role="share-sent" style={{ margin: 0 }}>
+        أُرسل الرابط إلى{' '}
+        <bdi dir="ltr" className="mono">
+          {state.sentTo}
+        </bdi>
+        . لن يُعرض هنا: النسخة الوحيدة في ذلك البريد.
+      </p>
+    );
+  }
+  return null;
+}
 
 /** The link, in the one place it exists after it is made. */
 export function IssuedShareLink({ link }: { link: string }): ReactElement {
@@ -212,6 +244,7 @@ export function ShareForm({
   return (
     <>
       {issued.link === null ? null : <IssuedShareLink link={issued.link} />}
+      <ShareOutcome state={issued} />
       <form action={formAction} className="stack" style={{ gap: 'var(--s-3)' }}>
         {children}
       </form>

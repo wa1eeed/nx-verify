@@ -16,6 +16,15 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ### Added
 
+- **A customer's file can be sent to a mailbox** (ADR-144): an optional address on the share
+  panel. Write one and the link is mailed rather than shown, because two copies of a one-time
+  link is one copy too many. The message names what is being opened and the day it stops
+  working, and carries no identifier.
+- **The recipient is recorded in the audit log**, beside the groups and the expiry. The
+  question months later is «who did we send this customer's file to», and a share with no
+  recipient cannot answer it. The token stays out of every table that is read, as before.
+- **A send that fails withdraws the link it made**, with `mail_failed` as the reason. A link
+  that was created and never delivered is a live link nobody holds.
 - **A second step for a subscriber's own users** (ADR-143): six digits mailed after the
   password, off until the platform owner turns it on and only after a test message has
   actually arrived. The panel keeps its authenticator, deliberately: a mailed code is not a
