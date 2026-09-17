@@ -267,7 +267,9 @@ function refusalFromError(body: unknown): ToolRefusal {
   if (!error) {
     return new ToolRefusal('تعذّر تنفيذ الطلب.', 'The request could not be completed.');
   }
-  const code = error.code ?? 'NX-5000';
+  // A code the catalogue actually defines. `NX-5000` was invented here and appears nowhere
+  // else, so an assistant handed it could look it up in the API reference and find nothing.
+  const code = error.code ?? 'NX-5001';
   return new ToolRefusal(
     `${code}: ${error.message_ar ?? 'تعذّر تنفيذ الطلب.'}`,
     `${code}: ${error.message_en ?? 'The request could not be completed.'}`,

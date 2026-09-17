@@ -1,4 +1,10 @@
-import { authenticate, assertScope, NxError, type AuthenticatedCaller } from '@nx-verify/core';
+import {
+  authenticate,
+  assertScope,
+  touchApiKey,
+  NxError,
+  type AuthenticatedCaller,
+} from '@nx-verify/core';
 import type { FastifyRequest } from 'fastify';
 import type { AppContext } from './context.js';
 
@@ -30,6 +36,13 @@ export function requireAuth(context: AppContext, scope: string) {
     // the call a customer asks about most.
     request.caller = caller;
     assertScope(caller, scope);
+
+    // When the key was last used, so a workspace can retire one nobody calls any more. At
+    // most once an hour, and never allowed to fail a request: this is bookkeeping, and a
+    // call that worked must not be refused because a note about it could not be written.
+    await context
+      .withTenant(caller.tenantId, (tx) => touchApiKey(tx, caller.apiKeyId))
+      .catch(() => undefined);
   };
 }
 

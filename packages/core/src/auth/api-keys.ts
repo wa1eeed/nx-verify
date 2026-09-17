@@ -137,11 +137,24 @@ export async function revokeApiKey(tx: TenantTransaction, keyId: string): Promis
   );
 }
 
+/**
+ * Records that a key was used, at most once an hour.
+ *
+ * The column answers one question, «is anybody still using this key», and an hour's
+ * resolution answers it exactly as well as a millisecond's. A write on every authenticated
+ * request would put one row update in front of every call the platform serves, on the busiest
+ * table in the request path, to store a number nobody reads to the second.
+ *
+ * The guard is in the WHERE clause rather than in a read first, so two concurrent requests
+ * cannot both decide to write.
+ */
 export async function touchApiKey(tx: TenantTransaction, keyId: string): Promise<void> {
-  await tx.query(`UPDATE api_keys SET last_used_at = now() WHERE tenant_id = $1 AND id = $2`, [
-    tx.tenantId,
-    keyId,
-  ]);
+  await tx.query(
+    `UPDATE api_keys SET last_used_at = now()
+      WHERE tenant_id = $1 AND id = $2
+        AND (last_used_at IS NULL OR last_used_at < now() - interval '1 hour')`,
+    [tx.tenantId, keyId],
+  );
 }
 
 /** Constant time comparison, for anywhere a key or signature is compared directly. */

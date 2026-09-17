@@ -4,6 +4,7 @@ import {
   bootstrapOwnerFromEnv,
   getMailSettings,
   masterKeySourceFromEnv,
+  pruneLoginCodes,
   sweepStanding,
   type TenantKeyProvider,
 } from '@nx-verify/core';
@@ -238,6 +239,9 @@ async function main(): Promise<void> {
         await enforceRetention(tx);
         // The request log is cleared on the same sweep but by its own rule.
         await pruneRequestLogs(tx);
+        // And the half finished sign ins: spent or stale after a day, and worth clearing
+        // for the same reason as everything else here rather than kept forever (ADR-143).
+        await pruneLoginCodes(tx);
       },
     },
     {
