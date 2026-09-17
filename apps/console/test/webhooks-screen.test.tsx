@@ -7,6 +7,7 @@ import {
   type EndpointView,
 } from '../src/components/webhooks';
 import { DEVELOPER_TABS } from '../src/components/nav';
+import { RulesStudio } from '../src/components/rules-studio';
 
 /**
  * Registering an address for us to call (ADR-147).
@@ -87,5 +88,52 @@ describe('the webhooks screen', () => {
   it('names an event in Arabic rather than showing its key', () => {
     expect(eventLabelAr('verification.completed')).toBe('اكتمال تحقق');
     expect(eventLabelAr('something.new')).toBe('something.new');
+  });
+});
+
+describe('the decision rules, which nothing could write', () => {
+  const rules = [
+    { seq: 1, description: 'السجل التجاري غير نشط', outcome: 'FAIL' as const, reasonAr: 'موقوف' },
+    { seq: 2, description: 'في كل الحالات الأخرى', outcome: 'PASS' as const, reasonAr: 'مكتمل' },
+  ];
+
+  const studio = (over: Partial<Parameters<typeof RulesStudio>[0]> = {}): string =>
+    renderToStaticMarkup(
+      <RulesStudio
+        rulesetId="rs1"
+        rulesetName="افتراضي المنصة"
+        isDefault
+        rules={rules}
+        forkAction={noop}
+        setOutcomeAction={noop}
+        {...over}
+      />,
+    );
+
+  it('does not let the platform defaults be edited, because every workspace inherits them', () => {
+    expect(studio()).not.toContain('data-role="set-outcome"');
+    expect(studio()).toContain('data-role="fork-ruleset"');
+  });
+
+  it('lets a workspace move an outcome on a copy it owns', () => {
+    const own = studio({ isDefault: false, rulesetName: 'قواعدنا' });
+    expect(own.match(/data-role="set-outcome"/g) ?? []).toHaveLength(2);
+    expect(own).toContain('name="outcome"');
+  });
+
+  it('offers no way to change what a rule looks at', () => {
+    // Conditions are a closed set (ADR-031). Building one is a rule builder, not a field.
+    const own = studio({ isDefault: false });
+    expect(own).not.toContain('name="condition"');
+    expect(own).not.toContain('name="field"');
+  });
+
+  it('offers the simulation as a link, since it writes nothing', () => {
+    expect(studio()).toContain('data-role="simulate"');
+    expect(studio()).toContain('simulate=1');
+  });
+
+  it('says why the defaults cannot be changed rather than only disabling a button', () => {
+    expect(studio({ outcome: 'default' })).toContain('يرثها كل مشترك');
   });
 });

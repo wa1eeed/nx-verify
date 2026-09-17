@@ -8,6 +8,7 @@ import {
 import { query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { SETTINGS_TABS } from '../../../../components/nav';
+import { forkRulesetAction, setRuleOutcomeAction } from './actions';
 
 /**
  * Never prerendered and never cached.
@@ -21,7 +22,7 @@ export const dynamic = 'force-dynamic';
 export default async function RulesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ruleset?: string; simulate?: string }>;
+  searchParams: Promise<{ ruleset?: string; simulate?: string; outcome?: string }>;
 }): Promise<ReactElement> {
   const params = await searchParams;
 
@@ -46,7 +47,7 @@ export default async function RulesPage({
     const simulation =
       params.simulate === '1' ? await simulateRuleset(tx, chosen.id, { limit: 200 }) : undefined;
 
-    return { chosen, rows, simulation };
+    return { chosen, rows, simulation, rulesets };
   });
 
   if (!data) {
@@ -64,9 +65,14 @@ export default async function RulesPage({
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
       <SectionTabs tabs={SETTINGS_TABS} current="/settings/rules" label="أقسام الإعدادات" />
       <RulesStudio
+        rulesetId={data.chosen.id}
         rulesetName={data.chosen.nameAr}
         isDefault={data.chosen.isDefault}
         rules={rules}
+        rulesets={data.rulesets}
+        outcome={params.outcome}
+        forkAction={forkRulesetAction}
+        setOutcomeAction={setRuleOutcomeAction}
         {...(data.simulation
           ? {
               simulation: {

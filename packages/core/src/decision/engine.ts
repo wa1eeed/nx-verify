@@ -214,3 +214,95 @@ export async function simulateRuleset(
 
   return { entitiesEvaluated: rows.length, outcomes, changed };
 }
+
+/**
+ * Copies a ruleset into one this workspace owns (ADR-149).
+ *
+ * A subscriber never edits the platform's defaults: the unique index and row level security
+ * both refuse it, and they should, because every other workspace inherits them. So the only
+ * way to have rules of your own is to take a copy and change that, which is also the honest
+ * shape for the question people actually ask, «what if we sent these to review instead».
+ *
+ * The copy carries the conditions exactly. Conditions are a closed set (ADR-031), not an
+ * expression language, and building new ones is a rule builder rather than a form field;
+ * what a fork gives you today is the freedom to move an outcome.
+ */
+export async function forkRuleset(
+  tx: TenantTransaction,
+  input: { fromRulesetId: string; code: string; nameAr: string },
+): Promise<string> {
+  const { rows } = await tx
+    .query<{ id: string }>(
+      `INSERT INTO decision_rulesets (tenant_id, code, name_ar, name_en)
+       VALUES ($1, $2, $3, $2)
+       RETURNING id`,
+      [tx.tenantId, input.code, input.nameAr],
+    )
+    .catch((error: unknown) => {
+      if ((error as { code?: string }).code === '23505') {
+        throw new NxError('NX-4091', {
+          detail: 'a ruleset with that code already exists here',
+          cause: 'يوجد مجموعة قواعد بالرمز نفسه.',
+        });
+      }
+      throw error;
+    });
+
+  const id = rows[0]?.id;
+  if (!id) {
+    throw new NxError('NX-5001', { detail: 'ruleset insert returned no id' });
+  }
+
+  // The source is read through the same visibility rule as the list: a platform default or
+  // one of this workspace's own, and nothing else. A ruleset id from another workspace
+  // copies nothing rather than copying somebody else's policy.
+  const { rowCount } = await tx.query(
+    `INSERT INTO decision_rules (ruleset_id, seq, condition, outcome, reason_code, reason_ar,
+                                 reason_en)
+     SELECT $2, r.seq, r.condition, r.outcome, r.reason_code, r.reason_ar, r.reason_en
+     FROM decision_rules r
+     JOIN decision_rulesets s ON s.id = r.ruleset_id
+     WHERE r.ruleset_id = $3 AND (s.tenant_id IS NULL OR s.tenant_id = $1)`,
+    [tx.tenantId, id, input.fromRulesetId],
+  );
+
+  if ((rowCount ?? 0) === 0) {
+    throw new NxError('NX-4041', {
+      detail: 'no ruleset to copy from',
+      cause: 'لا مجموعة قواعد لنسخها.',
+    });
+  }
+
+  return id;
+}
+
+/**
+ * Moves one rule's outcome inside a ruleset this workspace owns.
+ *
+ * The platform's defaults are out of reach here by the `tenant_id` in the WHERE clause, not
+ * by a check in the caller: a statement that cannot touch them is a stronger promise than a
+ * rule somebody has to remember.
+ *
+ * The condition is untouched. Changing what a rule looks at is a different act from changing
+ * what it decides, and only the second is safe to do from a dropdown.
+ */
+export async function setRuleOutcome(
+  tx: TenantTransaction,
+  input: { rulesetId: string; seq: number; outcome: Outcome },
+): Promise<void> {
+  const { rowCount } = await tx.query(
+    `UPDATE decision_rules r
+        SET outcome = $4
+       FROM decision_rulesets s
+      WHERE s.id = r.ruleset_id AND r.ruleset_id = $2 AND r.seq = $3
+        AND s.tenant_id = $1`,
+    [tx.tenantId, input.rulesetId, input.seq, input.outcome],
+  );
+
+  if (rowCount === 0) {
+    throw new NxError('NX-4031', {
+      detail: 'that rule is not in a ruleset this workspace owns',
+      cause: 'لا تُعدَّل قواعد المنصة الافتراضية. انسخها أولاً إلى مجموعة خاصة بك.',
+    });
+  }
+}

@@ -37,6 +37,13 @@ gaps. A tab in the navigation promised a subscriber something there was no way t
   called `registerEndpoint` while the tab was named for webhooks and offered only API keys. No
   subscriber could ever receive one. We generate the signing secret, show it once, and keep
   only a `kms://` pointer.
+- **A workspace can have decision rules of its own** (ADR-149). Both buttons on the rules
+  screen were dead and, unlike the rest of this sweep, nothing in the domain stood behind
+  them: the engine could read a ruleset, decide with one and simulate one, and no code
+  anywhere could write one, so every workspace ran on whatever the seed left, permanently.
+  The platform's defaults stay uneditable, because every workspace inherits them; what the
+  screen offers is to take a copy and move an outcome on it. What a rule looks at is not
+  offered from a dropdown: conditions are a closed set, and building one is a rule builder.
 - **An onboarding file can be opened from the console** (ADR-148). The list screen's primary
   action pointed at a route nobody had built, so it fell through to the `[id]` route and a
   404: the only way into onboarding from this console was broken. Opening now runs the file,

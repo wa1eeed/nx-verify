@@ -350,7 +350,14 @@ export type {
 
 export { evaluate, isCondition } from './decision/conditions.js';
 export type { Condition, ConditionOperator, EvaluationContext } from './decision/conditions.js';
-export { decide, listRulesets, simulateRuleset, storeDecision } from './decision/engine.js';
+export {
+  decide,
+  forkRuleset,
+  listRulesets,
+  setRuleOutcome,
+  simulateRuleset,
+  storeDecision,
+} from './decision/engine.js';
 export type {
   Decision,
   DecisionReason,

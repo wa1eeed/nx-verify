@@ -514,7 +514,7 @@ describe('the rules studio', () => {
 
   it('says that order decides, because it does', () => {
     const html = renderToStaticMarkup(
-      <RulesStudio rulesetName="القواعد الافتراضية" isDefault rules={rules} />,
+      <RulesStudio rulesetId="rs1" rulesetName="القواعد الافتراضية" isDefault rules={rules} />,
     );
     // A screen that hides evaluation order invites rules that never fire.
     expect(html).toContain('data-role="order-notice"');
@@ -523,15 +523,18 @@ describe('the rules studio', () => {
 
   it('will not let the system default be edited', () => {
     const html = renderToStaticMarkup(
-      <RulesStudio rulesetName="القواعد الافتراضية" isDefault rules={rules} />,
+      <RulesStudio rulesetId="rs1" rulesetName="القواعد الافتراضية" isDefault rules={rules} />,
     );
     expect(html).toContain('غير قابل للتعديل');
-    expect(html).toContain('disabled');
+    // Stronger than a disabled button: there is no control at all on a set every other
+    // workspace inherits (ADR-149). What is offered instead is a copy of your own.
+    expect(html).not.toContain('data-role="set-outcome"');
   });
 
   it('shows what a change would do before it is saved', () => {
     const html = renderToStaticMarkup(
       <RulesStudio
+        rulesetId="rs1"
         rulesetName="قواعد مشددة"
         isDefault={false}
         rules={rules}

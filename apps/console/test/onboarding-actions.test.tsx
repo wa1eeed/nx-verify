@@ -30,29 +30,29 @@ const journey: JourneyView = {
 
 const step = (over: Partial<CaseStepView> = {}): CaseStepView => ({
   stepKey: 'registry',
-  seq: 1,
   productNameAr: 'السجل التجاري',
-  productCode: 'CR_STATUS',
   required: true,
   status: 'PENDING',
   runId: null,
   runReference: null,
   waiveReason: null,
+  decidedAt: null,
   ...over,
 });
 
 const caseView = (over: Partial<CaseDetailView> = {}): CaseDetailView => ({
   caseId: 'c1',
   reference: 'ONB-2026-000002',
-  journeyCode: 'MERCHANT',
   journeyNameAr: 'تأهيل تاجر',
   entityId: null,
   entityName: null,
   status: 'IN_PROGRESS',
   outcome: null,
+  clientRef: null,
   openedAt: new Date('2026-09-15T09:00:00Z'),
   dueAt: new Date('2026-09-17T09:00:00Z'),
   closedAt: null,
+  overdue: false,
   steps: [step()],
   actions: [],
   ...over,
@@ -60,18 +60,11 @@ const caseView = (over: Partial<CaseDetailView> = {}): CaseDetailView => ({
 
 const renderCase = (props: Partial<Parameters<typeof OnboardingCaseView>[0]> = {}): string =>
   renderToStaticMarkup(
-    <OnboardingCaseView
-      view={caseView()}
-      advanceAction={noop}
-      waiveAction={noop}
-      {...props}
-    />,
+    <OnboardingCaseView view={caseView()} advanceAction={noop} waiveAction={noop} {...props} />,
   );
 
 describe('opening a file', () => {
-  const html = renderToStaticMarkup(
-    <OpenCase journeys={[journey]} action={noop} />,
-  );
+  const html = renderToStaticMarkup(<OpenCase journeys={[journey]} action={noop} />);
 
   it('asks for a journey and a number, and nothing else', () => {
     expect(html).toContain('name="journey"');
