@@ -189,6 +189,52 @@ export async function registerEndpoint(
 }
 
 /**
+ * Pauses an endpoint, or starts it again (ADR-147).
+ *
+ * Pausing, not deleting: the deliveries already queued to it carry its id, and what was sent
+ * is a fact. A paused endpoint receives nothing, because both the queue and the dispatcher
+ * read only active rows.
+ *
+ * The signing secret is left where it is. An endpoint that is paused for a fortnight and
+ * started again must verify the same signatures afterwards, and a subscriber who has to
+ * change the secret in their own system to switch us back on will simply not switch us back
+ * on.
+ */
+export async function setEndpointStatus(
+  tx: TenantTransaction,
+  endpointId: string,
+  status: 'active' | 'paused',
+): Promise<void> {
+  await tx.query(`UPDATE webhook_endpoints SET status = $3 WHERE tenant_id = $1 AND id = $2`, [
+    tx.tenantId,
+    endpointId,
+    status,
+  ]);
+}
+
+/** Every endpoint, paused ones included, for the screen that manages them. */
+export async function listAllEndpoints(tx: TenantTransaction): Promise<WebhookEndpoint[]> {
+  const { rows } = await tx.query<{
+    id: string;
+    url: string;
+    secret_ref: string;
+    events: string[];
+    status: string;
+  }>(
+    `SELECT id, url, secret_ref, events, status
+     FROM webhook_endpoints WHERE tenant_id = $1 ORDER BY created_at`,
+    [tx.tenantId],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    url: row.url,
+    secretRef: row.secret_ref,
+    events: row.events,
+    status: row.status,
+  }));
+}
+
+/**
  * Queues one delivery to one endpoint.
  *
  * Endpoints subscribe to event types globally, which is right for events: a customer who

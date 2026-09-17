@@ -4,6 +4,7 @@ import { Portfolios, type PortfolioRowView } from '../../../../components/portfo
 import { query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { SETTINGS_TABS } from '../../../../components/nav';
+import { createPortfolioAction } from './actions';
 
 /**
  * Never prerendered and never cached.
@@ -14,7 +15,12 @@ import { SETTINGS_TABS } from '../../../../components/nav';
  */
 export const dynamic = 'force-dynamic';
 
-export default async function PortfoliosPage(): Promise<ReactElement> {
+export default async function PortfoliosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ outcome?: string }>;
+}): Promise<ReactElement> {
+  const { outcome } = await searchParams;
   const rows = await query(async (tx) => {
     const portfolios = await listPortfolios(tx);
     const health = await portfolioHealth(tx);
@@ -36,7 +42,7 @@ export default async function PortfoliosPage(): Promise<ReactElement> {
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
       <SectionTabs tabs={SETTINGS_TABS} current="/settings/portfolios" label="أقسام الإعدادات" />
-      <Portfolios rows={rows} />
+      <Portfolios rows={rows} outcome={outcome} createAction={createPortfolioAction} />
     </div>
   );
 }

@@ -14,6 +14,34 @@ broken, the entry says what was broken, because that is the part worth reading a
 
 ## [Unreleased]
 
+### Fixed (screens that reported and could not act)
+
+A sweep of the platform found several screens that read and displayed and could do nothing:
+a button with no form around it, or a domain function only tests ever called. Not cosmetic
+gaps. A tab in the navigation promised a subscriber something there was no way to reach.
+
+- **Detected changes can be closed** (ADR-146). `acknowledgeChange` had no caller outside its
+  own file, so every change a workspace had ever seen stayed open: the alert count, the
+  customer list's facet and the sidebar badge only ever climbed. A signal that cannot be
+  cleared stops being a signal. Closing one denies nothing; the change event and the facts
+  behind it are never edited.
+- **The review queue can be worked.** Assign, decide, approve and return all existed in the
+  domain and over the API and none were reachable from the console, so the tab a reviewer is
+  sent to was a dead end. Each row now opens its case. The four eyes rule is stated on the
+  screen rather than enforced by a missing button.
+- **A freshness change can be applied**, not only previewed. And fourteen of twenty one rows
+  read as `governance` and `liquidator` on an Arabic screen, because a policy is written on a
+  path prefix and prefixes are not in the field catalogue. They are named now.
+- **A webhook endpoint can be registered** (ADR-147). The delivery pipeline has been complete
+  since the webhooks unit and ran against a permanently empty table, because nothing anywhere
+  called `registerEndpoint` while the tab was named for webhooks and offered only API keys. No
+  subscriber could ever receive one. We generate the signing secret, show it once, and keep
+  only a `kms://` pointer.
+- **A portfolio can be created**, with its policy asked for at the moment it is made. The
+  screen promised per-group durations, rules and monitoring and offered no way to have a group
+  at all. Monitoring with no ceiling is refused: that is how a group quietly spends a
+  workspace's balance.
+
 ### Added
 
 - **A subscriber can finally subscribe to notifications** (ADR-145). The queue has always

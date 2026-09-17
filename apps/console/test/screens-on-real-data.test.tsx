@@ -236,13 +236,17 @@ describe('the console renders real data', () => {
 
     const dashboard = renderToStaticMarkup(await DashboardPage());
     const queue = renderToStaticMarkup(await QueuePage({ searchParams: Promise.resolve({}) }));
-    const portfolios = renderToStaticMarkup(await PortfoliosPage());
+    const portfolios = renderToStaticMarkup(
+      await PortfoliosPage({ searchParams: Promise.resolve({}) }),
+    );
 
     expect(dashboard).toMatch(/(صباح|مساء) الخير/);
     expect(dashboard).toContain('data-role="tiles"');
     expect(dashboard).toContain('data-role="recent-runs"');
     expect(queue).toContain('المراجعات');
     expect(portfolios).toContain('المحافظ');
+    // A group can be made from here now (ADR-147); the button used to be a dead submit.
+    expect(portfolios).toContain('data-role="create-portfolio"');
 
     // Rule 5 holds on every screen, not only the ones written first.
     for (const html of [dashboard, queue, portfolios]) {

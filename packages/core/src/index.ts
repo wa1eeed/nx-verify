@@ -238,10 +238,12 @@ export {
 export type { MatchedWait, OpenWait, StoredWait } from './verification/waits.js';
 export {
   claimPendingDeliveries,
+  listAllEndpoints,
   listEndpoints,
   queueEvent,
   recordDeliveryResult,
   registerEndpoint,
+  setEndpointStatus,
 } from './webhooks/dispatch.js';
 export type {
   PendingDelivery,

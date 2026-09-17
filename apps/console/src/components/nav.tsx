@@ -61,6 +61,7 @@ export const SETTINGS_TABS: readonly SectionTab[] = [
 /** The keys and webhooks tab holds four screens of its own. */
 export const DEVELOPER_TABS: readonly SectionTab[] = [
   { href: '/settings/developers', label: 'مفاتيح الـAPI' },
+  { href: '/settings/developers/webhooks', label: 'الـ Webhooks' },
   { href: '/settings/developers/sandbox', label: 'بيئة الاختبار' },
   { href: '/settings/developers/logs', label: 'سجل النداءات' },
   { href: '/settings/developers/reference', label: 'مرجع الـAPI' },

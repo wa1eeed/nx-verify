@@ -479,7 +479,25 @@ describe('the phase two screens keep the same rules', () => {
     expect(html).toContain('300.00');
     expect(html).toContain('خاصة بالمحفظة');
     expect(html).toContain('تفوز المدة الأقصر');
+  });
+
+  it('offers a way to make one, and asks for the policy at the same moment', () => {
+    // «محفظة جديدة» used to be a submit button with no form around it (ADR-147), so the
+    // screen promised per-group policy and offered no way to have a group at all.
+    const html = renderToStaticMarkup(<Portfolios rows={[]} createAction={async () => {}} />);
+    expect(html).toContain('data-role="create-portfolio"');
     expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
+    // The policy is asked for when the group is made, not left for a visit nobody makes.
+    expect(html).toContain('name="monitor_by_default"');
+    expect(html).toContain('name="monitor_budget"');
+  });
+
+  it('refuses to watch a group with no ceiling, and says why', () => {
+    const html = renderToStaticMarkup(
+      <Portfolios rows={[]} outcome="budget" createAction={async () => {}} />,
+    );
+    expect(html).toContain('data-tone="refused"');
+    expect(html).toContain('تستهلك رصيدك بهدوء');
   });
 });
 

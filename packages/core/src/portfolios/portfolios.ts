@@ -59,27 +59,39 @@ export async function createPortfolio(
     });
   }
 
-  const { rows } = await tx.query<{ id: string }>(
-    `INSERT INTO portfolios (tenant_id, code, name_ar, name_en, default_product_code,
+  const { rows } = await tx
+    .query<{ id: string }>(
+      `INSERT INTO portfolios (tenant_id, code, name_ar, name_en, default_product_code,
                              decision_ruleset, monitor_by_default, monitor_cadence,
                              monitor_budget_sar, alert_on_enter)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10)
      RETURNING id`,
-    [
-      tx.tenantId,
-      input.code,
-      input.nameAr,
-      input.nameEn,
-      input.defaultProductCode ?? null,
-      input.decisionRuleset ?? null,
-      input.monitorByDefault ?? false,
-      input.monitorCadence ?? null,
-      input.monitorBudget === null || input.monitorBudget === undefined
-        ? null
-        : halalasToDecimalString(input.monitorBudget),
-      input.alertOnEnter ?? false,
-    ],
-  );
+      [
+        tx.tenantId,
+        input.code,
+        input.nameAr,
+        input.nameEn,
+        input.defaultProductCode ?? null,
+        input.decisionRuleset ?? null,
+        input.monitorByDefault ?? false,
+        input.monitorCadence ?? null,
+        input.monitorBudget === null || input.monitorBudget === undefined
+          ? null
+          : halalasToDecimalString(input.monitorBudget),
+        input.alertOnEnter ?? false,
+      ],
+    )
+    .catch((error: unknown) => {
+      // A code already in use, given our own code so a screen can say so rather than
+      // reporting «something went wrong» for the one mistake a person actually makes here.
+      if ((error as { code?: string }).code === '23505') {
+        throw new NxError('NX-4091', {
+          detail: 'a portfolio with that code already exists here',
+          cause: 'يوجد مجموعة بالرمز نفسه.',
+        });
+      }
+      throw error;
+    });
 
   const id = rows[0]?.id;
   if (!id) {
