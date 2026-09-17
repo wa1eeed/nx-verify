@@ -15,6 +15,7 @@ import { actingUser, query } from '../../../../lib/context';
 import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { Inbox } from '../../../../components/inbox';
 import { PageHeader, Panel } from '../../../../components/page-header';
+import { acknowledgeChangeAction } from './actions';
 
 /** Never prerendered: one subscriber's live changes. */
 export const dynamic = 'force-dynamic';
@@ -104,6 +105,7 @@ export default async function AlertsPage({
         heading={false}
         path="/customers/alerts"
         params={params}
+        acknowledgeAction={acknowledgeChangeAction}
         changes={{
           ...data.changes,
           rows: data.changes.rows.map((change) => ({

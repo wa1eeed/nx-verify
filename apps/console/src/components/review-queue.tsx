@@ -5,6 +5,7 @@ import { LinkedRows } from './ui/linked-rows';
 import { ListPagination } from './ui/pagination';
 import type { SearchParams } from '../lib/pagination';
 import { EmptyState, PageHeader, Panel } from './page-header';
+import { SubmitButton } from './ui/submit-button';
 
 /**
  * The review queue.
@@ -14,7 +15,12 @@ import { EmptyState, PageHeader, Panel } from './page-header';
  * visible rather than merely enforced: an analyst can see that a colleague decided and
  * that someone else has to approve.
  *
- * One primary action, and it is the one an analyst opens this screen to perform.
+ * One primary action, and it is the one an analyst opens this screen to perform: take the
+ * unassigned cases on this page. It assigns what is in front of the reader rather than the
+ * whole queue, because a button that quietly claims five hundred cases is not an assignment,
+ * it is an accident (ADR-146).
+ *
+ * Every row opens the case, where it is decided. The customer's file is one link inside it.
  */
 
 export interface QueueRowView {
@@ -52,11 +58,14 @@ export function ReviewQueue({
   page,
   overdue,
   params,
+  claimAction,
 }: {
   page: Page<QueueRowView>;
   /** Overdue cases across the whole queue, not the page on screen. */
   overdue: number;
   params: SearchParams;
+  /** Takes the unassigned cases on this page. Absent on a screen that only reports. */
+  claimAction?: ((formData: FormData) => void | Promise<void>) | undefined;
 }): ReactElement {
   const rows = page.rows;
 
@@ -66,9 +75,19 @@ export function ReviewQueue({
         title="المراجعات"
         subtitle="حالات تحتاج قرار موظف. من يقرّر غير من يعتمد."
         action={
-          <button type="submit" className="btn btn-primary">
-            إسناد الحالات إليّ
-          </button>
+          claimAction === undefined ? undefined : (
+            <form action={claimAction}>
+              {/* What is on this page, so the button claims what the reader can see. */}
+              {rows
+                .filter((row) => row.assignedTo === null && row.status !== 'CLOSED')
+                .map((row) => (
+                  <input key={row.caseId} type="hidden" name="case_id" value={row.caseId} />
+                ))}
+              <SubmitButton variant="primary" data-role="claim-cases" pendingLabel="جارٍ الإسناد">
+                إسناد الحالات إليّ
+              </SubmitButton>
+            </form>
+          )
         }
       />
 
@@ -98,10 +117,10 @@ export function ReviewQueue({
                 <tr
                   key={row.caseId}
                   data-overdue={row.overdue ? 'true' : 'false'}
-                  data-href={`/customers/${row.entityId}`}
+                  data-href={`/customers/reviews/${row.caseId}`}
                 >
                   <td>
-                    <Link prefetch={false} href={`/customers/${row.entityId}`} data-row-link>
+                    <Link prefetch={false} href={`/customers/reviews/${row.caseId}`} data-row-link>
                       {row.entityName ?? 'بلا اسم'}
                     </Link>
                   </td>

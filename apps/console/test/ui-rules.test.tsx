@@ -413,21 +413,36 @@ describe('the phase two screens keep the same rules', () => {
     },
   ];
 
+  const queueNoop = async (): Promise<void> => {};
+
   it('shows one primary action on the review queue', () => {
     const html = renderToStaticMarkup(
-      <ReviewQueue page={slicePage(queueRows, { page: 1, size: 25 })} overdue={1} params={{}} />,
+      <ReviewQueue
+        page={slicePage(queueRows, { page: 1, size: 25 })}
+        overdue={1}
+        params={{}}
+        claimAction={queueNoop}
+      />,
     );
     expect(html.match(/btn-primary/g) ?? []).toHaveLength(1);
+    // And it claims only what is on screen: one of the two rows is already assigned.
+    expect(html.match(/name="case_id"/g) ?? []).toHaveLength(1);
   });
 
   it('marks a late case and names who decided', () => {
     const html = renderToStaticMarkup(
-      <ReviewQueue page={slicePage(queueRows, { page: 1, size: 25 })} overdue={1} params={{}} />,
+      <ReviewQueue
+        page={slicePage(queueRows, { page: 1, size: 25 })}
+        overdue={1}
+        params={{}}
+        claimAction={queueNoop}
+      />,
     );
     expect(html).toContain('data-overdue="true"');
-    // The count is the whole queue's, and every row opens its customer's file.
     expect(html).toContain('1 متأخرة من 2');
-    expect(html).toContain('data-href="/customers/e1"');
+    // Every row opens its own case, which is where it is decided (ADR-146). The customer's
+    // file is a link inside that, because the question on this screen is about the case.
+    expect(html).toContain('data-href="/customers/reviews/c1"');
     expect(html).toContain('متأخرة');
     // The control is visible, not merely enforced.
     expect(html).toContain('user:analyst-1');

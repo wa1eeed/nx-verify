@@ -356,6 +356,7 @@ export {
   assignCase,
   decideCase,
   countQueue,
+  getReviewCase,
   listQueue,
   pageQueue,
   openCase,

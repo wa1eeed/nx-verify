@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { Page } from '@nx-verify/core';
 import { LinkedRows } from './ui/linked-rows';
+import { SubmitButton } from './ui/submit-button';
 import { ListPagination } from './ui/pagination';
 import type { SearchParams } from '../lib/pagination';
 import { EmptyState, PageHeader, Panel } from './page-header';
@@ -46,6 +47,7 @@ export function Monitoring({
   params,
   path,
   heading = true,
+  acknowledgeAction,
 }: {
   changes: Page<ChangeRowView>;
   /** Customers with facts that aged, a page of them; its pages are `stale_page`. */
@@ -54,6 +56,8 @@ export function Monitoring({
   path: string;
   /** False where the screen around it already carries the page header. */
   heading?: boolean;
+  /** Closes one change. Absent on a screen that only reports. */
+  acknowledgeAction?: ((formData: FormData) => void | Promise<void>) | undefined;
 }): ReactElement {
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
@@ -83,6 +87,7 @@ export function Monitoring({
                   <th>ما تغيّر</th>
                   <th>الأهمية</th>
                   <th>رُصد في</th>
+                  {acknowledgeAction === undefined ? null : <th />}
                 </tr>
               </thead>
               <LinkedRows>
@@ -109,6 +114,28 @@ export function Monitoring({
                         {isoDate(change.detectedAt)}
                       </bdi>
                     </td>
+                    {acknowledgeAction === undefined ? null : (
+                      <td>
+                        {/*
+                          Closing it records that this person looked, on this date. It denies
+                          nothing: the change event and the facts behind it are never edited.
+                        */}
+                        <form action={acknowledgeAction}>
+                          <input
+                            type="hidden"
+                            name="change_event_id"
+                            value={change.changeEventId}
+                          />
+                          <SubmitButton
+                            variant="ghost"
+                            data-role="acknowledge-change"
+                            pendingLabel="جارٍ الإغلاق"
+                          >
+                            اطّلعت
+                          </SubmitButton>
+                        </form>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </LinkedRows>

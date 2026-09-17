@@ -5,6 +5,7 @@ import { query } from '../../../../lib/context';
 import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { CUSTOMER_TABS } from '../../../../components/nav';
+import { claimCasesAction } from './actions';
 
 /**
  * Never prerendered and never cached.
@@ -51,7 +52,8 @@ export default async function QueuePage({
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
       <SectionTabs tabs={CUSTOMER_TABS} current="/customers/reviews" label="أقسام العملاء" />
-      <ReviewQueue page={page} overdue={overdue} params={params} />
+      <ReviewQueue
+        claimAction={claimCasesAction} page={page} overdue={overdue} params={params} />
     </div>
   );
 }

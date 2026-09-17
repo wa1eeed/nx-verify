@@ -176,6 +176,29 @@ export async function listQueue(
   }));
 }
 
+/**
+ * One case, for the screen that decides it.
+ *
+ * Reads through `listQueue` rather than a second statement, so the shape a reviewer sees on
+ * the case is the shape they saw in the queue, and the tenant is constrained in exactly one
+ * place.
+ */
+export async function getReviewCase(
+  tx: TenantTransaction,
+  caseId: string,
+): Promise<QueueItem | null> {
+  const { rows } = await tx.query<{ entity_id: string }>(
+    `SELECT entity_id FROM review_cases WHERE tenant_id = $1 AND id = $2`,
+    [tx.tenantId, caseId],
+  );
+  const entityId = rows[0]?.entity_id;
+  if (entityId === undefined) {
+    return null;
+  }
+  const cases = await listQueue(tx, { entityId, limit: 200 });
+  return cases.find((item) => item.caseId === caseId) ?? null;
+}
+
 export async function assignCase(
   tx: TenantTransaction,
   caseId: string,
