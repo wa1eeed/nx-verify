@@ -4,6 +4,7 @@ import { FreshnessSettings } from '../../../../components/freshness-settings';
 import { query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { SETTINGS_TABS } from '../../../../components/nav';
+import { clearTtlAction, setTtlAction } from './actions';
 
 /**
  * Never prerendered and never cached.
@@ -21,7 +22,7 @@ export const dynamic = 'force-dynamic';
 export default async function FreshnessSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ field?: string; ttl?: string }>;
+  searchParams: Promise<{ field?: string; ttl?: string; outcome?: string }>;
 }): Promise<ReactElement> {
   const params = await searchParams;
   const proposedTtl = params.ttl === undefined ? null : Number.parseInt(params.ttl, 10);
@@ -45,7 +46,13 @@ export default async function FreshnessSettingsPage({
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
       <SectionTabs tabs={SETTINGS_TABS} current="/settings/freshness" label="أقسام الإعدادات" />
-      <FreshnessSettings rows={rows} preview={preview} />
+      <FreshnessSettings
+        rows={rows}
+        preview={preview}
+        outcome={params.outcome}
+        saveAction={setTtlAction}
+        clearAction={clearTtlAction}
+      />
     </div>
   );
 }

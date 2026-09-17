@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ReviewCase, type ReviewCaseView } from '../src/components/review-case';
 import { Monitoring } from '../src/components/monitoring';
+import { FreshnessSettings } from '../src/components/freshness-settings';
+import { fieldLabel } from '../src/components/field-card';
 
 /**
  * Working a review case, and closing a detected change (ADR-146).
@@ -68,7 +70,12 @@ describe('the review case screen', () => {
 
   it('lets somebody else approve a decision that is waiting', () => {
     const html = render({
-      item: caseView({ status: 'DECIDED', outcome: 'PASS', decidedBy: COLLEAGUE, decisionNote: 'السجل نشط' }),
+      item: caseView({
+        status: 'DECIDED',
+        outcome: 'PASS',
+        decidedBy: COLLEAGUE,
+        decisionNote: 'السجل نشط',
+      }),
     });
     expect(html).toContain('data-role="approve-case"');
     expect(html).toContain('data-role="return-case"');
@@ -76,7 +83,12 @@ describe('the review case screen', () => {
 
   it('states the four eyes rule rather than hiding the button behind it', () => {
     const html = render({
-      item: caseView({ status: 'DECIDED', outcome: 'PASS', decidedBy: VIEWER, decisionNote: 'السجل نشط' }),
+      item: caseView({
+        status: 'DECIDED',
+        outcome: 'PASS',
+        decidedBy: VIEWER,
+        decisionNote: 'السجل نشط',
+      }),
     });
     // The rule is refused in the domain and in a trigger under it. What a screen owes the
     // reader is the reason, because a missing button teaches nobody anything.
@@ -87,7 +99,12 @@ describe('the review case screen', () => {
 
   it('shows the note with the decision, since that is what is read a year later', () => {
     const html = render({
-      item: caseView({ status: 'DECIDED', outcome: 'FAIL', decidedBy: COLLEAGUE, decisionNote: 'السجل موقوف' }),
+      item: caseView({
+        status: 'DECIDED',
+        outcome: 'FAIL',
+        decidedBy: COLLEAGUE,
+        decisionNote: 'السجل موقوف',
+      }),
     });
     expect(html).toContain('السجل موقوف');
     expect(html).toContain('مرفوضة');
@@ -116,8 +133,8 @@ describe('closing a detected change', () => {
     reasonAr: 'تغيّرت حالة السجل',
     detectedAt: new Date('2026-09-15T09:00:00Z'),
   };
-  const page = { rows: [change], total: 1, page: 1, size: 25, pages: 1 };
-  const empty = { rows: [], total: 0, page: 1, size: 25, pages: 0 };
+  const page = { rows: [change], total: 1, page: 1, size: 25 as const, pages: 1 };
+  const empty = { rows: [], total: 0, page: 1, size: 25 as const, pages: 0 };
 
   const monitoring = (acknowledgeAction?: (formData: FormData) => Promise<void>): string =>
     renderToStaticMarkup(
@@ -136,5 +153,55 @@ describe('closing a detected change', () => {
 
   it('offers nothing where the screen only reports', () => {
     expect(monitoring()).not.toContain('data-role="acknowledge-change"');
+  });
+});
+
+describe('the freshness screen, which could preview and not apply', () => {
+  const rows = [
+    { fieldPath: 'cr', ttlDays: 30, weight: 10, source: 'system' as const },
+    { fieldPath: 'manager', ttlDays: 60, weight: 8, source: 'tenant' as const },
+  ];
+
+  const render = (editable: boolean): string =>
+    renderToStaticMarkup(
+      <FreshnessSettings
+        rows={rows}
+        {...(editable ? { saveAction: noop, clearAction: noop } : {})}
+      />,
+    );
+
+  it('makes every row editable and offers both asking and doing', () => {
+    const html = render(true);
+    expect(html).toContain('name="ttl_days"');
+    expect(html).toContain('name="weight"');
+    expect(html).toContain('data-role="preview-ttl"');
+    expect(html).toContain('data-role="save-ttl"');
+  });
+
+  it('offers a way back to the default only where the subscriber changed it', () => {
+    // One of the two rows is the platform's own value, and there is nothing to undo on it.
+    expect(render(true).match(/data-role="clear-ttl"/g) ?? []).toHaveLength(1);
+  });
+
+  it('keeps saying that a duration rewrites nothing', () => {
+    // People assume an edit like this is destructive, and guard 07 proves it is not.
+    expect(render(true)).toContain('data-role="inert-notice"');
+    expect(render(true)).toContain('لا يغيّر أي إفادة سابقة');
+  });
+
+  it('reads as a table with no controls where nothing may be changed', () => {
+    const html = render(false);
+    expect(html).not.toContain('name="ttl_days"');
+    expect(html).not.toContain('data-role="save-ttl"');
+  });
+
+  it('names a family of fields in Arabic rather than showing its path', () => {
+    // A policy is written on a prefix, not a leaf, and a prefix is not in the catalogue.
+    // Fourteen of these rows used to read «governance» and «liquidator» on an Arabic screen.
+    expect(fieldLabel('manager')).toBe('المدراء المفوضون');
+    expect(fieldLabel('liquidator')).toBe('المصفّي');
+    expect(fieldLabel('cr.status')).toBe('حالة السجل التجاري');
+    // And a path nobody named still shows itself rather than disappearing.
+    expect(fieldLabel('nothing.known')).toBe('nothing.known');
   });
 });

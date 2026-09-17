@@ -5,12 +5,7 @@ import { ReviewCase, type ReviewCaseView } from '../../../../../components/revie
 import { actingUser, query } from '../../../../../lib/context';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { CUSTOMER_TABS } from '../../../../../components/nav';
-import {
-  approveCaseAction,
-  assignCaseAction,
-  decideCaseAction,
-  returnCaseAction,
-} from './actions';
+import { approveCaseAction, assignCaseAction, decideCaseAction, returnCaseAction } from './actions';
 
 /** Never prerendered: one case, in one workspace, read at request time. */
 export const dynamic = 'force-dynamic';
@@ -34,7 +29,9 @@ export default async function ReviewCasePage({
 
     // Names for the two people on the case and the customer it is about, read in the same
     // scope the case was: a name from another workspace must not reach this screen.
-    const ids = [item.assignedTo, item.decidedBy].filter((value): value is string => value !== null);
+    const ids = [item.assignedTo, item.decidedBy].filter(
+      (value): value is string => value !== null,
+    );
     const { rows: people } = ids.length
       ? await tx.query<{ id: string; display_name: string }>(
           `SELECT id, display_name FROM users WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,

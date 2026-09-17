@@ -995,8 +995,42 @@ export function definitionOf(fieldPath: string): FieldDefinition | undefined {
   return FIELD_CATALOGUE[fieldPath] ?? FIELD_CATALOGUE[general] ?? RELATIONSHIP_FIELDS[general];
 }
 
+/**
+ * The families a duration is set on (ADR-029, ADR-146).
+ *
+ * A freshness policy is written against a path prefix, not a leaf: «every fact under
+ * `manager`» rather than «`manager.signing_authority`». Those prefixes are not fields and so
+ * are not in the catalogue, which left the settings screen asking a subscriber in Arabic to
+ * set a duration for `governance` and `liquidator`.
+ *
+ * Only the prefixes a policy is actually written on. A leaf keeps its own name from the
+ * catalogue, which is looked up first.
+ */
+const FAMILY_LABELS: Readonly<Record<string, string>> = {
+  account: 'الحسابات البنكية',
+  address: 'العنوان',
+  'address.national': 'العنوان الوطني',
+  bank: 'البيانات المصرفية',
+  contract: 'عقد التأسيس',
+  cr: 'السجل التجاري',
+  'cr.core': 'بيانات السجل الأساسية',
+  freelance: 'وثيقة العمل الحر',
+  governance: 'الحوكمة',
+  guardian: 'الولاية والوصاية',
+  iban: 'الآيبان',
+  income: 'الدخل',
+  liquidator: 'المصفّي',
+  manager: 'المدراء المفوضون',
+  ownership: 'الملكية',
+  partner: 'الشركاء',
+  party: 'وثيقة الطرف',
+  person: 'بيانات الأشخاص',
+  property: 'العقارات',
+  registry: 'السجلات الرئيسية',
+};
+
 export function fieldLabelAr(fieldPath: string): string {
-  return definitionOf(fieldPath)?.labelAr ?? fieldPath;
+  return definitionOf(fieldPath)?.labelAr ?? FAMILY_LABELS[fieldPath] ?? fieldPath;
 }
 
 export function isHiddenField(fieldPath: string): boolean {

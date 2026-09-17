@@ -52,8 +52,7 @@ export default async function QueuePage({
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
       <SectionTabs tabs={CUSTOMER_TABS} current="/customers/reviews" label="أقسام العملاء" />
-      <ReviewQueue
-        claimAction={claimCasesAction} page={page} overdue={overdue} params={params} />
+      <ReviewQueue claimAction={claimCasesAction} page={page} overdue={overdue} params={params} />
     </div>
   );
 }
