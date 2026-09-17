@@ -1,4 +1,5 @@
 import type { Queryable } from '@nx-verify/db';
+import { getMailSettings } from '../notifications/mail-settings.js';
 
 /**
  * Whether this deployment is actually installed.
@@ -60,7 +61,7 @@ export async function checkReadiness(
   checks.push(...(await connectionChecks(db)));
   checks.push(secretsCheck(env, input.secretsWritable));
   checks.push(keysCheck(env));
-  checks.push(mailCheck(env));
+  checks.push(await mailCheck(db, env));
   checks.push(addressCheck(env));
   checks.push(bankCheck(env));
   checks.push(operatorTokenCheck(env));
@@ -214,20 +215,38 @@ function keysCheck(env: Readonly<Record<string, string | undefined>>): Readiness
   };
 }
 
-function mailCheck(env: Readonly<Record<string, string | undefined>>): ReadinessCheck {
-  const configured = Boolean(
-    env['NX_MAIL_ENDPOINT'] && env['NX_MAIL_TOKEN'] && env['NX_MAIL_FROM'],
-  );
+/**
+ * Whether anything can actually send a message.
+ *
+ * Reads the panel's own row first (ADR-141), because that is where mail is configured now.
+ * The environment is still consulted as the older path a deployment may be using, but it is
+ * no longer what this check tells somebody to set: sending them to a variable that no longer
+ * controls delivery is worse than saying nothing.
+ */
+async function mailCheck(
+  db: Queryable,
+  env: Readonly<Record<string, string | undefined>>,
+): Promise<ReadinessCheck> {
+  const fromPanel = await getMailSettings(db).catch(() => null);
+  const fromEnv = Boolean(env['NX_MAIL_ENDPOINT'] && env['NX_MAIL_TOKEN'] && env['NX_MAIL_FROM']);
+  const configured = (fromPanel?.configured ?? false) || fromEnv;
+
+  // Configured is not the same as working. A setting nobody has ever sent a message with is
+  // a setting nobody has tested, and the screen says which of the two this is.
+  const proved = fromPanel?.lastSentAt != null && fromPanel.lastError === null;
+
   return {
     id: 'mail',
     titleAr: 'تسليم البريد',
     // A warning and not a block: nothing is lost, the queue holds. But a customer who was
     // told they would be notified is not being notified.
     state: configured ? 'ok' : 'warn',
-    detailAr: configured
-      ? 'نقطة تسليم مضبوطة.'
-      : 'لا نقطة تسليم. التنبيهات تبقى في الطابور ولا تضيع، ولا تصل أحداً.',
-    fixAr: configured ? null : 'NX_MAIL_ENDPOINT و NX_MAIL_TOKEN و NX_MAIL_FROM',
+    detailAr: !configured
+      ? 'لا بريد مضبوط. التنبيهات تبقى في الطابور ولا تضيع، ولا تصل أحداً.'
+      : proved
+        ? 'البريد مضبوط، وآخر رسالة خرجت بنجاح.'
+        : 'البريد مضبوط ولم تخرج منه رسالة ناجحة بعد. أرسل رسالة تجربة.',
+    fixAr: configured ? null : 'إعدادات التحقق ← البريد',
   };
 }
 

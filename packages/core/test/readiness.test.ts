@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../../../test/helpers/db.js';
 import { checkReadiness, type ReadinessCheck } from '../src/ops/readiness.js';
+import { setMailSettings } from '../src/notifications/mail-settings.js';
 
 /**
  * Unit 66 acceptance: the install guide, asked of the running system.
@@ -146,6 +147,31 @@ describe('deployment readiness', () => {
     // told, and that is a warning rather than a stop.
     expect(find(report.checks, 'mail').state).toBe('warn');
     expect(find(report.checks, 'bank').state).toBe('warn');
+  });
+
+  it('reads mail from the panel, and sends nobody to a variable that no longer decides it', async () => {
+    // Mail is configured in the panel since ADR-141. A check that still looked only at the
+    // environment would call a configured deployment unready and name three variables that
+    // change nothing, which is worse than saying nothing at all.
+    const none = await run({ ...PRODUCTION, NX_MAIL_ENDPOINT: undefined });
+    expect(none.checks.find((check) => check.id === 'mail')?.fixAr).toBe('إعدادات التحقق ← البريد');
+
+    await setMailSettings(
+      db.operatorPool,
+      {
+        provider: 'resend',
+        fromAddress: 'no-reply@nx.sa',
+        fromName: 'NX Trust',
+        credentialRef: 'kms://platform/mail',
+      },
+      'nx-staff:test',
+    );
+
+    const configured = await run({ ...PRODUCTION, NX_MAIL_ENDPOINT: undefined });
+    const check = find(configured.checks, 'mail');
+    expect(check.state).toBe('ok');
+    // Configured is not proved. Until a message has actually left, the screen says so.
+    expect(check.detailAr).toContain('أرسل رسالة تجربة');
   });
 
   it('reads configuration and never a subscriber', async () => {
