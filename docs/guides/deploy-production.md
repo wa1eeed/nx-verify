@@ -175,33 +175,18 @@ Coolify reads the file and lists five services. Do not deploy yet.
 
 ### 2. The variables
 
-**Environment Variables → paste from .env**, then paste this, replacing every
-`CHANGE_ME`. Generate each password and the token with
-`openssl rand -base64 32` — a different one per line.
+Run this on your own machine, with your two domains and the address you will sign in with:
 
+```bash
+./scripts/coolify-env.sh app.example.sa api.example.sa you@example.sa
 ```
-NX_POSTGRES_PASSWORD=CHANGE_ME
-NX_MIGRATOR_PASSWORD=CHANGE_ME
-NX_APP_PASSWORD=CHANGE_ME
-NX_RETENTION_PASSWORD=CHANGE_ME
-NX_OPERATOR_PASSWORD=CHANGE_ME
 
-NX_ADMIN_DATABASE_URL=postgres://postgres:THE_POSTGRES_PASSWORD@db:5432/nx_verify
-NX_APP_DATABASE_URL=postgres://nx_app:THE_APP_PASSWORD@db:5432/nx_verify
-NX_RETENTION_DATABASE_URL=postgres://nx_retention:THE_RETENTION_PASSWORD@db:5432/nx_verify
-NX_OPERATOR_DATABASE_URL=postgres://nx_operator:THE_OPERATOR_PASSWORD@db:5432/nx_verify
+It generates every password and the token with `openssl`, builds the four connection strings
+so the passwords in them match, and prints your panel sign in separately at the end. Nothing
+is invented in a document that somebody later copies: the values exist only where you paste
+them.
 
-NX_OPERATOR_TOKEN=CHANGE_ME
-NX_PANEL_OWNER_EMAIL=you@example.sa
-NX_PANEL_OWNER_PASSWORD=CHANGE_ME
-NX_PANEL_OWNER_NAME=مالك المنصة
-
-NX_PROVIDERS=stub
-NX_PUBLIC_BASE_URL=https://api.example.sa
-NX_CONSOLE_URL=https://app.example.sa
-NX_CONSOLE_BASE_URL=https://app.example.sa
-NX_SUPPORT_EMAIL=support@example.sa
-```
+In Coolify: **Environment Variables → Developer view**, and paste the output.
 
 Four things about that list.
 
