@@ -12,15 +12,24 @@ import { riyals } from './format';
  *
  * A banner rather than a dialog. A dialog interrupts and is dismissed and never seen again; a
  * banner stays until the thing it is about is done, which is exactly how long this matters.
+ *
+ * **There are two kinds of credit and it must count both.** A transfer either tops up the
+ * wallet in riyals or buys a bundle of operations, and a bundle grants operations without
+ * moving the wallet at all. Reading the wallet alone told somebody who had just paid for a
+ * bundle, and been confirmed, that they still had nothing: the purchase looked lost. The rule
+ * is «can this workspace run a verification», and either kind of credit answers yes.
  */
 export function FundBanner({
   availableHalalas,
+  bundleOperations = 0,
   href = '/billing/invoices',
 }: {
   availableHalalas: number;
+  /** Operations left on live bundles. Credit too, and it never touches the wallet. */
+  bundleOperations?: number;
   href?: string;
 }): ReactElement | null {
-  if (availableHalalas > 0) {
+  if (availableHalalas > 0 || bundleOperations > 0) {
     return null;
   }
 
@@ -38,22 +47,38 @@ export function FundBanner({
 /** The same thing, once there is a balance but it is nearly gone. */
 export function LowBanner({
   availableHalalas,
+  bundleOperations = 0,
   href = '/billing/invoices',
 }: {
   availableHalalas: number;
+  bundleOperations?: number;
   href?: string;
 }): ReactElement | null {
-  if (availableHalalas <= 0) {
+  if (availableHalalas <= 0 && bundleOperations <= 0) {
     return null;
   }
 
   return (
     <aside className="notice notice-done" data-role="low-banner" style={{ margin: 0 }}>
-      رصيدك المتبقي{' '}
-      <bdi dir="ltr" className="mono">
-        {riyals(availableHalalas)}
-      </bdi>{' '}
-      ريال.{' '}
+      {availableHalalas > 0 ? (
+        <>
+          رصيدك المتبقي{' '}
+          <bdi dir="ltr" className="mono">
+            {riyals(availableHalalas)}
+          </bdi>{' '}
+          ريال
+        </>
+      ) : null}
+      {availableHalalas > 0 && bundleOperations > 0 ? '، و' : null}
+      {bundleOperations > 0 ? (
+        <>
+          <bdi dir="ltr" className="mono">
+            {bundleOperations}
+          </bdi>{' '}
+          عملية في حزمك
+        </>
+      ) : null}
+      .{' '}
       <Link href={href} data-role="fund-link">
         اشحن قبل أن ينفد
       </Link>

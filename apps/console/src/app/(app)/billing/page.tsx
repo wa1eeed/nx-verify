@@ -65,8 +65,16 @@ export default async function UsagePage(): Promise<ReactElement> {
         Said where somebody would go looking, rather than left to be discovered as a refusal
         in the middle of a first verification (ADR-154).
       */}
-      <FundBanner availableHalalas={view.availableHalalas} />
-      {view.isLow ? <LowBanner availableHalalas={view.availableHalalas} /> : null}
+      <FundBanner
+        availableHalalas={view.availableHalalas}
+        bundleOperations={bundles.balance.operations}
+      />
+      {view.isLow ? (
+        <LowBanner
+          availableHalalas={view.availableHalalas}
+          bundleOperations={bundles.balance.operations}
+        />
+      ) : null}
       <Usage view={view} />
       <BundleOffer
         balance={bundles.balance}

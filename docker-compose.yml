@@ -45,8 +45,19 @@ services:
 
   migrate:
     build: .
-    # It runs once and finishing is what it is for. It makes the root key before it migrates,
-    # because everything sealed afterwards is sealed under it.
+    # It runs once and finishing is what it is for. Three steps, in the only order they work
+    # in: the root key, because everything sealed afterwards is sealed under it; the
+    # migrations, which build the tables; and the catalogue, which fills them.
+    #
+    # **The catalogue is the step a deployment used to be missing.** Products are rows and not
+    # code (rule 8), so a migrated database is an empty shop: no verification services, no
+    # plans, no costs and no prices. Every screen worked and the platform could do nothing,
+    # and the symptom a subscriber saw was «لا منتجات متاحة لنوع الكيان المحدد» on the one
+    # screen they came to use.
+    #
+    # Safe on every deploy: every insert in the seed is guarded by `WHERE NOT EXISTS` or an
+    # `ON CONFLICT`, so it fills what is missing and never writes over a price somebody
+    # changed in the panel.
     #
     # **Both lines below exist because a one-shot service confuses a deployment tool.** A tool
     # that waits for «every container running» waits forever for one designed to stop: Coolify
@@ -61,7 +72,8 @@ services:
       - -c
       - >-
         node scripts/ensure-master-key.mjs &&
-        pnpm --filter @nx-verify/db run migrate up
+        pnpm --filter @nx-verify/db run migrate up &&
+        pnpm provision products:seed
     environment:
       # The owner connection: it creates the roles and owns the tables, and nothing else in
       # this file uses it (rule 12).
@@ -71,6 +83,12 @@ services:
       NX_APP_PASSWORD: ${NX_APP_PASSWORD:-}
       NX_RETENTION_PASSWORD: ${NX_RETENTION_PASSWORD:-}
       NX_OPERATOR_PASSWORD: ${NX_OPERATOR_PASSWORD:-}
+      # The catalogue is written through three roles, not one: the products and their costs
+      # on the application's, the default prices on the owner's (the only role the price book
+      # lets write a row belonging to no subscriber), and the plans on the operator's.
+      NX_APP_DATABASE_URL: ${NX_APP_DATABASE_URL}
+      NX_OPERATOR_DATABASE_URL: ${NX_OPERATOR_DATABASE_URL}
+      NX_PROVIDERS: ${NX_PROVIDERS:-stub}
       NX_MASTER_KEY_FILE: /var/lib/nx-keys/master
     volumes:
       - keys:/var/lib/nx-keys
