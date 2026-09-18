@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { audit, createPortfolio, setPortfolioTtl, type Cadence } from '@nx-verify/core';
+import { assertCan, audit, createPortfolio, setPortfolioTtl, type Cadence } from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
 
 /**
@@ -34,6 +34,8 @@ function codeFrom(raw: string): string | null {
 }
 
 export async function createPortfolioAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const code = codeFrom(String(formData.get('code') ?? ''));
   const nameAr = String(formData.get('name_ar') ?? '').trim();
@@ -96,6 +98,8 @@ export async function createPortfolioAction(formData: FormData): Promise<void> {
  * «how long do we trust this» is down.
  */
 export async function setPortfolioTtlAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const portfolioId = String(formData.get('portfolio_id') ?? '');
   const fieldPath = String(formData.get('field_path') ?? '').trim();

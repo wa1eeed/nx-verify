@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation';
 import type { ReactElement } from 'react';
-import { canApprove, canDecide, getReviewCase } from '@nx-verify/core';
+import { NoAccess } from '../../../../../components/no-access';
+import { getReviewCase } from '@nx-verify/core';
 import { ReviewCase, type ReviewCaseView } from '../../../../../components/review-case';
 import { actingUser, query } from '../../../../../lib/context';
 import { SectionTabs } from '../../../../../components/section-tabs';
-import { CUSTOMER_TABS } from '../../../../../components/nav';
+import { CUSTOMER_TABS, visible } from '../../../../../components/nav';
 import { approveCaseAction, assignCaseAction, decideCaseAction, returnCaseAction } from './actions';
 
 /** Never prerendered: one case, in one workspace, read at request time. */
@@ -19,7 +20,10 @@ export default async function ReviewCasePage({
 }): Promise<ReactElement> {
   const { id } = await params;
   const search = await searchParams;
-  const user = await actingUser();
+  const actor = await actingUser();
+  if (!actor.can('review.decide')) {
+    return <NoAccess needs="review.decide" />;
+  }
 
   const view = await query(async (tx): Promise<ReviewCaseView | null> => {
     const item = await getReviewCase(tx, id);
@@ -76,12 +80,12 @@ export default async function ReviewCasePage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={CUSTOMER_TABS} current="/customers/reviews" label="أقسام العملاء" />
+      <SectionTabs tabs={visible(CUSTOMER_TABS, actor.capabilities)} current="/customers/reviews" label="أقسام العملاء" />
       <ReviewCase
         item={view}
-        viewerId={user.userId}
-        canDecide={canDecide(user.role)}
-        canApprove={canApprove(user.role)}
+        viewerId={actor.userId}
+        canDecide={actor.can('review.decide')}
+        canApprove={actor.can('review.approve')}
         outcome={one('outcome')}
         assignAction={assignCaseAction}
         decideAction={decideCaseAction}

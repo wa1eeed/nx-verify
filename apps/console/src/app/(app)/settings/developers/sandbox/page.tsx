@@ -1,11 +1,12 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../../components/no-access';
 import { getVerification, listApiKeys, listProducts, sandboxLink } from '@nx-verify/core';
 import { SANDBOX_TEST_CASES, SCENARIO_NAMES } from '@nx-verify/providers';
 import { Developer, type DeveloperView } from '../../../../../components/developer';
-import { query } from '../../../../../lib/context';
+import { actingUser, query } from '../../../../../lib/context';
 import { runPlaygroundAction } from './actions';
 import { SectionTabs } from '../../../../../components/section-tabs';
-import { DEVELOPER_TABS, SETTINGS_TABS } from '../../../../../components/nav';
+import { DEVELOPER_TABS, SETTINGS_TABS, visible } from '../../../../../components/nav';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,10 @@ export default async function DeveloperPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('developers.manage')) {
+    return <NoAccess needs="developers.manage" />;
+  }
   const params = await searchParams;
   const runId = typeof params['run'] === 'string' ? params['run'] : null;
   const error = typeof params['error'] === 'string' ? params['error'] : null;
@@ -71,9 +76,9 @@ export default async function DeveloperPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={SETTINGS_TABS} current="/settings/developers" label="أقسام الإعدادات" />
+      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/developers" label="أقسام الإعدادات" />
       <SectionTabs
-        tabs={DEVELOPER_TABS}
+        tabs={visible(DEVELOPER_TABS, actor.capabilities)}
         current="/settings/developers/sandbox"
         label="أقسام مفاتيح الربط"
       />

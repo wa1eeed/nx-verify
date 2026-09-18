@@ -1,13 +1,14 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { listRulesets, simulateRuleset } from '@nx-verify/core';
 import {
   RulesStudio,
   describeCondition,
   type RuleRowView,
 } from '../../../../components/rules-studio';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { SETTINGS_TABS } from '../../../../components/nav';
+import { SETTINGS_TABS, visible } from '../../../../components/nav';
 import { forkRulesetAction, setRuleOutcomeAction } from './actions';
 
 /**
@@ -24,6 +25,10 @@ export default async function RulesPage({
 }: {
   searchParams: Promise<{ ruleset?: string; simulate?: string; outcome?: string }>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('rules.manage')) {
+    return <NoAccess needs="rules.manage" />;
+  }
   const params = await searchParams;
 
   const data = await query(async (tx) => {
@@ -63,7 +68,7 @@ export default async function RulesPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={SETTINGS_TABS} current="/settings/rules" label="أقسام الإعدادات" />
+      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/rules" label="أقسام الإعدادات" />
       <RulesStudio
         rulesetId={data.chosen.id}
         rulesetName={data.chosen.nameAr}

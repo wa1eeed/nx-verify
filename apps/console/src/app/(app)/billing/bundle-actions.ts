@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requestBundle } from '@nx-verify/core';
+import { assertCan, requestBundle } from '@nx-verify/core';
 import { actingUser, query } from '../../../lib/context';
 
 /**
@@ -10,6 +10,8 @@ import { actingUser, query } from '../../../lib/context';
  * operations when the transfer arrives. Like asking for credit, anybody in the workspace may.
  */
 export async function requestBundleAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'wallet.topup');
   const user = await actingUser();
   const bundleCode = String(formData.get('bundle_code') ?? '');
   const created = await query((tx) => requestBundle(tx, { bundleCode, requestedBy: user.userId }));

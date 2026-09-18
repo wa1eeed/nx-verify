@@ -2,6 +2,9 @@ import { slicePage } from '@nx-verify/core';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { ROLE_PRESETS, presetFor, resolveCapabilities } from '@nx-verify/core';
+import { UserPermissions, permissionsOf } from '../src/components/user-permissions';
+import { NoAccess } from '../src/components/no-access';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { FieldCard, formatValue, daysUntil } from '../src/components/field-card';
 import { ChangeBadge, FreshnessBadge } from '../src/components/freshness';
@@ -59,6 +62,7 @@ import {
   DEVELOPER_TABS,
   SECTIONS,
   SETTINGS_TABS,
+  visible,
   VERIFICATION_TABS,
 } from '../src/components/nav';
 import { isInSection } from '../src/components/section-nav';
@@ -594,7 +598,7 @@ describe('the change password screen', () => {
  * navigation, and whether an empty table says something useful.
  */
 describe('the console shell', () => {
-  const html = renderToStaticMarkup(<Shell isSandbox={false}>{null}</Shell>);
+  const html = renderToStaticMarkup(<Shell capabilities={[...ROLE_PRESETS.ADMIN]} isSandbox={false}>{null}</Shell>);
 
   it('lists the home screen and four places, as the handoff draws them (screen 00)', () => {
     expect(SECTIONS.map((section) => section.label)).toEqual([
@@ -668,7 +672,7 @@ describe('the console shell', () => {
 
   it('keeps what is left to spend at the foot of the sidebar on every screen', () => {
     const withPackage = renderToStaticMarkup(
-      <Shell isSandbox={false} balance={{ kind: 'operations', remaining: 1840, included: 3000 }}>
+      <Shell capabilities={[...ROLE_PRESETS.ADMIN]} isSandbox={false} balance={{ kind: 'operations', remaining: 1840, included: 3000 }}>
         {null}
       </Shell>,
     );
@@ -679,7 +683,7 @@ describe('the console shell', () => {
     expect(withPackage).toContain('شراء رصيد');
 
     const fromWallet = renderToStaticMarkup(
-      <Shell isSandbox={false} balance={{ kind: 'wallet', availableHalalas: 566800 }}>
+      <Shell capabilities={[...ROLE_PRESETS.ADMIN]} isSandbox={false} balance={{ kind: 'wallet', availableHalalas: 566800 }}>
         {null}
       </Shell>,
     );
@@ -715,7 +719,7 @@ describe('the console shell', () => {
     expect(html).toContain('بيئة الإنتاج');
     expect(html).not.toContain('data-role="sandbox-banner"');
 
-    const sandbox = renderToStaticMarkup(<Shell isSandbox>{null}</Shell>);
+    const sandbox = renderToStaticMarkup(<Shell capabilities={[...ROLE_PRESETS.ADMIN]} isSandbox>{null}</Shell>);
     expect(sandbox).toContain('data-role="sandbox-banner"');
     expect(sandbox).toContain('بيئة الاختبار');
   });
@@ -956,6 +960,7 @@ describe('the profile a third party sees', () => {
 /** Actions the rendered forms never run: these tests read markup, not behaviour. */
 const noAccount = async (): Promise<IssuedPasswordState> => ({ account: null, refusalAr: null });
 const noKey = async (): Promise<IssuedKeyState> => ({ secret: null });
+const noop = async (): Promise<void> => {};
 
 describe('administering people', () => {
   const render = (activeAdmins: number) =>
@@ -970,6 +975,10 @@ describe('administering people', () => {
             role: 'ADMIN',
             status: 'active',
             isSelf: true,
+            permissions: permissionsOf(
+              resolveCapabilities('ADMIN', {}, 'active'),
+              presetFor('ADMIN'),
+            ),
           },
           {
             userId: 'u2',
@@ -978,6 +987,10 @@ describe('administering people', () => {
             role: 'ANALYST',
             status: 'active',
             isSelf: false,
+            permissions: permissionsOf(
+              resolveCapabilities('ANALYST', {}, 'active'),
+              presetFor('ANALYST'),
+            ),
           },
           {
             userId: 'u3',
@@ -986,11 +999,17 @@ describe('administering people', () => {
             role: 'VIEWER',
             status: 'disabled',
             isSelf: false,
+            permissions: permissionsOf(
+              resolveCapabilities('VIEWER', {}, 'disabled'),
+              presetFor('VIEWER'),
+            ),
           },
         ]}
         createAction={noAccount}
         roleAction="/r"
         statusAction="/s"
+        capabilityAction={noop}
+        resetCapabilitiesAction={noop}
       />,
     );
 
@@ -2170,5 +2189,90 @@ describe('the integration screen in the administration panel', () => {
     expect(html).toContain('وليد الغامدي');
     expect(html).toContain('حُفظت بيانات الربط');
     expect(html).toContain('السر');
+  });
+});
+
+/**
+ * Permissions on the screen.
+ *
+ * The database decides what somebody may do; these check that the console tells them the
+ * truth about it, which is a separate failure. A navigation that offers a place the screen
+ * behind it refuses is worse than either answer on its own.
+ */
+describe('what each person sees', () => {
+  const finance = resolveCapabilities('FINANCE');
+  const analyst = resolveCapabilities('ANALYST');
+
+  it('gives finance a navigation the size of their job', () => {
+    const places = visible(SECTIONS, finance).map((place) => place.href);
+    expect(places).toContain('/billing');
+    expect(places).toContain('/settings');
+    // Somebody who pays invoices has no business reading the identifiers of every company
+    // that was ever checked, so the place is not offered rather than offered and refused.
+    expect(places).not.toContain('/customers');
+    expect(places).not.toContain('/verifications');
+  });
+
+  it('hides the settings tabs each person has no permission for', () => {
+    const forFinance = visible(SETTINGS_TABS, finance).map((tab) => tab.href);
+    expect(forFinance).toContain('/settings');
+    expect(forFinance).toContain('/settings/audit');
+    expect(forFinance).not.toContain('/settings/developers');
+    expect(forFinance).not.toContain('/settings/rules');
+
+    // And an analyst, who runs checks, still has no business issuing API keys.
+    expect(visible(SETTINGS_TABS, analyst).map((tab) => tab.href)).not.toContain(
+      '/settings/developers',
+    );
+  });
+
+  it('names the missing permission rather than pretending the screen is gone', () => {
+    const html = renderToStaticMarkup(<NoAccess needs="developers.manage" />);
+    expect(html).toContain('مفاتيح الربط');
+    // A dead end an employee can act on: which permission, and who grants it.
+    expect(html).toContain('مسؤول الحساب');
+    expect(html).toContain('data-needs="developers.manage"');
+  });
+
+  it('marks an exception, and marks what spends money', () => {
+    const held = resolveCapabilities('ANALYST', { 'verify.run': false, 'wallet.topup': true });
+    const html = renderToStaticMarkup(
+      <UserPermissions
+        userId="u9"
+        displayName="موظف"
+        roleLabel="موظف تحقق"
+        permissions={permissionsOf(held, presetFor('ANALYST'))}
+        action={noop}
+        resetAction={noop}
+      />,
+    );
+    expect(html).toContain('data-role="exception-count"');
+    expect(html).toContain('2 استثناء');
+    expect(html).toContain('يصرف من الرصيد');
+    expect(html).toContain('data-capability="verify.run"');
+    // The state and the reason for it, side by side: without the second an administrator
+    // cannot tell a default from something somebody changed months ago.
+    expect(html).toContain('الدور يمنحها');
+    expect(html).toContain('الدور لا يمنحها');
+    expect(html).toContain('أعِد كل الصلاحيات إلى الدور');
+  });
+
+  it('says nothing about exceptions when there are none', () => {
+    const html = renderToStaticMarkup(
+      <UserPermissions
+        userId="u10"
+        displayName="موظف"
+        roleLabel="المالية"
+        permissions={permissionsOf(resolveCapabilities('FINANCE'), presetFor('FINANCE'))}
+        action={noop}
+        resetAction={noop}
+      />,
+    );
+    expect(html).toContain('حسب الدور');
+    // The word itself is in the sentence that explains the screen, so the badge is what is
+    // asserted on: nothing here differs from the role.
+    expect(html).not.toContain('data-role="exception"');
+    expect(html).not.toContain('data-role="exception-count"');
+    expect(html).not.toContain('أعِد كل الصلاحيات إلى الدور');
   });
 });

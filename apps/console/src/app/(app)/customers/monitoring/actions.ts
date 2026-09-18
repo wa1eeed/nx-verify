@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { audit, pauseMonitor, resumeMonitor } from '@nx-verify/core';
+import { assertCan, audit, pauseMonitor, resumeMonitor } from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
 
 /**
@@ -24,6 +24,8 @@ export async function pauseMonitorAction(formData: FormData): Promise<void> {
 }
 
 export async function resumeMonitorAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'monitoring.manage');
   await move(formData, 'resume');
 }
 

@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { listMonitors, listProducts } from '@nx-verify/core';
 import { Monitors, type MonitorRowView } from '../../../../components/monitors';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { CUSTOMER_TABS } from '../../../../components/nav';
+import { CUSTOMER_TABS, visible } from '../../../../components/nav';
 import { pauseMonitorAction, resumeMonitorAction } from './actions';
 
 /** Never prerendered: one workspace's live monitors. */
@@ -14,6 +15,10 @@ export default async function MonitoringPage({
 }: {
   searchParams: Promise<{ outcome?: string }>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('customers.read')) {
+    return <NoAccess needs="customers.read" />;
+  }
   const { outcome } = await searchParams;
 
   const rows = await query(async (tx) => {
@@ -48,7 +53,7 @@ export default async function MonitoringPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={CUSTOMER_TABS} current="/customers/monitoring" label="أقسام العملاء" />
+      <SectionTabs tabs={visible(CUSTOMER_TABS, actor.capabilities)} current="/customers/monitoring" label="أقسام العملاء" />
       <Monitors
         rows={rows}
         outcome={outcome}

@@ -1,12 +1,13 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { listChannels } from '@nx-verify/core';
 import {
   NotificationSettings,
   type ChannelView,
 } from '../../../../components/notification-settings';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { SETTINGS_TABS } from '../../../../components/nav';
+import { SETTINGS_TABS, visible } from '../../../../components/nav';
 import {
   addChannelAction,
   proveChannelAction,
@@ -24,6 +25,10 @@ export default async function NotificationsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('settings.manage')) {
+    return <NoAccess needs="settings.manage" />;
+  }
   const params = await searchParams;
   const one = (key: string): string | undefined => {
     const value = params[key];
@@ -64,7 +69,7 @@ export default async function NotificationsPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={SETTINGS_TABS} current="/settings/notifications" label="أقسام الإعدادات" />
+      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/notifications" label="أقسام الإعدادات" />
       <NotificationSettings
         channels={channels}
         outcome={one('outcome')}

@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { acknowledgeChange, audit } from '@nx-verify/core';
+import { assertCan, acknowledgeChange, audit } from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
 
 /**
@@ -17,6 +17,8 @@ import { actingUser, query } from '../../../../lib/context';
  * is a second fact: this person looked at it, on this date.
  */
 export async function acknowledgeChangeAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'customers.read');
   const user = await actingUser();
   const changeEventId = String(formData.get('change_event_id') ?? '');
   if (changeEventId === '') {

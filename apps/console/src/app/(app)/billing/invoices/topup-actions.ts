@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requestTopUp, riyalsToHalalas } from '@nx-verify/core';
+import { assertCan, requestTopUp, riyalsToHalalas } from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
 
 /**
@@ -12,6 +12,8 @@ import { actingUser, query } from '../../../../lib/context';
  * out because only one person could ask helps nobody.
  */
 export async function requestTopUpAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'wallet.topup');
   const user = await actingUser();
   const riyals = Number(formData.get('amount') ?? 0);
   if (!Number.isFinite(riyals) || riyals <= 0) {

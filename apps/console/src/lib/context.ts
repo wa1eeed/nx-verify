@@ -1,4 +1,10 @@
 import { createPool, withTenant, type TenantTransaction } from '@nx-verify/db';
+import {
+  capabilitiesOf,
+  resolveCapabilities,
+  type Capability,
+  type UserRole,
+} from '@nx-verify/core';
 import { currentSession, type ConsoleSession } from './session';
 import type pg from 'pg';
 
@@ -35,9 +41,39 @@ export async function query<T>(handler: (tx: TenantTransaction) => Promise<T>): 
   return withTenant(getPool(), session.tenantId, handler);
 }
 
-/** The caller, for screens that need to know what this person may do. */
-export async function actingUser(): Promise<ConsoleSession> {
-  return requireSession();
+export interface Actor extends ConsoleSession {
+  capabilities: ReadonlySet<Capability>;
+  /** What this person may do, asked the way a screen wants to ask it. */
+  can: (capability: Capability) => boolean;
+}
+
+/**
+ * The caller, and what they may do.
+ *
+ * Every screen asks this, and the answer comes from `app.user_capabilities` rather than
+ * from the role on the session: the same function the four eyes trigger reads. A screen
+ * that decided for itself from the role would eventually show a button the database
+ * refuses, which is worse than either answer alone.
+ *
+ * A screen calls `can` to hide what this person has no business seeing, and the action
+ * behind it calls `assertCan` regardless, because hiding a button is a courtesy and not a
+ * control: the form still posts.
+ */
+export async function actingUser(): Promise<Actor> {
+  const session = await requireSession();
+
+  // The development fallback invents a user who is in no table, so asking the database
+  // what they may do returns nothing and every screen goes blank. It already refuses to
+  // work in production, so here it simply carries the role it was given.
+  const capabilities = session.development
+    ? resolveCapabilities(session.role as UserRole)
+    : await withTenant(getPool(), session.tenantId, (tx) => capabilitiesOf(tx, session.userId));
+
+  return {
+    ...session,
+    capabilities,
+    can: (capability: Capability) => capabilities.has(capability),
+  };
 }
 
 /**

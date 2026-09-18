@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assignCase } from '@nx-verify/core';
+import { assertCan, assignCase } from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
 
 /**
@@ -21,6 +21,8 @@ import { actingUser, query } from '../../../../lib/context';
  * after it, and «assign what you can» would become «assign until the first surprise».
  */
 export async function claimCasesAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'review.decide');
   const user = await actingUser();
   const caseIds = formData
     .getAll('case_id')

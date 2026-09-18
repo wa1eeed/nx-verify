@@ -457,10 +457,7 @@ export type {
 } from './reporting/dashboard.js';
 
 export {
-  assertRole,
-  canAdminister,
-  canApprove,
-  canDecide,
+  USER_ROLES,
   createSession,
   countActiveAdmins,
   createUser,
@@ -468,6 +465,7 @@ export {
   enableUser,
   getUser,
   hashSessionToken,
+  isUserRole,
   listUsers,
   resolveSession,
   revokeSession,
@@ -481,6 +479,30 @@ export type {
   User,
   UserRole,
 } from './auth/users.js';
+
+export {
+  CAPABILITIES,
+  ROLE_PRESETS,
+  assertCan,
+  capabilitiesOf,
+  capabilityInfo,
+  capabilityOverridesFor,
+  clearCapabilityOverrides,
+  countAdministrators,
+  isCapability,
+  listCapabilityOverrides,
+  presetFor,
+  resolveCapabilities,
+  setUserCapability,
+} from './auth/capabilities.js';
+export type {
+  Capability,
+  CapabilityArea,
+  CapabilityInfo,
+  CapabilityOverrides,
+  SetCapabilityInput,
+  UserCapabilityView,
+} from './auth/capabilities.js';
 
 export {
   DEFAULT_PARAMS,

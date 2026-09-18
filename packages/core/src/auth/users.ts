@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { Queryable, TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { audit } from './audit.js';
+import { countAdministrators, withAdminRemaining } from './capabilities.js';
 
 /**
  * The customer's own people, and what each of them may do.
@@ -17,11 +18,31 @@ import { audit } from './audit.js';
  * for existing.
  */
 
-export type UserRole = 'VIEWER' | 'ANALYST' | 'APPROVER' | 'ADMIN';
+/**
+ * A role is a preset for a job in the subscriber's company, not a tier of seniority. What
+ * each one carries, and how an administrator hands out one extra permission or takes one
+ * away, is in capabilities.ts.
+ */
+export type UserRole =
+  | 'VIEWER'
+  | 'ANALYST'
+  | 'APPROVER'
+  | 'FINANCE'
+  | 'COMPLIANCE'
+  | 'ADMIN';
 
-const CAN_DECIDE: ReadonlySet<UserRole> = new Set<UserRole>(['ANALYST', 'APPROVER', 'ADMIN']);
-const CAN_APPROVE: ReadonlySet<UserRole> = new Set<UserRole>(['APPROVER', 'ADMIN']);
-const CAN_ADMINISTER: ReadonlySet<UserRole> = new Set<UserRole>(['ADMIN']);
+export const USER_ROLES: readonly UserRole[] = [
+  'VIEWER',
+  'ANALYST',
+  'APPROVER',
+  'FINANCE',
+  'COMPLIANCE',
+  'ADMIN',
+];
+
+export function isUserRole(value: string): value is UserRole {
+  return (USER_ROLES as readonly string[]).includes(value);
+}
 
 export interface User {
   userId: string;
@@ -125,30 +146,14 @@ export async function getUser(tx: TenantTransaction, userId: string): Promise<Us
  * Asked before anything that could reduce it. A workspace with no administrator cannot
  * add one: there is nobody left who may, and the only way back is for us to reach into
  * their database, which is not a support process anybody should have.
+ *
+ * Counting people whose role is ADMIN stopped being the right question once a capability
+ * could be handed out on its own. The answer is whoever effectively holds `users.manage`,
+ * which includes somebody granted it as an exception and excludes an administrator it was
+ * taken from.
  */
 export async function countActiveAdmins(tx: TenantTransaction): Promise<number> {
-  const { rows } = await tx.query<{ total: string }>(
-    `SELECT count(*)::text AS total FROM users
-     WHERE tenant_id = $1 AND role = 'ADMIN' AND status = 'active'`,
-    [tx.tenantId],
-  );
-  return Number(rows[0]?.total ?? 0);
-}
-
-async function assertNotLastAdmin(tx: TenantTransaction, userId: string): Promise<void> {
-  const { rows } = await tx.query<{ role: UserRole; status: string }>(
-    `SELECT role, status FROM users WHERE tenant_id = $1 AND id = $2`,
-    [tx.tenantId, userId],
-  );
-  const subject = rows[0];
-  if (!subject || subject.role !== 'ADMIN' || subject.status !== 'active') {
-    return;
-  }
-  if ((await countActiveAdmins(tx)) <= 1) {
-    throw new NxError('NX-4091', {
-      detail: 'this is the only administrator left, and a workspace without one cannot add one',
-    });
-  }
+  return countAdministrators(tx);
 }
 
 export async function setUserRole(
@@ -157,17 +162,18 @@ export async function setUserRole(
   role: UserRole,
   actorId: string,
 ): Promise<void> {
-  if (role !== 'ADMIN') {
-    await assertNotLastAdmin(tx, userId);
-  }
-
-  const { rowCount } = await tx.query(
-    `UPDATE users SET role = $3 WHERE tenant_id = $1 AND id = $2`,
-    [tx.tenantId, userId, role],
-  );
-  if (rowCount === 0) {
-    throw new NxError('NX-4041', { detail: 'no such user' });
-  }
+  // The change is made and then the database is asked whether anybody can still administer,
+  // because predicting it from the role alone is wrong for somebody carrying an exception.
+  // The savepoint inside undoes it if the answer is nobody.
+  await withAdminRemaining(tx, async () => {
+    const { rowCount } = await tx.query(
+      `UPDATE users SET role = $3 WHERE tenant_id = $1 AND id = $2`,
+      [tx.tenantId, userId, role],
+    );
+    if (rowCount === 0) {
+      throw new NxError('NX-4041', { detail: 'no such user' });
+    }
+  });
 
   await audit(tx, {
     actorType: 'USER',
@@ -188,17 +194,18 @@ export async function disableUser(
     // support ticket to us rather than anything they can do themselves.
     throw new NxError('NX-4091', { detail: 'an account cannot disable itself' });
   }
-  await assertNotLastAdmin(tx, userId);
 
-  await tx.query(`UPDATE users SET status = 'disabled' WHERE tenant_id = $1 AND id = $2`, [
-    tx.tenantId,
-    userId,
-  ]);
-  await tx.query(
-    `UPDATE user_sessions SET revoked_at = now()
-     WHERE tenant_id = $1 AND user_id = $2 AND revoked_at IS NULL`,
-    [tx.tenantId, userId],
-  );
+  await withAdminRemaining(tx, async () => {
+    await tx.query(`UPDATE users SET status = 'disabled' WHERE tenant_id = $1 AND id = $2`, [
+      tx.tenantId,
+      userId,
+    ]);
+    await tx.query(
+      `UPDATE user_sessions SET revoked_at = now()
+       WHERE tenant_id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+      [tx.tenantId, userId],
+    );
+  });
 
   // Disabling someone who is signed in has to end their session, or the account is
   // disabled everywhere except where it matters.
@@ -238,23 +245,15 @@ export async function enableUser(
   });
 }
 
-export function canDecide(role: UserRole): boolean {
-  return CAN_DECIDE.has(role);
-}
-
-export function canApprove(role: UserRole): boolean {
-  return CAN_APPROVE.has(role);
-}
-
-export function canAdminister(role: UserRole): boolean {
-  return CAN_ADMINISTER.has(role);
-}
-
-export function assertRole(role: UserRole, allowed: (role: UserRole) => boolean): void {
-  if (!allowed(role)) {
-    throw new NxError('NX-4031', { detail: 'this role does not permit that action' });
-  }
-}
+/**
+ * There is deliberately no `canDecide(role)` here any more.
+ *
+ * A function that answers «may they» from the role column alone became a lie the moment an
+ * administrator could hand one capability to one person: it would hide a button the database
+ * would have allowed, or show one the database refuses. Every caller asks
+ * `capabilitiesOf(tx, userId)` and then `assertCan`, which is the same answer the four eyes
+ * trigger reads. See capabilities.ts.
+ */
 
 /**
  * Sessions.

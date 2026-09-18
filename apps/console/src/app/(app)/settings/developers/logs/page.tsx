@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../../components/no-access';
 import { apiLogTallies, pageApiRequests, type Page } from '@nx-verify/core';
 import { ApiLog, type ApiLogRowView } from '../../../../../components/api-log';
-import { query } from '../../../../../lib/context';
+import { actingUser, query } from '../../../../../lib/context';
 import { pageRequestFrom } from '../../../../../lib/pagination';
 import { SectionTabs } from '../../../../../components/section-tabs';
-import { DEVELOPER_TABS, SETTINGS_TABS } from '../../../../../components/nav';
+import { DEVELOPER_TABS, SETTINGS_TABS, visible } from '../../../../../components/nav';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,10 @@ export default async function LogsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('developers.manage')) {
+    return <NoAccess needs="developers.manage" />;
+  }
   const params = await searchParams;
   const failuresOnly = params['failures'] !== undefined;
 
@@ -35,9 +40,9 @@ export default async function LogsPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={SETTINGS_TABS} current="/settings/developers" label="أقسام الإعدادات" />
+      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/developers" label="أقسام الإعدادات" />
       <SectionTabs
-        tabs={DEVELOPER_TABS}
+        tabs={visible(DEVELOPER_TABS, actor.capabilities)}
         current="/settings/developers/logs"
         label="أقسام مفاتيح الربط"
       />

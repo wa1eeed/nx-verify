@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../../components/no-access';
 import { listEntitlements, listProducts } from '@nx-verify/core';
 import { Docs, type DocProductView } from '../../../../../components/docs';
-import { query } from '../../../../../lib/context';
+import { actingUser, query } from '../../../../../lib/context';
 import { SectionTabs } from '../../../../../components/section-tabs';
-import { DEVELOPER_TABS, SETTINGS_TABS } from '../../../../../components/nav';
+import { DEVELOPER_TABS, SETTINGS_TABS, visible } from '../../../../../components/nav';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,10 @@ const REFUSAL_LABELS: Record<string, string> = {
 };
 
 export default async function DocsPage(): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('developers.manage')) {
+    return <NoAccess needs="developers.manage" />;
+  }
   const view = await query(async (tx) => {
     const [products, entitlements] = await Promise.all([listProducts(tx), listEntitlements(tx)]);
     const standing = new Map(entitlements.map((entry) => [entry.productCode, entry]));
@@ -42,9 +47,9 @@ export default async function DocsPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={SETTINGS_TABS} current="/settings/developers" label="أقسام الإعدادات" />
+      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/developers" label="أقسام الإعدادات" />
       <SectionTabs
-        tabs={DEVELOPER_TABS}
+        tabs={visible(DEVELOPER_TABS, actor.capabilities)}
         current="/settings/developers/reference"
         label="أقسام مفاتيح الربط"
       />

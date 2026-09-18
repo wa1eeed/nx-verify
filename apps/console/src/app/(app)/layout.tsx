@@ -29,7 +29,12 @@ export default async function AppLayout({
   }));
 
   return (
-    <Shell isSandbox={workspace.isSandbox} unread={facts.unread} balance={facts.balance}>
+    <Shell
+      isSandbox={workspace.isSandbox}
+      unread={facts.unread}
+      balance={facts.balance}
+      capabilities={[...user.capabilities]}
+    >
       {children}
     </Shell>
   );

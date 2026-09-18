@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import {
+  assertCan,
   addChannel,
   audit,
   proveChannel,
@@ -39,6 +40,8 @@ function back(outcome: string, channelId?: string): never {
 }
 
 export async function addChannelAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const address = String(formData.get('address') ?? '').trim();
   const displayName = String(formData.get('display_name') ?? '').trim();
@@ -79,6 +82,8 @@ export async function addChannelAction(formData: FormData): Promise<void> {
 
 /** Sends the code again, for a mail that never arrived or a code that expired. */
 export async function resendProofAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const channelId = String(formData.get('channel_id') ?? '');
   if (channelId === '') {
@@ -138,6 +143,8 @@ async function mailProof(channelId: string, userId: string): Promise<void> {
 }
 
 export async function proveChannelAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const channelId = String(formData.get('channel_id') ?? '');
   const code = String(formData.get('code') ?? '').trim();
@@ -168,6 +175,8 @@ export async function proveChannelAction(formData: FormData): Promise<void> {
 }
 
 export async function removeChannelAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const channelId = String(formData.get('channel_id') ?? '');
   if (channelId === '') {
@@ -190,6 +199,8 @@ export async function removeChannelAction(formData: FormData): Promise<void> {
 }
 
 export async function subscribeAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const channelId = String(formData.get('channel_id') ?? '');
   const eventType = String(formData.get('event_type') ?? '');
@@ -225,6 +236,8 @@ export async function subscribeAction(formData: FormData): Promise<void> {
 }
 
 export async function unsubscribeAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const ruleId = String(formData.get('rule_id') ?? '');
   if (ruleId === '') {

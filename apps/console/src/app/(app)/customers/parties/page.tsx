@@ -1,11 +1,12 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { slicePage, summarizeParties, type PartyRole } from '@nx-verify/core';
 import { pageRequestFrom } from '../../../../lib/pagination';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { getKeys } from '../../../../lib/keys';
 import { Parties, type PartiesFilter } from '../../../../components/parties';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { CUSTOMER_TABS } from '../../../../components/nav';
+import { CUSTOMER_TABS, visible } from '../../../../components/nav';
 import { searchPartiesAction } from '../actions';
 
 /** Never prerendered and never cached: one subscriber's live records. */
@@ -34,6 +35,10 @@ export default async function PartiesPage({
     size?: string;
   }>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('customers.read')) {
+    return <NoAccess needs="customers.read" />;
+  }
   const params = await searchParams;
   const role = ROLES.has(params.role as PartyRole) ? (params.role as PartyRole) : null;
   const concernsOnly = params.concerns === '1';
@@ -69,7 +74,7 @@ export default async function PartiesPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--layout-content-gap)' }}>
-      <SectionTabs tabs={CUSTOMER_TABS} current="/customers/parties" label="أقسام العملاء" />
+      <SectionTabs tabs={visible(CUSTOMER_TABS, actor.capabilities)} current="/customers/parties" label="أقسام العملاء" />
       <Parties
         view={{
           page: slicePage(rows, pageRequestFrom(params)),

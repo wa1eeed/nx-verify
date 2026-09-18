@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import {
   SUBJECT_PROBLEMS_AR,
   customerStandings,
@@ -21,8 +22,8 @@ import type {
 } from '../../../../components/new-request/model';
 import { PageHeader } from '../../../../components/page-header';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { VERIFICATION_TABS } from '../../../../components/nav';
-import { query } from '../../../../lib/context';
+import { VERIFICATION_TABS, visible } from '../../../../components/nav';
+import { actingUser, query } from '../../../../lib/context';
 import { getKeys } from '../../../../lib/keys';
 import {
   customerStandingsAction,
@@ -58,6 +59,10 @@ export default async function NewRequestPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('verify.run')) {
+    return <NoAccess needs="verify.run" />;
+  }
   const params = await searchParams;
   const param = (name: string): string | null =>
     typeof params[name] === 'string' ? (params[name] as string) : null;
@@ -177,7 +182,7 @@ export default async function NewRequestPage({
 
   return (
     <div className="request-screen">
-      <SectionTabs tabs={VERIFICATION_TABS} current="/verifications/new" label="أقسام التحقق" />
+      <SectionTabs tabs={visible(VERIFICATION_TABS, actor.capabilities)} current="/verifications/new" label="أقسام التحقق" />
       <PageHeader
         title="طلب تحقق جديد"
         subtitle="اختر المنتجات ثم اضغط «تحقق من الكل»، أو نفّذ كل منتج على حدة من زره الخاص"

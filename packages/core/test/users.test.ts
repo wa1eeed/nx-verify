@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant, withoutTenant } from '../../../packages/db/src/client.js';
+import { presetFor } from '../src/auth/capabilities.js';
 import {
-  canApprove,
-  canDecide,
   createSession,
   createUser,
   disableUser,
@@ -45,13 +44,13 @@ describe('users, roles and sessions', () => {
     await db.close();
   });
 
-  it('separates the four roles the blueprint names', () => {
-    expect(canDecide('VIEWER')).toBe(false);
-    expect(canDecide('ANALYST')).toBe(true);
+  it('separates the roles the blueprint names', () => {
+    expect(presetFor('VIEWER').has('review.decide')).toBe(false);
+    expect(presetFor('ANALYST').has('review.decide')).toBe(true);
     // The separation that earns its keep: an analyst decides, and does not sign off.
-    expect(canApprove('ANALYST')).toBe(false);
-    expect(canApprove('APPROVER')).toBe(true);
-    expect(canApprove('ADMIN')).toBe(true);
+    expect(presetFor('ANALYST').has('review.approve')).toBe(false);
+    expect(presetFor('APPROVER').has('review.approve')).toBe(true);
+    expect(presetFor('ADMIN').has('review.approve')).toBe(true);
   });
 
   it('refuses two users with the same address in one tenant', async () => {

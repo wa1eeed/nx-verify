@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { readAudit } from '@nx-verify/core';
 import { AuditTrail, type AuditRowView } from '../../../../components/audit-trail';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { SETTINGS_TABS } from '../../../../components/nav';
+import { SETTINGS_TABS, visible } from '../../../../components/nav';
 
 /** Never prerendered: one workspace's own trail, read at request time. */
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,10 @@ export default async function AuditPage({
 }: {
   searchParams: Promise<{ action?: string }>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('audit.read')) {
+    return <NoAccess needs="audit.read" />;
+  }
   const { action } = await searchParams;
 
   const data = await query(async (tx) => {
@@ -75,7 +80,7 @@ export default async function AuditPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={SETTINGS_TABS} current="/settings/audit" label="أقسام الإعدادات" />
+      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/audit" label="أقسام الإعدادات" />
       <AuditTrail rows={data.rows} action={action} actions={data.actions} />
     </div>
   );

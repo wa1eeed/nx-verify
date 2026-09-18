@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { FreshnessBadge } from '../../../../components/freshness';
 import { TrustChip } from '../../../../components/trust-dial';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { SAVED_VIEWS, findCompletenessGaps, findView, pageRegistry } from '../../../../lib/views';
 import { pageRequestFrom } from '../../../../lib/pagination';
 import { LinkedRows } from '../../../../components/ui/linked-rows';
@@ -10,7 +11,7 @@ import { ListPagination } from '../../../../components/ui/pagination';
 import { fieldLabel } from '../../../../components/field-card';
 import { EmptyState, PageHeader, Panel } from '../../../../components/page-header';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { CUSTOMER_TABS } from '../../../../components/nav';
+import { CUSTOMER_TABS, visible } from '../../../../components/nav';
 
 /** Never prerendered: one subscriber's live records. */
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,10 @@ export default async function RelationsPage({
 }: {
   searchParams: Promise<{ view?: string; page?: string; size?: string }>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('customers.read')) {
+    return <NoAccess needs="customers.read" />;
+  }
   const params = await searchParams;
   const view = findView(params.view);
   const { page, gaps } = await query(async (tx) => ({
@@ -40,7 +45,7 @@ export default async function RelationsPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <SectionTabs tabs={CUSTOMER_TABS} current="/customers/relations" label="أقسام العملاء" />
+      <SectionTabs tabs={visible(CUSTOMER_TABS, actor.capabilities)} current="/customers/relations" label="أقسام العملاء" />
       <PageHeader
         title="التقاطعات والعلاقات"
         subtitle={`${view.labelAr} التي ظهرت داخل ملفات عملائك. اضغط أي صف لفتح ملفه.`}

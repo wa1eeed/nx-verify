@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../components/no-access';
 import {
   bundleBalance,
   getCommitment,
@@ -10,14 +11,18 @@ import {
 import { BundleOffer } from '../../../components/bundle-offer';
 import { requestBundleAction } from './bundle-actions';
 import { Usage, type EntitlementView, type UsageView } from '../../../components/usage';
-import { query } from '../../../lib/context';
+import { actingUser, query } from '../../../lib/context';
 import { FundBanner, LowBanner } from '../../../components/fund-banner';
 import { SectionTabs } from '../../../components/section-tabs';
-import { BILLING_TABS } from '../../../components/nav';
+import { BILLING_TABS, visible } from '../../../components/nav';
 
 export const dynamic = 'force-dynamic';
 
 export default async function UsagePage(): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('wallet.read')) {
+    return <NoAccess needs="wallet.read" />;
+  }
   const view = await query(async (tx): Promise<UsageView> => {
     const [commitment, wallet, entitlements, products] = await Promise.all([
       getCommitment(tx),
@@ -60,7 +65,7 @@ export default async function UsagePage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={BILLING_TABS} current="/billing" label="أقسام الاشتراك والرصيد" />
+      <SectionTabs tabs={visible(BILLING_TABS, actor.capabilities)} current="/billing" label="أقسام الاشتراك والرصيد" />
       {/*
         Said where somebody would go looking, rather than left to be discovered as a refusal
         in the middle of a first verification (ADR-154).

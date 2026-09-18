@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { audit, forkRuleset, setRuleOutcome } from '@nx-verify/core';
+import { assertCan, audit, forkRuleset, setRuleOutcome } from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
 
 /**
@@ -38,6 +38,8 @@ function codeFrom(raw: string): string | null {
 }
 
 export async function forkRulesetAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'rules.manage');
   const user = await actingUser();
   const fromRulesetId = String(formData.get('from_ruleset') ?? '');
   const code = codeFrom(String(formData.get('code') ?? ''));
@@ -72,6 +74,8 @@ export async function forkRulesetAction(formData: FormData): Promise<void> {
 }
 
 export async function setRuleOutcomeAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'rules.manage');
   const user = await actingUser();
   const rulesetId = String(formData.get('ruleset_id') ?? '');
   const seq = Number(formData.get('seq') ?? NaN);

@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
+import type { Capability } from '@nx-verify/core';
 import type { BalanceView } from './balance-card';
 import { Brand } from './brand';
 import { FrameChrome } from './frame-chrome';
@@ -26,12 +27,15 @@ export function Shell({
   isSandbox,
   unread = 0,
   balance = null,
+  capabilities,
   children,
 }: {
   isSandbox: boolean;
   /** How many alerts arrived since this person last looked. */
   unread?: number;
   balance?: BalanceView | null;
+  /** What this person may do, so the navigation is the size of their job. */
+  capabilities: readonly Capability[];
   children: ReactNode;
 }): ReactElement {
   return (
@@ -48,10 +52,10 @@ export function Shell({
           <FrameFactsProvider initial={{ unread, balance }}>
             <div className="frame-sidebar-inner">
               <Brand href="/dashboard" />
-              <LiveNav />
+              <LiveNav capabilities={capabilities} />
 
               <div className="frame-sidebar-foot">
-                <LiveBalance />
+                {capabilities.includes('wallet.read') ? <LiveBalance /> : null}
                 <div className="frame-account">
                   <span data-role="environment-name">
                     {isSandbox ? 'بيئة الاختبار' : 'بيئة الإنتاج'}

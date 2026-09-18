@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import {
   findExpiringFields,
   inboxSeenAt,
@@ -10,7 +11,7 @@ import {
 import { Monitoring, type StaleCustomerView } from '../../../../components/monitoring';
 import type { FreshnessState } from '../../../../components/freshness';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { CUSTOMER_TABS } from '../../../../components/nav';
+import { CUSTOMER_TABS, visible } from '../../../../components/nav';
 import { actingUser, query } from '../../../../lib/context';
 import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { Inbox } from '../../../../components/inbox';
@@ -34,11 +35,14 @@ export default async function AlertsPage({
   searchParams: Promise<SearchParams>;
 }): Promise<ReactElement> {
   const params = await searchParams;
-  const user = await actingUser();
+  const actor = await actingUser();
+  if (!actor.can('customers.read')) {
+    return <NoAccess needs="customers.read" />;
+  }
   const data = await query(async (tx) => {
-    const seenAt = await inboxSeenAt(tx, user.userId);
+    const seenAt = await inboxSeenAt(tx, actor.userId);
     const inbox = await listInbox(tx, { seenAt });
-    await markInboxSeen(tx, user.userId);
+    await markInboxSeen(tx, actor.userId);
     const changes = await pageChangeEvents(tx, { openOnly: true }, pageRequestFrom(params));
     const expiring = await findExpiringFields(tx, 500);
 
@@ -91,7 +95,7 @@ export default async function AlertsPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={CUSTOMER_TABS} current="/customers/alerts" label="أقسام العملاء" />
+      <SectionTabs tabs={visible(CUSTOMER_TABS, actor.capabilities)} current="/customers/alerts" label="أقسام العملاء" />
       <PageHeader
         title="التنبيهات المفتوحة"
         subtitle="ما وصل منذ آخر زيارة، وما تغيّر في بيانات عملائك، ومن قدمت معلوماته."

@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { countQueue, pageQueue, type Page } from '@nx-verify/core';
 import { ReviewQueue, type QueueRowView } from '../../../../components/review-queue';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { CUSTOMER_TABS } from '../../../../components/nav';
+import { CUSTOMER_TABS, visible } from '../../../../components/nav';
 import { claimCasesAction } from './actions';
 
 /**
@@ -21,6 +22,10 @@ export default async function QueuePage({
 }: {
   searchParams: Promise<SearchParams>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('review.decide')) {
+    return <NoAccess needs="review.decide" />;
+  }
   const params = await searchParams;
   const { page, overdue } = await query(async (tx) => {
     const queue = await pageQueue(tx, {}, pageRequestFrom(params));
@@ -51,7 +56,7 @@ export default async function QueuePage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={CUSTOMER_TABS} current="/customers/reviews" label="أقسام العملاء" />
+      <SectionTabs tabs={visible(CUSTOMER_TABS, actor.capabilities)} current="/customers/reviews" label="أقسام العملاء" />
       <ReviewQueue claimAction={claimCasesAction} page={page} overdue={overdue} params={params} />
     </div>
   );

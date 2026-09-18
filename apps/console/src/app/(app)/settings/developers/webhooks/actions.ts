@@ -2,7 +2,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
-import { audit, registerEndpoint, setEndpointStatus } from '@nx-verify/core';
+import { assertCan, audit, registerEndpoint, setEndpointStatus } from '@nx-verify/core';
 import { secretStoreFromEnv } from '@nx-verify/providers';
 import { actingUser, currentTenantId, query } from '../../../../../lib/context';
 import type { IssuedSecretState } from '../../../../../components/webhooks';
@@ -33,6 +33,8 @@ export async function addEndpointAction(
   _previous: IssuedSecretState,
   formData: FormData,
 ): Promise<IssuedSecretState> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'developers.manage');
   const user = await actingUser();
   const tenantId = await currentTenantId();
   const url = String(formData.get('url') ?? '').trim();
@@ -84,6 +86,8 @@ export async function pauseEndpointAction(formData: FormData): Promise<void> {
 }
 
 export async function resumeEndpointAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'developers.manage');
   await setStatus(formData, 'active', 'webhook.resumed');
 }
 

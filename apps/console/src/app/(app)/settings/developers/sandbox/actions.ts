@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { randomUUID } from 'node:crypto';
 import {
+  assertCan,
   isSandbox,
   resolveProviders,
   verify,
@@ -16,7 +17,7 @@ import {
   resolveCredential,
   secretStoreFromEnv,
 } from '@nx-verify/providers';
-import { query } from '../../../../../lib/context';
+import { actingUser, query } from '../../../../../lib/context';
 
 /**
  * Running a call from the screen.
@@ -32,6 +33,8 @@ import { query } from '../../../../../lib/context';
  * verification with a real reference, so the page simply reads it back.
  */
 export async function runPlaygroundAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'developers.manage');
   const productCode = String(formData.get('product') ?? '');
   const input = String(formData.get('input') ?? '').trim();
   const scenario = String(formData.get('scenario') ?? '').trim();

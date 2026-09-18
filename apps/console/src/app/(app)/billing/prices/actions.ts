@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assertRole, audit, canAdminister, setPreferences } from '@nx-verify/core';
+import { assertCan, audit, setPreferences } from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
 
 /**
@@ -13,7 +13,7 @@ import { actingUser, query } from '../../../../lib/context';
  */
 export async function setShowPricesAction(formData: FormData): Promise<void> {
   const actor = await actingUser();
-  assertRole(actor.role, canAdminister);
+  assertCan(actor.capabilities, 'prices.manage');
   const showPrices = formData.get('show_prices') === 'on';
 
   await query(async (tx) => {

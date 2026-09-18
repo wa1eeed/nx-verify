@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { audit, clearTenantTtl, setTenantTtl } from '@nx-verify/core';
+import { assertCan, audit, clearTenantTtl, setTenantTtl } from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
 
 /**
@@ -32,6 +32,8 @@ function back(outcome: string, extra = ''): never {
  * save rather than after it.
  */
 export async function setTtlAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const fieldPath = String(formData.get('field_path') ?? '');
   const ttlDays = Number(formData.get('ttl_days') ?? NaN);
@@ -76,6 +78,8 @@ export async function setTtlAction(formData: FormData): Promise<void> {
 }
 
 export async function clearTtlAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const fieldPath = String(formData.get('field_path') ?? '');
   if (fieldPath === '') {

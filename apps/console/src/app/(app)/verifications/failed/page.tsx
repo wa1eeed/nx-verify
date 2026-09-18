@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { countRuns, listProducts, pageRecentRuns } from '@nx-verify/core';
 import { VerificationsLog } from '../../../../components/verifications-log';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { VERIFICATION_TABS } from '../../../../components/nav';
-import { query } from '../../../../lib/context';
+import { VERIFICATION_TABS, visible } from '../../../../components/nav';
+import { actingUser, query } from '../../../../lib/context';
 import { pageRequestFrom } from '../../../../lib/pagination';
 
 /** Never prerendered: one subscriber's live runs. */
@@ -20,6 +21,10 @@ export default async function FailedRunsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('customers.read')) {
+    return <NoAccess needs="customers.read" />;
+  }
   const params = await searchParams;
   const product =
     typeof params['product'] === 'string' && params['product'] !== '' ? params['product'] : null;
@@ -37,7 +42,7 @@ export default async function FailedRunsPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={VERIFICATION_TABS} current="/verifications/failed" label="أقسام التحقق" />
+      <SectionTabs tabs={visible(VERIFICATION_TABS, actor.capabilities)} current="/verifications/failed" label="أقسام التحقق" />
       <VerificationsLog
         view={{
           page: data.page,

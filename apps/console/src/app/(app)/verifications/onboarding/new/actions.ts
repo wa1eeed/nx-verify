@@ -2,7 +2,7 @@
 
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
-import { NxError, advanceCase, audit, inferIdentifiers, openOnboardingCase } from '@nx-verify/core';
+import { assertCan, NxError, advanceCase, audit, inferIdentifiers, openOnboardingCase } from '@nx-verify/core';
 import { actingUser, currentTenantId, query } from '../../../../../lib/context';
 import { getKeys } from '../../../../../lib/keys';
 import { checkDependenciesFor } from '../../../../../lib/verification';
@@ -22,6 +22,8 @@ import { checkDependenciesFor } from '../../../../../lib/verification';
  */
 
 export async function openCaseAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'verify.run');
   const user = await actingUser();
   const tenantId = await currentTenantId();
   const journeyCode = String(formData.get('journey') ?? '').trim();

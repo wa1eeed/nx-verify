@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import {
+  assertCan,
   NxError,
   advanceCase,
   audit,
@@ -41,6 +42,8 @@ function back(caseId: string, outcome: string): never {
  * would be the one table in this platform that keeps them in the clear (rule 4).
  */
 export async function advanceCaseAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'verify.run');
   const user = await actingUser();
   const tenantId = await currentTenantId();
   const caseId = String(formData.get('case_id') ?? '');
@@ -84,6 +87,8 @@ export async function advanceCaseAction(formData: FormData): Promise<void> {
 }
 
 export async function waiveStepAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'review.decide');
   const user = await actingUser();
   const caseId = String(formData.get('case_id') ?? '');
   const stepKey = String(formData.get('step_key') ?? '');
@@ -118,6 +123,8 @@ export async function waiveStepAction(formData: FormData): Promise<void> {
 
 /** Whether the file still has a check nobody has run. */
 export async function caseIsOpen(caseId: string): Promise<boolean> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'customers.read');
   const onboarding = await query((tx) => getCase(tx, caseId));
   return onboarding !== null && onboarding.closedAt === null;
 }

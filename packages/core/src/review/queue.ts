@@ -2,7 +2,8 @@ import type { TenantTransaction } from '@nx-verify/db';
 import { readPage, type Page, type PageRequest } from '../pagination.js';
 import { NxError } from '../errors.js';
 import { audit } from '../auth/audit.js';
-import { canApprove, canDecide, getUser } from '../auth/users.js';
+import { getUser } from '../auth/users.js';
+import { capabilitiesOf } from '../auth/capabilities.js';
 
 /**
  * The review queue.
@@ -238,11 +239,11 @@ export async function decideCase(tx: TenantTransaction, input: DecideCaseInput):
     throw new NxError('NX-4001', { detail: 'a review decision needs a written reason' });
   }
 
-  // The trigger in migration 0018 refuses a viewer too. This gives the refusal our own
-  // code and a message a person can act on.
-  const decider = await requireUser(tx, input.decidedBy);
-  if (!canDecide(decider.role)) {
-    throw new NxError('NX-4031', { detail: 'this role cannot decide a review case' });
+  // The trigger in migration 0060 refuses this too, and asks the same function. This gives
+  // the refusal our own code and a message a person can act on.
+  await requireUser(tx, input.decidedBy);
+  if (!(await capabilitiesOf(tx, input.decidedBy)).has('review.decide')) {
+    throw new NxError('NX-4031', { detail: 'this user may not decide a review case' });
   }
 
   const { rowCount } = await tx.query(
@@ -295,9 +296,9 @@ export async function approveCase(
     });
   }
 
-  const signer = await requireUser(tx, approver);
-  if (!canApprove(signer.role)) {
-    throw new NxError('NX-4031', { detail: 'this role cannot approve a review case' });
+  await requireUser(tx, approver);
+  if (!(await capabilitiesOf(tx, approver)).has('review.approve')) {
+    throw new NxError('NX-4031', { detail: 'this user may not approve a review case' });
   }
 
   await tx.query(

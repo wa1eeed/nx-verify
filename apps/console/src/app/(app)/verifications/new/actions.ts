@@ -3,6 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { after } from 'next/server';
 import {
+  assertCan,
   NxError,
   SUBJECT_PROBLEMS_AR,
   createRequest,
@@ -95,6 +96,8 @@ function requestData(view: RequestView): RequestData {
 
 /** Who a typed number belongs to, and where each check stands for them. */
 export async function lookupCustomerAction(kind: unknown, number: unknown): Promise<LookupData> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'verify.run');
   const lookup = await query((tx) =>
     lookupCustomer(tx, getKeys(), { kind: kindOf(kind), number: text(number, 40) }),
   );
@@ -106,6 +109,8 @@ export async function customerStandingsAction(
   kind: unknown,
   entityId: unknown,
 ): Promise<LookupData | null> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'verify.run');
   const id = idOf(entityId);
   if (id === null) {
     return null;
@@ -168,6 +173,8 @@ function failure(error: unknown): { ok: false; errorAr: string; field: RequestFi
 }
 
 export async function submitRequestAction(raw: RequestInput): Promise<RequestResult> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'verify.run');
   const user = await actingUser();
   const input = sanitized(raw);
   if (input.productCodes.length === 0) {
@@ -242,6 +249,8 @@ export async function submitRequestAction(raw: RequestInput): Promise<RequestRes
 }
 
 export async function saveDraftAction(raw: RequestInput): Promise<DraftResult> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'verify.run');
   const user = await actingUser();
   const input = sanitized(raw);
   if (input.productCodes.length === 0) {
@@ -291,6 +300,8 @@ export async function saveDraftAction(raw: RequestInput): Promise<DraftResult> {
 
 /** How a request is going, for the screen that polls it. */
 export async function requestStatusAction(requestId: unknown): Promise<RequestData | null> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'customers.read');
   const id = idOf(requestId);
   if (id === null) {
     return null;
@@ -300,6 +311,8 @@ export async function requestStatusAction(requestId: unknown): Promise<RequestDa
 }
 
 export async function discardDraftAction(draftId: unknown): Promise<boolean> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'verify.run');
   const id = idOf(draftId);
   return id === null ? false : query((tx) => discardDraft(tx, id));
 }

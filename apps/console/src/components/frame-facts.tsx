@@ -10,6 +10,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
+import type { Capability } from '@nx-verify/core';
 import {
   activitySnapshot,
   isBusy,
@@ -106,8 +107,8 @@ export function FrameFactsProvider({
 }
 
 /** The places, with the unread count on the customers. */
-export function LiveNav(): ReactElement {
-  return <Nav alerts={useContext(FactsContext).unread} />;
+export function LiveNav({ capabilities }: { capabilities: readonly Capability[] }): ReactElement {
+  return <Nav alerts={useContext(FactsContext).unread} capabilities={new Set(capabilities)} />;
 }
 
 /** What is left to spend, at the foot of the sidebar. */

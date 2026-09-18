@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { notFound } from 'next/navigation';
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import {
   fieldGroup,
   getCustomerFile,
@@ -20,7 +21,7 @@ import {
   type FieldGroup,
 } from '@nx-verify/core';
 import { getKeys } from '../../../../lib/keys';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { CustomerFileScreen, type TimelineEntry } from '../../../../components/customer-file';
 import { PartyFileScreen } from '../../../../components/customer-file/party';
 import { SharePanel, type ShareRowView } from '../../../../components/share-panel';
@@ -56,6 +57,10 @@ export default async function CustomerPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('customers.read')) {
+    return <NoAccess needs="customers.read" />;
+  }
   const { id } = await params;
   const query_ = await searchParams;
   if (!UUID.test(id)) {

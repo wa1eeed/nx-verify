@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../../components/no-access';
 import { notFound } from 'next/navigation';
 import { getCase, listCaseActions, listJourneys, listProducts } from '@nx-verify/core';
 import {
@@ -6,7 +7,7 @@ import {
   type CaseDetailView,
   type CaseStepView,
 } from '../../../../../components/onboarding-case';
-import { query } from '../../../../../lib/context';
+import { actingUser, query } from '../../../../../lib/context';
 import { advanceCaseAction, waiveStepAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,10 @@ export default async function OnboardingCasePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ outcome?: string }>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('customers.read')) {
+    return <NoAccess needs="customers.read" />;
+  }
   const { id } = await params;
   const { outcome } = await searchParams;
 

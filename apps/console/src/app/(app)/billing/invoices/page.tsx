@@ -1,11 +1,12 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { buildStatement, listProducts, listTopUpRequests } from '@nx-verify/core';
 import { Statement, type StatementView } from '../../../../components/statement';
 import { TopUpPanel, bundleLabelOf, type TopUpRowView } from '../../../../components/topup';
 import { requestTopUpAction } from './topup-actions';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { BILLING_TABS } from '../../../../components/nav';
+import { BILLING_TABS, visible } from '../../../../components/nav';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,10 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('wallet.read')) {
+    return <NoAccess needs="wallet.read" />;
+  }
   const requests = await query((tx) => listTopUpRequests(tx));
 
   const view = await query(async (tx): Promise<StatementView> => {
@@ -54,7 +59,7 @@ export default async function BillingPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={BILLING_TABS} current="/billing/invoices" label="أقسام الاشتراك والرصيد" />
+      <SectionTabs tabs={visible(BILLING_TABS, actor.capabilities)} current="/billing/invoices" label="أقسام الاشتراك والرصيد" />
       <div className="stack" style={{ gap: 'var(--s-5)' }}>
         <Statement view={view} />
         <TopUpPanel

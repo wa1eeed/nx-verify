@@ -4,12 +4,16 @@ import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import {
   NxError,
-  assertRole,
-  canAdminister,
+  assertCan,
+  clearCapabilityOverrides,
   createUser,
   disableUser,
   enableUser,
+  getUser,
+  isCapability,
+  presetFor,
   setPassword,
+  setUserCapability,
   setUserRole,
   type UserRole,
 } from '@nx-verify/core';
@@ -19,8 +23,8 @@ import type { IssuedPasswordState } from '../../../components/issued-once';
 /**
  * Adding someone, moving them, and taking them out.
  *
- * Every action here checks the caller may administer before it does anything. The screen
- * already hides what a non administrator cannot do, but a hidden form is not a closed
+ * Every action here checks the caller holds `users.manage` before it does anything. The
+ * screen already hides what somebody without it cannot do, but a hidden form is not a closed
  * one: the check that matters is the one on the way in.
  */
 
@@ -37,7 +41,7 @@ export async function createUserAction(
   formData: FormData,
 ): Promise<IssuedPasswordState> {
   const actor = await actingUser();
-  assertRole(actor.role, canAdminister);
+  assertCan(actor.capabilities, 'users.manage');
 
   const email = String(formData.get('email') ?? '')
     .trim()
@@ -77,7 +81,7 @@ export async function createUserAction(
 
 export async function setRoleAction(formData: FormData): Promise<void> {
   const actor = await actingUser();
-  assertRole(actor.role, canAdminister);
+  assertCan(actor.capabilities, 'users.manage');
 
   const userId = String(formData.get('user_id') ?? '');
   const role = String(formData.get('role') ?? '');
@@ -91,7 +95,7 @@ export async function setRoleAction(formData: FormData): Promise<void> {
 
 export async function setStatusAction(formData: FormData): Promise<void> {
   const actor = await actingUser();
-  assertRole(actor.role, canAdminister);
+  assertCan(actor.capabilities, 'users.manage');
 
   const userId = String(formData.get('user_id') ?? '');
   const status = String(formData.get('status') ?? '');
@@ -104,5 +108,57 @@ export async function setStatusAction(formData: FormData): Promise<void> {
       ? disableUser(tx, userId, actor.userId)
       : enableUser(tx, userId, actor.userId),
   );
+  revalidatePath('/settings');
+}
+
+/**
+ * One permission, for one person.
+ *
+ * The screen sends the state it wants rather than a toggle, so two administrators pressing
+ * the same button at once arrive at the same place instead of undoing each other. When the
+ * wanted state already matches what the role gives, the exception is deleted rather than
+ * stored: an exception that says «the same as the default» is the kind of row that makes a
+ * permissions screen stop being readable a year later.
+ */
+export async function setCapabilityAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'users.manage');
+
+  const userId = String(formData.get('user_id') ?? '');
+  const capability = String(formData.get('capability') ?? '');
+  const granted = String(formData.get('granted') ?? '') === 'true';
+  if (userId === '' || !isCapability(capability)) {
+    return;
+  }
+
+  await query(async (tx) => {
+    const user = await getUser(tx, userId);
+    if (user === null) {
+      return;
+    }
+    const matchesRole = presetFor(user.role).has(capability) === granted;
+    await setUserCapability(tx, {
+      userId,
+      capability,
+      granted: matchesRole ? null : granted,
+      actorId: actor.userId,
+    });
+  });
+
+  revalidatePath('/settings');
+}
+
+/** Puts somebody back on exactly what their role carries. */
+export async function resetCapabilitiesAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'users.manage');
+
+  const userId = String(formData.get('user_id') ?? '');
+  if (userId === '') {
+    return;
+  }
+
+  await query((tx) => clearCapabilityOverrides(tx, userId, actor.userId));
+
   revalidatePath('/settings');
 }

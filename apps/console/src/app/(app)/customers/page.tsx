@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../components/no-access';
 import { redirect } from 'next/navigation';
 import {
   countCustomers,
@@ -9,11 +10,11 @@ import {
   type CustomerKind,
 } from '@nx-verify/core';
 import { pageRequestFrom } from '../../../lib/pagination';
-import { query } from '../../../lib/context';
+import { actingUser, query } from '../../../lib/context';
 import { getKeys } from '../../../lib/keys';
 import { Customers, type CustomersFilter } from '../../../components/customers';
 import { SectionTabs } from '../../../components/section-tabs';
-import { CUSTOMER_TABS } from '../../../components/nav';
+import { CUSTOMER_TABS, visible } from '../../../components/nav';
 import { searchCustomersAction } from './actions';
 
 /**
@@ -57,6 +58,10 @@ export default async function CustomersPage({
     size?: string;
   }>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('customers.read')) {
+    return <NoAccess needs="customers.read" />;
+  }
   const params = await searchParams;
 
   if (params.view !== undefined) {
@@ -106,7 +111,7 @@ export default async function CustomersPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--layout-content-gap)' }}>
-      <SectionTabs tabs={CUSTOMER_TABS} current="/customers" label="أقسام العملاء" />
+      <SectionTabs tabs={visible(CUSTOMER_TABS, actor.capabilities)} current="/customers" label="أقسام العملاء" />
       <Customers
         view={{
           page: {

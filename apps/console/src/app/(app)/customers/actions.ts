@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import {
+  assertCan,
   NxError,
   createRequest,
   executeRequest,
@@ -117,6 +118,8 @@ async function beginChecks(formData: FormData): Promise<Started> {
 }
 
 export async function startChecksAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'verify.run');
   const started = await beginChecks(formData);
   if (started.entityId === null) {
     redirect('/verifications/new');
@@ -136,6 +139,8 @@ export async function startSectionChecksAction(
   _previous: SectionCheckState,
   formData: FormData,
 ): Promise<SectionCheckState> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'verify.run');
   const started = await beginChecks(formData);
   if (started.requestId === null) {
     return { status: 'failed', error: started.error ?? 'failed', at: Date.now() };
@@ -154,6 +159,8 @@ export async function startSectionChecksAction(
 
 /** The checks still queued or running for a customer, for the file that waits on them. */
 export async function openChecksAction(entityId: unknown): Promise<string[]> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'customers.read');
   if (typeof entityId !== 'string' || !UUID.test(entityId)) {
     return [];
   }
@@ -165,6 +172,8 @@ export async function openChecksAction(entityId: unknown): Promise<string[]> {
  * is looked up here, by its keyed hash, and the address carries only the files it found.
  */
 export async function searchCustomersAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'customers.read');
   const typed = text(formData, 'q').slice(0, 40);
   const kind = text(formData, 'kind');
   const params = new URLSearchParams();
@@ -194,6 +203,8 @@ const ROLES: ReadonlySet<string> = new Set(['MANAGER', 'PARTNER', 'LIQUIDATOR', 
  * A document number with letters (a passport) is a number too.
  */
 export async function searchPartiesAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'customers.read');
   const typed = text(formData, 'q').slice(0, 40);
   const role = text(formData, 'role');
   const params = new URLSearchParams();

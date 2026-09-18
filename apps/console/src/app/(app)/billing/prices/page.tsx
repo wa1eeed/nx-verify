@@ -1,8 +1,8 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import {
   KIND_LABELS,
   SECTION_TITLES,
-  canAdminister,
   getPreferences,
   listChecks,
   quoteChecks,
@@ -10,7 +10,7 @@ import {
 } from '@nx-verify/core';
 import { PageHeader } from '../../../../components/page-header';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { BILLING_TABS } from '../../../../components/nav';
+import { BILLING_TABS, visible } from '../../../../components/nav';
 import {
   Card,
   CardTitle,
@@ -42,6 +42,9 @@ const RIYALS = new Intl.NumberFormat('en-US', {
 
 export default async function PricesPage(): Promise<ReactElement> {
   const actor = await actingUser();
+  if (!actor.can('wallet.read')) {
+    return <NoAccess needs="wallet.read" />;
+  }
   const data = await query(async (tx) => {
     const checks = await listChecks(tx);
     const quote = await quoteChecks(
@@ -56,7 +59,7 @@ export default async function PricesPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <SectionTabs tabs={BILLING_TABS} current="/billing/prices" label="أقسام الاشتراك والرصيد" />
+      <SectionTabs tabs={visible(BILLING_TABS, actor.capabilities)} current="/billing/prices" label="أقسام الاشتراك والرصيد" />
       <PageHeader
         title="أسعار المنتجات"
         subtitle="السعر بالريال لكل عملية ناجحة · العمليات الفاشلة لا تُحسب"
@@ -119,7 +122,7 @@ export default async function PricesPage(): Promise<ReactElement> {
         </Table>
       </Card>
 
-      {canAdminister(actor.role) ? (
+      {actor.can('prices.manage') ? (
         <Card label="إظهار الأسعار" role="price-visibility">
           <form action={setShowPricesAction} className="stack" style={{ gap: 'var(--space-3)' }}>
             <CardTitle as="h2">إظهار الأسعار</CardTitle>

@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { listFreshnessPolicy, previewTtlChange } from '@nx-verify/core';
 import { FreshnessSettings } from '../../../../components/freshness-settings';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { SETTINGS_TABS } from '../../../../components/nav';
+import { SETTINGS_TABS, visible } from '../../../../components/nav';
 import { clearTtlAction, setTtlAction } from './actions';
 
 /**
@@ -24,6 +25,10 @@ export default async function FreshnessSettingsPage({
 }: {
   searchParams: Promise<{ field?: string; ttl?: string; outcome?: string }>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('settings.manage')) {
+    return <NoAccess needs="settings.manage" />;
+  }
   const params = await searchParams;
   const proposedTtl = params.ttl === undefined ? null : Number.parseInt(params.ttl, 10);
 
@@ -45,7 +50,7 @@ export default async function FreshnessSettingsPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={SETTINGS_TABS} current="/settings/freshness" label="أقسام الإعدادات" />
+      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/freshness" label="أقسام الإعدادات" />
       <FreshnessSettings
         rows={rows}
         preview={preview}

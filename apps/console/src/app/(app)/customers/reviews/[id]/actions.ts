@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { approveCase, assignCase, decideCase, returnCase, type CaseOutcome } from '@nx-verify/core';
+import { assertCan, approveCase, assignCase, decideCase, returnCase, type CaseOutcome } from '@nx-verify/core';
 import { actingUser, query } from '../../../../../lib/context';
 
 /**
@@ -47,6 +47,8 @@ function refusal(error: unknown): string {
 }
 
 export async function assignCaseAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'review.decide');
   const user = await actingUser();
   const caseId = String(formData.get('case_id') ?? '');
   if (caseId === '') {
@@ -67,6 +69,8 @@ export async function assignCaseAction(formData: FormData): Promise<void> {
 }
 
 export async function decideCaseAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'review.decide');
   const user = await actingUser();
   const caseId = String(formData.get('case_id') ?? '');
   const outcome = String(formData.get('outcome') ?? '') as CaseOutcome;
@@ -94,6 +98,8 @@ export async function decideCaseAction(formData: FormData): Promise<void> {
 }
 
 export async function approveCaseAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'review.approve');
   const user = await actingUser();
   const caseId = String(formData.get('case_id') ?? '');
   if (caseId === '') {
@@ -115,6 +121,8 @@ export async function approveCaseAction(formData: FormData): Promise<void> {
 }
 
 export async function returnCaseAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'review.decide');
   const user = await actingUser();
   const caseId = String(formData.get('case_id') ?? '');
   const reason = String(formData.get('reason') ?? '').trim();

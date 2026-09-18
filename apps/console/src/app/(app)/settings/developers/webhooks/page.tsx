@@ -1,15 +1,20 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../../components/no-access';
 import { listAllEndpoints } from '@nx-verify/core';
 import { Webhooks, type EndpointView } from '../../../../../components/webhooks';
-import { query } from '../../../../../lib/context';
+import { actingUser, query } from '../../../../../lib/context';
 import { SectionTabs } from '../../../../../components/section-tabs';
-import { DEVELOPER_TABS, SETTINGS_TABS } from '../../../../../components/nav';
+import { DEVELOPER_TABS, SETTINGS_TABS, visible } from '../../../../../components/nav';
 import { addEndpointAction, pauseEndpointAction, resumeEndpointAction } from './actions';
 
 /** Never prerendered: one workspace's endpoints, read at request time. */
 export const dynamic = 'force-dynamic';
 
 export default async function WebhooksPage(): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('developers.manage')) {
+    return <NoAccess needs="developers.manage" />;
+  }
   const endpoints = await query(async (tx) =>
     (await listAllEndpoints(tx)).map((endpoint): EndpointView => ({
       id: endpoint.id,
@@ -23,9 +28,9 @@ export default async function WebhooksPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={SETTINGS_TABS} current="/settings/developers" label="أقسام الإعدادات" />
+      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/developers" label="أقسام الإعدادات" />
       <SectionTabs
-        tabs={DEVELOPER_TABS}
+        tabs={visible(DEVELOPER_TABS, actor.capabilities)}
         current="/settings/developers/webhooks"
         label="أقسام مفاتيح الربط"
       />

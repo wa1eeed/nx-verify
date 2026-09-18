@@ -4,6 +4,7 @@ import { resolveTxt } from 'node:dns/promises';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import {
+  assertCan,
   audit,
   claimSsoDomain,
   configureIdp,
@@ -32,6 +33,8 @@ function back(outcome: string): never {
 }
 
 export async function configureIdpAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const tenantId = await currentTenantId();
   const issuer = String(formData.get('issuer') ?? '').trim();
@@ -99,6 +102,8 @@ export async function configureIdpAction(formData: FormData): Promise<void> {
 }
 
 export async function claimDomainAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const domain = String(formData.get('domain') ?? '');
 
@@ -132,6 +137,8 @@ export async function claimDomainAction(formData: FormData): Promise<void> {
  * edit their DNS and zones take minutes, sometimes hours.
  */
 export async function verifyDomainAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const domain = String(formData.get('domain') ?? '');
   if (domain === '') {
@@ -165,6 +172,8 @@ export async function verifyDomainAction(formData: FormData): Promise<void> {
 }
 
 export async function removeDomainAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const domain = String(formData.get('domain') ?? '');
   if (domain === '') {

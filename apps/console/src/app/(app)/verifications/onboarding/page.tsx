@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react';
+import { NoAccess } from '../../../../components/no-access';
 import { caseTallies, listJourneys, pageCases, type Page } from '@nx-verify/core';
 import { OnboardingList, type CaseRowView } from '../../../../components/onboarding';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { VERIFICATION_TABS } from '../../../../components/nav';
+import { VERIFICATION_TABS, visible } from '../../../../components/nav';
 
 /** Never prerendered: one subscriber's live files. */
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,10 @@ export default async function OnboardingPage({
 }: {
   searchParams: Promise<SearchParams>;
 }): Promise<ReactElement> {
+  const actor = await actingUser();
+  if (!actor.can('customers.read')) {
+    return <NoAccess needs="customers.read" />;
+  }
   const params = await searchParams;
   const { page, tallies } = await query(async (tx) => {
     // Sequential: one connection, one transaction, one query at a time.
@@ -50,7 +55,7 @@ export default async function OnboardingPage({
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
       <SectionTabs
-        tabs={VERIFICATION_TABS}
+        tabs={visible(VERIFICATION_TABS, actor.capabilities)}
         current="/verifications/onboarding"
         label="أقسام التحقق"
       />

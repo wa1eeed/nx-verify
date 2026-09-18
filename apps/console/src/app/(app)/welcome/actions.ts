@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { audit, setOwnModule } from '@nx-verify/core';
+import { assertCan, audit, setOwnModule } from '@nx-verify/core';
 import { actingUser, query } from '../../../lib/context';
 
 /**
@@ -12,6 +12,8 @@ import { actingUser, query } from '../../../lib/context';
  * module refuses in the domain, with the same sentence the panel gives.
  */
 export async function toggleOwnModuleAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'settings.manage');
   const user = await actingUser();
   const moduleCode = String(formData.get('module_code') ?? '');
   const enabled = String(formData.get('enabled') ?? '') === 'true';

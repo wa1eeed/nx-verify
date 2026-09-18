@@ -1,8 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { issueApiKey, revokeApiKey } from '@nx-verify/core';
-import { query } from '../../../../lib/context';
+import { assertCan, issueApiKey, revokeApiKey } from '@nx-verify/core';
+import { actingUser, query } from '../../../../lib/context';
 import type { IssuedKeyState } from '../../../../components/issued-once';
 
 /**
@@ -35,6 +35,8 @@ export async function issueKeyAction(
   _previous: IssuedKeyState,
   formData: FormData,
 ): Promise<IssuedKeyState> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'developers.manage');
   const name = String(formData.get('name') ?? '').trim();
   if (name === '') {
     return { secret: null };
@@ -46,6 +48,8 @@ export async function issueKeyAction(
 }
 
 export async function revokeKeyAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'developers.manage');
   const keyId = String(formData.get('key_id') ?? '');
   if (keyId === '') {
     return;

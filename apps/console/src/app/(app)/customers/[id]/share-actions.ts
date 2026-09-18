@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { audit, createShare, revokeShare, type FieldGroup } from '@nx-verify/core';
+import { assertCan, audit, createShare, revokeShare, type FieldGroup } from '@nx-verify/core';
 import type { TenantTransaction } from '@nx-verify/db';
 import { actingUser, query } from '../../../../lib/context';
 import { sendNow } from '../../../../lib/mail';
@@ -31,6 +31,8 @@ export async function createShareAction(
   _previous: IssuedShareState,
   formData: FormData,
 ): Promise<IssuedShareState> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'share.create');
   const user = await actingUser();
   const entityId = String(formData.get('entity_id') ?? '');
   const groups = formData.getAll('groups').map((value) => String(value)) as FieldGroup[];
@@ -147,6 +149,8 @@ async function namesFor(
 }
 
 export async function revokeShareAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'share.create');
   const user = await actingUser();
   const entityId = String(formData.get('entity_id') ?? '');
   const shareId = String(formData.get('share_id') ?? '');

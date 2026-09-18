@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react';
 import { getCommitment } from '@nx-verify/core';
 import { Support, type SupportView } from '../../../../components/support';
-import { query } from '../../../../lib/context';
+import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { SETTINGS_TABS } from '../../../../components/nav';
+import { SETTINGS_TABS, visible } from '../../../../components/nav';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +15,7 @@ const RESPONSE_HOURS: Record<string, number> = {
 };
 
 export default async function SupportPage(): Promise<ReactElement> {
+  const actor = await actingUser();
   const view = await query(async (tx): Promise<SupportView> => {
     const commitment = await getCommitment(tx);
     const tier = commitment?.supportTier ?? null;
@@ -29,7 +30,7 @@ export default async function SupportPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={SETTINGS_TABS} current="/settings/support" label="أقسام الإعدادات" />
+      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/support" label="أقسام الإعدادات" />
       <Support view={view} />
     </div>
   );

@@ -1,4 +1,6 @@
 import type { ReactElement } from 'react';
+import type { UserRole } from '@nx-verify/core';
+import { ROLE_LABELS, ROLE_ORDER } from './roles';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { SubmitButton } from './ui/submit-button';
 import { Ltr } from './ui/ltr';
@@ -20,7 +22,15 @@ import { isoDate } from './format';
  * everybody out of their own workspace.
  */
 
-export type SsoRole = 'VIEWER' | 'ANALYST' | 'APPROVER' | 'ADMIN';
+/**
+ * The role an identity provider may put somebody in.
+ *
+ * Every role, including the two that describe a job rather than a tier: a company on single
+ * sign on is exactly the kind of company that has a finance group in its directory, and a
+ * list here that lagged behind the one on the users screen would make that group unreachable
+ * for the customers most likely to need it.
+ */
+export type SsoRole = UserRole;
 
 export interface SsoDomainView {
   domain: string;
@@ -40,12 +50,7 @@ export interface IdpView {
   enforceSso: boolean;
 }
 
-const ROLE_LABELS: Record<SsoRole, string> = {
-  VIEWER: 'مطّلع',
-  ANALYST: 'محلل',
-  APPROVER: 'معتمِد',
-  ADMIN: 'مدير',
-};
+
 
 const OUTCOMES: Record<string, { tone: 'done' | 'refused'; text: string }> = {
   configured: { tone: 'done', text: 'حُفظ إعداد مزوّد الهوية.' },
@@ -264,7 +269,7 @@ export function SsoSettings({
               >
                 {/* Refusing them is the right default for a platform that spends money. */}
                 <option value="">ارفضه</option>
-                {(Object.keys(ROLE_LABELS) as SsoRole[]).map((role) => (
+                {ROLE_ORDER.map((role) => (
                   <option key={role} value={role}>
                     {ROLE_LABELS[role]}
                   </option>

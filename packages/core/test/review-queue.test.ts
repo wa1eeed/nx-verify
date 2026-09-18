@@ -11,6 +11,7 @@ import {
 } from '../src/review/queue.js';
 import { readAudit } from '../src/auth/audit.js';
 import { createUser } from '../src/auth/users.js';
+import { setUserCapability } from '../src/auth/capabilities.js';
 import {
   createTestDatabase,
   seedTenant,
@@ -243,6 +244,84 @@ describe('the review queue', () => {
                decision_note = 'تجاوز', status = 'DECIDED'
            WHERE id = $1`,
           [caseId, VIEWER],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: 'NX005' });
+  });
+
+  it('accepts a viewer who was granted the decision as an exception, at both layers', async () => {
+    // The point of the whole capability model: the trigger must agree with the screen. If it
+    // still read the role column, an administrator could hand somebody the permission and the
+    // database would refuse the button they were just given.
+    await runReviewable('7000000003');
+    const queue = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listQueue(tx, { status: 'OPEN' }),
+    );
+    const caseId = queue[0]?.caseId ?? '';
+
+    const trusted = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      createUser(tx, {
+        email: 'trusted.viewer@example.sa',
+        displayName: 'مطّلع موثوق',
+        role: 'VIEWER',
+      }),
+    );
+    await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      setUserCapability(tx, {
+        userId: trusted,
+        capability: 'review.decide',
+        granted: true,
+        actorId: ANALYST,
+      }),
+    );
+
+    await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      decideCase(tx, { caseId, outcome: 'PASS', decidedBy: trusted, note: 'مقبول باستثناء.' }),
+    );
+    const after = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listQueue(tx, { status: 'DECIDED' }),
+    );
+    expect(after.find((item) => item.caseId === caseId)?.decidedBy).toBe(trusted);
+  });
+
+  it('refuses an analyst the decision was taken from, at both layers', async () => {
+    await runReviewable('7000000003');
+    const queue = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      listQueue(tx, { status: 'OPEN' }),
+    );
+    const caseId = queue[0]?.caseId ?? '';
+
+    const narrowed = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      createUser(tx, {
+        email: 'narrowed.analyst@example.sa',
+        displayName: 'محلل منزوع',
+        role: 'ANALYST',
+      }),
+    );
+    await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      setUserCapability(tx, {
+        userId: narrowed,
+        capability: 'review.decide',
+        granted: false,
+        actorId: ANALYST,
+      }),
+    );
+
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) =>
+        decideCase(tx, { caseId, outcome: 'PASS', decidedBy: narrowed, note: 'مقبول.' }),
+      ),
+    ).rejects.toMatchObject({ code: 'NX-4031' });
+
+    // And underneath the service, where a hotfix cannot reach.
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) =>
+        tx.query(
+          `UPDATE review_cases
+           SET outcome = 'PASS', decided_by = $2, decided_at = now(),
+               decision_note = 'تجاوز', status = 'DECIDED'
+           WHERE id = $1`,
+          [caseId, narrowed],
         ),
       ),
     ).rejects.toMatchObject({ code: 'NX005' });
