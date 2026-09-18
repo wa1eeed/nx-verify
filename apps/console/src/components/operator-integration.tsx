@@ -38,6 +38,14 @@ export interface IntegrationView {
   /** Who made each change, by name (ADR-117). */
   changes: { at: Date; byName: string; action: string; fields: string[] }[];
   secretsWritable: boolean;
+  /**
+   * Whether each environment has a credential stored, both at once.
+   *
+   * The tabs show one environment at a time, which answered «what is set here» and left «is
+   * the other one set at all» to whoever thought to click. Somebody looking for the sandbox
+   * keys concluded there were none. Two badges answer it without a click.
+   */
+  configuredIn: Record<IntegrationEnvironment, boolean>;
   /** Set straight after an action, for one render. */
   notice: 'saved' | 'tested' | null;
   error: 'url' | 'readonly' | 'missing' | 'unconfigured' | null;
@@ -179,6 +187,25 @@ export function OperatorIntegration({
           { href: '/operator/verification/integration?env=live', label: ENVIRONMENT_LABELS.live },
         ]}
       />
+
+      {/* Both environments at once, so «are the sandbox keys set» needs no click to answer. */}
+      <p className="row" data-role="environment-summary" style={{ gap: 'var(--s-3)', margin: 0 }}>
+        {(['sandbox', 'live'] as IntegrationEnvironment[]).map((environment) => (
+          <span
+            key={environment}
+            className="row"
+            data-role="environment-state"
+            data-environment={environment}
+            data-configured={view.configuredIn[environment] ? 'true' : 'false'}
+            style={{ gap: 'var(--s-2)', alignItems: 'baseline' }}
+          >
+            <span className="stat-label">{ENVIRONMENT_LABELS[environment]}</span>
+            <span className="badge" data-tone={view.configuredIn[environment] ? 'accent' : 'neutral'}>
+              {view.configuredIn[environment] ? 'مضبوطة' : 'غير مضبوطة'}
+            </span>
+          </span>
+        ))}
+      </p>
 
       {view.error ? (
         <p className="sign-in-error" role="alert" data-role="integration-error">

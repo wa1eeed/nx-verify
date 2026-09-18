@@ -3,7 +3,6 @@ import { NoAccess } from '../../../../components/no-access';
 import { buildStatement, listProducts, listTopUpRequests } from '@nx-verify/core';
 import { Statement, type StatementView } from '../../../../components/statement';
 import { TopUpPanel, bundleLabelOf, type TopUpRowView } from '../../../../components/topup';
-import { requestTopUpAction } from './topup-actions';
 import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { BILLING_TABS, visible } from '../../../../components/nav';
@@ -70,7 +69,6 @@ export default async function BillingPage({
             bankName: process.env['NX_BANK_NAME'] ?? null,
             iban: process.env['NX_BANK_IBAN'] ?? null,
           }}
-          requestAction={requestTopUpAction}
         />
       </div>
     </div>

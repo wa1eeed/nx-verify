@@ -1,12 +1,16 @@
 import type { ReactElement } from 'react';
 
 /**
- * Asking to put money in.
+ * The transfers a workspace has asked for, and a way to ask for another.
  *
- * A bank transfer, not a card. The screen's whole job is to make the transfer arrive with
- * something we can match it by, so the reference is the largest thing on it and the
- * amount shown is the one to actually send, VAT included. Showing the amount without VAT
- * next to bank details produces transfers that are fifteen percent short, every time.
+ * The amount box is a link into the checkout rather than an order of its own (ADR-158). What
+ * it collects is «how much», which is a question this screen can ask; the total, the tax line
+ * if any is due, the method and the account belong on the screen where somebody commits, and
+ * they used to appear only after the commitment.
+ *
+ * Every amount shown is the amount to actually send, under the tax rule of that request's own
+ * date. An amount shown without the tax due beside bank details produces transfers that are
+ * short by the rate, every time.
  */
 
 export interface TopUpRowView {
@@ -53,13 +57,11 @@ export function TopUpPanel({
   requests,
   bank,
   issued,
-  requestAction,
 }: {
   requests: TopUpRowView[];
   bank: BankDetails;
   /** Present for one render, straight after asking. */
   issued?: TopUpRowView | null;
-  requestAction: string | ((formData: FormData) => void | Promise<void>);
 }): ReactElement {
   const bankKnown = bank.iban !== null && bank.iban !== '';
 
@@ -68,7 +70,7 @@ export function TopUpPanel({
       <div>
         <h2 style={{ margin: 0 }}>شحن الرصيد</h2>
         <p className="faint" style={{ margin: 0 }}>
-          اطلب المبلغ، ثم حوّله وضع الرقم المرجعي في بيان الحوالة. يُضاف للرصيد بعد وصوله.
+          اختر المبلغ، ثم تُراجع التفاصيل وبيانات التحويل قبل إرسال الطلب.
         </p>
       </div>
 
@@ -98,7 +100,7 @@ export function TopUpPanel({
             <bdi dir="ltr" className="mono">
               {riyals(issued.totalWithVatHalalas)}
             </bdi>{' '}
-            ريال، شامل ضريبة القيمة المضافة.
+            ريال.
           </span>
           {bankKnown ? (
             <div className="stack" style={{ gap: 0 }} data-role="bank-details">
@@ -116,9 +118,18 @@ export function TopUpPanel({
         </div>
       ) : null}
 
-      <form action={requestAction} className="row" style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}>
+      {/*
+        A GET to the checkout, so «how much» is answered here and everything that follows from
+        it is answered on the screen that commits. Nothing is ordered by pressing this.
+      */}
+      <form
+        action="/billing/checkout"
+        method="get"
+        className="row"
+        style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}
+      >
         <label className="stack" style={{ gap: 'var(--s-1)' }}>
-          <span className="stat-label">المبلغ بالريال، بلا ضريبة</span>
+          <span className="stat-label">المبلغ بالريال</span>
           <input
             name="amount"
             type="number"
@@ -132,7 +143,7 @@ export function TopUpPanel({
           />
         </label>
         <button type="submit" className="btn btn-secondary" data-role="request-topup">
-          اطلب الشحن
+          تابع الشراء
         </button>
       </form>
 
@@ -142,7 +153,7 @@ export function TopUpPanel({
             <thead>
               <tr>
                 <th>المرجع</th>
-                <th>المبلغ شامل الضريبة</th>
+                <th>المبلغ</th>
                 <th>الحالة</th>
                 <th>الفاتورة الضريبية</th>
                 <th>التاريخ</th>

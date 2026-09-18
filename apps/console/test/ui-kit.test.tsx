@@ -319,21 +319,14 @@ describe('Dialog', () => {
   });
 });
 
-describe('The dark ground of the administration panel', () => {
-  it('gives every tinted tag and card its own dark fill, so no words vanish on it', () => {
+describe('The administration panel', () => {
+  it('carries no dark theme of its own to keep in step with the light one', () => {
+    // Every tinted tag and card once needed a second fill so its words would not vanish on a
+    // dark ground, and every component added after it needed one too. The panel is light now
+    // and tells staff which surface they are on in words instead (ADR-159).
     const product = readFileSync(join(consoleRoot, 'src', 'styles', 'product.css'), 'utf8');
-    const tinted = [
-      'tag-accent',
-      'tag-accent-2',
-      'tag-neutral',
-      'tag-critical',
-      'card-tone-accent',
-      'card-tone-accent-2',
-      'card-tone-attention',
-    ];
-    for (const name of tinted) {
-      expect(product).toMatch(new RegExp(`\\[data-theme='dark'\\] \\.${name} \\{\\s*background:`));
-    }
+    expect(product).not.toContain("[data-theme='dark']");
+    expect(product).toContain('.operator-band');
   });
 });
 

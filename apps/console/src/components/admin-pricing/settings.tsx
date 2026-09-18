@@ -43,6 +43,10 @@ export function VerificationSettings({
     | 'nameMatchThresholdPct'
     | 'registryAlertDays'
     | 'userSecondStep'
+    | 'bankAccountName'
+    | 'bankName'
+    | 'bankIban'
+    | 'transferNote'
   >;
   sections: SectionsView;
   formId: string;
@@ -55,12 +59,44 @@ export function VerificationSettings({
     ['registry_alert_days', 'تنبيه انتهاء السجل قبل', daysField(settings.registryAlertDays)],
   ];
 
+  /**
+   * The account subscribers transfer to (ADR-158).
+   *
+   * Here rather than in the deployment's environment, where changing a bank account meant a
+   * redeployment and the person who knows the number could not reach the field. Not a secret:
+   * it is printed on the screen of every subscriber who buys credit.
+   */
+  const bankFields: readonly (readonly [string, string, string, string])[] = [
+    ['bank_account_name', 'اسم الحساب', settings.bankAccountName ?? '', 'كما هو لدى البنك'],
+    ['bank_name', 'البنك', settings.bankName ?? '', ''],
+    ['bank_iban', 'الآيبان', settings.bankIban ?? '', 'SA ثم 22 رقماً'],
+    ['transfer_note', 'ملاحظة تظهر مع بيانات التحويل', settings.transferNote ?? '', ''],
+  ];
+
   return (
     <Card role="verification-settings" labelledBy="verification-settings-title">
       <h2 className="card-title admin-card-title" id="verification-settings-title">
         إعدادات التحقق
       </h2>
       {editable ? <input type="hidden" form={formId} name="settings_present" value="1" /> : null}
+
+      <div className="admin-settings-fields" data-role="bank-settings">
+        {bankFields.map(([name, label, value, hint]) => (
+          <Field key={name} id={name} label={label}>
+            {(control) => (
+              <Input
+                {...control}
+                form={formId}
+                name={name}
+                defaultValue={value}
+                placeholder={hint}
+                disabled={!editable}
+                ltr={name === 'bank_iban'}
+              />
+            )}
+          </Field>
+        ))}
+      </div>
 
       <div className="admin-settings-fields">
         {editable ? (

@@ -665,7 +665,11 @@ describe('the console shell', () => {
       // Reached by the redirect that follows registration, never from a tab: it is the first
       // screen after an account is made and has no place in the navigation of a console the
       // reader has not used yet (ADR-154).
-      page === '/welcome';
+      page === '/welcome' ||
+      // Reached from the bundle buttons and the amount box on the balance screen, the way a
+      // /new screen hangs off its list: choosing what to buy comes before committing to it,
+      // and a tab straight to a checkout would skip the choosing (ADR-158).
+      page === '/billing/checkout';
     const unreachable = pages.filter((page) => !fromItsList(page) && !reachable.has(page));
     expect(unreachable).toEqual([]);
   });
@@ -740,9 +744,16 @@ describe('the administration panel', () => {
     </OperatorShell>,
   );
 
-  it('is dark, so staff never mistake it for a subscriber portal (screen 05)', () => {
-    expect(html).toContain('data-theme="dark"');
+  it('names itself on every screen, so staff never mistake it for a subscriber portal', () => {
+    // It used to be dark for this. A theme is a second palette to maintain for every
+    // component ever added, and a colour stops being noticed on the second day, so what
+    // separates the surfaces now is a band that says which one this is (ADR-159).
+    expect(html).toContain('data-role="operator-band"');
+    expect(html).toContain('لوحة المنصة');
+    // And it says the part that actually matters: whose data is behind this screen.
+    expect(html).toContain('جميع المشتركين');
     expect(html).toContain('أدمن');
+    expect(html).not.toContain('data-theme="dark"');
   });
 
   it('names who is signed in and their role, never their address', () => {
@@ -1075,7 +1086,6 @@ describe('putting money in', () => {
         requests={[issued]}
         issued={issued}
         bank={{ accountName: 'شركة', bankName: 'بنك', iban: 'SA0000000000000000000000' }}
-        requestAction="/t"
       />,
     );
     // Showing the figure without VAT beside bank details produces transfers that are
@@ -1091,7 +1101,6 @@ describe('putting money in', () => {
         requests={[]}
         issued={issued}
         bank={{ accountName: null, bankName: null, iban: null }}
-        requestAction="/t"
       />,
     );
     // Better than printing an address that is not ours.
@@ -1423,6 +1432,8 @@ describe('the subscriber portal', () => {
           balanceHalalas: 500000,
           heldHalalas: 4400,
           availableHalalas: 495600,
+          bundleOperations: 0,
+          bundleExpiry: null,
           isLow: false,
           entitlements: [
             {
@@ -2128,6 +2139,7 @@ describe('the integration screen in the administration panel', () => {
       },
     ],
     secretsWritable: true,
+    configuredIn: { sandbox: true, live: false },
     notice: null,
     error: null,
   };

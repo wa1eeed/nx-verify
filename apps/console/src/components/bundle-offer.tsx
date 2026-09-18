@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import type { AvailableBundle, BundleBalance } from '@nx-verify/core';
 import { Card } from './ui/card';
 import { Ltr } from './ui/ltr';
-import { SubmitButton } from './ui/submit-button';
+import { ButtonLink } from './ui/button';
 import { count, dateAr } from './format';
 import { discountAr, monthsAr, operationsAr, sar } from './admin-pricing/model';
 
@@ -18,11 +18,12 @@ import { discountAr, monthsAr, operationsAr, sar } from './admin-pricing/model';
 export function BundleOffer({
   balance,
   bundles,
-  requestAction,
+  canBuy = true,
 }: {
   balance: Pick<BundleBalance, 'operations' | 'nextExpiry'>;
   bundles: readonly AvailableBundle[];
-  requestAction: (formData: FormData) => Promise<void>;
+  /** False for somebody who may see the balance but not order against it. */
+  canBuy?: boolean;
 }): ReactElement {
   const base = bundles[0] === undefined ? null : bundles[0].priceHalalas / bundles[0].operations;
   return (
@@ -62,16 +63,23 @@ export function BundleOffer({
                   </span>
                   <span className="admin-offer-end">
                     <Ltr>{sar(bundle.priceHalalas)}</Ltr>
-                    <form action={requestAction} className="admin-inline-form">
-                      <input type="hidden" name="bundle_code" value={bundle.code} />
-                      <SubmitButton pendingLabel="جارٍ الطلب" data-role="request-bundle">
-                        طلب الحزمة
-                      </SubmitButton>
-                    </form>
+                    {/*
+                      A link to the checkout, not a submit. Choosing a bundle is not the same
+                      act as ordering one: the total, the tax if any is due, and the account to
+                      transfer to all belong before the commitment, not after it (ADR-158).
+                    */}
+                    {canBuy ? (
+                      <ButtonLink
+                        href={`/billing/checkout?bundle=${encodeURIComponent(bundle.code)}`}
+                        data-role="request-bundle"
+                      >
+                        اشترِ الحزمة
+                      </ButtonLink>
+                    ) : null}
                   </span>
                 </span>
                 <span className="admin-offer-terms">
-                  صالحة {monthsAr(bundle.validityMonths)} من تأكيد الحوالة · السعر بلا ضريبة
+                  صالحة {monthsAr(bundle.validityMonths)} من تأكيد الحوالة
                 </span>
               </li>
             );

@@ -51,7 +51,7 @@ export default async function OperatorCodePage(): Promise<ReactElement> {
   const qr = enrolment === null ? null : await qrSvg(enrolment.uri);
 
   return (
-    <div className="auth-frame" data-theme="dark">
+    <div className="auth-frame" data-surface="operator">
       <Brand />
       <main id="main" className="operator-door">
         <Card role="operator-second-factor">

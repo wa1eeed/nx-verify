@@ -6,7 +6,8 @@ import {
   getPreferences,
   listChecks,
   quoteChecks,
-  vatOn,
+  vatInForce,
+  withVat,
 } from '@nx-verify/core';
 import { PageHeader } from '../../../../components/page-header';
 import { SectionTabs } from '../../../../components/section-tabs';
@@ -51,8 +52,17 @@ export default async function PricesPage(): Promise<ReactElement> {
       tx,
       checks.map((check) => check.productCode),
     );
-    return { checks, quote, preferences: await getPreferences(tx) };
+    return {
+      checks,
+      quote,
+      preferences: await getPreferences(tx),
+      // The rule of today, not a rate assumed at build time: while the platform is not
+      // registered nothing is added, and the column says «ما تدفعه» rather than claiming a
+      // tax line that is not due (ADR-157).
+      vat: await vatInForce(tx),
+    };
   });
+  const vat = data.vat;
 
   const lineOf = new Map(data.quote.lines.map((line) => [line.productCode, line]));
   const fromPackage = data.quote.capacityRemaining !== null && data.quote.capacityRemaining > 0;
@@ -72,8 +82,8 @@ export default async function PricesPage(): Promise<ReactElement> {
               <Th>المنتج</Th>
               <Th>القسم</Th>
               <Th>ينطبق على</Th>
-              <Th>قبل الضريبة</Th>
-              <Th>مع الضريبة</Th>
+              <Th>السعر</Th>
+              <Th>{vat.registered ? 'شامل الضريبة' : 'ما تدفعه'}</Th>
               <Th>الحالة</Th>
             </tr>
           </thead>
@@ -102,7 +112,7 @@ export default async function PricesPage(): Promise<ReactElement> {
                       '·'
                     ) : (
                       <>
-                        <Ltr>{RIYALS.format((price + vatOn(price)) / 100)}</Ltr> ر.س
+                        <Ltr>{RIYALS.format(withVat(price, vat).grossHalalas / 100)}</Ltr> ر.س
                       </>
                     )}
                   </td>

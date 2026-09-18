@@ -18,6 +18,7 @@ import {
   setSectionRequirement,
   setSpecialPrice,
   setTenantDiscount,
+  setVatPeriod,
   type CustomerKind,
   type OperatorIdentity,
 } from '@nx-verify/core';
@@ -130,15 +131,29 @@ export async function savePricingAction(formData: FormData): Promise<void> {
         // (ADR-143). A deployment that cannot send mail must be able to turn it off here.
         const userSecondStep =
           formData.get('user_second_step') === 'email' ? ('email' as const) : ('off' as const);
+        const text = (key: string): string | null => {
+          const value = String(formData.get(key) ?? '').trim();
+          return value === '' ? null : value;
+        };
+        const bank = {
+          bankAccountName: text('bank_account_name'),
+          bankName: text('bank_name'),
+          bankIban: text('bank_iban'),
+          transferNote: text('transfer_note'),
+        };
         const before = await getPlatformSettings(db);
         if (
           before.maxAttempts !== values.maxAttempts ||
           before.resultValidityDays !== values.resultValidityDays ||
           before.nameMatchThresholdPct !== values.nameMatchThresholdPct ||
           before.registryAlertDays !== values.registryAlertDays ||
-          before.userSecondStep !== userSecondStep
+          before.userSecondStep !== userSecondStep ||
+          before.bankAccountName !== bank.bankAccountName ||
+          before.bankName !== bank.bankName ||
+          before.bankIban !== bank.bankIban ||
+          before.transferNote !== bank.transferNote
         ) {
-          await setPlatformSettings(db, actor, { ...values, userSecondStep });
+          await setPlatformSettings(db, actor, { ...values, userSecondStep, ...bank });
         }
 
         // A switch left off submits nothing, so every section the table lists for a kind is
@@ -291,4 +306,49 @@ export async function setSpecialPriceAction(formData: FormData): Promise<void> {
   }
   revalidatePath('/operator/pricing');
   back('/operator/pricing', { saved: 'special' });
+}
+
+/**
+ * Declares the tax rule from a date (ADR-157).
+ *
+ * The rate arrives as a percentage because that is how somebody says it, and is stored in
+ * basis points because a column holding 0.15 beside one holding 15 is a bug waiting for a
+ * quiet afternoon.
+ */
+export async function setVatAction(formData: FormData): Promise<void> {
+  const actor = await actorWith('pricing', '/operator/pricing');
+  const effectiveFrom = String(formData.get('effective_from') ?? '').trim();
+  const registered = String(formData.get('registered') ?? 'false') === 'true';
+  const ratePct = parsePercent(String(formData.get('rate_pct') ?? '').trim());
+  const registrationNumber = String(formData.get('registration_number') ?? '').trim();
+  const note = String(formData.get('note') ?? '').trim();
+
+  if (ratePct === null) {
+    back('/operator/pricing', { refused: 'vat-rate' });
+  }
+
+  try {
+    await operatorTransaction((db) =>
+      setVatPeriod(db, actor, {
+        effectiveFrom,
+        registered,
+        rateBps: Math.round(ratePct * 100),
+        registrationNumber: registrationNumber === '' ? null : registrationNumber,
+        note: note === '' ? null : note,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof NxError && (error.code === 'NX-4002' || error.code === 'NX-4003')) {
+      back('/operator/pricing', {
+        refused: /registration number/.test(error.message)
+          ? 'vat-number'
+          : /cannot start before/.test(error.message)
+            ? 'vat-order'
+            : 'vat-rate',
+      });
+    }
+    throw error;
+  }
+  revalidatePath('/operator/pricing');
+  back('/operator/pricing', { saved: 'vat' });
 }

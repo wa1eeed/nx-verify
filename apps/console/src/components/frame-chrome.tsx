@@ -20,14 +20,12 @@ import { Icon } from './ui/icon';
  */
 export function FrameChrome({
   surface,
-  theme,
   brand,
   sidebarLabel,
   sidebar,
   children,
 }: {
   surface: 'portal' | 'operator';
-  theme?: 'dark' | undefined;
   /** The brand as the bar shows it. */
   brand: ReactNode;
   sidebarLabel: string;
@@ -70,7 +68,6 @@ export function FrameChrome({
     <div
       className="frame"
       data-surface={surface}
-      data-theme={theme}
       data-menu={open ? 'open' : undefined}
     >
       <div className="frame-topbar" data-role="frame-topbar">

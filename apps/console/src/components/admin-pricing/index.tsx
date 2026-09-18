@@ -30,6 +30,7 @@ import {
   specialLineAr,
 } from './model';
 import { VerificationSettings, type SectionsView } from './settings';
+import { VatPanel, type VatPeriodView } from './vat';
 
 /**
  * The prices and products of the platform (handoff screen 05), on the administration panel's
@@ -51,6 +52,11 @@ export interface AdminPricingView {
   lastChange: { byName: string; at: Date } | null;
   notice: { tone: 'done' | 'refused'; text: string } | null;
   products: readonly ProductPricingRow[];
+  /** The tax rule in force today, so the table says what a subscriber actually pays. */
+  vat: { registered: boolean; ratePct: number };
+  /** Every rule ever declared, newest first, for the panel that sets the next one. */
+  vatPeriods: readonly VatPeriodView[];
+  today: string;
   bundles: readonly CreditBundle[];
   plans: readonly PlanSummary[];
   specialPrices: readonly SpecialPrice[];
@@ -61,6 +67,10 @@ export interface AdminPricingView {
     | 'nameMatchThresholdPct'
     | 'registryAlertDays'
     | 'userSecondStep'
+    | 'bankAccountName'
+    | 'bankName'
+    | 'bankIban'
+    | 'transferNote'
   >;
   sections: SectionsView;
   subscribers: readonly { tenantId: string; legalName: string }[];
@@ -74,6 +84,7 @@ export interface AdminPricingActions {
   retireBundle: Action;
   addPlan: Action;
   setSpecialPrice: Action;
+  setVat: Action;
 }
 
 function StatusCell({
@@ -149,6 +160,13 @@ export function AdminPricing({
           </h2>
           <p className="admin-card-note">
             السعر بالريال لكل عملية ناجحة · العمليات الفاشلة لا تُحسب
+            {view.vat.registered ? (
+              <>
+                {' · '}السعر المعروض للمشترك يشمل ضريبة {view.vat.ratePct}%
+              </>
+            ) : (
+              <>{' · '}المنصة غير مسجّلة في الضريبة، فلا تُضاف على السعر</>
+            )}
           </p>
         </div>
         {view.products.length === 0 ? (
@@ -161,8 +179,10 @@ export function AdminPricing({
               <thead>
                 <tr>
                   <Th>المنتج</Th>
+                  <Th>المزوّد</Th>
                   <Th>التكلفة</Th>
                   <Th>سعر البيع</Th>
+                  <Th>يدفعه المشترك</Th>
                   <Th>الهامش</Th>
                   <Th>استهلاك 30 يوماً</Th>
                   <Th>الحالة</Th>
@@ -176,8 +196,38 @@ export function AdminPricing({
                     data-product={product.productCode}
                   >
                     <td>{product.nameAr}</td>
-                    <td>
-                      <Ltr>{riyals(product.costHalalas)}</Ltr>
+                    <td data-role="provider">
+                      {product.providers.length === 0 ? (
+                        <span className="admin-empty-cell">لم يُوجَّه</span>
+                      ) : (
+                        <span className="admin-providers">
+                          {product.providers.join('، ')}
+                        </span>
+                      )}
+                    </td>
+                    <td data-role="cost">
+                      {product.costKnown ? (
+                        <span className="stack" style={{ gap: 0 }}>
+                          <Ltr>{riyals(product.costHalalas)}</Ltr>
+                          {/*
+                            What we hand the provider, and what of it we keep. While the
+                            platform is unregistered the tax in their bill is ours to eat, and
+                            saying so here is the difference between a margin somebody trusts
+                            and one they recompute by hand.
+                          */}
+                          {product.costVatBps > 0 ? (
+                            <span className="admin-sub" data-role="cost-vat">
+                              {view.vat.registered
+                                ? `صافيها ${riyals(product.effectiveCostHalalas)} بعد استرداد الضريبة`
+                                : 'شاملة ضريبة المزوّد ولا تُسترد'}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <span className="admin-empty-cell" data-role="cost-unknown">
+                          غير مسجّلة
+                        </span>
+                      )}
                     </td>
                     <td>
                       <span className="admin-price-field">
@@ -192,6 +242,18 @@ export function AdminPricing({
                         />
                       </span>
                     </td>
+                    <td data-role="customer-pays">
+                      {product.priceWithVatHalalas === null ? (
+                        <span className="admin-empty-cell">·</span>
+                      ) : (
+                        <span className="stack" style={{ gap: 0 }}>
+                          <Ltr>{riyals(product.priceWithVatHalalas)}</Ltr>
+                          {view.vat.registered ? (
+                            <span className="admin-sub">شامل الضريبة</span>
+                          ) : null}
+                        </span>
+                      )}
+                    </td>
                     <td
                       className="admin-margin"
                       data-tone={
@@ -200,7 +262,16 @@ export function AdminPricing({
                           : undefined
                       }
                     >
-                      <Ltr>{product.marginPct === null ? '·' : `${product.marginPct}%`}</Ltr>
+                      <span className="stack" style={{ gap: 0 }}>
+                        <Ltr>{product.marginPct === null ? '·' : `${product.marginPct}%`}</Ltr>
+                        {/* The percentage hides the size. Both, because a 40% margin on two
+                            riyals and on two hundred are different businesses. */}
+                        {product.marginHalalas === null ? null : (
+                          <span className="admin-sub" data-role="margin-riyals">
+                            <Ltr>{riyals(product.marginHalalas)}</Ltr> للعملية
+                          </span>
+                        )}
+                      </span>
                     </td>
                     <td>
                       <Ltr>{count(product.runs30)}</Ltr>
@@ -322,6 +393,13 @@ export function AdminPricing({
           ) : null}
         </Card>
       </div>
+
+      <VatPanel
+        periods={view.vatPeriods}
+        today={view.today}
+        canEdit={view.canEditPricing}
+        action={actions.setVat}
+      />
 
       <VerificationSettings
         settings={view.settings}

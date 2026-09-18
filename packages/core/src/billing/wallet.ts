@@ -1,6 +1,7 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
-import { halalasToDecimalString, riyalsToHalalas, vatOn } from './money.js';
+import { halalasToDecimalString, riyalsToHalalas } from './money.js';
+import { withVat, type VatRule } from './vat.js';
 
 /**
  * The service balance and its ledger.
@@ -79,9 +80,15 @@ export async function topUp(tx: TenantTransaction, input: TopUpInput): Promise<W
   return getWallet(tx);
 }
 
-/** The VAT that a top up of this size attracts, for the invoice. */
-export function vatForTopUp(amountHalalas: number): number {
-  return vatOn(amountHalalas);
+/**
+ * The VAT a top up of this size attracts, under the rule in force on the day of supply.
+ *
+ * Nothing while the platform is unregistered, which is not the same as a rate of zero: an
+ * invoice from an unregistered seller carries no tax line at all, because printing one claims
+ * something untrue about the seller (ADR-157).
+ */
+export function vatForTopUp(amountHalalas: number, rule: VatRule): number {
+  return withVat(amountHalalas, rule).vatHalalas;
 }
 
 export interface HoldResult {

@@ -119,7 +119,14 @@ describe('pricing and the wallet', () => {
       const ledger = await getLedger(tx);
       const topUpRow = ledger.find((entry) => entry.reason === 'TOPUP');
       expect(topUpRow?.vatInvoiceId).toBe('INV-2026-1');
-      expect(vatForTopUp(500_00)).toBe(75_00);
+      // While the platform is unregistered nothing is due: the rule is read from the date,
+    // not assumed (ADR-157).
+    expect(vatForTopUp(500_00, { registered: false, rateBps: 1500, registrationNumber: null })).toBe(
+      0,
+    );
+    expect(
+      vatForTopUp(500_00, { registered: true, rateBps: 1500, registrationNumber: '3'.repeat(15) }),
+    ).toBe(75_00);
     });
   });
 

@@ -9,6 +9,7 @@ import {
   listSettableSections,
   listSpecialPrices,
   listSubscribers,
+  listVatPeriods,
   operatorCan,
 } from '@nx-verify/core';
 import { AdminPricing } from '../../../../components/admin-pricing';
@@ -23,6 +24,7 @@ import {
   retireBundleAction,
   savePricingAction,
   setSpecialPriceAction,
+  setVatAction,
 } from './actions';
 
 /** Never prerendered, and refuses to render without a sign in. */
@@ -55,10 +57,16 @@ export default async function OperatorPricingPage({
     settings: await getPlatformSettings(db),
     sections: await listSettableSections(db),
     subscribers: await listSubscribers(db),
+    vatPeriods: await listVatPeriods(db),
     lastChange: (
-      await listOperatorAudit(db, { targetPrefixes: ['pricing:', 'settings:'], limit: 1 })
+      await listOperatorAudit(db, { targetPrefixes: ['pricing:', 'settings:', 'vat:'], limit: 1 })
     )[0],
   }));
+
+  // Which rule governs today, and which have not started yet. Worked out here rather than in
+  // the component so the screen has no clock of its own.
+  const today = new Date().toISOString().slice(0, 10);
+  const currentFrom = data.vatPeriods.find((period) => period.effectiveFrom <= today)?.effectiveFrom;
 
   const nameOf = new Map(data.products.map((product) => [product.productCode, product.nameAr]));
 
@@ -87,6 +95,25 @@ export default async function OperatorPricingPage({
               legalName: subscriber.legalName,
             })),
           minimumMarginPct: MINIMUM_MARGIN_PCT,
+          vat: {
+            registered:
+              data.vatPeriods.find((period) => period.effectiveFrom === currentFrom)?.registered ??
+              false,
+            ratePct:
+              (data.vatPeriods.find((period) => period.effectiveFrom === currentFrom)?.rateBps ??
+                0) / 100,
+          },
+          vatPeriods: data.vatPeriods.map((period) => ({
+            effectiveFrom: period.effectiveFrom,
+            registered: period.registered,
+            ratePct: String(period.rateBps / 100),
+            registrationNumber: period.registrationNumber,
+            note: period.note,
+            setBy: period.setBy,
+            current: period.effectiveFrom === currentFrom,
+            future: period.effectiveFrom > today,
+          })),
+          today,
         }}
         actions={{
           save: savePricingAction,
@@ -94,6 +121,7 @@ export default async function OperatorPricingPage({
           retireBundle: retireBundleAction,
           addPlan: addPlanAction,
           setSpecialPrice: setSpecialPriceAction,
+          setVat: setVatAction,
         }}
       />
     </div>

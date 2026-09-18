@@ -32,6 +32,18 @@ export interface UsageView {
   balanceHalalas: number;
   heldHalalas: number;
   availableHalalas: number;
+  /**
+   * Operations left on live bundles (ADR-160).
+   *
+   * There are two kinds of credit and this card has to show both. A transfer either tops up
+   * the wallet in riyals or buys a bundle of operations, and a bundle grants operations
+   * without moving the wallet at all. Showing the wallet alone told a subscriber who had just
+   * bought a thousand operations, and been confirmed, that their balance was zero, while the
+   * home screen said otherwise: two screens of the same platform disagreeing about whether
+   * somebody had paid.
+   */
+  bundleOperations: number;
+  bundleExpiry: Date | null;
   isLow: boolean;
   entitlements: EntitlementView[];
 }
@@ -85,8 +97,12 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
           )}
         </article>
 
-        <article className="stat" {...(view.isLow ? { 'data-tone': 'critical' } : {})}>
-          <span className="stat-label">الرصيد المتاح</span>
+        <article
+          className="stat"
+          data-role="wallet-balance"
+          {...(view.isLow && view.bundleOperations === 0 ? { 'data-tone': 'critical' } : {})}
+        >
+          <span className="stat-label">الرصيد المتاح بالريال</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
               {riyals(view.availableHalalas)}
@@ -97,6 +113,34 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
             <bdi dir="ltr" className="mono">
               {riyals(view.heldHalalas)}
             </bdi>
+          </span>
+        </article>
+
+        {/*
+          The second kind of credit, beside the first. A bundle is spent before the wallet and
+          never touches it, so a workspace holding only operations has a wallet of zero and is
+          perfectly able to verify: leaving this card out made that look like having nothing.
+        */}
+        <article className="stat" data-role="bundle-balance">
+          <span className="stat-label">عمليات الحزم</span>
+          <strong className="stat-value">
+            <bdi dir="ltr" className="mono">
+              {view.bundleOperations}
+            </bdi>
+          </strong>
+          <span className="stat-hint">
+            {view.bundleOperations === 0 ? (
+              'لا عمليات في حزم لديك'
+            ) : view.bundleExpiry === null ? (
+              'تُصرف قبل الرصيد بالريال'
+            ) : (
+              <>
+                تُصرف قبل الرصيد بالريال · أقربها ينتهي{' '}
+                <bdi dir="ltr" className="mono">
+                  {view.bundleExpiry.toISOString().slice(0, 10)}
+                </bdi>
+              </>
+            )}
           </span>
         </article>
 

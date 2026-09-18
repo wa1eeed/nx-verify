@@ -32,6 +32,18 @@ export interface PlatformSettings {
    * is down. The panel's own second step is an authenticator and does not depend on mail.
    */
   userSecondStep: 'off' | 'email';
+  /**
+   * The account a subscriber transfers to (ADR-158).
+   *
+   * Here rather than in the deployment's environment, because it is printed on the screen of
+   * every subscriber who buys credit and an IBAN only one engineer can change is an outage
+   * waiting for a bank merger. Not a secret, and not covered by rule 4: that rule protects the
+   * identifiers of the people being verified, and this is our own account number.
+   */
+  bankAccountName: string | null;
+  bankName: string | null;
+  bankIban: string | null;
+  transferNote: string | null;
   updatedAt: Date | null;
   updatedBy: string | null;
 }
@@ -42,6 +54,10 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   nameMatchThresholdPct: 85,
   registryAlertDays: 30,
   userSecondStep: 'off',
+  bankAccountName: null,
+  bankName: null,
+  bankIban: null,
+  transferNote: null,
   updatedAt: null,
   updatedBy: null,
 };
@@ -60,11 +76,16 @@ export async function getPlatformSettings(db: Queryable): Promise<PlatformSettin
     name_match_threshold_pct: number;
     registry_alert_days: number;
     user_second_step: 'off' | 'email';
+    bank_account_name: string | null;
+    bank_name: string | null;
+    bank_iban: string | null;
+    transfer_note: string | null;
     updated_at: Date;
     updated_by: string | null;
   }>(
     `SELECT max_attempts, result_validity_days, name_match_threshold_pct, registry_alert_days,
-            user_second_step, updated_at, updated_by
+            user_second_step, bank_account_name, bank_name, bank_iban, transfer_note,
+            updated_at, updated_by
      FROM platform_settings WHERE id`,
   );
   const row = rows[0];
@@ -75,17 +96,31 @@ export async function getPlatformSettings(db: Queryable): Promise<PlatformSettin
         nameMatchThresholdPct: row.name_match_threshold_pct,
         registryAlertDays: row.registry_alert_days,
         userSecondStep: row.user_second_step,
+        bankAccountName: row.bank_account_name,
+        bankName: row.bank_name,
+        bankIban: row.bank_iban,
+        transferNote: row.transfer_note,
         updatedAt: row.updated_at,
         updatedBy: row.updated_by,
       }
     : DEFAULT_PLATFORM_SETTINGS;
 }
 
-export type PlatformSettingsChange = Partial<Pick<PlatformSettings, 'userSecondStep'>> &
+export type PlatformSettingsChange = Partial<
+  Pick<
+    PlatformSettings,
+    'userSecondStep' | 'bankAccountName' | 'bankName' | 'bankIban' | 'transferNote'
+  >
+> &
   Pick<
     PlatformSettings,
     'maxAttempts' | 'resultValidityDays' | 'nameMatchThresholdPct' | 'registryAlertDays'
   >;
+
+/** Spaces and case as a person types them, digits as the bank stores them. */
+export function normaliseIban(value: string): string {
+  return value.replace(/\s+/g, '').toUpperCase();
+}
 
 export async function setPlatformSettings(
   db: Queryable,
@@ -107,11 +142,21 @@ export async function setPlatformSettings(
   if (secondStep !== 'off' && secondStep !== 'email') {
     throw new NxError('NX-4002', { detail: 'userSecondStep is off or email' });
   }
+  // A wrong IBAN here sends every subscriber's money to nobody, so it is checked in the shape
+  // the Kingdom uses rather than accepted as any string and discovered by a failed transfer.
+  const iban = change.bankIban === null || change.bankIban === undefined
+    ? null
+    : normaliseIban(change.bankIban);
+  if (iban !== null && iban !== '' && !/^SA[0-9]{22}$/.test(iban)) {
+    throw new NxError('NX-4002', { detail: 'a Saudi IBAN is SA and twenty two digits' });
+  }
   const before = await getPlatformSettings(db);
   await db.query(
     `UPDATE platform_settings
      SET max_attempts = $1, result_validity_days = $2, name_match_threshold_pct = $3,
-         registry_alert_days = $4, user_second_step = $6, updated_at = now(), updated_by = $5
+         registry_alert_days = $4, user_second_step = $6,
+         bank_account_name = $7, bank_name = $8, bank_iban = $9, transfer_note = $10,
+         updated_at = now(), updated_by = $5
      WHERE id`,
     [
       change.maxAttempts,
@@ -120,6 +165,10 @@ export async function setPlatformSettings(
       change.registryAlertDays,
       actor.id,
       secondStep,
+      blankToNull(change.bankAccountName),
+      blankToNull(change.bankName),
+      iban === '' ? null : iban,
+      blankToNull(change.transferNote),
     ],
   );
   const changed: Record<string, { from: unknown; to: unknown }> = Object.fromEntries(
@@ -129,6 +178,15 @@ export async function setPlatformSettings(
   );
   if (before.userSecondStep !== secondStep) {
     changed['userSecondStep'] = { from: before.userSecondStep, to: secondStep };
+  }
+  // The account is audited as changed or not, and never with the number in the entry: a trail
+  // is read by more people, and for longer, than the screen is.
+  const nextIban = iban === '' ? null : iban;
+  if (before.bankIban !== nextIban) {
+    changed['bankIban'] = {
+      from: before.bankIban === null ? 'unset' : 'set',
+      to: nextIban === null ? 'unset' : 'set',
+    };
   }
   if (Object.keys(changed).length > 0) {
     await recordOperatorAudit(db, {
@@ -244,4 +302,10 @@ export async function listSettableSections(
     ESTABLISHMENT: settable('ESTABLISHMENT'),
     FREELANCER: settable('FREELANCER'),
   };
+}
+
+
+function blankToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
 }

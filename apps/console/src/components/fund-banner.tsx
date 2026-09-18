@@ -22,7 +22,7 @@ import { riyals } from './format';
 export function FundBanner({
   availableHalalas,
   bundleOperations = 0,
-  href = '/billing/invoices',
+  href = '/billing',
 }: {
   availableHalalas: number;
   /** Operations left on live bundles. Credit too, and it never touches the wallet. */
@@ -38,7 +38,7 @@ export function FundBanner({
       <strong>رصيدك صفر، ولا تعمل أي عملية تحقق بدونه.</strong> اشترِ رصيداً بالتحويل البنكي: تطلبه
       من هنا، نؤكّد التحويل يدوياً، ثم يظهر الرصيد في محفظتك وتبدأ.{' '}
       <Link href={href} data-role="fund-link">
-        اشترِ رصيداً وشاهد بيانات التحويل
+        اشترِ رصيداً
       </Link>
     </aside>
   );
@@ -48,7 +48,7 @@ export function FundBanner({
 export function LowBanner({
   availableHalalas,
   bundleOperations = 0,
-  href = '/billing/invoices',
+  href = '/billing',
 }: {
   availableHalalas: number;
   bundleOperations?: number;

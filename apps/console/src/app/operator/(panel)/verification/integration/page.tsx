@@ -29,19 +29,19 @@ export default async function OperatorIntegrationPage({
   const target = `${PRIMARY_PROVIDER}/${environment}`;
 
   const data = await operatorQuery(async (db) => ({
-    connection: (await listProviderConnections(db)).find(
-      (row) => row.provider === PRIMARY_PROVIDER && row.environment === environment,
-    ),
+    connections: await listProviderConnections(db),
     changes: await listOperatorAudit(db, { targetPrefixes: [target], limit: 10 }),
   }));
+  const connectionIn = (env: 'sandbox' | 'live') =>
+    data.connections.find((row) => row.provider === PRIMARY_PROVIDER && row.environment === env);
+  const connection = connectionIn(environment);
 
   const store = secretStoreFromEnv();
-  const ref =
-    data.connection?.credentialRef ?? `kms://providers/${PRIMARY_PROVIDER}/${environment}`;
+  const ref = connection?.credentialRef ?? `kms://providers/${PRIMARY_PROVIDER}/${environment}`;
   // Described, never fetched for display: the screen learns which fields are set and a
   // fingerprint of each, and no value reaches the page.
   const credential = store.describe ? await store.describe(ref).catch(() => null) : null;
-  const webhookRef = data.connection?.callbackSecretRef ?? `${ref}/webhook`;
+  const webhookRef = connection?.callbackSecretRef ?? `${ref}/webhook`;
   const webhook = store.describe ? await store.describe(webhookRef).catch(() => null) : null;
 
   const publicBaseUrl = process.env['NX_PUBLIC_BASE_URL'] ?? 'http://localhost:3000';
@@ -50,21 +50,21 @@ export default async function OperatorIntegrationPage({
 
   const view: IntegrationView = {
     environment,
-    baseUrl: data.connection?.baseUrl ?? defaults.baseUrl,
-    authUrl: data.connection?.authUrl ?? defaults.authUrl,
+    baseUrl: connection?.baseUrl ?? defaults.baseUrl,
+    authUrl: connection?.authUrl ?? defaults.authUrl,
     credential,
     webhook,
-    callbackUrl: data.connection?.callbackSlug
-      ? `${publicBaseUrl}/v1/callbacks/${data.connection.callbackSlug}`
+    callbackUrl: connection?.callbackSlug
+      ? `${publicBaseUrl}/v1/callbacks/${connection.callbackSlug}`
       : null,
-    callbackHeader: data.connection?.callbackHeader ?? 'x-nx-provider-signature',
-    callbackAlgorithm: data.connection?.callbackAlgorithm ?? 'sha256',
+    callbackHeader: connection?.callbackHeader ?? 'x-nx-provider-signature',
+    callbackAlgorithm: connection?.callbackAlgorithm ?? 'sha256',
     lastTest:
-      data.connection?.lastTestAt && data.connection.lastTestOk !== null
+      connection?.lastTestAt && connection.lastTestOk !== null
         ? {
-            at: data.connection.lastTestAt,
-            ok: data.connection.lastTestOk,
-            detail: data.connection.lastTestDetail ?? '',
+            at: connection.lastTestAt,
+            ok: connection.lastTestOk,
+            detail: connection.lastTestDetail ?? '',
           }
         : null,
     changes: data.changes.map((change) => ({
@@ -76,6 +76,11 @@ export default async function OperatorIntegrationPage({
         : [],
     })),
     secretsWritable: store.writable,
+    // Both, so «are the sandbox keys set» is answered without opening the other tab.
+    configuredIn: {
+      sandbox: connectionIn('sandbox')?.credentialRef !== undefined,
+      live: connectionIn('live')?.credentialRef !== undefined,
+    },
     notice:
       params['saved'] !== undefined ? 'saved' : params['tested'] !== undefined ? 'tested' : null,
     error:

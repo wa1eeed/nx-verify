@@ -47,7 +47,7 @@ export default async function OperatorLoginPage({
   }
 
   return (
-    <div className="auth-frame" data-theme="dark">
+    <div className="auth-frame" data-surface="operator">
       <Brand />
       <main id="main" className="operator-door">
         <Card role="operator-sign-in">

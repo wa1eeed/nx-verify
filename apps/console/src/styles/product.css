@@ -530,142 +530,32 @@ dialog.dialog-backdrop::backdrop {
   border-block-start: var(--size-hairline) solid var(--color-hairline);
 }
 
-/* ── the administration panel's dark ground ───────────────────────────── */
+/* ── the administration panel ─────────────────────────────────────────── */
 
-/* README, screen 05: the panel is dark on purpose, so staff never mistake it for a
-   subscriber's portal. The Organic roles are re-pointed inside the panel only. */
-[data-theme='dark'] {
-  --color-bg: var(--color-neutral-900);
-  --color-surface: var(--dark-card);
-  --color-text: var(--color-neutral-100);
-  --color-divider: var(--dark-field-border);
-  --color-accent: var(--color-accent-400);
-  --color-inset: var(--color-neutral-900);
-  --color-hairline: var(--dark-divider);
-  --color-hairline-strong: var(--dark-field-border);
-  --color-header-band: color-mix(in srgb, var(--color-neutral-100) 4%, transparent);
-  --color-field: var(--dark-field);
-  background: var(--color-bg);
-  color: var(--color-text);
-}
-
-[data-theme='dark'] a {
-  color: var(--color-accent-300);
-}
-[data-theme='dark'] a:hover {
-  color: var(--color-accent-200);
-}
-[data-theme='dark'] a:active {
-  color: var(--color-accent-400);
+/*
+ * The panel was dark, so staff would never mistake it for a subscriber's portal. The reason
+ * was right and the means were wrong (ADR-159): a second palette to maintain for every
+ * component ever added, a surface that read as a different product rather than the other side
+ * of this one, and long stretches of reading made harder for the people who live in it.
+ *
+ * What separates the two surfaces now is this band. It says which side of the platform you are
+ * on, on every screen, and it does not scroll away. A label somebody reads beats a colour they
+ * stop noticing on the second day.
+ */
+.operator-band {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+  border: 1px solid var(--color-accent-300);
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+  font-weight: 600;
+  font-size: 13px;
 }
 
-[data-theme='dark'] .btn-primary,
-[data-theme='dark'] a.btn-primary,
-[data-theme='dark'] a.btn-primary:hover,
-[data-theme='dark'] a.btn-primary:active {
-  color: var(--dark-sidebar);
-}
-[data-theme='dark'] .btn-primary:hover {
-  background: var(--color-accent-300);
-}
-[data-theme='dark'] .btn-primary:active {
-  background: var(--color-accent-500);
-}
-
-[data-theme='dark'] .input {
-  background: var(--dark-field);
-  border-color: var(--dark-field-border);
-}
-[data-theme='dark'] .input::placeholder {
-  color: var(--color-neutral-600);
-}
-
-[data-theme='dark'] .table th,
-[data-theme='dark'] .table td {
-  border-bottom-color: var(--dark-divider);
-}
-[data-theme='dark'] .table th {
-  color: var(--color-neutral-400);
-}
-
-[data-theme='dark'] .tag-accent {
-  background: var(--color-accent-800);
-  color: var(--color-accent-200);
-}
-[data-theme='dark'] .tag-accent-2 {
-  background: var(--color-accent-2-800);
-  color: var(--color-accent-2-200);
-}
-[data-theme='dark'] .tag-neutral {
-  background: var(--dark-divider);
-  color: var(--color-neutral-200);
-}
-[data-theme='dark'] .tag-critical {
-  background: var(--dark-critical);
-  color: var(--dark-critical-text);
-}
-[data-theme='dark'] .tag-accent {
-  border-color: var(--color-accent-700);
-}
-[data-theme='dark'] .tag-accent-2 {
-  border-color: var(--color-accent-2-700);
-}
-[data-theme='dark'] .tag-neutral {
-  border-color: var(--dark-field-border);
-}
-[data-theme='dark'] .tag-critical {
-  border-color: var(--color-accent-800);
-}
-
-/* Shadows do not show on the dark ground; the hairline carries the edge alone. */
-[data-theme='dark'] .card,
-[data-theme='dark'] .btn-primary,
-[data-theme='dark'] .btn-secondary,
-[data-theme='dark'] .input {
-  box-shadow: none;
-}
-[data-theme='dark'] .btn-secondary:hover {
-  background: var(--color-accent-900);
-  border-color: var(--color-accent-700);
-}
-[data-theme='dark'] .btn-secondary:active {
-  background: var(--color-accent-800);
-}
-[data-theme='dark'] .input:hover {
-  border-color: var(--color-accent-700);
-}
-
-[data-theme='dark'] .check .box {
-  background: var(--dark-field);
-}
-[data-theme='dark'] .check input:checked + .box {
-  color: var(--dark-sidebar);
-}
-[data-theme='dark'] .field-hint {
-  color: var(--color-neutral-400);
-}
-[data-theme='dark'] .field-error {
-  color: var(--color-accent-300);
-}
-
-/* A tinted card keeps its role on the dark ground: the light tints would sit under light
-   text and the words would disappear. */
-[data-theme='dark'] .card-tone-accent {
-  background: var(--color-accent-900);
-}
-[data-theme='dark'] .card-tone-accent-2 {
-  background: var(--color-accent-2-900);
-}
-[data-theme='dark'] .card-tone-attention {
-  background: var(--dark-attention);
-  color: var(--color-accent-300);
-}
-[data-theme='dark'] .card-tone-accent,
-[data-theme='dark'] .card-tone-attention {
-  border-color: var(--color-accent-800);
-}
-[data-theme='dark'] .card-tone-accent-2 {
-  border-color: var(--color-accent-2-800);
+/* The panel's own ground, a shade apart from the portal's without being a second theme. */
+[data-surface='operator'] {
+  --color-bg: var(--color-neutral-100);
 }
 
 /* ── the frame ────────────────────────────────────────────────────────── */
@@ -840,9 +730,6 @@ a.frame-brand:active {
       transparent
     ),
     var(--color-ground);
-}
-[data-theme='dark'] .frame-main {
-  background: var(--color-bg);
 }
 
 /* The balance at the foot of the sidebar (README, screen 01). */
@@ -1083,79 +970,6 @@ a.frame-brand:active {
   100% {
     transform: translateX(-100%);
   }
-}
-
-/* ── the dark ground: the frame ───────────────────────────────────────── */
-
-[data-theme='dark'] .frame-sidebar {
-  background: var(--dark-sidebar);
-}
-/* The dark ground paints links in the accent; navigation, the brand and link buttons keep
-   their own colours over it. */
-[data-theme='dark'] .frame-nav-item,
-[data-theme='dark'] .frame-nav-item:hover,
-[data-theme='dark'] .frame-nav-item:active,
-[data-theme='dark'] a.frame-brand,
-[data-theme='dark'] a.frame-brand:hover,
-[data-theme='dark'] a.frame-brand:active,
-[data-theme='dark'] a.btn-secondary,
-[data-theme='dark'] a.btn-secondary:hover,
-[data-theme='dark'] a.btn-secondary:active {
-  color: var(--color-text);
-}
-[data-theme='dark'] a.btn-ghost,
-[data-theme='dark'] a.btn-ghost:hover,
-[data-theme='dark'] a.btn-ghost:active {
-  color: var(--color-accent);
-}
-[data-theme='dark'] .frame-brand-mark {
-  background: var(--color-accent-400);
-}
-[data-theme='dark'] .frame-nav-item:hover {
-  background: var(--dark-card);
-}
-[data-theme='dark'] .frame-nav-item:active {
-  background: var(--dark-divider);
-}
-[data-theme='dark'] .frame-nav-item[aria-current='page'] {
-  background: var(--color-accent-400);
-  color: var(--dark-sidebar);
-}
-[data-theme='dark'] .frame-nav-item[aria-current='page']:hover {
-  background: var(--color-accent-300);
-}
-[data-theme='dark'] .frame-account,
-[data-theme='dark'] .page-subtitle {
-  color: var(--color-neutral-400);
-}
-[data-theme='dark'] .tab {
-  background: var(--dark-divider);
-  color: var(--color-neutral-200);
-}
-[data-theme='dark'] .tab:hover {
-  background: var(--color-accent-900);
-  color: var(--color-accent-200);
-}
-[data-theme='dark'] .tab[aria-current='page'] {
-  background: var(--color-accent-400);
-  color: var(--dark-sidebar);
-}
-[data-theme='dark'] .progress {
-  background: var(--dark-divider);
-}
-[data-theme='dark'] .skeleton {
-  background: var(--dark-card);
-}
-[data-theme='dark'] .skeleton-line {
-  background: var(--dark-divider);
-}
-[data-theme='dark'] .skeleton::after {
-  background: linear-gradient(
-    to left,
-    transparent 0%,
-    color-mix(in srgb, var(--color-neutral-100) 7%, transparent) 50%,
-    transparent 100%
-  );
 }
 
 /* ── print: the evidence, not the furniture ───────────────────────────── */
@@ -2846,14 +2660,6 @@ a.frame-brand:active {
   background: var(--color-accent-100);
   color: var(--color-accent-700);
 }
-[data-theme='dark'] .notice-done {
-  background: var(--color-accent-2-900);
-  color: var(--color-accent-2-200);
-}
-[data-theme='dark'] .notice-refused {
-  background: var(--dark-attention);
-  color: var(--color-accent-300);
-}
 
 /* A tag that switches: the checkbox is hidden inside it, and the tag answers for it. */
 .tag-toggle {
@@ -2885,20 +2691,6 @@ a.frame-brand:active {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
-[data-theme='dark'] .tag-toggle.tag-accent-2:hover {
-  background: var(--color-accent-2-700);
-}
-[data-theme='dark'] .tag-toggle.tag-accent:hover {
-  background: var(--color-accent-700);
-}
-[data-theme='dark'] .tag-toggle.tag-neutral:hover {
-  background: var(--color-accent-900);
-  color: var(--color-accent-200);
-}
-[data-theme='dark'] .tag-toggle:active,
-[data-theme='dark'] .tag-toggle.tag-accent:active {
-  background: var(--color-accent-600);
-}
 
 /* A choice from a list: the field's pill, with a chevron drawn at the end of the line. */
 .select {
@@ -2923,16 +2715,10 @@ a.frame-brand:active {
   pointer-events: none;
   color: var(--color-neutral-600);
 }
-[data-theme='dark'] .select-chevron {
-  color: var(--color-neutral-400);
-}
 
 .input:disabled {
   cursor: not-allowed;
   opacity: 0.6;
-}
-[data-theme='dark'] .field > label {
-  color: var(--color-neutral-400);
 }
 
 /* ── the administration panel: signing in ─────────────────────────────── */
@@ -3021,9 +2807,6 @@ a.frame-brand:active {
   font-size: var(--text-caption);
   font-weight: 400;
   color: var(--color-neutral-600);
-}
-[data-theme='dark'] .frame-account-role {
-  color: var(--color-neutral-400);
 }
 
 /* ── the administration panel: prices and products (screen 05) ────────── */
@@ -3132,12 +2915,6 @@ a.frame-brand:active {
 .admin-offer-link,
 .admin-offer-link:hover,
 .admin-offer-link:active,
-[data-theme='dark'] .admin-offer-link,
-[data-theme='dark'] .admin-offer-link:hover,
-[data-theme='dark'] .admin-offer-link:active {
-  color: inherit;
-  text-decoration: none;
-}
 .admin-offer-link:hover {
   text-decoration: underline;
   text-underline-offset: var(--offset-underline);
@@ -3181,12 +2958,6 @@ a.frame-brand:active {
   font-size: var(--text-note);
   color: var(--color-neutral-600);
 }
-[data-theme='dark'] .admin-roles {
-  color: var(--color-neutral-400);
-}
-[data-theme='dark'] .admin-roles strong {
-  color: var(--color-neutral-200);
-}
 
 /* «إعدادات التحقق»: four figures, then the sections each kind of file needs. */
 .admin-settings-fields {
@@ -3219,26 +2990,6 @@ a.frame-brand:active {
 }
 .admin-tag-slot {
   display: contents;
-}
-
-[data-theme='dark'] .admin-card-note,
-[data-theme='dark'] .admin-empty,
-[data-theme='dark'] .admin-offer-terms,
-[data-theme='dark'] .admin-sections-heading {
-  color: var(--color-neutral-400);
-}
-[data-theme='dark'] .admin-margin,
-[data-theme='dark'] .admin-discount {
-  color: var(--color-accent-2-300);
-}
-[data-theme='dark'] .admin-margin[data-tone='thin'] {
-  color: var(--color-accent-300);
-}
-[data-theme='dark'] .admin-offer {
-  background: var(--dark-field);
-}
-[data-theme='dark'] .admin-divider {
-  background: var(--dark-divider);
 }
 
 @media (max-width: 1100px) {
@@ -3298,20 +3049,6 @@ a.frame-brand:active {
 .card-tone-attention .admin-stat-value {
   color: var(--color-text);
 }
-[data-theme='dark'] .admin-stat-label,
-[data-theme='dark'] .admin-stat-line {
-  color: var(--color-neutral-400);
-}
-[data-theme='dark'] .admin-stat-line[data-tone='up'] {
-  color: var(--color-accent-2-300);
-}
-[data-theme='dark'] .admin-stat-line[data-tone='down'] {
-  color: var(--color-accent-300);
-}
-[data-theme='dark'] .card-tone-attention .admin-stat-label,
-[data-theme='dark'] .card-tone-attention .admin-stat-line {
-  color: var(--color-accent-300);
-}
 
 .admin-subscribers-table {
   padding: var(--pad-subscribers-table);
@@ -3350,9 +3087,6 @@ a.frame-brand:active {
   user-select: all;
   word-break: break-all;
 }
-[data-theme='dark'] .admin-secret {
-  background: var(--dark-field);
-}
 
 @media (max-width: 1100px) {
   .admin-stats {
@@ -3381,13 +3115,6 @@ a.frame-brand:active {
 .linked-rows tr[data-href]:has(a:focus-visible) {
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
-}
-[data-theme='dark'] .linked-rows tr[data-href]:hover,
-[data-theme='dark'] .linked-rows tr[data-href]:has(a:focus-visible) {
-  background: var(--color-accent-900);
-}
-[data-theme='dark'] .linked-rows tr[data-href]:active {
-  background: var(--color-accent-800);
 }
 
 .list-pagination {
@@ -3468,35 +3195,10 @@ a.frame-brand:active {
   color: var(--color-neutral-600);
 }
 
-[data-theme='dark'] .list-pagination-summary,
-[data-theme='dark'] [data-slot='pagination-ellipsis'] {
-  color: var(--color-neutral-400);
-}
-[data-theme='dark'] [data-slot='pagination-link'] {
-  color: var(--color-neutral-100);
-}
-[data-theme='dark'] [data-slot='pagination-link']:hover {
-  background: var(--color-accent-900);
-  color: var(--color-accent-200);
-}
-[data-theme='dark'] [data-slot='pagination-link']:active {
-  background: var(--color-accent-800);
-}
-[data-theme='dark'] [data-slot='pagination-link'][aria-current='page'] {
-  background: var(--color-accent-400);
-  color: var(--dark-sidebar);
-}
-
 /* A row's link that reads as the row's text: the whole row is already what answers. */
 .row-link-quiet,
 .row-link-quiet:hover,
 .row-link-quiet:active,
-[data-theme='dark'] .row-link-quiet,
-[data-theme='dark'] .row-link-quiet:hover,
-[data-theme='dark'] .row-link-quiet:active {
-  color: inherit;
-  text-decoration: none;
-}
 .row-link-quiet:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
@@ -3644,24 +3346,6 @@ a.frame-brand:active {
   transition-delay: var(--delay-pending);
 }
 
-/* On the dark ground a card's colour is the ground's, so the pill takes the raised tone and a
-   hairline edge to stand off it. */
-[data-theme='dark'] .data-loader {
-  background: var(--dark-divider);
-  color: var(--color-neutral-100);
-  border: var(--size-hairline) solid var(--dark-field-border);
-  box-shadow: var(--shadow-lg);
-}
-[data-theme='dark'] .data-loader-chart {
-  background: var(--color-accent-900);
-}
-[data-theme='dark'] .data-loader-detail {
-  color: var(--color-neutral-400);
-}
-[data-theme='dark'] .nav-progress-bar {
-  background: var(--color-accent-400);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after {
     animation: none;
@@ -3778,42 +3462,6 @@ a.frame-brand:active {
   background: var(--color-gold-400);
 }
 
-[data-theme='dark'] .tag-accent {
-  background: var(--dark-attention);
-  color: var(--color-amber-200);
-  border-color: var(--color-amber-800);
-}
-[data-theme='dark'] .tag-brand,
-[data-theme='dark'] .tag-link.tag-accent,
-[data-theme='dark'] .tag-toggle.tag-accent {
-  background: var(--color-green-900);
-  color: var(--color-green-200);
-  border-color: var(--color-green-800);
-}
-[data-theme='dark'] .tag-critical {
-  background: var(--dark-critical);
-  color: var(--dark-critical-text);
-  border-color: var(--color-red-900);
-}
-[data-theme='dark'] .card-tone-accent,
-[data-theme='dark'] .card-tone-attention {
-  background: var(--dark-attention);
-  border-color: var(--color-amber-900);
-}
-[data-theme='dark'] .card-tone-attention,
-[data-theme='dark'] .home-stat-value[data-tone='attention'],
-[data-theme='dark'] .admin-margin[data-tone='thin'] {
-  color: var(--color-amber-300);
-}
-[data-theme='dark'] .notice-refused {
-  background: var(--dark-critical);
-  color: var(--dark-critical-text);
-}
-[data-theme='dark'] .field-error,
-[data-theme='dark'] .admin-stat-line[data-tone='down'] {
-  color: var(--color-red-300);
-}
-
 /* ── an icon button's words, drawn (unit C5) ──────────────────────────────── */
 
 /*
@@ -3847,16 +3495,6 @@ a.frame-brand:active {
 .btn-icon[data-tooltip]:focus-visible::after {
   display: block;
   animation: data-loader-in var(--duration-color) ease-out var(--delay-pending) both;
-}
-[data-theme='dark'] .btn-icon[data-tooltip]::after {
-  background: var(--color-gray-100);
-  color: var(--color-gray-900);
-}
-[data-theme='dark'] .notice-done {
-  border-color: var(--color-green-800);
-}
-[data-theme='dark'] .notice-refused {
-  border-color: var(--color-red-900);
 }
 
 /* ── every width: the drawer, the bar, and screens that fit (unit C6) ─────── */
@@ -3942,9 +3580,6 @@ a.frame-brand:active {
   }
   .frame-main {
     padding: var(--space-6) var(--space-4);
-  }
-  [data-theme='dark'] .frame-topbar {
-    background: color-mix(in srgb, var(--dark-sidebar) 92%, transparent);
   }
 }
 

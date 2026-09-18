@@ -199,6 +199,18 @@ export function noticeAr(
         tone: 'refused',
         text: 'لم يُحفظ السعر الخاص: ينزل بسعر منتج عن تكلفته.',
       };
+    case 'vat-rate':
+      return { tone: 'refused', text: 'لم تُعلَن القاعدة: النسبة من 0 إلى 100.' };
+    case 'vat-number':
+      return {
+        tone: 'refused',
+        text: 'لم تُعلَن القاعدة: الفترة المسجّلة تحتاج الرقم الضريبي (15 رقماً).',
+      };
+    case 'vat-order':
+      return {
+        tone: 'refused',
+        text: 'لم تُعلَن القاعدة: لا تبدأ فترة قبل فترة مسجّلة، لأن ذلك يغيّر فواتير صدرت.',
+      };
     default:
       return { tone: 'refused', text: 'لم تُحفظ التغييرات: تحقق من القيم المدخلة.' };
   }
@@ -216,6 +228,11 @@ export function noticeAr(
       return { tone: 'done', text: 'أُضيفت الباقة.' };
     case 'special':
       return { tone: 'done', text: 'حُفظ السعر الخاص.' };
+    case 'vat':
+      return {
+        tone: 'done',
+        text: 'أُعلنت قاعدة الضريبة. ما صدر من فواتير يبقى محسوباً بقاعدة تاريخه.',
+      };
     default: {
       const thin = (params['thin'] ?? '').split(',').filter((code) => code !== '');
       return {

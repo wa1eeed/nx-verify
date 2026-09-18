@@ -9,7 +9,6 @@ import {
   listProducts,
 } from '@nx-verify/core';
 import { BundleOffer } from '../../../components/bundle-offer';
-import { requestBundleAction } from './bundle-actions';
 import { Usage, type EntitlementView, type UsageView } from '../../../components/usage';
 import { actingUser, query } from '../../../lib/context';
 import { FundBanner, LowBanner } from '../../../components/fund-banner';
@@ -23,6 +22,11 @@ export default async function UsagePage(): Promise<ReactElement> {
   if (!actor.can('wallet.read')) {
     return <NoAccess needs="wallet.read" />;
   }
+  const bundles = await query(async (tx) => ({
+    balance: await bundleBalance(tx),
+    onSale: await listAvailableBundles(tx),
+  }));
+
   const view = await query(async (tx): Promise<UsageView> => {
     const [commitment, wallet, entitlements, products] = await Promise.all([
       getCommitment(tx),
@@ -44,6 +48,10 @@ export default async function UsagePage(): Promise<ReactElement> {
       balanceHalalas: wallet.balance,
       heldHalalas: wallet.held,
       availableHalalas: wallet.available,
+      // Both kinds of credit reach the card, because «what can I spend» is one question
+      // with two answers and showing one of them reads as having nothing (ADR-160).
+      bundleOperations: bundles.balance.operations,
+      bundleExpiry: bundles.balance.nextExpiry,
       isLow: wallet.isLow,
       entitlements: entitlements.map((entry): EntitlementView => ({
         productCode: entry.productCode,
@@ -57,11 +65,6 @@ export default async function UsagePage(): Promise<ReactElement> {
       })),
     };
   });
-
-  const bundles = await query(async (tx) => ({
-    balance: await bundleBalance(tx),
-    onSale: await listAvailableBundles(tx),
-  }));
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
@@ -84,7 +87,7 @@ export default async function UsagePage(): Promise<ReactElement> {
       <BundleOffer
         balance={bundles.balance}
         bundles={bundles.onSale}
-        requestAction={requestBundleAction}
+          canBuy={actor.can('wallet.topup')}
       />
     </div>
   );

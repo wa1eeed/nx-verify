@@ -3,6 +3,7 @@ import { NxError } from '../errors.js';
 import { recordOperatorAudit } from '../operators/audit.js';
 import { operatorCan, type OperatorIdentity } from '../operators/accounts.js';
 import { halalasToDecimalString } from './money.js';
+import { costToUs, vatInForce, withVat } from './vat.js';
 
 /**
  * What the platform sells and for how much (handoff screen 05, «الأسعار والمنتجات»).
@@ -38,29 +39,110 @@ function marginOf(price: number | null, cost: number): number | null {
   return price === null || price <= 0 ? null : Math.round(((price - cost) / price) * 100);
 }
 
-/** The cost of one run of each product: one call per step, at the step provider's cost. */
-async function costsByProduct(db: Queryable): Promise<Map<string, number>> {
-  const { rows } = await db.query<{ product_code: string; cost: string }>(
-    `SELECT s.product_code, COALESCE(sum(c.unit_cost), 0)::text AS cost
+/**
+ * What one run of each product costs us, and from whom.
+ *
+ * One call per step, at the cost of the provider that will actually serve it (guard 10). Which
+ * provider that is comes from the panel's routing first and the step's own provider second,
+ * matching the order a real call resolves in: a service routed to a second provider in the
+ * panel and still priced at the first one's cost is a margin figure about a call that will not
+ * be made.
+ *
+ * The tax inside a provider's bill is carried separately, because whether it is a cost or
+ * reclaimable depends on the day (ADR-157).
+ */
+interface ProductCost {
+  billedHalalas: number;
+  vatBps: number;
+  /** Who serves it, named, so the screen says it beside the price. Panel only (rule 5). */
+  providers: string[];
+  /** False when a step has no cost row at all, which a margin must not be computed from. */
+  known: boolean;
+}
+
+/**
+ * The floor a price may not go under (guard 10).
+ *
+ * The cash we hand the provider, tax included, and not the cost net of reclaimable tax. The
+ * conservative number: it is the same figure while the platform is unregistered, and after
+ * registration it keeps the floor where it was rather than quietly lowering it by the rate.
+ */
+function cashCost(cost: ProductCost | undefined): number {
+  return cost?.billedHalalas ?? 0;
+}
+
+async function costsByProduct(db: Queryable): Promise<Map<string, ProductCost>> {
+  const { rows } = await db.query<{
+    product_code: string;
+    provider: string | null;
+    unit_cost: string | null;
+    vat_bps: number | null;
+  }>(
+    `SELECT s.product_code,
+            cat.name_ar AS provider,
+            c.unit_cost::text AS unit_cost,
+            c.vat_bps
      FROM product_steps s
      LEFT JOIN LATERAL (
-       SELECT unit_cost FROM cost_book
-       WHERE provider = s.provider AND endpoint = s.endpoint AND valid_to IS NULL
+       SELECT r.provider FROM product_provider_routing r
+       WHERE r.product_code = s.product_code AND r.status = 'active'
+       ORDER BY r.priority LIMIT 1
+     ) routed ON true
+     LEFT JOIN LATERAL (
+       SELECT unit_cost, vat_bps FROM cost_book
+       WHERE provider = COALESCE(routed.provider, s.provider)
+         AND endpoint = s.endpoint AND valid_to IS NULL
        ORDER BY valid_from DESC LIMIT 1
      ) c ON true
-     GROUP BY s.product_code`,
+     LEFT JOIN provider_catalog cat ON cat.code = COALESCE(routed.provider, s.provider)
+     ORDER BY s.product_code, s.seq`,
   );
-  return new Map(rows.map((row) => [row.product_code, Math.round(Number(row.cost) * 100)]));
+
+  const costs = new Map<string, ProductCost>();
+  for (const row of rows) {
+    const entry = costs.get(row.product_code) ?? {
+      billedHalalas: 0,
+      vatBps: 0,
+      providers: [],
+      known: true,
+    };
+    entry.billedHalalas += Math.round(Number(row.unit_cost ?? 0) * 100);
+    // The rate of the dearest step stands for the product: they are the same rate in practice,
+    // and a weighted blend of two identical numbers is a calculation nobody can check.
+    entry.vatBps = Math.max(entry.vatBps, Number(row.vat_bps ?? 0));
+    // Named from the catalogue or not named at all. A connector code is an internal
+    // identifier and a screen that prints one has taught somebody to quote it back.
+    if (row.provider !== null && !entry.providers.includes(row.provider)) {
+      entry.providers.push(row.provider);
+    }
+    if (row.unit_cost === null) {
+      entry.known = false;
+    }
+    costs.set(row.product_code, entry);
+  }
+  return costs;
 }
 
 export interface ProductPricingRow {
   productCode: string;
   nameAr: string;
-  /** One run's cost to us, in halalas. */
+  /** What the provider bills us for one run, tax included, in halalas. */
   costHalalas: number;
+  /** What that run actually costs us once tax is reclaimable, which depends on the day. */
+  effectiveCostHalalas: number;
+  /** How much of the bill is tax the provider charged us. */
+  costVatBps: number;
+  /** False when a step has no cost row, so the margin beside it would be an invention. */
+  costKnown: boolean;
+  /** Who serves this check today: the panel's routing, or the step's own provider. */
+  providers: string[];
   /** The default list price, before VAT. Null when none is in force. */
   priceHalalas: number | null;
+  /** What a subscriber pays: the price plus tax, or the price alone while unregistered. */
+  priceWithVatHalalas: number | null;
   marginPct: number | null;
+  /** The riyals kept on one run, which is the figure a margin percentage hides. */
+  marginHalalas: number | null;
   /** Runs across every subscriber in the last thirty days, from the monthly counters. */
   runs30: number;
   status: 'active' | 'suspended' | 'retired';
@@ -78,6 +160,10 @@ export async function listProductPricing(
   db: Queryable,
   now: Date = new Date(),
 ): Promise<ProductPricingRow[]> {
+  // Both sides of a margin move on the day the platform registers for tax: what a subscriber
+  // pays gains a tax line, and the tax inside a provider's bill stops being a cost. So the
+  // margin shown is the margin under today's rule, not under a rule assumed at build time.
+  const rule = await vatInForce(db, now);
   const costs = await costsByProduct(db);
   const { rows } = await db.query<{
     code: string;
@@ -128,14 +214,26 @@ export async function listProductPricing(
   }
 
   return rows.map((row) => {
-    const cost = costs.get(row.code) ?? 0;
+    const cost = costs.get(row.code) ?? {
+      billedHalalas: 0,
+      vatBps: 0,
+      providers: [],
+      known: false,
+    };
+    const effective = costToUs(cost.billedHalalas, cost.vatBps, rule);
     const price = row.unit_price === null ? null : Math.round(Number(row.unit_price) * 100);
     return {
       productCode: row.code,
       nameAr: row.name_ar,
-      costHalalas: cost,
+      costHalalas: cost.billedHalalas,
+      effectiveCostHalalas: effective,
+      costVatBps: cost.vatBps,
+      costKnown: cost.known,
+      providers: cost.providers,
       priceHalalas: price,
-      marginPct: marginOf(price, cost),
+      priceWithVatHalalas: price === null ? null : withVat(price, rule).grossHalalas,
+      marginPct: marginOf(price, effective),
+      marginHalalas: price === null ? null : price - effective,
       runs30: Math.round(runs.get(row.code) ?? 0),
       status: row.status,
       availability: row.availability,
@@ -166,7 +264,7 @@ export async function setListPrice(
   if (cost === undefined) {
     throw new NxError('NX-4041', { detail: 'no such product' });
   }
-  if (priceHalalas < cost) {
+  if (priceHalalas < cashCost(cost)) {
     throw new NxError('NX-4002', { detail: `the price is under the cost of ${productCode}` });
   }
 
@@ -202,7 +300,7 @@ export async function setListPrice(
     [productCode, halalasToDecimalString(priceHalalas)],
   );
 
-  const marginPct = marginOf(priceHalalas, cost) ?? 0;
+  const marginPct = marginOf(priceHalalas, cashCost(cost)) ?? 0;
   await recordOperatorAudit(db, {
     operatorId: actor.id,
     action: 'pricing.list_price',
@@ -290,7 +388,7 @@ async function dearestRun(db: Queryable): Promise<number> {
     `SELECT code FROM products
      WHERE profile_section IS NOT NULL AND status = 'active' AND availability = 'AVAILABLE'`,
   );
-  return Math.max(0, ...rows.map((row) => costs.get(row.code) ?? 0));
+  return Math.max(0, ...rows.map((row) => cashCost(costs.get(row.code))));
 }
 
 export interface BundleInput {
@@ -543,7 +641,7 @@ export async function setSpecialPrice(
     if (cost === undefined) {
       throw new NxError('NX-4041', { detail: 'no such product' });
     }
-    if (!Number.isInteger(input.priceHalalas) || input.priceHalalas < cost) {
+    if (!Number.isInteger(input.priceHalalas) || input.priceHalalas < cashCost(cost)) {
       throw new NxError('NX-4002', { detail: 'a special price is never under cost' });
     }
   }
@@ -606,7 +704,7 @@ export async function setTenantDiscount(
     const underCost = rows.filter(
       (row) =>
         row.price !== null &&
-        Math.round((row.price * (100 - discount)) / 100) < (costs.get(row.code) ?? 0),
+        Math.round((row.price * (100 - discount)) / 100) < cashCost(costs.get(row.code)),
     );
     if (underCost.length > 0) {
       throw new NxError('NX-4002', {

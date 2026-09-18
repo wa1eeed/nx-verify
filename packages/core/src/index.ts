@@ -481,6 +481,23 @@ export type {
 } from './auth/users.js';
 
 export {
+  STANDARD_RATE_BPS,
+  UNREGISTERED,
+  costToUs,
+  listVatPeriods,
+  setVatPeriod,
+  vatInForce,
+  vatResolver,
+  withVat,
+} from './billing/vat.js';
+export type {
+  SetVatPeriodInput,
+  TaxedAmount,
+  VatPeriod,
+  VatRule,
+} from './billing/vat.js';
+
+export {
   CAPABILITIES,
   ROLE_PRESETS,
   assertCan,

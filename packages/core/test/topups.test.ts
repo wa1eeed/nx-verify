@@ -37,17 +37,59 @@ describe('topping up by transfer', () => {
     await db.close();
   });
 
-  it('gives the subscriber a reference and the amount with VAT on it', async () => {
+  it('gives the subscriber a reference and the amount to actually send', async () => {
     const request = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       requestTopUp(tx, { amountHalalas: 1_000_00, note: 'تحويل بنكي' }),
     );
 
     expect(request.reference).toMatch(/^TOP-\d{4}-\d{6}$/);
     expect(request.amountHalalas).toBe(1_000_00);
-    // Prices are stored without VAT, and VAT falls due when credit is bought. What the
-    // customer actually sends is the one figure that includes it.
-    expect(request.totalWithVatHalalas).toBe(1_150_00);
+    // The platform is not registered for VAT, so none is due and none is added. This test
+    // used to assert a flat fifteen percent, which is how the platform came to be charging
+    // subscribers a tax it had no registration to collect (ADR-157).
+    expect(request.totalWithVatHalalas).toBe(1_000_00);
     expect(request.status).toBe('REQUESTED');
+  });
+
+  it('adds the tax once the platform is registered, and never to what came before', async () => {
+    const { setVatPeriod } = await import('../src/billing/vat.js');
+
+    // A transfer from last year, which is the case this whole design exists for: whatever we
+    // do about tax afterwards, that request was for a thousand riyals and stays so.
+    const old = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      requestTopUp(tx, { amountHalalas: 1_000_00 }),
+    );
+    // Backdated in the tenant's own scope: row level security is forced, so even the owner
+    // role sees nothing without a tenant set, and this fixture needs the row it just made.
+    const moved = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      tx.query(
+        `UPDATE topup_requests SET requested_at = now() - interval '400 days'
+          WHERE tenant_id = $1 AND reference = $2`,
+        [tx.tenantId, old.reference],
+      ),
+    );
+    expect(moved.rowCount).toBe(1);
+
+    await setVatPeriod(
+      db.operatorPool,
+      { id: 'op-vat', displayName: 'مالك', role: 'OWNER' },
+      {
+        effectiveFrom: new Date().toISOString().slice(0, 10),
+        registered: true,
+        rateBps: 1500,
+        registrationNumber: '300000000000003',
+      },
+    );
+
+    const now = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      requestTopUp(tx, { amountHalalas: 1_000_00 }),
+    );
+    expect(now.totalWithVatHalalas).toBe(1_150_00);
+
+    // Read today, under today's rule, and still untaxed: an invoice does not change.
+    const all = await withTenant(db.appPool, tenant.tenantId, (tx) => listTopUpRequests(tx));
+    expect(all.find((row) => row.reference === old.reference)?.totalWithVatHalalas).toBe(1_000_00);
+    expect(all.find((row) => row.reference === now.reference)?.totalWithVatHalalas).toBe(1_150_00);
   });
 
   it('moves no money on the request alone', async () => {

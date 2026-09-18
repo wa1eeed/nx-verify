@@ -1,6 +1,7 @@
 import type { Queryable, TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
-import { halalasToDecimalString, riyalsToHalalas, vatOn } from './money.js';
+import { halalasToDecimalString, riyalsToHalalas } from './money.js';
+import { vatInForce, vatResolver, withVat, type VatRule } from './vat.js';
 import { topUp } from './wallet.js';
 import { grantBundleForTopUp } from './bundles.js';
 
@@ -74,6 +75,8 @@ export async function requestTopUp(
     });
   }
 
+  // The rule of today, because today is the date of supply for a request made now.
+  const rule = await vatInForce(tx);
   const reference = await allocateTopUpReference(tx);
   const { rows } = await tx.query<{ id: string; requested_at: Date }>(
     `INSERT INTO topup_requests (tenant_id, reference, amount, requested_by, note)
@@ -97,7 +100,7 @@ export async function requestTopUp(
     id: row.id,
     reference,
     amountHalalas: input.amountHalalas,
-    totalWithVatHalalas: input.amountHalalas + vatOn(input.amountHalalas),
+    totalWithVatHalalas: withVat(input.amountHalalas, rule).grossHalalas,
     status: 'REQUESTED',
     requestedAt: row.requested_at,
     settledAt: null,
@@ -124,7 +127,8 @@ export async function listTopUpRequests(tx: TenantTransaction): Promise<TopUpReq
      FROM topup_requests WHERE tenant_id = $1 ORDER BY requested_at DESC`,
     [tx.tenantId],
   );
-  return rows.map(toRequest);
+  const rule = await vatResolver(tx);
+  return rows.map((row) => toRequest(rule, row));
 }
 
 export interface PendingTopUp extends TopUpRequest {
@@ -161,8 +165,9 @@ export async function listPendingTopUps(operator: Queryable): Promise<PendingTop
      ORDER BY r.requested_at`,
   );
 
+  const rule = await vatResolver(operator);
   return rows.map((row) => ({
-    ...toRequest(row),
+    ...toRequest(rule, row),
     tenantId: row.tenant_id,
     tenantName: row.legal_name,
   }));
@@ -235,7 +240,7 @@ export async function confirmTopUp(
   } else {
     await topUp(tx, { amount: riyalsToHalalas(row.amount), vatInvoiceId });
   }
-  return toRequest(row);
+  return toRequest(await vatResolver(tx), row);
 }
 
 export async function rejectTopUp(
@@ -253,23 +258,28 @@ export async function rejectTopUp(
   }
 }
 
-function toRequest(row: {
-  id: string;
-  reference: string;
-  amount: string;
-  status: TopUpRequest['status'];
-  requested_at: Date;
-  settled_at: Date | null;
-  vat_invoice_id: string | null;
-  note: string | null;
-  bundle_code?: string | null;
-}): TopUpRequest {
+function toRequest(
+  rule: (when: Date) => VatRule,
+  row: {
+    id: string;
+    reference: string;
+    amount: string;
+    status: TopUpRequest['status'];
+    requested_at: Date;
+    settled_at: Date | null;
+    vat_invoice_id: string | null;
+    note: string | null;
+    bundle_code?: string | null;
+  },
+): TopUpRequest {
   const amountHalalas = riyalsToHalalas(row.amount);
+  // Taxed by the rule of its own date, not of today. A request from before the platform was
+  // registered stays untaxed however it is read afterwards (ADR-157).
   return {
     id: row.id,
     reference: row.reference,
     amountHalalas,
-    totalWithVatHalalas: amountHalalas + vatOn(amountHalalas),
+    totalWithVatHalalas: withVat(amountHalalas, rule(row.requested_at)).grossHalalas,
     status: row.status,
     requestedAt: row.requested_at,
     settledAt: row.settled_at,
