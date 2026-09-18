@@ -276,7 +276,7 @@ describe('the prices screen (handoff screen 05)', () => {
 
   it('draws required sections in the accent and optional ones neutral, the registry fixed', () => {
     expect(html).toContain('المدراء · اختياري');
-    expect(html).toContain('شهادة الفريلانسر');
+    expect(html).toContain('وثيقة العمل الحر');
     // A required section is the brand's green, not the attention colour (ADR-122).
     expect(html).toMatch(/<span class="tag tag-brand">السجل التجاري<\/span>/);
     expect(html).toContain('name="required:COMPANY"');

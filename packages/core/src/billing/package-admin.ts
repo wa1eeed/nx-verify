@@ -87,30 +87,72 @@ export interface SetPackageProductInput {
   packageCode: string;
   productCode: string;
   enabled: boolean;
+  /**
+   * Absent leaves the quota as it is; null clears it; a number sets it (ADR-164).
+   *
+   * The distinction is the whole point. This used to write `EXCLUDED.monthly_quota`
+   * unconditionally, and the screen's «حفظ» and «تفعيل» buttons both posted without a quota
+   * field, so every toggle of a module silently erased the plan's monthly quota, which was
+   * displayed read only in the column immediately beside the button.
+   */
   monthlyQuota?: number | null;
+  /** Same three states, and the same history: toggling a module erased the plan's price. */
   unitPriceHalalas?: number | null;
 }
 
-/** Turns a verification module on or off for a plan. */
+/**
+ * Turns a verification module on or off for a plan, and optionally prices it.
+ *
+ * A patch, not a replace: a field the caller did not mention keeps its value.
+ */
 export async function setPackageProduct(
   operator: Queryable,
   input: SetPackageProductInput,
   operatorId: string,
 ): Promise<void> {
+  // Guard 10 applies here as everywhere: the price a plan names is what a subscriber on that
+  // plan actually pays, and this was the one write that never checked it.
+  if (input.unitPriceHalalas !== undefined && input.unitPriceHalalas !== null) {
+    if (!Number.isInteger(input.unitPriceHalalas) || input.unitPriceHalalas < 0) {
+      throw new NxError('NX-4002', { detail: 'a plan price is a whole number of halalas' });
+    }
+    const { rows } = await operator.query<{ cost: string }>(
+      `SELECT COALESCE(sum(c.unit_cost), 0)::text AS cost
+         FROM product_steps s
+         LEFT JOIN LATERAL (
+           SELECT unit_cost FROM cost_book
+            WHERE provider = s.provider AND endpoint = s.endpoint AND valid_to IS NULL
+            ORDER BY valid_from DESC LIMIT 1
+         ) c ON true
+        WHERE s.product_code = $1`,
+      [input.productCode],
+    );
+    const costHalalas = Math.round(Number(rows[0]?.cost ?? '0') * 100);
+    if (input.unitPriceHalalas < costHalalas) {
+      throw new NxError('NX-4002', {
+        detail: `the price is under the cost of ${input.productCode}`,
+      });
+    }
+  }
+
   await operator.query(
     `INSERT INTO package_products (package_code, product_code, enabled, monthly_quota,
                                    unit_price_halalas)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (package_code, product_code) DO UPDATE SET
        enabled = EXCLUDED.enabled,
-       monthly_quota = EXCLUDED.monthly_quota,
-       unit_price_halalas = EXCLUDED.unit_price_halalas`,
+       monthly_quota = CASE WHEN $6 THEN EXCLUDED.monthly_quota
+                            ELSE package_products.monthly_quota END,
+       unit_price_halalas = CASE WHEN $7 THEN EXCLUDED.unit_price_halalas
+                                 ELSE package_products.unit_price_halalas END`,
     [
       input.packageCode,
       input.productCode,
       input.enabled,
       input.monthlyQuota ?? null,
       input.unitPriceHalalas ?? null,
+      input.monthlyQuota !== undefined,
+      input.unitPriceHalalas !== undefined,
     ],
   );
 
@@ -219,7 +261,19 @@ export async function setTenantOverride(
   input: SetOverrideInput,
   operatorId: string,
 ): Promise<void> {
-  if (input.enabled === null && input.monthlyQuota == null && input.unitPriceHalalas == null) {
+  /*
+   * Two screens write this row and each used to erase the other (ADR-164).
+   *
+   * «أسعار خاصة لمشترك» sets the price; «اكتب استثناءً» on the plans screen sets whether a
+   * module is allowed and sends no price at all. Writing an exception therefore deleted that
+   * subscriber's negotiated price, silently, from a screen that never mentions prices.
+   *
+   * So each field is a patch: absent keeps, null clears. And the delete only fires when the
+   * caller is clearing every field it named, not when it merely named few.
+   */
+  const clearing =
+    input.enabled === null && input.monthlyQuota === null && input.unitPriceHalalas === null;
+  if (clearing) {
     await operator.query(
       `DELETE FROM tenant_product_overrides WHERE tenant_id = $1 AND product_code = $2`,
       [input.tenantId, input.productCode],
@@ -230,9 +284,12 @@ export async function setTenantOverride(
                                              unit_price_halalas)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (tenant_id, product_code) DO UPDATE SET
-         enabled = EXCLUDED.enabled,
-         monthly_quota = EXCLUDED.monthly_quota,
-         unit_price_halalas = EXCLUDED.unit_price_halalas,
+         enabled = CASE WHEN $6 THEN EXCLUDED.enabled
+                        ELSE tenant_product_overrides.enabled END,
+         monthly_quota = CASE WHEN $7 THEN EXCLUDED.monthly_quota
+                              ELSE tenant_product_overrides.monthly_quota END,
+         unit_price_halalas = CASE WHEN $8 THEN EXCLUDED.unit_price_halalas
+                                   ELSE tenant_product_overrides.unit_price_halalas END,
          updated_at = now()`,
       [
         input.tenantId,
@@ -240,7 +297,19 @@ export async function setTenantOverride(
         input.enabled,
         input.monthlyQuota ?? null,
         input.unitPriceHalalas ?? null,
+        input.enabled !== undefined,
+        input.monthlyQuota !== undefined,
+        input.unitPriceHalalas !== undefined,
       ],
+    );
+
+    // Lifting the last field that said anything leaves a row that says nothing. It is
+    // harmless to read and confusing to find, so it goes.
+    await operator.query(
+      `DELETE FROM tenant_product_overrides
+        WHERE tenant_id = $1 AND product_code = $2
+          AND enabled IS NULL AND monthly_quota IS NULL AND unit_price_halalas IS NULL`,
+      [input.tenantId, input.productCode],
     );
   }
 

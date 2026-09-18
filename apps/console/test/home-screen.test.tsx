@@ -56,7 +56,7 @@ const OVERVIEW: HomeOverview = {
     run({
       runId: 'r3',
       productCode: 'FREELANCE_CERTIFICATE',
-      productNameAr: 'شهادة الفريلانسر',
+      productNameAr: 'وثيقة العمل الحر',
       entityName: 'عبدالله الشمري',
       entityType: 'FREELANCER',
       chargeSource: 'PACKAGE',
@@ -76,7 +76,7 @@ const OVERVIEW: HomeOverview = {
     { productCode: 'IBAN_VERIFICATION', nameAr: 'الآيبان', count: 196 },
     { productCode: 'MANAGER_AUTHORITY', nameAr: 'المدراء المفوضون', count: 154 },
     { productCode: 'ARTICLES_OF_ASSOCIATION', nameAr: 'عقد التأسيس', count: 88 },
-    { productCode: 'FREELANCE_CERTIFICATE', nameAr: 'شهادة الفريلانسر', count: 34 },
+    { productCode: 'FREELANCE_CERTIFICATE', nameAr: 'وثيقة العمل الحر', count: 34 },
   ],
   performance: { runs: 1_000, averageMs: 6_400, completedShare: 0.991 },
 };

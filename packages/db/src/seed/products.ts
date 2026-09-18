@@ -300,8 +300,11 @@ const API_PRODUCTS: readonly SeedProduct[] = [
      * selling it separately costs a seed entry rather than a second code path.
      */
     code: 'AOA_ONLY',
-    nameAr: 'عقد التأسيس',
-    nameEn: 'Articles of association',
+    // Named apart from the step of the same thing inside the full file. Both read «عقد
+    // التأسيس» on the subscriber's units table, one above the other with different usage
+    // counts, and nothing on the screen said which was which.
+    nameAr: 'عقد التأسيس (خدمة مفردة)',
+    nameEn: 'Articles of association (standalone)',
     subjectType: 'BUSINESS',
     moduleCode: 'CONTRACT',
     inputSchema: {

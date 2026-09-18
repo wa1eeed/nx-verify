@@ -1,4 +1,7 @@
 import type { ReactElement } from 'react';
+import { SectionTabs } from '../../../../../components/section-tabs';
+import { PRICING_TABS } from '../../../../../components/operator-shell';
+import { planNoticeAr } from '../../../../../components/operator-packages';
 import { listPackagesForOperator, listSubscribers } from '@nx-verify/core';
 import { SEED_PRODUCTS } from '@nx-verify/db';
 import {
@@ -15,7 +18,11 @@ import { assignPackageAction, setOverrideAction, setProductAction } from './acti
  */
 export const dynamic = 'force-dynamic';
 
-export default async function OperatorPlansPage(): Promise<ReactElement> {
+export default async function OperatorPlansPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<ReactElement> {
   await operatorOrSignIn();
 
   const data = await operatorQuery(async (db) => ({
@@ -61,9 +68,21 @@ export default async function OperatorPlansPage(): Promise<ReactElement> {
     })),
   }));
 
+  const params = await searchParams;
+  const one = (key: string): string | undefined => {
+    const value = params[key];
+    return typeof value === 'string' ? value : undefined;
+  };
+
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
+      {/*
+        This screen had no notice channel at all: a refused price, a wiped quota and a
+        successful save were all indistinguishable from nothing happening (ADR-164).
+      */}
+      <SectionTabs tabs={PRICING_TABS} current="/operator/pricing/plans" label="أقسام الأسعار" />
       <OperatorPackages
+        notice={planNoticeAr({ refused: one('refused'), saved: one('saved') })}
         packages={packages}
         subscribers={subscribers}
         allProducts={data.products}

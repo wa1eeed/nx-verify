@@ -543,6 +543,14 @@ dialog.dialog-backdrop::backdrop {
  * stop noticing on the second day.
  */
 .operator-band {
+  /*
+    Sticky, because the ADR that removed the dark ground says this band does not scroll away,
+    and on a long screen it did. A marker you have to scroll back to is a marker you stop
+    relying on, which was the argument against the colour in the first place.
+  */
+  position: sticky;
+  top: 0;
+  z-index: 2;
   margin: 0 0 var(--space-4);
   padding: var(--space-2) var(--space-3);
   border-radius: 999px;
@@ -550,7 +558,10 @@ dialog.dialog-backdrop::backdrop {
   background: var(--color-accent-100);
   color: var(--color-accent-800);
   font-weight: 600;
-  font-size: 13px;
+  /* Body size, not a footnote: it is the only thing separating this surface from a
+     subscriber's, so it may not be quieter than the page it guards. */
+  font-size: 14px;
+  box-shadow: var(--shadow-sm);
 }
 
 /* The panel's own ground, a shade apart from the portal's without being a second theme. */

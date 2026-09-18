@@ -1,4 +1,29 @@
 import type { ReactElement } from 'react';
+import { SubmitButton } from './ui/submit-button';
+import { Notice } from './ui/notice';
+
+/** What the last save did, or why it was refused. */
+export function planNoticeAr(params: {
+  refused?: string | undefined;
+  saved?: string | undefined;
+}): { tone: 'done' | 'refused'; text: string } | null {
+  switch (params.refused) {
+    case undefined:
+      break;
+    case 'price':
+      return { tone: 'refused', text: 'لم يُحفظ: السعر غير صالح. اكتبه بالأرقام، مثل 4.50' };
+    case 'quota':
+      return { tone: 'refused', text: 'لم تُحفظ: الحصة الشهرية عدد صحيح، أو اتركها فارغة لبلا حد.' };
+    case 'under-cost':
+      return {
+        tone: 'refused',
+        text: 'لم يُحفظ: السعر أقل من تكلفة هذا التحقق، والسعر لا ينزل عن التكلفة.',
+      };
+    default:
+      return { tone: 'refused', text: 'لم يُحفظ. تحقق من القيم المدخلة.' };
+  }
+  return params.saved === undefined ? null : { tone: 'done', text: 'حُفظت التغييرات.' };
+}
 import { PageHeader, Panel } from './page-header';
 
 /**
@@ -56,6 +81,7 @@ export function billingLabel(model: string): string {
 }
 
 export function OperatorPackages({
+  notice,
   packages,
   subscribers,
   allProducts,
@@ -63,6 +89,7 @@ export function OperatorPackages({
   setOverrideAction,
   assignAction,
 }: {
+  notice: { tone: 'done' | 'refused'; text: string } | null;
   packages: PackageView[];
   subscribers: SubscriberView[];
   allProducts: { code: string; nameAr: string }[];
@@ -74,6 +101,11 @@ export function OperatorPackages({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
+      {notice === null ? null : (
+        <Notice tone={notice.tone} role="plans-notice">
+          {notice.text}
+        </Notice>
+      )}
       <PageHeader
         title="الباقات والاستثناءات"
         subtitle="ما تبيعه كل باقة من وحدات التحقق، وما وُعد به عميل بعينه خلافاً لها."
@@ -152,13 +184,30 @@ export function OperatorPackages({
                           <span className="badge">لا</span>
                         )}
                       </td>
+                      {/*
+                        One form for the quota and the price, because they are one row of the
+                        plan. The quota used to be read only in this column while the price
+                        beside it was editable, and saving the price wiped the quota anyway.
+                      */}
                       <td>
-                        <bdi dir="ltr" className="mono">
-                          {included?.monthlyQuota ?? 'بلا حد'}
-                        </bdi>
+                        <input
+                          form={`plan-${plan.code}-${product.code}`}
+                          name="monthly_quota"
+                          defaultValue={included?.monthlyQuota ?? ''}
+                          placeholder="بلا حد"
+                          dir="ltr"
+                          className="mono"
+                          style={{ width: '6rem' }}
+                          aria-label={`الحصة الشهرية من ${product.nameAr}`}
+                          data-role="monthly-quota"
+                        />
                       </td>
                       <td>
-                        <form action={setProductAction} className="row">
+                        <form
+                          id={`plan-${plan.code}-${product.code}`}
+                          action={setProductAction}
+                          className="row"
+                        >
                           <input type="hidden" name="package_code" value={plan.code} />
                           <input type="hidden" name="product_code" value={product.code} />
                           <input type="hidden" name="enabled" value={String(enabled)} />
@@ -177,9 +226,9 @@ export function OperatorPackages({
                             aria-label="سعر الوحدة بالريال"
                             data-role="unit-price"
                           />
-                          <button type="submit" className="link" data-role="save-price">
+                          <SubmitButton variant="secondary" data-role="save-price" pendingLabel="جارٍ الحفظ">
                             حفظ
-                          </button>
+                          </SubmitButton>
                         </form>
                       </td>
                       <td>

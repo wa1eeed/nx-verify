@@ -70,7 +70,7 @@ const PRODUCTS: ProductData[] = [
   }),
   product({
     productCode: 'FREELANCE_CERTIFICATE',
-    nameAr: 'شهادة الفريلانسر',
+    nameAr: 'وثيقة العمل الحر',
     nameEn: 'Freelancer Certificate',
     appliesTo: ['FREELANCER'],
     unitPriceHalalas: 200,

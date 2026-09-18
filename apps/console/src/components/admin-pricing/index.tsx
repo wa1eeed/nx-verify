@@ -136,20 +136,24 @@ function PricingModel(): ReactElement {
         كيف تُحتسب عملية التحقق
       </h2>
       <p className="admin-card-note">
-        بهذا الترتيب لكل عملية: ما تشمله باقة المشترك أولاً، فإن نفدت فعملية من حزمة اشتراها،
-        فإن نفدت فمن رصيده بالريال بسعر ذلك التحقق. فما تضبطه هنا أربعة أشياء مختلفة، لا أربع
-        نسخ من شيء واحد.
+        {/*
+          Two questions, not one list. The first draft numbered «سعر المنتج» as step one under a
+          paragraph that said the plan comes first, and a reader takes the numbers. They are
+          different axes: who pays, and at what price.
+        */}
+        سؤالان مختلفان لكل عملية: <strong>من يدفعها</strong>، و<strong>بأي سعر</strong>.
       </p>
-      <ol className="spend-order" data-role="pricing-model-steps">
-        <li className="spend-step" data-step="product">
+
+      <h3 className="stat-label">من يدفع العملية، بالترتيب</h3>
+      <ol className="spend-order" data-role="pricing-model-payer">
+        <li className="spend-step" data-step="free">
           <span className="spend-step-rank" aria-hidden="true">
             ١
           </span>
           <span className="stack" style={{ gap: 0, flex: 1 }}>
-            <strong>سعر كل منتج تحقق</strong>
+            <strong>نافذة إعادة التحقق المجانية</strong>
             <span className="faint">
-              السعر بالريال لعملية واحدة. هو ما يُخصم من رصيد المشترك حين لا تغطّيه باقة ولا
-              حزمة، وهو الأساس الذي يُقاس عليه هامشنا.
+              إعادة التحقق من العميل نفسه خلال المدة المحددة في باقته لا تُحتسب إطلاقاً.
             </span>
           </span>
         </li>
@@ -158,10 +162,8 @@ function PricingModel(): ReactElement {
             ٢
           </span>
           <span className="stack" style={{ gap: 0, flex: 1 }}>
-            <strong>الباقات</strong>
-            <span className="faint">
-              اشتراك شهري بعدد عمليات مشمولة، وسعر لما يتجاوزها. تُصرف قبل كل شيء آخر.
-            </span>
+            <strong>العمليات المشمولة في باقته</strong>
+            <span className="faint">ما دامت لم تنفد في هذه المدة.</span>
           </span>
         </li>
         <li className="spend-step" data-step="bundle">
@@ -169,23 +171,55 @@ function PricingModel(): ReactElement {
             ٣
           </span>
           <span className="stack" style={{ gap: 0, flex: 1 }}>
-            <strong>حزم الرصيد مسبقة الدفع</strong>
+            <strong>عملية من حزمة اشتراها</strong>
             <span className="faint">
-              عمليات تُشترى مقدماً وتُصرف على أي تحقق مهما كان سعره. لذلك سعر العملية في الحزمة
+              تُصرف على أي تحقق مهما كان سعره، والأقرب انتهاءً أولاً. ولذلك سعر العملية في الحزمة
               لا ينزل عن تكلفة أغلى تحقق نبيعه.
             </span>
           </span>
         </li>
-        <li className="spend-step" data-step="special">
+        <li className="spend-step" data-step="wallet">
           <span className="spend-step-rank" aria-hidden="true">
             ٤
           </span>
           <span className="stack" style={{ gap: 0, flex: 1 }}>
-            <strong>الأسعار الخاصة</strong>
+            <strong>رصيده بالريال</strong>
+            <span className="faint">يُخصم منه سعر ذلك التحقق.</span>
+          </span>
+        </li>
+      </ol>
+
+      <h3 className="stat-label" style={{ marginBlockStart: 'var(--space-4)' }}>
+        وبأي سعر، بالترتيب
+      </h3>
+      <ol className="spend-order" data-role="pricing-model-price">
+        <li className="spend-step" data-step="special">
+          <span className="spend-step-rank" aria-hidden="true">
+            ١
+          </span>
+          <span className="stack" style={{ gap: 0, flex: 1 }}>
+            <strong>سعره الخاص، إن كان له</strong>
             <span className="faint">
-              سعر منتج واحد أو خصم على كل المنتجات، لمشترك واحد. يحلّ محل السعر المعروض له وحده،
-              ولا ينزل عن التكلفة.
+              سعر منتج واحد أو خصم على كل المنتجات، لمشترك واحد. ولا ينزل عن التكلفة.
             </span>
+          </span>
+        </li>
+        <li className="spend-step" data-step="package-price">
+          <span className="spend-step-rank" aria-hidden="true">
+            ٢
+          </span>
+          <span className="stack" style={{ gap: 0, flex: 1 }}>
+            <strong>سعر المنتج داخل باقته</strong>
+            <span className="faint">يُضبط في «الباقات والاشتراكات».</span>
+          </span>
+        </li>
+        <li className="spend-step" data-step="product">
+          <span className="spend-step-rank" aria-hidden="true">
+            ٣
+          </span>
+          <span className="stack" style={{ gap: 0, flex: 1 }}>
+            <strong>السعر المعروض في الجدول أدناه</strong>
+            <span className="faint">السعر الأساسي لمن لا سعر خاص له ولا باقة تحدّده.</span>
           </span>
         </li>
       </ol>

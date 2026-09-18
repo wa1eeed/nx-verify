@@ -693,7 +693,10 @@ describe('the console shell', () => {
       </Shell>,
     );
     expect(fromWallet).toContain('5,668.00');
-    expect(fromWallet).toContain('ريال قبل الضريبة');
+    // Not «قبل الضريبة»: while the platform is unregistered nothing is added, so the phrase
+    // promised a second figure that never arrived (ADR-157).
+    expect(fromWallet).toContain('ريال');
+    expect(fromWallet).not.toContain('قبل الضريبة');
     expect(fromWallet).not.toContain('role="progressbar"');
   });
 
@@ -1816,6 +1819,7 @@ describe('the developer screen', () => {
 describe('the operator packages screen', () => {
   const html = renderToStaticMarkup(
     <OperatorPackages
+        notice={null}
       packages={[
         {
           code: 'GROWTH',

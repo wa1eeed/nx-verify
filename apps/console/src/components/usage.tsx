@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { SpendOrder, spendSteps } from './spend-order';
 import { PageHeader, Panel } from './page-header';
 
 /**
@@ -77,7 +78,7 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
         title="الباقة والرصيد"
         subtitle={
           view.packageNameAr
-            ? `باقة ${view.packageNameAr}. الأرقام أدناه لهذه المدة، ولا تشمل الضريبة.`
+            ? `باقة ${view.packageNameAr}. الأرقام أدناه لهذه المدة.`
             : 'لا توجد باقة مفعّلة لمساحة العمل هذه.'
         }
       />
@@ -97,6 +98,29 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
           )}
         </article>
 
+        {/* Second in the order they are spent, so the cards and the list below agree. */}
+        <article className="stat" data-role="bundle-balance">
+          <span className="stat-label">عمليات الحزم</span>
+          <strong className="stat-value">
+            <bdi dir="ltr" className="mono">
+              {view.bundleOperations}
+            </bdi>
+          </strong>
+          <span className="stat-hint">
+            {view.bundleOperations === 0 ? (
+              'لا عمليات في حزم لديك'
+            ) : view.bundleExpiry === null ? (
+              'تُصرف قبل الرصيد بالريال'
+            ) : (
+              <>
+                تُصرف قبل الرصيد بالريال · أقربها ينتهي{' '}
+                <bdi dir="ltr" className="mono">
+                  {view.bundleExpiry.toISOString().slice(0, 10)}
+                </bdi>
+              </>
+            )}
+          </span>
+        </article>
         <article
           className="stat"
           data-role="wallet-balance"
@@ -121,28 +145,6 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
           never touches it, so a workspace holding only operations has a wallet of zero and is
           perfectly able to verify: leaving this card out made that look like having nothing.
         */}
-        <article className="stat" data-role="bundle-balance">
-          <span className="stat-label">عمليات الحزم</span>
-          <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {view.bundleOperations}
-            </bdi>
-          </strong>
-          <span className="stat-hint">
-            {view.bundleOperations === 0 ? (
-              'لا عمليات في حزم لديك'
-            ) : view.bundleExpiry === null ? (
-              'تُصرف قبل الرصيد بالريال'
-            ) : (
-              <>
-                تُصرف قبل الرصيد بالريال · أقربها ينتهي{' '}
-                <bdi dir="ltr" className="mono">
-                  {view.bundleExpiry.toISOString().slice(0, 10)}
-                </bdi>
-              </>
-            )}
-          </span>
-        </article>
 
         <article className="stat">
           <span className="stat-label">عمليات هذه المدة</span>
@@ -161,6 +163,19 @@ export function Usage({ view }: { view: UsageView }): ReactElement {
           ) : null}
         </article>
       </section>
+
+      {/*
+        Directly under the figures it explains, not at the foot of the screen: the order is
+        what turns three separate numbers into one answer (ADR-161).
+      */}
+      <SpendOrder
+        steps={spendSteps({
+          includedTransactions: view.includedTransactions,
+          transactionsUsed: view.transactionsUsed,
+          bundleOperations: view.bundleOperations,
+          availableHalalas: view.availableHalalas,
+        })}
+      />
 
       <Panel title="وحدات التحقق" aside="ما تشمله باقتك" role="entitlements">
         <div className="table-scroll">

@@ -44,7 +44,12 @@ export function BalanceCard({ balance }: { balance: BalanceView }): ReactElement
           <p className="balance-value">
             <Ltr>{RIYALS.format(balance.availableHalalas / 100)}</Ltr>
           </p>
-          <p className="balance-unit">ريال قبل الضريبة</p>
+          {/*
+            Not «قبل الضريبة»: while the platform is unregistered no tax is added, so the
+            phrase promises a second figure that never arrives. The screens that do add tax
+            say so where they add it (ADR-157).
+          */}
+          <p className="balance-unit">ريال</p>
         </>
       )}
       <ButtonLink href="/billing" block>

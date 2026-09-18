@@ -77,7 +77,7 @@ export const SECTION_SOURCES: Readonly<Record<ProfileSection, string>> = {
   MANAGERS: 'مصدرها تحقق المدراء المفوضين',
   ADDRESS: 'مصدرها تحقق العنوان الوطني',
   BANKING: 'مصدرها تحقق الآيبان والحساب',
-  FREELANCE: 'مصدرها تحقق شهادة الفريلانسر',
+  FREELANCE: 'مصدرها تحقق وثيقة العمل الحر',
   PROPERTY: 'مصدرها تحقق العقار',
   INCOME: 'مصدرها تحقق الدخل من الحساب البنكي',
 };

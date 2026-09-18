@@ -152,7 +152,7 @@ export const SECTION_TAGS: Readonly<Record<ProfileSection, { name: string; short
   MANAGERS: { name: 'المدراء المفوضون', short: 'المدراء' },
   ADDRESS: { name: 'العنوان الوطني', short: 'العنوان الوطني' },
   BANKING: { name: 'الآيبان', short: 'الآيبان' },
-  FREELANCE: { name: 'شهادة الفريلانسر', short: 'شهادة الفريلانسر' },
+  FREELANCE: { name: 'وثيقة العمل الحر', short: 'وثيقة العمل الحر' },
   PROPERTY: { name: 'العقارات', short: 'العقارات' },
   INCOME: { name: 'الدخل الشهري', short: 'الدخل' },
 };

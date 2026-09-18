@@ -1,7 +1,17 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { setPackageProduct, setTenantOverride, setTenantPackage } from '@nx-verify/core';
+import { NxError, setPackageProduct, setTenantOverride, setTenantPackage } from '@nx-verify/core';
+import { redirect } from 'next/navigation';
+import {
+  parseRiyals,
+  parseWholeNumber,
+} from '../../../../../components/admin-pricing/model';
+
+/** Back to the screen with a word saying what happened, the way the pricing screen does. */
+function back(path: string, params: Record<string, string>): never {
+  redirect(`${path}?${new URLSearchParams(params).toString()}`);
+}
 import { operatorQuery, requireOperatorPermission } from '../../../../../lib/operator';
 
 /**
@@ -16,26 +26,54 @@ import { operatorQuery, requireOperatorPermission } from '../../../../../lib/ope
 export async function setProductAction(formData: FormData): Promise<void> {
   const { id: operatorId } = await requireOperatorPermission('pricing');
 
-  // Riyals on the screen, halalas in the database, integers throughout (ADR-021). An
-  // empty field means this plan names no price and the subscriber's price book decides.
+  /*
+   * Riyals on the screen, halalas in the database, integers throughout (ADR-021).
+   *
+   * Through the shared parser, not `Number.parseFloat`: Arabic-Indic digits, «٣٫٥٠» and
+   * «1,250» all yielded NaN, the key was then spread away, and the write went ahead and left
+   * the price NULL. A price deleted by typing it correctly in Arabic (ADR-164).
+   *
+   * A field the form does not carry is not sent at all, so toggling a module no longer erases
+   * the plan's price or its monthly quota.
+   */
   const rawPrice = String(formData.get('unit_price') ?? '').trim();
-  const unitPriceHalalas = rawPrice === '' ? null : Math.round(Number.parseFloat(rawPrice) * 100);
+  const priceGiven = formData.has('unit_price');
+  const unitPriceHalalas = rawPrice === '' ? null : parseRiyals(rawPrice);
+  if (priceGiven && rawPrice !== '' && unitPriceHalalas === null) {
+    back('/operator/pricing/plans', { refused: 'price' });
+  }
 
-  await operatorQuery((db) =>
-    setPackageProduct(
-      db,
-      {
-        packageCode: String(formData.get('package_code') ?? ''),
-        productCode: String(formData.get('product_code') ?? ''),
-        enabled: String(formData.get('enabled') ?? 'false') === 'true',
-        ...(unitPriceHalalas === null || Number.isNaN(unitPriceHalalas)
-          ? {}
-          : { unitPriceHalalas }),
-      },
-      operatorId,
-    ),
-  );
+  const rawQuota = String(formData.get('monthly_quota') ?? '').trim();
+  const quotaGiven = formData.has('monthly_quota');
+  const monthlyQuota = rawQuota === '' ? null : parseWholeNumber(rawQuota);
+  if (quotaGiven && rawQuota !== '' && monthlyQuota === null) {
+    back('/operator/pricing/plans', { refused: 'quota' });
+  }
+
+  try {
+    await operatorQuery((db) =>
+      setPackageProduct(
+        db,
+        {
+          packageCode: String(formData.get('package_code') ?? ''),
+          productCode: String(formData.get('product_code') ?? ''),
+          enabled: String(formData.get('enabled') ?? 'false') === 'true',
+          ...(priceGiven ? { unitPriceHalalas } : {}),
+          ...(quotaGiven ? { monthlyQuota } : {}),
+        },
+        operatorId,
+      ),
+    );
+  } catch (error) {
+    if (error instanceof NxError && error.code === 'NX-4002') {
+      back('/operator/pricing/plans', {
+        refused: /under the cost/.test(error.message) ? 'under-cost' : 'price',
+      });
+    }
+    throw error;
+  }
   revalidatePath('/operator/pricing/plans');
+  back('/operator/pricing/plans', { saved: 'product' });
 }
 
 export async function setOverrideAction(formData: FormData): Promise<void> {

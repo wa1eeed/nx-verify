@@ -656,7 +656,9 @@ export const CHECK_PRODUCTS: readonly SeedProduct[] = [
   },
   {
     code: 'FREELANCE_CERTIFICATE',
-    nameAr: 'شهادة الفريلانسر',
+    // What the rest of the platform calls it, and what the document is actually called:
+    // «الفريلانسر» is a transliteration sitting in an Arabic interface.
+    nameAr: 'وثيقة العمل الحر',
     nameEn: 'Freelancer Certificate',
     summaryAr: 'الاسم، التخصص، التصنيف، حالة الوثيقة، تواريخ الإصدار والانتهاء',
     subjectType: 'FREELANCER',
