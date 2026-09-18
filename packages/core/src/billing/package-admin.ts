@@ -244,8 +244,14 @@ export async function listSubscribers(operator: Queryable): Promise<SubscriberRo
 export interface SetOverrideInput {
   tenantId: string;
   productCode: string;
-  /** Null removes the exception and lets the plan decide again. */
-  enabled: boolean | null;
+  /**
+   * Absent leaves the module decision alone; null lifts it and lets the plan decide again
+   * (ADR-164).
+   *
+   * Optional for the same reason the others are: the pricing screen writes a price and says
+   * nothing about modules, and it used to blank this field on the way past.
+   */
+  enabled?: boolean | null;
   monthlyQuota?: number | null;
   unitPriceHalalas?: number | null;
 }

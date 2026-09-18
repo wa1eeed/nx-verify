@@ -86,6 +86,7 @@ describe('the single sign on screen', () => {
     renderToStaticMarkup(
       <SsoSettings
         idp={null}
+        callbackUrl="https://trust.example.sa/sso/callback"
         domains={domains}
         configureAction={noop}
         claimAction={noop}
@@ -122,6 +123,7 @@ describe('the single sign on screen', () => {
   it('never carries the pointer to the client secret to the screen', () => {
     const html = renderToStaticMarkup(
       <SsoSettings
+        callbackUrl="https://trust.example.sa/sso/callback"
         idp={{
           issuer: 'https://login.example.com',
           clientId: 'nx',

@@ -86,8 +86,6 @@ export async function pauseEndpointAction(formData: FormData): Promise<void> {
 }
 
 export async function resumeEndpointAction(formData: FormData): Promise<void> {
-  const actor = await actingUser();
-  assertCan(actor.capabilities, 'developers.manage');
   await setStatus(formData, 'active', 'webhook.resumed');
 }
 
@@ -96,7 +94,10 @@ async function setStatus(
   status: 'active' | 'paused',
   action: string,
 ): Promise<void> {
+  // Here rather than in each caller: pausing had no check while resuming did, and pausing is
+  // the destructive half. A guard that each wrapper must remember is a guard one will forget.
   const user = await actingUser();
+  assertCan(user.capabilities, 'developers.manage');
   const endpointId = String(formData.get('endpoint_id') ?? '');
   if (endpointId === '') {
     return;

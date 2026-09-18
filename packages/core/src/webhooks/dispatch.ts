@@ -45,6 +45,32 @@ export const WEBHOOK_EVENT_LABELS_AR: Readonly<Record<WebhookEventType, string>>
   'onboarding.review': 'ملف تأهيل يحتاج مراجعة بشرية',
 };
 
+/**
+ * The severity each event always carries.
+ *
+ * Fixed per event, which is why the subscriber's screen no longer asks for a minimum: a floor
+ * above an event's own severity silenced it completely, and a floor below it did nothing. Two
+ * of the three choices were a no-op or a total mute, and the screen listed the rule as active
+ * either way (ADR-165).
+ */
+export const WEBHOOK_EVENT_SEVERITY: Readonly<Record<WebhookEventType, 'INFO' | 'WARNING' | 'CRITICAL'>> = {
+  'verification.completed': 'INFO',
+  'verification.awaiting': 'INFO',
+  'entity.changed': 'WARNING',
+  'attestation.expired': 'WARNING',
+  'wallet.low': 'CRITICAL',
+  'monitor.budget_exhausted': 'WARNING',
+  'onboarding.approved': 'INFO',
+  'onboarding.rejected': 'WARNING',
+  'onboarding.review': 'WARNING',
+};
+
+export const SEVERITY_LABELS_AR: Readonly<Record<'INFO' | 'WARNING' | 'CRITICAL', string>> = {
+  INFO: 'للعلم',
+  WARNING: 'يستحق النظر',
+  CRITICAL: 'حرج',
+};
+
 /** The list a screen offers, in the order somebody reads it: the common ones first. */
 export const WEBHOOK_EVENT_TYPES: readonly WebhookEventType[] = [
   'verification.completed',

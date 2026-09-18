@@ -24,13 +24,14 @@ export async function pauseMonitorAction(formData: FormData): Promise<void> {
 }
 
 export async function resumeMonitorAction(formData: FormData): Promise<void> {
-  const actor = await actingUser();
-  assertCan(actor.capabilities, 'monitoring.manage');
   await move(formData, 'resume');
 }
 
 async function move(formData: FormData, how: 'pause' | 'resume'): Promise<void> {
+  // Here rather than in each caller: pausing had no check while resuming did, and pausing is
+  // the half that stops paid monitoring. A guard each wrapper must remember gets forgotten.
   const user = await actingUser();
+  assertCan(user.capabilities, 'monitoring.manage');
   const monitorId = String(formData.get('monitor_id') ?? '');
   if (monitorId === '') {
     back('failed');

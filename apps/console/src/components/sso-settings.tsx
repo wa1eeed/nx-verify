@@ -81,6 +81,7 @@ type Action = (formData: FormData) => void | Promise<void>;
 
 export function SsoSettings({
   idp,
+  callbackUrl,
   domains,
   outcome,
   configureAction,
@@ -89,6 +90,14 @@ export function SsoSettings({
   removeAction,
 }: {
   idp: IdpView | null;
+  /**
+   * The address the identity provider must be told to send people back to.
+   *
+   * It was never printed anywhere, so the form could be filled in completely and correctly
+   * and single sign on still could not be finished: the other half of the configuration is
+   * entered in Entra or Okta, and this is the one value it needs from us (ADR-165).
+   */
+  callbackUrl: string;
   domains: SsoDomainView[];
   outcome?: string | undefined;
   configureAction: Action;
@@ -214,6 +223,20 @@ export function SsoSettings({
         title="مزوّد الهوية"
         note="OIDC. سرّ العميل يُكتب مرة إلى الخزنة المختومة، وتحتفظ القاعدة بمؤشر إليه لا به (القاعدة 10)."
       >
+        {/*
+          First, because it is the value that goes the other way: everything else on this form
+          is copied from the identity provider, and this one is copied into it.
+        */}
+        <div className="panel-body stack" data-role="sso-callback" style={{ gap: 'var(--s-1)' }}>
+          <span className="stat-label">عنوان العودة المسجَّل عند مزوّد الهوية</span>
+          <strong className="mono" dir="ltr">
+            {callbackUrl}
+          </strong>
+          <span className="stat-hint">
+            سجّل هذا العنوان في تطبيق OIDC لديك تحت Redirect URI، وإلا رفض المزوّد تسجيل الدخول.
+          </span>
+        </div>
+
         <form
           action={configureAction}
           className="panel-body stack"
@@ -222,7 +245,7 @@ export function SsoSettings({
         >
           <div className="row" style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}>
             <label className="stack" style={{ gap: 'var(--s-1)', flex: 1, minWidth: '220px' }}>
-              <span className="stat-label">عنوان الاكتشاف</span>
+              <span className="stat-label">عنوان الاكتشاف (discovery)</span>
               <input
                 name="discovery_url"
                 type="url"

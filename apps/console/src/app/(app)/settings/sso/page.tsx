@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { callbackUrl } from '../../../../lib/auth';
 import { NoAccess } from '../../../../components/no-access';
 import { getIdp, listSsoDomains } from '@nx-verify/core';
 import { SsoSettings, type IdpView, type SsoDomainView } from '../../../../components/sso-settings';
@@ -57,6 +58,7 @@ export default async function SsoPage({
       <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/sso" label="أقسام الإعدادات" />
       <SsoSettings
         idp={idp}
+        callbackUrl={callbackUrl()}
         domains={domains}
         outcome={outcome}
         configureAction={configureIdpAction}

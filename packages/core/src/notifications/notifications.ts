@@ -60,7 +60,7 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
     body: [
       'اكتمل تحقق في مساحة عملك.',
       '',
-      `التفاصيل في السجل: ${url}/registry`,
+      `التفاصيل في السجل: ${url}/verifications`,
       '',
       'هذه الرسالة لا تحتوي على أي بيانات عن موضوع التحقق. افتح الكونسول للاطلاع.',
     ].join('\n'),
@@ -71,7 +71,7 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
     body: [
       'بدأ تحقق في مساحة عملك، والجهة تجيب على جدولها لا على جدولنا.',
       '',
-      `حالته في السجل: ${url}/registry`,
+      `حالته في السجل: ${url}/verifications`,
       '',
       'لا حاجة لإعادة الطلب. سنرسل إشعاراً آخر حين يكتمل.',
     ].join('\n'),
@@ -93,7 +93,7 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
     body: [
       'انتهت صلاحية إحدى المعارف في مساحة عملك، وتحتاج تحققاً جديداً.',
       '',
-      `افتح السجل: ${url}/registry`,
+      `افتح السجل: ${url}/verifications`,
     ].join('\n'),
   }),
   'onboarding.approved': (url) => ({
@@ -102,7 +102,7 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
     body: [
       'ملف تأهيل في مساحة عملك انتهى بالقبول.',
       '',
-      `افتح ملفات التأهيل: ${url}/onboarding`,
+      `افتح ملفات التأهيل: ${url}/verifications/onboarding`,
       '',
       'هذه الرسالة لا تذكر المتقدّم ولا ما فُحص. افتح الكونسول للاطلاع.',
     ].join('\n'),
@@ -113,7 +113,7 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
     body: [
       'ملف تأهيل في مساحة عملك انتهى بالرفض.',
       '',
-      `افتح ملفات التأهيل: ${url}/onboarding`,
+      `افتح ملفات التأهيل: ${url}/verifications/onboarding`,
       '',
       'أسباب القرار في الكونسول، ولا تُرسَل في البريد.',
     ].join('\n'),
@@ -124,7 +124,7 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
     body: [
       'ملف تأهيل في مساحة عملك يحتاج قراراً من شخص.',
       '',
-      `افتح طابور المراجعة: ${url}/queue`,
+      `افتح طابور المراجعة: ${url}/customers/reviews`,
     ].join('\n'),
   }),
   'wallet.low': (url) => ({

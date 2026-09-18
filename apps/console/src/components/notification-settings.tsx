@@ -1,5 +1,10 @@
 import type { ReactElement } from 'react';
-import { WEBHOOK_EVENT_TYPES, webhookEventLabelAr } from '@nx-verify/core';
+import {
+  SEVERITY_LABELS_AR,
+  WEBHOOK_EVENT_SEVERITY,
+  WEBHOOK_EVENT_TYPES,
+  webhookEventLabelAr,
+} from '@nx-verify/core';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { SubmitButton } from './ui/submit-button';
 
@@ -29,11 +34,7 @@ export interface ChannelView {
 
 
 
-const SEVERITY_LABELS: Record<string, string> = {
-  INFO: 'كل الأحداث',
-  WARNING: 'التحذيرات فما فوق',
-  CRITICAL: 'الحرجة فقط',
-};
+
 
 /** What the last action did, read from the address the action sent the screen to. */
 const OUTCOMES: Record<string, { tone: 'done' | 'refused'; text: string }> = {
@@ -257,8 +258,13 @@ function ChannelCard({
               {channel.events.map((rule) => (
                 <li key={rule.ruleId} className="row" style={{ gap: 'var(--s-2)' }}>
                   <span>{eventLabel(rule.eventType)}</span>
+                  {/* The event's own severity, which is the fact. The old line printed the
+                      rule's minimum, a number that only ever silenced the rule or did nothing. */}
                   <span className="muted">
-                    · {SEVERITY_LABELS[rule.minSeverity] ?? rule.minSeverity}
+                    ·{' '}
+                    {SEVERITY_LABELS_AR[
+                      WEBHOOK_EVENT_SEVERITY[rule.eventType as keyof typeof WEBHOOK_EVENT_SEVERITY]
+                    ] ?? ''}
                   </span>
                   <form action={unsubscribeAction}>
                     <input type="hidden" name="rule_id" value={rule.ruleId} />
@@ -288,21 +294,18 @@ function ChannelCard({
                 <select name="event_type" style={{ width: 'auto' }}>
                   {remaining.map((event) => (
                     <option key={event} value={event}>
-                      {webhookEventLabelAr(event)}
+                      {webhookEventLabelAr(event)} · {SEVERITY_LABELS_AR[WEBHOOK_EVENT_SEVERITY[event]]}
                     </option>
                   ))}
                 </select>
               </label>
-              <label className="stack" style={{ gap: 'var(--s-1)' }}>
-                <span className="stat-label">من درجة</span>
-                <select name="min_severity" defaultValue="INFO" style={{ width: 'auto' }}>
-                  {Object.entries(SEVERITY_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {/*
+                No «من درجة» any more. Every event carries one fixed severity, so a floor above
+                it silenced the subscription completely and a floor below it did nothing, while
+                the screen listed the rule as active either way (ADR-165). What the reader
+                actually needs is the event's own severity, which is shown beside its name.
+              */}
+              <input type="hidden" name="min_severity" value="INFO" />
               <SubmitButton data-role="subscribe-submit" pendingLabel="جارٍ الحفظ">
                 اشتراك
               </SubmitButton>
