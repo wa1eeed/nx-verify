@@ -1,4 +1,5 @@
 import type { Queryable } from '@nx-verify/db';
+import { isLowOnCredit } from './capacity.js';
 import { riyalsToHalalas } from './money.js';
 
 /**
@@ -40,6 +41,9 @@ export interface SubscriberSummary {
   balanceHalalas: number;
   heldHalalas: number;
   availableHalalas: number;
+  /** Operations left on live bundles. Spent before the wallet, and never touching it. */
+  bundleOperations: number;
+  /** True when the wallet alone is low. Use isLowOnCredit for «are they actually short». */
   lowBalance: boolean;
   hasSandbox: boolean;
 }
@@ -59,6 +63,7 @@ interface SubscriberRowData {
   balance: string | null;
   held: string | null;
   low_threshold: string | null;
+  bundle_operations: number;
   has_sandbox: boolean;
 }
 
@@ -68,11 +73,19 @@ const SUBSCRIBER_SELECT = `
          c.term_start, c.term_end,
          c.included_transactions, c.transactions_used,
          w.balance::text AS balance, w.held::text AS held, w.low_threshold::text AS low_threshold,
+         coalesce(g.operations, 0) AS bundle_operations,
          EXISTS (SELECT 1 FROM tenants s WHERE s.sandbox_of = t.id) AS has_sandbox
   FROM tenants t
   LEFT JOIN tenant_commitments c ON c.tenant_id = t.id
   LEFT JOIN packages p ON p.code = c.package_code
   LEFT JOIN wallets w ON w.tenant_id = t.id
+  -- Operations a subscriber already paid for. Without these the wallet alone decides whether
+  -- they look short, and somebody living on bundles looks permanently short (ADR-162).
+  LEFT JOIN LATERAL (
+    SELECT sum(b.operations - b.used) AS operations
+    FROM bundle_grants b
+    WHERE b.tenant_id = t.id AND b.used < b.operations AND b.expires_at > now()
+  ) g ON true
   WHERE t.status = 'active' AND t.sandbox_of IS NULL`;
 
 function toSummary(row: SubscriberRowData, now: Date): SubscriberSummary {
@@ -101,8 +114,9 @@ function toSummary(row: SubscriberRowData, now: Date): SubscriberSummary {
     balanceHalalas: balance,
     heldHalalas: held,
     availableHalalas: balance - held,
-    // The same rule the subscriber's own screen uses, so the two never disagree about
-    // whether a balance is low.
+    bundleOperations: Number(row.bundle_operations ?? 0),
+    // The wallet's own reading. Whether this subscriber is actually short is isLowOnCredit,
+    // which folds in the plan and the bundles (ADR-162).
     lowBalance: balance > 0 && balance - held <= balance * threshold,
     hasSandbox: row.has_sandbox,
   };
@@ -328,7 +342,20 @@ export async function platformOverview(
       )
       .sort((left, right) => (left.daysLeft ?? 0) - (right.daysLeft ?? 0)),
     lapsed: subscribers.filter((row) => row.daysLeft !== null && row.daysLeft < 0),
-    lowBalance: subscribers.filter((row) => row.lowBalance),
+    // Whoever is actually short, not whoever has an empty wallet: a subscriber living on
+    // bundles sat in this list permanently, so staff learned to ignore it (ADR-162).
+    lowBalance: subscribers.filter((row) =>
+      isLowOnCredit({
+        planLeft:
+          row.includedTransactions === null
+            ? null
+            : Math.max(0, row.includedTransactions - row.transactionsUsed),
+        bundleOperations: row.bundleOperations,
+        operationsBought: (row.includedTransactions ?? 0) + row.bundleOperations,
+        walletAvailableHalalas: row.availableHalalas,
+        walletIsLow: row.lowBalance,
+      }),
+    ),
     nearCapacity: subscribers.filter(
       (row) =>
         row.includedTransactions !== null && row.transactionsUsed >= row.includedTransactions * 0.8,

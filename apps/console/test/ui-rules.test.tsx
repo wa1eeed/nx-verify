@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ROLE_PRESETS, presetFor, resolveCapabilities } from '@nx-verify/core';
 import { UserPermissions, permissionsOf } from '../src/components/user-permissions';
 import { NoAccess } from '../src/components/no-access';
+import { SpendOrder, spendSteps } from '../src/components/spend-order';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { FieldCard, formatValue, daysUntil } from '../src/components/field-card';
 import { ChangeBadge, FreshnessBadge } from '../src/components/freshness';
@@ -2286,5 +2287,74 @@ describe('what each person sees', () => {
     expect(html).not.toContain('data-role="exception"');
     expect(html).not.toContain('data-role="exception-count"');
     expect(html).not.toContain('أعِد كل الصلاحيات إلى الدور');
+  });
+});
+
+/**
+ * Where a verification is paid from (ADR-161).
+ *
+ * The order is the commercial model, and it is the answer to the only question a subscriber
+ * actually has: if I run this now, what does it come out of. These check that the screen names
+ * the right step, including the case that made somebody think they had nothing.
+ */
+describe('the order a verification is paid in', () => {
+  const steps = (over: Partial<Parameters<typeof spendSteps>[0]> = {}) =>
+    spendSteps({
+      includedTransactions: null,
+      transactionsUsed: 0,
+      bundleOperations: 0,
+      availableHalalas: 0,
+      ...over,
+    });
+
+  const nextOf = (list: ReturnType<typeof spendSteps>) => list.find((step) => step.next)?.key;
+
+  it('spends the plan first, while it lasts', () => {
+    expect(nextOf(steps({ includedTransactions: 100, transactionsUsed: 40 }))).toBe('plan');
+  });
+
+  it('falls to a bundle once the plan is used up', () => {
+    expect(
+      nextOf(steps({ includedTransactions: 100, transactionsUsed: 100, bundleOperations: 500 })),
+    ).toBe('bundle');
+  });
+
+  it('falls to the wallet once the bundles are spent', () => {
+    expect(
+      nextOf(
+        steps({
+          includedTransactions: 100,
+          transactionsUsed: 100,
+          bundleOperations: 0,
+          availableHalalas: 250_00,
+        }),
+      ),
+    ).toBe('wallet');
+  });
+
+  it('calls a workspace with operations and an empty wallet ready, not empty', () => {
+    // The case the owner reported: a thousand operations bought and confirmed, and the
+    // balance screen reading the wallet alone said zero (ADR-160).
+    const list = steps({ bundleOperations: 1000, availableHalalas: 0 });
+    expect(nextOf(list)).toBe('bundle');
+    expect(list.some((step) => step.available)).toBe(true);
+  });
+
+  it('says nothing is next when nothing is left anywhere', () => {
+    const list = steps();
+    expect(nextOf(list)).toBeUndefined();
+    expect(list.every((step) => !step.available)).toBe(true);
+  });
+
+  it('renders the order with the step in force marked', () => {
+    const html = renderToStaticMarkup(
+      <SpendOrder steps={steps({ bundleOperations: 1000, availableHalalas: 4_000_00 })} />,
+    );
+    expect(html).toContain('data-role="spend-steps"');
+    expect(html).toContain('من أين تُخصم عمليات التحقق');
+    // The badge sits on the bundle, because that is what the next verification comes out of.
+    const bundle = html.slice(html.indexOf('data-step="bundle"'), html.indexOf('data-step="wallet"'));
+    expect(bundle).toContain('data-role="next-step"');
+    expect(html).not.toContain('data-role="spend-nothing"');
   });
 });

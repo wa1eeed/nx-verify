@@ -2,7 +2,7 @@ import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { audit } from '../auth/audit.js';
 import { resolvePrice } from '../billing/price-book.js';
-import { getWallet } from '../billing/wallet.js';
+import { operationsLeft, spendCapacity, type SpendCapacity } from '../billing/capacity.js';
 import { halalasToDecimalString, riyalsToHalalas } from '../billing/money.js';
 
 /**
@@ -39,9 +39,37 @@ export interface BatchPreview {
   /** In halalas. */
   estimatedCost: number;
   unitPrice: number;
-  /** True when the balance cannot cover the estimate. */
+  /**
+   * True when nothing the workspace holds can cover this batch.
+   *
+   * It used to compare the estimate against the wallet alone, which hard refused a subscriber
+   * with five thousand bundle operations and an empty wallet from a batch they could have paid
+   * for twice over. A batch item is charged exactly like a single request, so what covers it
+   * is the same three things in the same order (ADR-162).
+   */
   exceedsBalance: boolean;
   availableBalance: number;
+  /** Operations of this batch that a plan or a bundle covers, so nothing is charged for them. */
+  coveredByOperations: number;
+  /** What is actually taken from the wallet once those are covered. */
+  walletCostHalalas: number;
+}
+
+/**
+ * What a batch costs the wallet, once free operations have covered what they can.
+ *
+ * The units differ and that is the whole subtlety: a plan and a bundle count operations, the
+ * wallet counts riyals, and an operation pays for a check whatever its price. So the covered
+ * ones come off the count first and the rest is priced.
+ */
+function batchCost(
+  entities: number,
+  unitPrice: number,
+  capacity: SpendCapacity,
+): { covered: number; walletCostHalalas: number } {
+  const free = operationsLeft(capacity);
+  const covered = free === null ? 0 : Math.min(entities, free);
+  return { covered, walletCostHalalas: (entities - covered) * unitPrice };
 }
 
 /**
@@ -54,15 +82,20 @@ export async function previewBatch(
 ): Promise<BatchPreview> {
   const entityIds = await selectEntities(tx, criteria);
   const price = await resolvePrice(tx, productCode, { units: entityIds.length });
-  const wallet = await getWallet(tx);
+  const capacity = await spendCapacity(tx, tx.tenantId);
   const estimatedCost = price.unitPrice * entityIds.length;
+  const { covered, walletCostHalalas } = batchCost(entityIds.length, price.unitPrice, capacity);
 
   return {
     entities: entityIds.length,
+    // Still the full price of the work, whoever pays: an estimate that hid what a plan covered
+    // would be an estimate that cannot show what the plan is worth.
     estimatedCost,
     unitPrice: price.unitPrice,
-    exceedsBalance: estimatedCost > wallet.available,
-    availableBalance: wallet.available,
+    exceedsBalance: walletCostHalalas > capacity.walletAvailableHalalas,
+    availableBalance: capacity.walletAvailableHalalas,
+    coveredByOperations: covered,
+    walletCostHalalas,
   };
 }
 
@@ -136,11 +169,13 @@ export async function confirmBatch(tx: TenantTransaction, input: ConfirmBatchInp
   const { rows } = await tx.query<{
     status: BatchStatus;
     estimated_cost: string;
+    estimated_entities: number;
     created_by: string;
-  }>(`SELECT status, estimated_cost, created_by FROM batches WHERE tenant_id = $1 AND id = $2`, [
-    tx.tenantId,
-    input.batchId,
-  ]);
+  }>(
+    `SELECT status, estimated_cost, estimated_entities, created_by
+       FROM batches WHERE tenant_id = $1 AND id = $2`,
+    [tx.tenantId, input.batchId],
+  );
 
   const batch = rows[0];
   if (!batch) {
@@ -157,10 +192,14 @@ export async function confirmBatch(tx: TenantTransaction, input: ConfirmBatchInp
     });
   }
 
-  const wallet = await getWallet(tx);
-  if (estimated > wallet.available) {
-    // Refused before it starts rather than halfway through, so nobody is left with a
-    // partly executed batch and an empty balance.
+  // Refused before it starts rather than halfway through, so nobody is left with a partly
+  // executed batch and an empty balance. Measured against everything that can pay for it: a
+  // batch a bundle covers entirely used to be refused for an empty wallet (ADR-162).
+  const capacity = await spendCapacity(tx, tx.tenantId);
+  const entities = batch.estimated_entities;
+  const unitPrice = entities > 0 ? Math.round(estimated / entities) : 0;
+  const { walletCostHalalas } = batchCost(entities, unitPrice, capacity);
+  if (walletCostHalalas > capacity.walletAvailableHalalas) {
     throw new NxError('NX-4002', { detail: 'the balance does not cover this batch' });
   }
 

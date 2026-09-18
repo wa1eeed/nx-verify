@@ -118,6 +118,81 @@ function StatusCell({
   );
 }
 
+/**
+ * What each block on this screen actually sets, and how the four relate (ADR-161).
+ *
+ * The screen configures four commercial things that all read as «credit», and it configured
+ * them in four blocks with nothing saying which is which: a price per check, a plan, a prepaid
+ * bundle, and a price for one subscriber. The person setting them has to know the order they
+ * are spent in, because that order is what decides whether a plan's price or a bundle's price
+ * is the one a subscriber actually pays.
+ *
+ * Said once, at the top, in the order a verification is charged.
+ */
+function PricingModel(): ReactElement {
+  return (
+    <Card role="pricing-model" labelledBy="pricing-model-title">
+      <h2 className="card-title admin-card-title" id="pricing-model-title">
+        كيف تُحتسب عملية التحقق
+      </h2>
+      <p className="admin-card-note">
+        بهذا الترتيب لكل عملية: ما تشمله باقة المشترك أولاً، فإن نفدت فعملية من حزمة اشتراها،
+        فإن نفدت فمن رصيده بالريال بسعر ذلك التحقق. فما تضبطه هنا أربعة أشياء مختلفة، لا أربع
+        نسخ من شيء واحد.
+      </p>
+      <ol className="spend-order" data-role="pricing-model-steps">
+        <li className="spend-step" data-step="product">
+          <span className="spend-step-rank" aria-hidden="true">
+            ١
+          </span>
+          <span className="stack" style={{ gap: 0, flex: 1 }}>
+            <strong>سعر كل منتج تحقق</strong>
+            <span className="faint">
+              السعر بالريال لعملية واحدة. هو ما يُخصم من رصيد المشترك حين لا تغطّيه باقة ولا
+              حزمة، وهو الأساس الذي يُقاس عليه هامشنا.
+            </span>
+          </span>
+        </li>
+        <li className="spend-step" data-step="plan">
+          <span className="spend-step-rank" aria-hidden="true">
+            ٢
+          </span>
+          <span className="stack" style={{ gap: 0, flex: 1 }}>
+            <strong>الباقات</strong>
+            <span className="faint">
+              اشتراك شهري بعدد عمليات مشمولة، وسعر لما يتجاوزها. تُصرف قبل كل شيء آخر.
+            </span>
+          </span>
+        </li>
+        <li className="spend-step" data-step="bundle">
+          <span className="spend-step-rank" aria-hidden="true">
+            ٣
+          </span>
+          <span className="stack" style={{ gap: 0, flex: 1 }}>
+            <strong>حزم الرصيد مسبقة الدفع</strong>
+            <span className="faint">
+              عمليات تُشترى مقدماً وتُصرف على أي تحقق مهما كان سعره. لذلك سعر العملية في الحزمة
+              لا ينزل عن تكلفة أغلى تحقق نبيعه.
+            </span>
+          </span>
+        </li>
+        <li className="spend-step" data-step="special">
+          <span className="spend-step-rank" aria-hidden="true">
+            ٤
+          </span>
+          <span className="stack" style={{ gap: 0, flex: 1 }}>
+            <strong>الأسعار الخاصة</strong>
+            <span className="faint">
+              سعر منتج واحد أو خصم على كل المنتجات، لمشترك واحد. يحلّ محل السعر المعروض له وحده،
+              ولا ينزل عن التكلفة.
+            </span>
+          </span>
+        </li>
+      </ol>
+    </Card>
+  );
+}
+
 export function AdminPricing({
   view,
   actions,
@@ -152,6 +227,8 @@ export function AdminPricing({
           {view.notice.text}
         </Notice>
       )}
+
+      <PricingModel />
 
       <Card variant="flush" role="price-table" labelledBy="price-table-title">
         <div className="admin-card-head">

@@ -21,12 +21,17 @@ import { riyals } from './format';
  */
 export function FundBanner({
   availableHalalas,
-  bundleOperations = 0,
+  bundleOperations,
   href = '/billing',
 }: {
   availableHalalas: number;
-  /** Operations left on live bundles. Credit too, and it never touches the wallet. */
-  bundleOperations?: number;
+  /**
+   * Operations left on live bundles. Credit too, and it never touches the wallet.
+   *
+   * Required, with no default. An optional zero let a new caller silently reproduce the exact
+   * bug the comment above warns about, which is how it reappeared on the balance screen.
+   */
+  bundleOperations: number;
   href?: string;
 }): ReactElement | null {
   if (availableHalalas > 0 || bundleOperations > 0) {
@@ -47,11 +52,12 @@ export function FundBanner({
 /** The same thing, once there is a balance but it is nearly gone. */
 export function LowBanner({
   availableHalalas,
-  bundleOperations = 0,
+  bundleOperations,
   href = '/billing',
 }: {
   availableHalalas: number;
-  bundleOperations?: number;
+  /** Required for the same reason it is on FundBanner: an optional zero hides the bug. */
+  bundleOperations: number;
   href?: string;
 }): ReactElement | null {
   if (availableHalalas <= 0 && bundleOperations <= 0) {

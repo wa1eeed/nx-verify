@@ -272,6 +272,10 @@ export function registerOperationsRoutes(app: FastifyInstance, context: AppConte
         estimated_cost: halalasToRiyals(preview.estimatedCost),
         currency: 'SAR',
         exceeds_balance: preview.exceedsBalance,
+        // What a plan or a bundle covers, so a caller can see why a batch costs less than
+        // its estimate, or nothing at all.
+        covered_by_operations: preview.coveredByOperations,
+        wallet_cost: halalasToRiyals(preview.walletCostHalalas),
         available_balance: halalasToRiyals(preview.availableBalance),
       });
     },
@@ -433,7 +437,9 @@ export function registerOperationsRoutes(app: FastifyInstance, context: AppConte
         wallet: {
           balance: halalasToRiyals(dashboard.wallet.balance),
           held: halalasToRiyals(dashboard.wallet.held),
+          // Low on credit of any kind, not on riyals alone (ADR-162).
           is_low: dashboard.wallet.isLow,
+          operations_left: dashboard.wallet.operationsLeft,
           currency: 'SAR',
         },
       };

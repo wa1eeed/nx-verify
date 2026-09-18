@@ -9,6 +9,7 @@ import {
   listProducts,
 } from '@nx-verify/core';
 import { BundleOffer } from '../../../components/bundle-offer';
+import { SpendOrder, spendSteps } from '../../../components/spend-order';
 import { Usage, type EntitlementView, type UsageView } from '../../../components/usage';
 import { actingUser, query } from '../../../lib/context';
 import { FundBanner, LowBanner } from '../../../components/fund-banner';
@@ -76,6 +77,18 @@ export default async function UsagePage(): Promise<ReactElement> {
       <FundBanner
         availableHalalas={view.availableHalalas}
         bundleOperations={bundles.balance.operations}
+      />
+      {/*
+        The order a verification is paid in, said once and in the order it happens. Four
+        screens each showing one kind of credit taught nobody how they relate (ADR-161).
+      */}
+      <SpendOrder
+        steps={spendSteps({
+          includedTransactions: view.includedTransactions,
+          transactionsUsed: view.transactionsUsed,
+          bundleOperations: view.bundleOperations,
+          availableHalalas: view.availableHalalas,
+        })}
       />
       {view.isLow ? (
         <LowBanner

@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@nx-verify/db';
+import { isLowOnCredit, operationsLeft, spendCapacity } from '../billing/capacity.js';
 import { riyalsToHalalas } from '../billing/money.js';
 
 /**
@@ -28,7 +29,14 @@ export interface RiskDashboard {
   fieldFreshness: FreshnessDistribution;
   openChanges: { critical: number; warning: number; info: number };
   reviewQueue: { open: number; overdue: number; awaitingApproval: number };
-  wallet: { balance: number; held: number; isLow: boolean };
+  wallet: {
+    balance: number;
+    held: number;
+    /** Low on credit of any kind, not on riyals: the plan and the bundles count (ADR-162). */
+    isLow: boolean;
+    /** Operations a plan or bundle still covers, or null when riyals are the whole answer. */
+    operationsLeft: number | null;
+  };
   monitors: { active: number; budgetExhausted: number };
 }
 
@@ -111,7 +119,9 @@ export async function riskDashboard(tx: TenantTransaction): Promise<RiskDashboar
 
   const balance = riyalsToHalalas(walletRows[0]?.balance ?? '0');
   const held = riyalsToHalalas(walletRows[0]?.held ?? '0');
-  const threshold = Number(walletRows[0]?.low_threshold ?? 0.15);
+  // «Low» is the one question this file must not answer for itself: a workspace on a plan or a
+  // bundle spends no riyals, so its wallet says nothing about whether work will stop (ADR-162).
+  const capacity = await spendCapacity(tx, tx.tenantId);
 
   return {
     entities: Number(entityRows[0]?.total ?? 0),
@@ -126,7 +136,8 @@ export async function riskDashboard(tx: TenantTransaction): Promise<RiskDashboar
     wallet: {
       balance,
       held,
-      isLow: balance > 0 && balance - held <= balance * threshold,
+      isLow: isLowOnCredit(capacity),
+      operationsLeft: operationsLeft(capacity),
     },
     monitors: {
       active: Number(monitorRows[0]?.active ?? 0),

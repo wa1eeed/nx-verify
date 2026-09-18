@@ -1,5 +1,8 @@
 import {
   getEntityProfile,
+  isLowOnCredit,
+  operationsLeft,
+  spendCapacity,
   getRelations,
   getWallet,
   halalasToRiyals,
@@ -102,14 +105,26 @@ export function registerProductRoutes(app: FastifyInstance, context: AppContext)
     { preHandler: requireAuth(context, 'wallet:read') },
     async (request, reply) => {
       const caller = callerOf(request);
-      const wallet = await context.withTenant(caller.tenantId, (tx) => getWallet(tx));
+      const { wallet, capacity } = await context.withTenant(caller.tenantId, async (tx) => ({
+        wallet: await getWallet(tx),
+        capacity: await spendCapacity(tx, tx.tenantId),
+      }));
 
+      /*
+       * The riyal figures are the wallet and say so: an integrator reconciling top ups wants
+       * exactly these. But `is_low` is the «can I still spend» verdict, and answering it from
+       * riyals alone told a caller holding thousands of prepaid operations that they were out
+       * of money. So it folds in the plan and the bundles, and `operations_left` is exposed
+       * beside it, because an integrator building a spend guard could not previously reach
+       * that number from this API at all (ADR-162).
+       */
       return reply.send({
         balance: halalasToRiyals(wallet.balance),
         held: halalasToRiyals(wallet.held),
         available: halalasToRiyals(wallet.available),
         currency: wallet.currency,
-        is_low: wallet.isLow,
+        operations_left: operationsLeft(capacity),
+        is_low: isLowOnCredit(capacity),
       });
     },
   );

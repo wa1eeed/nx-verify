@@ -1,4 +1,5 @@
 import type { Queryable } from '@nx-verify/db';
+import { isLowOnCredit, operationsLeft } from '../billing/capacity.js';
 
 /**
  * The three questions support is asked by telephone.
@@ -21,7 +22,14 @@ export interface SubscriberHealthRow {
   slowestMs: number;
   balanceHalalas: number;
   heldHalalas: number;
-  /** True when the balance is low enough to stop work soon. */
+  /**
+   * Operations left on a plan or a bundle, or null for a workspace running on riyals alone.
+   *
+   * Here because the riyal balance beside it does not answer «is this subscriber about to
+   * stop»: a workspace on a bundle spends no riyals at all (ADR-162).
+   */
+  operationsLeft: number | null;
+  /** True when what they hold is low enough to stop work soon: operations or riyals. */
   balanceLow: boolean;
   /** Providers bound to this subscriber that are not healthy right now. */
   unhealthyProviders: string[];
@@ -44,6 +52,9 @@ export async function subscriberHealth(
     balance: string | null;
     held: string | null;
     low_threshold: string | null;
+    plan_left: string | null;
+    bundle_operations: string;
+    operations_bought: string;
     unhealthy: string[] | null;
   }>(
     `SELECT t.id AS tenant_id, t.legal_name, t.slug, t.sandbox_of,
@@ -53,6 +64,9 @@ export async function subscriberHealth(
             w.balance::text,
             w.held::text,
             w.low_threshold::text AS low_threshold,
+            c.plan_left::text AS plan_left,
+            coalesce(g.operations, 0)::text AS bundle_operations,
+            (coalesce(c.plan_bought, 0) + coalesce(g.granted, 0))::text AS operations_bought,
             p.unhealthy
      FROM tenants t
      LEFT JOIN LATERAL (
@@ -63,6 +77,23 @@ export async function subscriberHealth(
        WHERE a.tenant_id = t.id AND a.created_at > now() - make_interval(hours => $1)
      ) r ON true
      LEFT JOIN wallets w ON w.tenant_id = t.id
+     -- What a plan and a bundle still cover, in operations. A subscriber spending these
+     -- spends no riyals, so the wallet alone says nothing about whether work will stop.
+     LEFT JOIN LATERAL (
+       SELECT CASE
+                WHEN s.included_transactions IS NULL THEN NULL
+                ELSE greatest(0, s.included_transactions - s.transactions_used)
+              END AS plan_left,
+              coalesce(s.included_transactions, 0) AS plan_bought
+       FROM tenant_commitments s
+       WHERE s.tenant_id = t.id AND s.status = 'active'
+       LIMIT 1
+     ) c ON true
+     LEFT JOIN LATERAL (
+       SELECT sum(b.operations - b.used) AS operations, sum(b.operations) AS granted
+       FROM bundle_grants b
+       WHERE b.tenant_id = t.id AND b.used < b.operations AND b.expires_at > now()
+     ) g ON true
      LEFT JOIN LATERAL (
        SELECT array_agg(b.provider ORDER BY b.provider) AS unhealthy
        FROM tenant_provider_binding b
@@ -76,9 +107,16 @@ export async function subscriberHealth(
   return rows.map((row) => {
     const balance = Number(row.balance ?? '0');
     const held = Number(row.held ?? '0');
-    // The same rule the subscriber's own wallet uses, so a screen here and a screen there
-    // never disagree about whether a balance is low.
     const lowThreshold = Number(row.low_threshold ?? '0');
+    // The one predicate every screen asks, so support and the subscriber never disagree about
+    // whether work is about to stop (ADR-162).
+    const capacity = {
+      planLeft: row.plan_left === null ? null : Number(row.plan_left),
+      bundleOperations: Number(row.bundle_operations),
+      operationsBought: Number(row.operations_bought),
+      walletAvailableHalalas: balance - held,
+      walletIsLow: balance > 0 && balance - held <= balance * lowThreshold,
+    };
     return {
       tenantId: row.tenant_id,
       legalName: row.legal_name,
@@ -89,7 +127,8 @@ export async function subscriberHealth(
       slowestMs: Number(row.slowest_ms ?? '0'),
       balanceHalalas: balance,
       heldHalalas: held,
-      balanceLow: balance > 0 && balance - held <= balance * lowThreshold,
+      operationsLeft: operationsLeft(capacity),
+      balanceLow: isLowOnCredit(capacity),
       unhealthyProviders: row.unhealthy ?? [],
     };
   });

@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { LOW_OPERATIONS_SHARE } from './capacity.js';
 import type { Queryable, TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { createUser } from '../auth/users.js';
@@ -26,8 +27,6 @@ import { listSubscriberSummaries, type SubscriberSummary } from './subscribers.j
 /** A term ending within this many days is shown as ending soon (screen 06). */
 export const EXPIRING_WINDOW_DAYS = 14;
 
-/** Operations at or under this share of what was bought are a low balance. */
-export const LOW_OPERATIONS_SHARE = 0.2;
 
 export type SubscriberStanding = 'ACTIVE' | 'LOW_BALANCE' | 'EXPIRING' | 'SUSPENDED';
 

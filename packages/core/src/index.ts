@@ -481,6 +481,15 @@ export type {
 } from './auth/users.js';
 
 export {
+  LOW_OPERATIONS_SHARE,
+  canSpend,
+  isLowOnCredit,
+  operationsLeft,
+  spendCapacity,
+} from './billing/capacity.js';
+export type { SpendCapacity } from './billing/capacity.js';
+
+export {
   STANDARD_RATE_BPS,
   UNREGISTERED,
   costToUs,
@@ -1074,7 +1083,6 @@ export type {
 } from './billing/pricing-admin.js';
 export {
   EXPIRING_WINDOW_DAYS,
-  LOW_OPERATIONS_SHARE,
   assignSubscriberPlan,
   createSubscriber,
   setSubscriberSuspended,

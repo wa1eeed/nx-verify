@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@nx-verify/db';
+import { isLowOnCredit, operationsLeft, spendCapacity } from '../billing/capacity.js';
 
 /**
  * What is waiting for somebody's attention, in one place.
@@ -92,19 +93,20 @@ export async function listInbox(
     });
   }
 
-  const wallet = await tx.query<{ balance: string; low: boolean }>(
-    `SELECT balance::text,
-            (balance - held) <= (balance * low_threshold) AND balance > 0 AS low
-     FROM wallets WHERE tenant_id = $1`,
-    [tx.tenantId],
-  );
-  const walletRow = wallet.rows[0];
-  if (walletRow?.low) {
+  // Everything that can pay for a verification, not the wallet alone: this told a subscriber
+  // holding thousands of bundle operations that their work was about to stop, on every screen,
+  // because the sidebar's unread count reads this list (ADR-162).
+  const capacity = await spendCapacity(tx, tx.tenantId);
+  if (isLowOnCredit(capacity)) {
+    const left = operationsLeft(capacity);
     items.push({
       id: 'balance:low',
       kind: 'balance',
       titleAr: 'الرصيد منخفض',
-      detailAr: 'اطلب شحناً قبل أن تتوقف عمليات التحقق.',
+      detailAr:
+        left === null
+          ? 'اطلب شحناً قبل أن تتوقف عمليات التحقق.'
+          : `بقيت ${left} عملية. اطلب شحناً قبل أن تتوقف عمليات التحقق.`,
       at: new Date(),
       href: '/billing',
       severity: 'warning',

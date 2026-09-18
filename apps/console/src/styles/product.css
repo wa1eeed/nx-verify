@@ -3900,3 +3900,51 @@ a.frame-brand:active {
   border-color: var(--color-amber-300);
   background: var(--color-amber-50);
 }
+
+/*
+ * Where a verification is paid from, and in what order (ADR-161).
+ *
+ * A numbered list rather than a row of cards, because the number is the point: these are not
+ * three balances to compare, they are three steps in one order, and the reader needs to see
+ * which one the next verification comes out of.
+ */
+.spend-order {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+.spend-step {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-inset);
+  background: var(--color-surface);
+}
+/* The step in force reads as the answer; the ones behind it stay legible but recede. */
+.spend-step[data-next='true'] {
+  border-color: var(--color-accent-300);
+  background: var(--color-accent-100);
+}
+.spend-step[data-available='false'] {
+  color: var(--color-neutral-600);
+}
+.spend-step-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  border-radius: 999px;
+  background: var(--color-inset);
+  font-weight: 700;
+  font-size: 12px;
+}
+.spend-step-left {
+  font-weight: 600;
+  white-space: nowrap;
+}
