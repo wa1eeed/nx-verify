@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { WEBHOOK_EVENT_TYPES, webhookEventLabelAr } from '@nx-verify/core';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { SubmitButton } from './ui/submit-button';
 
@@ -26,12 +27,7 @@ export interface ChannelView {
   events: { ruleId: string; eventType: string; minSeverity: string }[];
 }
 
-const EVENT_LABELS: Record<string, string> = {
-  'verification.completed': 'اكتمال تحقق',
-  'entity.changed': 'تغيّر مرصود',
-  'attestation.expired': 'انتهاء صلاحية معرفة',
-  'wallet.low': 'انخفاض رصيد الخدمات',
-};
+
 
 const SEVERITY_LABELS: Record<string, string> = {
   INFO: 'كل الأحداث',
@@ -58,7 +54,7 @@ const OUTCOMES: Record<string, { tone: 'done' | 'refused'; text: string }> = {
 };
 
 export function eventLabel(eventType: string): string {
-  return EVENT_LABELS[eventType] ?? eventType;
+  return webhookEventLabelAr(eventType);
 }
 
 export function outcomeNotice(
@@ -186,7 +182,7 @@ function ChannelCard({
   unsubscribeAction: Action;
 }): ReactElement {
   const subscribed = new Set(channel.events.map((rule) => rule.eventType));
-  const remaining = Object.keys(EVENT_LABELS).filter((event) => !subscribed.has(event));
+  const remaining = WEBHOOK_EVENT_TYPES.filter((event) => !subscribed.has(event));
 
   return (
     <article
@@ -292,7 +288,7 @@ function ChannelCard({
                 <select name="event_type" style={{ width: 'auto' }}>
                   {remaining.map((event) => (
                     <option key={event} value={event}>
-                      {EVENT_LABELS[event]}
+                      {webhookEventLabelAr(event)}
                     </option>
                   ))}
                 </select>

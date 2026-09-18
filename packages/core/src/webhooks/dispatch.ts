@@ -20,9 +20,47 @@ export type WebhookEventType =
   | 'entity.changed'
   | 'attestation.expired'
   | 'wallet.low'
+  | 'monitor.budget_exhausted'
   | 'onboarding.approved'
   | 'onboarding.rejected'
   | 'onboarding.review';
+
+/**
+ * Every event, in Arabic, in one place (ADR-163).
+ *
+ * Two screens carried their own map and both were short: the subscriber's notification
+ * settings knew four of the nine and the webhooks screen knew four different ones, so the rest
+ * rendered as their raw code. A label list beside a type union drifts the moment somebody adds
+ * a case to the union, which is exactly what happened.
+ */
+export const WEBHOOK_EVENT_LABELS_AR: Readonly<Record<WebhookEventType, string>> = {
+  'verification.completed': 'اكتمال تحقق',
+  'verification.awaiting': 'تحقق بانتظار رد الجهة',
+  'entity.changed': 'تغيّر مرصود',
+  'attestation.expired': 'انتهاء صلاحية معرفة',
+  'wallet.low': 'انخفاض رصيد الخدمات',
+  'monitor.budget_exhausted': 'توقف مراقبة لانتهاء ميزانيتها',
+  'onboarding.approved': 'اعتماد ملف تأهيل',
+  'onboarding.rejected': 'رفض ملف تأهيل',
+  'onboarding.review': 'ملف تأهيل يحتاج مراجعة بشرية',
+};
+
+/** The list a screen offers, in the order somebody reads it: the common ones first. */
+export const WEBHOOK_EVENT_TYPES: readonly WebhookEventType[] = [
+  'verification.completed',
+  'verification.awaiting',
+  'entity.changed',
+  'attestation.expired',
+  'onboarding.review',
+  'onboarding.approved',
+  'onboarding.rejected',
+  'wallet.low',
+  'monitor.budget_exhausted',
+];
+
+export function webhookEventLabelAr(eventType: string): string {
+  return (WEBHOOK_EVENT_LABELS_AR as Record<string, string>)[eventType] ?? eventType;
+}
 
 export interface WebhookEndpoint {
   id: string;

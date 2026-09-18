@@ -129,7 +129,15 @@ export async function setRiskSignal(
   input: SetRiskSignalInput,
   actorId: string,
 ): Promise<void> {
-  const weight = whole(input.weight, 'الوزن', 0, 100);
+  /*
+   * A weight of zero on an enabled signal is a signal that fires and tells nobody (ADR-163).
+   *
+   * The reasons a subscriber reads are filtered to weight above zero, and the panel's own
+   * «موقوف» tile counts the disabled ones, so a signal left enabled at zero was invisible on
+   * both sides while still being evaluated on every customer. Switching it off is the honest
+   * way to say «do not use this», and it is one field away.
+   */
+  const weight = whole(input.weight, 'الوزن', 1, 100);
   const threshold = input.threshold === undefined ? null : input.threshold;
   if (threshold !== null && (!Number.isFinite(threshold) || threshold < 0)) {
     refuse('threshold must be a number at or above zero', 'العتبة يجب أن تكون رقماً موجباً.');

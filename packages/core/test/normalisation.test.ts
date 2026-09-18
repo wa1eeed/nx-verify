@@ -278,3 +278,4 @@ describe('normalisation turns a provider payload into our model', () => {
     expect(managers).toEqual([]);
   });
 });
+

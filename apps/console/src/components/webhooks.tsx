@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, type ReactElement } from 'react';
+import { WEBHOOK_EVENT_TYPES, webhookEventLabelAr } from '@nx-verify/core';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { SubmitButton } from './ui/submit-button';
 
@@ -42,12 +43,7 @@ export interface IssuedSecretState {
 
 const NOTHING: IssuedSecretState = { secret: null, refused: null };
 
-const EVENT_LABELS: Record<string, string> = {
-  'verification.completed': 'اكتمال تحقق',
-  'entity.changed': 'تغيّر مرصود',
-  'attestation.expired': 'انتهاء صلاحية معرفة',
-  'onboarding.review': 'حالة تأهيل تحتاج مراجعة',
-};
+
 
 const REFUSALS: Record<NonNullable<IssuedSecretState['refused']>, string> = {
   url: 'العنوان يجب أن يبدأ بـ https. نحن من ينادي هذا العنوان، وبلا تشفير تمر حمولة موقّعة عن عميل مكشوفة.',
@@ -57,7 +53,7 @@ const REFUSALS: Record<NonNullable<IssuedSecretState['refused']>, string> = {
 };
 
 export function eventLabelAr(eventType: string): string {
-  return EVENT_LABELS[eventType] ?? eventType;
+  return webhookEventLabelAr(eventType);
 }
 
 /** The signing secret, in the one place it exists in plain text. */
@@ -126,11 +122,11 @@ export function Webhooks({
           >
             <legend className="stat-label">الأحداث</legend>
             <div className="row" style={{ gap: 'var(--s-4)', flexWrap: 'wrap' }}>
-              {Object.entries(EVENT_LABELS).map(([value, label]) => (
+              {WEBHOOK_EVENT_TYPES.map((value) => (
                 <label key={value} className="row" style={{ gap: 'var(--s-2)' }}>
                   {/* Nothing ticked by default: what leaves this platform is a decision. */}
                   <input type="checkbox" name="events" value={value} />
-                  <span>{label}</span>
+                  <span>{webhookEventLabelAr(value)}</span>
                 </label>
               ))}
             </div>

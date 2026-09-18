@@ -57,8 +57,10 @@ export async function runDueMonitors(
       // Refused before the call, not after. The monitor stays as it is and the customer
       // is told, rather than the run happening and the cap being noticed afterwards.
       await recordMonitorSpend(tx, monitor.monitorId, remaining);
+      // Its own budget, not the balance. Sending this as wallet.low told a subscriber with a
+      // full wallet that their verifications were about to stop (ADR-163).
       await queueEvent(tx, {
-        eventType: 'wallet.low',
+        eventType: 'monitor.budget_exhausted',
         payload: {
           monitor_id: monitor.monitorId,
           entity_id: monitor.entityId,

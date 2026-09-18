@@ -61,7 +61,14 @@ export async function quoteChecks(
       lines.push({ productCode, allowed: false, refusalAr: 'غير متاحة', unitPriceHalalas: null });
       continue;
     }
-    capacityRemaining = entitlement.capacityRemaining;
+    // The least of them, not the last of them: it was plain assignment inside the loop, so a
+    // quote for three products reported the capacity of whichever happened to come last.
+    capacityRemaining =
+      entitlement.capacityRemaining === null
+        ? capacityRemaining
+        : capacityRemaining === null
+          ? entitlement.capacityRemaining
+          : Math.min(capacityRemaining, entitlement.capacityRemaining);
     const listPrice =
       entitlement.unitPriceHalalas === null
         ? await resolvePrice(tx, productCode)

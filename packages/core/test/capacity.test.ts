@@ -70,7 +70,7 @@ describe('what a workspace can spend', () => {
     expect(canSpend(before)).toBe(false);
     expect(operationsLeft(before)).toBeNull();
 
-    await withTenant(db.appPool, tenant.tenantId, (tx) => topUp(tx, { amount: 500_00 }));
+    await withTenant(db.appPool, tenant.tenantId, (tx) => topUp(tx, { amount: 500_00, vatInvoiceId: 'INV-CAP-1' }));
     const after = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       spendCapacity(tx, tx.tenantId),
     );

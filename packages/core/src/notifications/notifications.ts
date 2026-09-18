@@ -133,7 +133,23 @@ const TEMPLATES: Record<WebhookEventType, (consoleUrl: string) => Message> = {
     body: [
       'رصيد الخدمات في مساحة عملك اقترب من الحد الأدنى، وقد تتوقف عمليات التحقق.',
       '',
-      `افتح الإعدادات لشحن الرصيد: ${url}/settings/freshness`,
+      `افتح شاشة الرصيد لشحنه: ${url}/billing`,
+    ].join('\n'),
+  }),
+  /*
+   * A monitor that spent its own budget, which is not a low balance (ADR-163).
+   *
+   * It used to be sent as `wallet.low`, so a subscriber with a full wallet was told their
+   * verifications were about to stop because one monitor reached a cap they themselves set.
+   * The remedy is the monitor's budget, not a transfer, so the message says that instead.
+   */
+  'monitor.budget_exhausted': (url) => ({
+    severity: 'WARNING',
+    subject: 'مراقبة توقفت: انتهت ميزانيتها',
+    body: [
+      'بلغت إحدى المراقبات سقف الإنفاق الذي حدّدته لها، فتوقفت. رصيدك لم يتغير.',
+      '',
+      `افتح المراقبة لرفع السقف أو تغيير الوتيرة: ${url}/customers/monitoring`,
     ].join('\n'),
   }),
 };

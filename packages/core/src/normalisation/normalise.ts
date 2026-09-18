@@ -365,7 +365,20 @@ async function upsertRelation(
   return { id, created: true };
 }
 
-/** Ends a relation instead of deleting it. */
+/**
+ * Ends a relation instead of deleting it (ADR-163).
+ *
+ * A deliberate act by somebody in the workspace, not something inferred from an answer.
+ *
+ * Inferring it was tried and reverted. Closing every relation a run did not re-name reads «the
+ * registry named all the managers» into payloads that often mean «we checked one of them», and
+ * `MANAGER_AUTHORITY` runs once per manager, so each of those runs would have ended all the
+ * others. Six tests caught it. Doing it automatically needs the catalogue to say which product
+ * enumerates a relation type, which is a row in `product_steps` and not a guess in this file.
+ *
+ * Until then a person says it, which is honest: a manager resigning is a fact this platform
+ * learns from its customer, not from a silence.
+ */
 export async function endRelation(tx: TenantTransaction, relationId: string): Promise<void> {
   await tx.query(
     `UPDATE entity_relations SET ended_at = now()
