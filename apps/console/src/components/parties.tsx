@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import type { ReactElement } from 'react';
-import type { Page, PartyRole, RelatedPartySummary } from '@nx-verify/core';
+import { PARTY_ROLE_LABELS, type Page, type PartyRole, type RelatedPartySummary } from '@nx-verify/core';
 import type { SearchParams } from '../lib/pagination';
 import { Card } from './ui/card';
 import { Ltr } from './ui/ltr';
+import { SubmitButton } from './ui/submit-button';
 import { LinkedRows } from './ui/linked-rows';
 import { ListPagination } from './ui/pagination';
 import { Table, Th } from './ui/table';
@@ -35,6 +36,8 @@ export interface PartiesView {
     several: number;
   };
   filter: PartiesFilter;
+  /** Absent for somebody who may look but not decide: ending a role changes a customer file. */
+  endRoleAction?: ((formData: FormData) => void | Promise<void>) | undefined;
   concernsOnly: boolean;
   severalOnly: boolean;
   search: string;
@@ -113,8 +116,24 @@ function href(
   return query === '' ? '/customers/parties' : `/customers/parties?${query}`;
 }
 
-/** The companies of a row: the first three by name, and how many more. */
-function CompaniesCell({ party }: { party: RelatedPartySummary }): ReactElement {
+/**
+ * The companies of a row: the first three by name, and how many more.
+ *
+ * Each carries a way to end the role, because until now nothing in this platform could say that
+ * somebody had resigned: `ended_at` was written by no code path at all, so a manager who left
+ * stayed a manager forever and kept raising a risk signal on a company they had left (ADR-168).
+ *
+ * Two steps, and the consequence above the button that causes it, the same pattern the API key
+ * revoke uses. The row is a link, and `LinkedRows` already leaves a summary and a button to
+ * themselves, so opening one of these does not open the file underneath it.
+ */
+function CompaniesCell({
+  party,
+  endRoleAction,
+}: {
+  party: RelatedPartySummary;
+  endRoleAction?: ((formData: FormData) => void | Promise<void>) | undefined;
+}): ReactElement {
   const shown = party.companies.slice(0, 3);
   const more = party.companies.length - shown.length;
   return (
@@ -125,6 +144,34 @@ function CompaniesCell({ party }: { party: RelatedPartySummary }): ReactElement 
           <Link href={`/customers/${company.entityId}`} data-role="party-company">
             {company.name ?? 'منشأة بلا اسم'}
           </Link>
+          {endRoleAction === undefined
+            ? null
+            : company.roles.map((role) => {
+                const relationId = company.relationIds[role];
+                return relationId === undefined ? null : (
+                  <details
+                    key={role}
+                    className="revoke parties-end-role"
+                    data-role="end-role"
+                    data-relation={relationId}
+                  >
+                    <summary>أنهِ صفة {PARTY_ROLE_LABELS[role]}</summary>
+                    <div className="stack" style={{ gap: 'var(--s-2)' }}>
+                      <span className="faint">
+                        يختفي من ملف هذه المنشأة ومن تقاطعاتها ومؤشرات خطرها. يبقى مسجّلاً
+                        بتاريخ انتهائه، فسؤال «من كان المفوَّض في مارس» يبقى له جواب.
+                      </span>
+                      <form action={endRoleAction} className="inline">
+                        <input type="hidden" name="relation_id" value={relationId} />
+                        <input type="hidden" name="party_id" value={party.entityId} />
+                        <SubmitButton variant="ghost" pendingLabel="جارٍ الإنهاء">
+                          أنهِها
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </details>
+                );
+              })}
         </span>
       ))}
       {more > 0 ? <span className="file-cell-note">و{othersAr(more)}</span> : null}
@@ -265,7 +312,7 @@ export function Parties({ view }: { view: PartiesView }): ReactElement {
                     </td>
                     <td data-role="party-roles">{rolesLineAr(party.roleCounts)}</td>
                     <td>
-                      <CompaniesCell party={party} />
+                      <CompaniesCell party={party} endRoleAction={view.endRoleAction} />
                       {party.concerns > 0 ? (
                         <span className="file-cell-note">
                           <Tag tone="accent" role="party-concerns">

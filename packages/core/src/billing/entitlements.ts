@@ -100,7 +100,10 @@ const ENTITLEMENT_SQL = `
          s.included_transactions,
          s.transactions_used,
          pk.overage_allowed,
-         pk.overage_unit_halalas AS overage_price,
+         -- The rate this customer signed for, not the rate the plan carries today. Migration
+         -- 0026 put the capacity on the commitment for exactly this reason and 0065 finished
+         -- the job: editing a plan must not reprice runs already taken (ADR-168).
+         COALESCE(s.overage_unit_halalas, pk.overage_unit_halalas) AS overage_price,
          d.discount_pct::text AS discount_pct,
          p.module_code,
          m.core AS module_core,

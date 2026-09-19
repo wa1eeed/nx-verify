@@ -10,6 +10,8 @@ import {
 } from '../../../packages/providers/src/index.js';
 import {
   createTestDatabase,
+  insertAttestation,
+  seedEntity,
   seedTenant,
   testKeys,
   type SeededTenant,
@@ -279,3 +281,76 @@ describe('normalisation turns a provider payload into our model', () => {
   });
 });
 
+
+/**
+ * A relation that ends (ADR-168).
+ *
+ * `ended_at` was written by no code path in this repository, so every relation ever recorded
+ * was permanent: a manager who resigned stayed a manager on the customer file forever and kept
+ * raising `manager_many_companies` and the SHARED_MANAGER intersection, with no action
+ * available to anybody to stop it. `endRelation` existed and had no caller at all.
+ */
+describe('a role somebody no longer holds', () => {
+  let db: TestDatabase;
+
+  beforeAll(async () => {
+    db = await createTestDatabase();
+  });
+
+  afterAll(async () => {
+    await db.close();
+  });
+
+  it('stops counting, and keeps its answer for the month it applied to', async () => {
+    const { endRelation } = await import('../src/normalisation/normalise.js');
+    const { findEntitiesLinkedToMany } = await import('../src/normalisation/network.js');
+
+    const tenant = await seedTenant(db.appPool, 'شركة الصفات');
+    const person = await seedEntity(db.appPool, tenant.tenantId, 'PERSON', 'مدير');
+    const attestation = await insertAttestation(db.appPool, tenant);
+
+    const companies: string[] = [];
+    for (const name of ['الأولى', 'الثانية', 'الثالثة']) {
+      companies.push(await seedEntity(db.appPool, tenant.tenantId, 'BUSINESS', name));
+    }
+    const relationIds = await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      const ids: string[] = [];
+      for (const company of companies) {
+        const { rows } = await tx.query<{ id: string }>(
+          `INSERT INTO entity_relations
+             (tenant_id, from_entity, to_entity, rel_type, attestation_id, valid_from)
+           VALUES ($1, $2, $3, 'MANAGES', $4, now()) RETURNING id`,
+          [tx.tenantId, company, person, attestation],
+        );
+        ids.push(rows[0]?.id ?? '');
+      }
+      return ids;
+    });
+
+    const linkedTo = async (): Promise<number> => {
+      const found = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+        findEntitiesLinkedToMany(tx, 'MANAGES', 3),
+      );
+      return found.find((row) => row.entityId === person)?.linkedCount ?? 0;
+    };
+
+    // Three companies: the report that sells the platform names them.
+    expect(await linkedTo()).toBe(3);
+
+    await withTenant(db.appPool, tenant.tenantId, (tx) => endRelation(tx, relationIds[0] ?? ''));
+
+    // Two now, so the person drops below the threshold and stops being a finding.
+    expect(await linkedTo()).toBe(0);
+
+    // And the row is still there with a date on it, which is rule 1 in the currency of
+    // relations: «who was the authorised manager in March» keeps its answer.
+    const kept = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      tx.query<{ ended_at: Date | null }>(
+        `SELECT ended_at FROM entity_relations WHERE tenant_id = $1 AND id = $2`,
+        [tx.tenantId, relationIds[0]],
+      ),
+    );
+    expect(kept.rows).toHaveLength(1);
+    expect(kept.rows[0]?.ended_at).not.toBeNull();
+  });
+});

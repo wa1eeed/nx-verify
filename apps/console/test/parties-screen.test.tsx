@@ -43,6 +43,7 @@ const party = (overrides: Partial<RelatedPartySummary> = {}): RelatedPartySummar
       name: 'شركة اختبار للتجارة',
       entityType: 'BUSINESS',
       roles: ['MANAGER', 'PARTNER'],
+      relationIds: { MANAGER: 'rel-1' },
       standing: 'ACTIVE',
       statusText: 'فعال',
       kind: 'COMPANY',
@@ -52,6 +53,7 @@ const party = (overrides: Partial<RelatedPartySummary> = {}): RelatedPartySummar
       name: 'شركة اختبار تحت التصفية',
       entityType: 'BUSINESS',
       roles: ['MANAGER'],
+      relationIds: { MANAGER: 'rel-1' },
       standing: 'LIQUIDATION',
       statusText: 'تحت التصفية',
       kind: 'COMPANY',
@@ -381,5 +383,32 @@ describe('the file of a related party', () => {
   it('renders without a warning', () => {
     partyFile();
     expect(errors).toEqual([]);
+  });
+});
+
+/**
+ * Ending a role somebody no longer holds (ADR-168).
+ *
+ * `ended_at` was written by nothing at all, so a manager who resigned stayed a manager on the
+ * customer file forever and kept raising a risk signal on a company they had left.
+ */
+describe('ending a role', () => {
+  const noop = async (): Promise<void> => {};
+
+  it('offers it in two steps, with the consequence above the button', () => {
+    const html = renderToStaticMarkup(
+      <Parties view={listView([party()], { endRoleAction: noop })} />,
+    );
+    expect(html).toContain('data-role="end-role"');
+    expect(html).toContain('أنهِ صفة');
+    // The row stays and gains a date, so «who was the authorised manager in March» keeps its
+    // answer. Saying so is what makes the act safe to take.
+    expect(html).toContain('يبقى مسجّلاً');
+    expect(html).toContain('data-relation="rel-1"');
+  });
+
+  it('offers nothing to press to somebody who may look but not decide', () => {
+    const html = renderToStaticMarkup(<Parties view={listView([party()])} />);
+    expect(html).not.toContain('data-role="end-role"');
   });
 });

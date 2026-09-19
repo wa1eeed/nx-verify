@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { withTenant } from '../../../packages/db/src/client.js';
+import { withTenant, withoutTenant } from '../../../packages/db/src/client.js';
+import { applyProductSeed } from '../../../packages/db/src/seed/products.js';
+import { applyPackageSeed } from '../../../packages/db/src/seed/packages.js';
+import { setTenantPackage } from '../src/billing/package-admin.js';
 import { verify } from '../src/verification/verify.js';
 import {
   chargedUnitPrice,
@@ -493,5 +496,67 @@ describe('packages and entitlement', () => {
         `UPDATE packages SET overage_allowed = true WHERE code = 'ESSENTIAL'`,
       );
     });
+  });
+});
+
+/**
+ * The overage rate a customer signed for (ADR-168).
+ *
+ * Migration 0026 copied the capacity onto the commitment and said why: a plan edited next year
+ * must not change what a customer signed for this year. It did not copy the rate, because
+ * nothing charged it. Something does now, so editing a plan's overage price repriced every
+ * existing subscriber's excess runs backwards until this.
+ */
+describe('a plan edited after somebody signed for it', () => {
+  let db: TestDatabase;
+  let tenant: SeededTenant;
+
+  beforeAll(async () => {
+    db = await createTestDatabase();
+    await withoutTenant(db.appPool, (tx) => applyProductSeed(tx, undefined, {}));
+    await applyPackageSeed(db.operatorPool);
+    tenant = await seedTenant(db.appPool, 'شركة الالتزام');
+    await setTenantPackage(db.operatorPool, { tenantId: tenant.tenantId, packageCode: 'GROWTH' }, 'op-1');
+  });
+
+  afterAll(async () => {
+    await db.close();
+  });
+
+  it('keeps the overage rate that was stamped on the commitment', async () => {
+    const stamped = await db.operatorPool.query<{ rate: number | null }>(
+      `SELECT overage_unit_halalas AS rate FROM tenant_commitments WHERE tenant_id = $1`,
+      [tenant.tenantId],
+    );
+    const signedFor = stamped.rows[0]?.rate;
+    expect(signedFor).not.toBeNull();
+
+    // The plan's rate moves. The commitment's does not.
+    await db.operatorPool.query(
+      `UPDATE packages SET overage_unit_halalas = $1 WHERE code = 'GROWTH'`,
+      [(signedFor ?? 0) + 5_00],
+    );
+
+    const after = await db.operatorPool.query<{ rate: number | null }>(
+      `SELECT overage_unit_halalas AS rate FROM tenant_commitments WHERE tenant_id = $1`,
+      [tenant.tenantId],
+    );
+    expect(after.rows[0]?.rate).toBe(signedFor);
+  });
+
+  it('falls back to the plan for a commitment made before the column existed', async () => {
+    // Backfilled by the migration, but a row written by hand, or by an older deployment mid
+    // rollout, can still carry null. The read must not become null with it.
+    await db.operatorPool.query(
+      `UPDATE tenant_commitments SET overage_unit_halalas = NULL WHERE tenant_id = $1`,
+      [tenant.tenantId],
+    );
+    const { rows } = await db.operatorPool.query<{ rate: string | null }>(
+      `SELECT COALESCE(s.overage_unit_halalas, p.overage_unit_halalas)::text AS rate
+         FROM tenant_commitments s JOIN packages p ON p.code = s.package_code
+        WHERE s.tenant_id = $1`,
+      [tenant.tenantId],
+    );
+    expect(rows[0]?.rate).not.toBeNull();
   });
 });

@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { endRoleAction } from './actions';
 import { NoAccess } from '../../../../components/no-access';
 import { slicePage, summarizeParties, type PartyRole } from '@nx-verify/core';
 import { pageRequestFrom } from '../../../../lib/pagination';
@@ -89,6 +90,9 @@ export default async function PartiesPage({
             several: all.filter((party) => party.companies.length > 1).length,
           },
           filter: (role ?? 'all') as PartiesFilter,
+          // Absent for somebody who may look but not decide: ending a role changes what a
+          // customer file says and what its risk signals count (ADR-168).
+          ...(actor.can('review.decide') ? { endRoleAction } : {}),
           concernsOnly,
           severalOnly,
           search,

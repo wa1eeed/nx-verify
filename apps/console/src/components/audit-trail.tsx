@@ -74,6 +74,7 @@ const ACTION_LABELS: Record<string, string> = {
   'batch.confirmed': 'أكّد دفعة تحقق',
   'batch.cancelled': 'ألغى دفعة تحقق',
   'tenant.registered': 'أنشأ مساحة العمل',
+  'relation.ended': 'أنهى صفة طرف في منشأة',
   'verification.created': 'طلب تحقق',
   'verification.replayed': 'أُعيد نفس الطلب',
   'profile.shared': 'شارك ملف عميل',

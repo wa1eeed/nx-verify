@@ -75,7 +75,16 @@ export async function quoteChecks(
             .then((price) => price.unitPrice)
             .catch(() => null)
         : entitlement.unitPriceHalalas;
-    const unitPriceHalalas = listPrice === null ? null : chargedUnitPrice(entitlement, listPrice);
+    /*
+     * The overage rate applies even when neither of the two prices above exists.
+     *
+     * It is the plan's answer to a question that only arises past the capacity, so it is
+     * precisely the one price that can exist without a plan price and without a list price.
+     * Falling through to null here showed a subscriber no price at all on the screen they read
+     * before buying (ADR-168).
+     */
+    const basis = listPrice ?? entitlement.overageUnitPriceHalalas;
+    const unitPriceHalalas = basis === null ? null : chargedUnitPrice(entitlement, basis);
     lines.push({
       productCode,
       allowed: entitlement.allowed,

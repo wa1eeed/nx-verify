@@ -343,12 +343,15 @@ export async function setTenantPackage(
   const { rowCount } = await operator.query(
     `INSERT INTO tenant_commitments (tenant_id, package_code, term_months,
                                      credits_granted_halalas, setup_fee_halalas,
-                                     included_transactions, platform_fee_halalas)
+                                     included_transactions, platform_fee_halalas,
+                                     overage_unit_halalas)
      SELECT $1, p.code, p.term_months, p.commitment_credits_halalas,
             CASE WHEN p.setup_waived_from_months IS NOT NULL
                    AND p.term_months >= p.setup_waived_from_months
                  THEN 0 ELSE p.setup_fee_halalas END,
-            p.included_transactions, p.platform_fee_halalas
+            p.included_transactions, p.platform_fee_halalas,
+            -- Stamped at signing, beside the capacity it applies past (ADR-168).
+            p.overage_unit_halalas
      FROM packages p
      WHERE p.code = $2 AND p.status = 'active'
      ON CONFLICT (tenant_id) DO UPDATE SET
@@ -358,6 +361,7 @@ export async function setTenantPackage(
        setup_fee_halalas = EXCLUDED.setup_fee_halalas,
        included_transactions = EXCLUDED.included_transactions,
        platform_fee_halalas = EXCLUDED.platform_fee_halalas,
+       overage_unit_halalas = EXCLUDED.overage_unit_halalas,
        status = 'active',
        updated_at = now()`,
     [input.tenantId, input.packageCode],

@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import type { ReactElement } from 'react';
+import { findEntitiesLinkedToMany } from '@nx-verify/core';
+import { LinkedToMany } from '../../../../components/linked-to-many';
 import { NoAccess } from '../../../../components/no-access';
 import { FreshnessBadge } from '../../../../components/freshness';
 import { TrustChip } from '../../../../components/trust-dial';
@@ -27,6 +29,23 @@ export const dynamic = 'force-dynamic';
 
 const TRACKED_FIELDS = ['cr.status', 'address.national.city', 'manager.signing_authority'];
 
+/**
+ * How many customers a person has to appear in before it is worth saying.
+ *
+ * Three, because two is a coincidence a reader would have spotted anyway and four starts
+ * hiding the ones worth a question. Not a setting: a threshold nobody can defend is a
+ * threshold somebody will tune until the screen says nothing.
+ */
+const LINKED_THRESHOLD = 3;
+
+/** The roles a relation carries, in the words the sentence needs. */
+const LINKED_ROLES: readonly { relType: string; roleAr: string }[] = [
+  { relType: 'MANAGES', roleAr: 'مديرون' },
+  { relType: 'OWNS', roleAr: 'شركاء' },
+  { relType: 'LIQUIDATES', roleAr: 'مصفّون' },
+  { relType: 'REPRESENTS', roleAr: 'ممثلون' },
+];
+
 export default async function RelationsPage({
   searchParams,
 }: {
@@ -38,9 +57,20 @@ export default async function RelationsPage({
   }
   const params = await searchParams;
   const view = findView(params.view);
-  const { page, gaps } = await query(async (tx) => ({
+  // A trust score is computed for the subject of a verification. A person is never one.
+  const scored = view.entityType !== 'PERSON';
+  const { page, gaps, linked } = await query(async (tx) => ({
     page: await pageRegistry(tx, view.entityType, pageRequestFrom(params)),
     gaps: await findCompletenessGaps(tx, view.entityType, TRACKED_FIELDS),
+    // The half the screen's own title promised and never had: the query that answers it was
+    // written, tested, exported and called by nothing (ADR-168).
+    linked: await Promise.all(
+      LINKED_ROLES.map(async (role) => ({
+        relType: role.relType,
+        roleAr: role.roleAr,
+        parties: await findEntitiesLinkedToMany(tx, role.relType, LINKED_THRESHOLD),
+      })),
+    ),
   }));
 
   return (
@@ -50,6 +80,9 @@ export default async function RelationsPage({
         title="التقاطعات والعلاقات"
         subtitle={`${view.labelAr} التي ظهرت داخل ملفات عملائك. اضغط أي صف لفتح ملفه.`}
       />
+
+      {/* The finding first, the lookup after it. */}
+      <LinkedToMany groups={linked} threshold={LINKED_THRESHOLD} />
 
       {/* The saved views are a strip that scrolls, not a wall of buttons that wraps. */}
       <nav className="tabs" aria-label="العروض المحفوظة">
@@ -90,8 +123,14 @@ export default async function RelationsPage({
             <thead>
               <tr>
                 <th>الاسم</th>
-                <th>الحقول</th>
-                <th>درجة الثقة</th>
+                {/* «الحقول» is a count of what the verifications filled in on this record. */}
+                <th>الحقول المعروفة</th>
+                {/*
+                  A score exists only for a record that was itself the subject of a
+                  verification, and no seeded product takes a person as its subject, so this
+                  column was structurally always blank on the people view (ADR-168).
+                */}
+                {scored ? <th>درجة الثقة</th> : null}
                 <th>الحالة</th>
                 <th>آخر ظهور</th>
               </tr>
@@ -105,9 +144,11 @@ export default async function RelationsPage({
                     </Link>
                   </td>
                   <td>{row.fieldCount}</td>
-                  <td>
-                    <TrustChip score={row.score} computedAt={row.scoreAt} />
-                  </td>
+                  {scored ? (
+                    <td>
+                      <TrustChip score={row.score} computedAt={row.scoreAt} />
+                    </td>
+                  ) : null}
                   <td>
                     <FreshnessBadge state={row.worstFreshness} />
                   </td>

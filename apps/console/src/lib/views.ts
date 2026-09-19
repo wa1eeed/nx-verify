@@ -8,8 +8,14 @@ import { readPage, type Page, type PageRequest } from '@nx-verify/core';
  * is a filter over it rather than a screen of its own. That is why the tenth product
  * needs no new page.
  *
- * A saved view is a piece of work, not a filter. alert_on_enter is what turns "IBANs" into
- * "tell me when a new IBAN appears", and it is the reason these are worth naming at all.
+ * A saved view is a filter with a name and a unit, and that is all it is.
+ *
+ * It carried an `alertOnEnter` flag and a comment claiming that flag was «the reason these are
+ * worth naming at all». Nothing read it, in this file or anywhere else, for as long as it
+ * existed. The capability it described is real and lives somewhere else: a portfolio has an
+ * `alert_on_enter` column and is the thing a subscriber assembles deliberately and wants to be
+ * told about. A duplicate of it here, on a filter nobody assembles, was a promise with no
+ * owner (ADR-168).
  */
 
 export interface SavedView {
@@ -18,7 +24,6 @@ export interface SavedView {
   /** The singular this view counts in, so no screen says "entity" to a customer. */
   unitAr: string;
   entityType: string;
-  alertOnEnter: boolean;
 }
 
 export const SAVED_VIEWS: readonly SavedView[] = [
@@ -29,35 +34,30 @@ export const SAVED_VIEWS: readonly SavedView[] = [
     labelAr: 'المنشآت',
     unitAr: 'منشأة',
     entityType: 'BUSINESS',
-    alertOnEnter: false,
   },
   {
     key: 'freelancers',
     labelAr: 'شهادات العمل الحر',
     unitAr: 'شهادة',
     entityType: 'FREELANCER',
-    alertOnEnter: true,
   },
   {
     key: 'ibans',
     labelAr: 'الآيبانات',
     unitAr: 'حساباً',
     entityType: 'BANK_ACCOUNT',
-    alertOnEnter: true,
   },
   {
     key: 'properties',
     labelAr: 'العقارات',
     unitAr: 'عقاراً',
     entityType: 'PROPERTY',
-    alertOnEnter: false,
   },
   {
     key: 'people',
     labelAr: 'الأشخاص',
     unitAr: 'شخصاً',
     entityType: 'PERSON',
-    alertOnEnter: false,
   },
 ];
 

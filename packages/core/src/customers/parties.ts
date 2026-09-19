@@ -41,6 +41,16 @@ export type CompanyStanding = 'ACTIVE' | 'INACTIVE' | 'LIQUIDATION' | 'UNKNOWN';
 
 export interface PartyCompany extends LinkedEntity {
   roles: PartyRole[];
+  /**
+   * The open relation behind each role, so one can be ended (ADR-168).
+   *
+   * `ended_at` was written by no code path in this repository, so every relation ever recorded
+   * was permanent: a manager who resigned stayed a manager on the customer file forever and
+   * kept raising `manager_many_companies` and the SHARED_MANAGER intersection, with no action
+   * available to anybody. Inferring the ending from an answer was tried and reverted (see the
+   * docstring on endRelation), so it needs a person, and a person needs somewhere to say it.
+   */
+  relationIds: Partial<Record<PartyRole, string>>;
   standing: CompanyStanding;
   statusText: string | null;
   /** A company or a sole establishment, once its registry has said which. */
@@ -76,6 +86,7 @@ const ID_SHORT_LABELS: Readonly<Record<string, string>> = {
 const PARTY_ID_ORDER = ['NATIONAL_ID', 'IQAMA', 'PARTY_ID', 'CR', 'UNN'] as const;
 
 interface RelationRow {
+  relation_id: string;
   party: string;
   rel_type: string;
   company: string;
@@ -88,7 +99,7 @@ interface RelationRow {
 /** Every open relation from a business to somebody it names, optionally for one party. */
 async function partyRelations(tx: TenantTransaction, partyId?: string): Promise<RelationRow[]> {
   const { rows } = await tx.query<RelationRow>(
-    `SELECT r.to_entity AS party, r.rel_type, r.from_entity AS company,
+    `SELECT r.id AS relation_id, r.to_entity AS party, r.rel_type, r.from_entity AS company,
             c.display_name AS company_name, p.entity_type AS party_type,
             p.display_name AS party_name, p.last_seen_at
      FROM entity_relations r
@@ -277,6 +288,7 @@ export async function summarizeParties(
         name: row.company_name,
         entityType: 'BUSINESS',
         roles: [],
+        relationIds: {},
         standing: standing?.standing ?? 'UNKNOWN',
         statusText: standing?.statusText ?? null,
         kind: standing?.kind ?? null,
@@ -284,6 +296,7 @@ export async function summarizeParties(
       if (!company.roles.includes(role)) {
         company.roles.push(role);
       }
+      company.relationIds[role] = row.relation_id;
       companies.set(row.company, company);
     }
     const list = [...companies.values()];
