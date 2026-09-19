@@ -1,4 +1,4 @@
-import type { Queryable, TenantTransaction } from '@nx-verify/db';
+import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 
 /**
@@ -11,6 +11,14 @@ import { NxError } from '../errors.js';
  * What a caller needs from this module is one boolean: is the workspace I am in a
  * sandbox. A screen uses it to say so, a sealed document uses it to stamp itself, and
  * neither has to know how the link is stored.
+ *
+ * There was a third function here, `findSandboxOf`, which answered «which workspace is this
+ * subscriber's sandbox» on a connection that crosses workspaces. Nothing called it, and its
+ * own comment said it was used by provisioning and by the operator panel, neither of which was
+ * true: `scripts/provision.ts` writes the link without reading it back, and the panel already
+ * gets the only part it renders, `hasSandbox`, from the subscribers board. It is deleted rather
+ * than left with an apologetic comment, because the feature it was waiting for, making a
+ * sandbox from the panel, needs more than a lookup and is described in docs/TASKS.md.
  */
 
 export interface SandboxLink {
@@ -35,18 +43,4 @@ export async function sandboxLink(tx: TenantTransaction): Promise<SandboxLink> {
 
 export async function isSandbox(tx: TenantTransaction): Promise<boolean> {
   return (await sandboxLink(tx)).isSandbox;
-}
-
-/**
- * Finds a workspace's sandbox, on a connection that can cross workspaces.
- *
- * Used by provisioning and by the operator panel. A subscriber never needs this: they are
- * in one workspace or the other, and the key they used decided which.
- */
-export async function findSandboxOf(operator: Queryable, tenantId: string): Promise<string | null> {
-  const { rows } = await operator.query<{ id: string }>(
-    `SELECT id FROM tenants WHERE sandbox_of = $1`,
-    [tenantId],
-  );
-  return rows[0]?.id ?? null;
 }

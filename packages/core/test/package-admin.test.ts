@@ -4,6 +4,7 @@ import { applyProductSeed } from '../../../packages/db/src/seed/products.js';
 import { applyPackageSeed } from '../../../packages/db/src/seed/packages.js';
 import { applyCostSeed } from '../../../packages/db/src/seed/costs.js';
 import { setPackageProduct, setTenantOverride } from '../src/billing/package-admin.js';
+import { listOperatorAudit } from '../src/operators/audit.js';
 import { createTestDatabase, seedTenant, type TestDatabase } from '../../../test/helpers/db.js';
 
 /**
@@ -13,6 +14,9 @@ import { createTestDatabase, seedTenant, type TestDatabase } from '../../../test
  * toggling a module erased the plan's monthly quota and its negotiated price, and writing a
  * module exception for one subscriber erased that subscriber's special price from a screen
  * that never mentions prices. These pin the patch semantics that replaced it.
+ *
+ * And both land in two trails: the subscriber's own, and the panel's, which is the
+ * one the screen calling itself «كل تغيير أجراه الفريق» reads.
  */
 
 const PLAN = 'GROWTH';
@@ -78,6 +82,26 @@ describe('editing a plan', () => {
     expect(Number(after?.unit_price_halalas)).toBe(40000);
   });
 
+  it('reaches the panel trail as well as the subscriber one', async () => {
+    await setPackageProduct(
+      db.operatorPool,
+      { packageCode: PLAN, productCode: PRODUCT, enabled: true, monthlyQuota: 150 },
+      'op-1',
+    );
+    const trail = await listOperatorAudit(db.operatorPool, {
+      targetPrefixes: [`pricing:plan:${PLAN}`],
+    });
+    expect(trail[0]).toMatchObject({
+      action: 'pricing.plan_product',
+      target: `pricing:plan:${PLAN}`,
+    });
+    expect(trail[0]?.metadata).toEqual({
+      product: PRODUCT,
+      enabled: true,
+      monthly_quota: 150,
+    });
+  });
+
   it('refuses a plan price under what the check costs us', async () => {
     // Guard 10 applies to every price a subscriber can actually be charged, and this was the
     // one write that never checked.
@@ -139,6 +163,16 @@ describe("a subscriber's exception", () => {
     const after = await override();
     expect(after?.enabled).toBeNull();
     expect(Number(after?.unit_price_halalas)).toBe(25000);
+  });
+
+  it('names the subscriber in the panel trail, so an exception is findable there', async () => {
+    const trail = await listOperatorAudit(db.operatorPool, {
+      targetPrefixes: [`pricing:tenant:${tenantId}`],
+    });
+    expect(trail[0]).toMatchObject({ action: 'pricing.tenant_exception' });
+    // A field the caller did not name is not in the entry either: absent and cleared are
+    // different acts and the trail keeps them apart.
+    expect(trail[0]?.metadata).toEqual({ product: PRODUCT, enabled: null });
   });
 
   it('removes the row once nothing on it says anything', async () => {

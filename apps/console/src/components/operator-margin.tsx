@@ -1,6 +1,9 @@
 import type { ReactElement } from 'react';
 import type { MarginTotals, Page } from '@nx-verify/core';
-import { EmptyState, PageHeader, Panel } from './page-header';
+import { PageHeader } from './page-header';
+import { Card } from './ui/card';
+import { Ltr } from './ui/ltr';
+import { Table, Th } from './ui/table';
 import { count, isoMonth, riyals } from './format';
 import { ListPagination } from './ui/pagination';
 import type { SearchParams } from '../lib/pagination';
@@ -17,6 +20,9 @@ import type { SearchParams } from '../lib/pagination';
  * Work the package covered earns nothing this month and costs us everything, so it is
  * shown as its own column rather than folded into revenue. And a margin on no revenue is
  * undefined rather than zero, because printing zero invites somebody to average it.
+ *
+ * Every tile carries its unit. Three of the four are money and the fourth is a number of
+ * operations, and a bare figure in that row reads as riyals to anybody scanning it.
  */
 
 export interface MarginRowView {
@@ -47,7 +53,7 @@ export function OperatorMargin({
   const covered = totals.packageRuns;
 
   return (
-    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+    <div className="admin-screen" data-role="operator-margin">
       <PageHeader
         title="الهامش"
         subtitle="ما حصّلناه وما دفعناه للمزودين، لكل مشترك ولكل خدمة. من عدّادات مجمّعة لا من التشغيلات."
@@ -57,63 +63,65 @@ export function OperatorMargin({
         <article className="stat">
           <span className="stat-label">المحصّل</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {riyals(billed)}
-            </bdi>
+            <Ltr>{riyals(billed)}</Ltr> ر.س
           </strong>
           <span className="stat-hint">بلا ضريبة</span>
         </article>
         <article className="stat">
           <span className="stat-label">تكلفة المزودين</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {riyals(cost)}
-            </bdi>
+            <Ltr>{riyals(cost)}</Ltr> ر.س
           </strong>
         </article>
         <article className="stat">
           <span className="stat-label">الهامش</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {billed === 0 ? 'لا إيراد' : `${Math.round(((billed - cost) / billed) * 100)}%`}
-            </bdi>
+            {billed === 0 ? (
+              'لا إيراد'
+            ) : (
+              <Ltr>{Math.round(((billed - cost) / billed) * 100)}%</Ltr>
+            )}
           </strong>
           <span className="stat-hint">
-            <bdi dir="ltr" className="mono">
-              {riyals(billed - cost)}
-            </bdi>{' '}
-            ر.س
+            <Ltr>{riyals(billed - cost)}</Ltr> ر.س
           </span>
         </article>
         <article className="stat">
           <span className="stat-label">غطّتها الباقات</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {count(covered)}
-            </bdi>
+            <Ltr>{count(covered)}</Ltr> عملية
           </strong>
           <span className="stat-hint">عمليات لا تُحصَّل هذا الشهر</span>
         </article>
       </section>
 
-      <Panel title="التفصيل" aside={`${count(page.total)} سطراً`}>
+      <Card variant="flush" role="margin-detail" labelledBy="margin-detail-title">
+        <div className="admin-card-head">
+          <h2 className="card-title admin-card-title" id="margin-detail-title">
+            التفصيل
+          </h2>
+          <p className="admin-card-note">
+            <Ltr>{count(page.total)}</Ltr> سطراً
+          </p>
+        </div>
+
         {page.total === 0 ? (
-          <div className="panel-body">
-            <EmptyState>لا استهلاك مسجّل في هذه الفترة.</EmptyState>
-          </div>
+          <p className="admin-empty" data-role="empty-state">
+            لا استهلاك مسجّل في هذه الفترة.
+          </p>
         ) : (
-          <div className="table-scroll">
-            <table>
+          <div className="admin-table">
+            <Table label="تفصيل الهامش">
               <thead>
                 <tr>
-                  <th>الشهر</th>
-                  <th>المشترك</th>
-                  <th>الخدمة</th>
-                  <th>العمليات</th>
-                  <th>بالباقة</th>
-                  <th>المحصّل</th>
-                  <th>التكلفة</th>
-                  <th>الهامش</th>
+                  <Th>الشهر</Th>
+                  <Th>المشترك</Th>
+                  <Th>الخدمة</Th>
+                  <Th>العمليات</Th>
+                  <Th>بالباقة</Th>
+                  <Th>المحصّل</Th>
+                  <Th>التكلفة</Th>
+                  <Th>الهامش</Th>
                 </tr>
               </thead>
               <tbody>
@@ -123,31 +131,21 @@ export function OperatorMargin({
                     data-role="margin-row"
                   >
                     <td>
-                      <bdi dir="ltr" className="mono">
-                        {isoMonth(row.periodStart)}
-                      </bdi>
+                      <Ltr>{isoMonth(row.periodStart)}</Ltr>
                     </td>
                     <td>{row.tenantName}</td>
                     <td>{row.productNameAr}</td>
                     <td>
-                      <bdi dir="ltr" className="mono">
-                        {count(row.runs)}
-                      </bdi>
+                      <Ltr>{count(row.runs)}</Ltr>
                     </td>
                     <td>
-                      <bdi dir="ltr" className="mono">
-                        {count(row.packageRuns)}
-                      </bdi>
+                      <Ltr>{count(row.packageRuns)}</Ltr>
                     </td>
                     <td>
-                      <bdi dir="ltr" className="mono">
-                        {riyals(row.billedHalalas)}
-                      </bdi>
+                      <Ltr>{riyals(row.billedHalalas)}</Ltr>
                     </td>
                     <td>
-                      <bdi dir="ltr" className="mono">
-                        {riyals(row.providerCostHalalas)}
-                      </bdi>
+                      <Ltr>{riyals(row.providerCostHalalas)}</Ltr>
                     </td>
                     <td data-role="margin-cell">
                       {row.marginPct === null ? (
@@ -155,26 +153,22 @@ export function OperatorMargin({
                         // somebody to average it.
                         <span className="muted">لا إيراد</span>
                       ) : (
-                        <bdi dir="ltr" className="mono">
-                          {row.marginPct}%
-                        </bdi>
+                        <Ltr>{row.marginPct}%</Ltr>
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
+            <ListPagination
+              page={page}
+              path="/operator/reports"
+              params={params}
+              label="صفحات تقرير الهامش"
+            />
           </div>
         )}
-        <div className="panel-body">
-          <ListPagination
-            page={page}
-            path="/operator/reports"
-            params={params}
-            label="صفحات تقرير الهامش"
-          />
-        </div>
-      </Panel>
+      </Card>
     </div>
   );
 }

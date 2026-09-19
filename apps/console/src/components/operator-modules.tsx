@@ -3,6 +3,8 @@ import type { ModuleView, ProfileSection } from '@nx-verify/core';
 import { SECTION_TITLES } from '@nx-verify/core';
 import { Card } from './ui/card';
 import { Ltr } from './ui/ltr';
+import { Notice } from './ui/notice';
+import { SubmitButton } from './ui/submit-button';
 import { Table, Th } from './ui/table';
 import { Tag } from './ui/tag';
 import { PageHeader } from './page-header';
@@ -25,18 +27,49 @@ import { count } from './format';
  *
  * Switching a module for one subscriber is done on that subscriber's own page, because it is
  * a decision about them and it belongs beside their plan and their prices.
+ *
+ * What is decided here is the other thing: the platform default. A module is rows (rule 8) and
+ * `modules.default_on` is one of them, but it was reachable only from the seed file, so the
+ * answer for every subscriber whose plan is silent came from whatever that file said on the day
+ * the database was built.
+ *
+ * The screen refuses to call it «a setting for new subscribers», because it is not one. Nothing
+ * is copied onto a workspace at onboarding, deliberately, so that a deliberate choice stays
+ * distinguishable from an inherited one a year later. The consequence is that this column keeps
+ * answering: each card says how many subscribers are taking the module from the default right
+ * now, which is exactly how many a change moves the moment it is saved.
  */
 
 export interface ModulesView {
   modules: readonly ModuleView[];
+  /** False for a role that may look and not change. The catalogue reads the same either way. */
+  canEdit?: boolean;
+  notice?: { tone: 'done' | 'refused'; text: string } | null;
 }
 
-export function OperatorModules({ view }: { view: ModulesView }): ReactElement {
+export function OperatorModules({
+  view,
+  setDefault,
+}: {
+  view: ModulesView;
+  /**
+   * Optional so the catalogue can be rendered on its own, as the screen test does. The control
+   * appears only when there is both a role that may change it and an action to run.
+   */
+  setDefault?: ((formData: FormData) => void | Promise<void>) | undefined;
+}): ReactElement {
   const drifted = view.modules.filter((module) => module.switchedOn + module.switchedOff > 0);
   const services = view.modules.reduce((sum, module) => sum + module.products.length, 0);
+  const editable = view.canEdit === true && setDefault !== undefined;
 
   return (
     <div className="admin-screen" data-role="operator-modules">
+      {view.notice === undefined || view.notice === null ? null : (
+        <Notice tone={view.notice.tone} role="modules-notice">
+          {view.notice.text}
+        </Notice>
+      )}
+
       <PageHeader
         title="وحدات التحقق"
         subtitle="ما تبيعه المنصة كوحدات: ما تضيفه كل وحدة لملف العميل، وما تحتويه من خدمات، وكم مشتركاً خرج عن باقته فيها."
@@ -105,6 +138,41 @@ export function OperatorModules({ view }: { view: ModulesView }): ReactElement {
               ? ' · لا يرسم قسماً في ملف العميل.'
               : ` · يرسم قسم «${SECTION_TITLES[module.section as ProfileSection] ?? module.section}» في ملف العميل.`}
           </p>
+
+          {module.core ? null : (
+            <div className="admin-offer" data-role="module-default">
+              <div className="admin-offer-line">
+                <strong>
+                  {module.defaultOn
+                    ? 'تُمنح افتراضياً لمن لا قرار خاص له ولا باقة تشمل خدماتها'
+                    : 'لا تُمنح إلا بقرار، فمن لا باقة له تشملها لا يراها'}
+                </strong>
+                {editable ? (
+                  <form action={setDefault}>
+                    <input type="hidden" name="module" value={module.code} />
+                    <input
+                      type="hidden"
+                      name="default_on"
+                      value={module.defaultOn ? 'false' : 'true'}
+                    />
+                    <SubmitButton variant="secondary" pendingLabel="جارٍ الحفظ">
+                      {module.defaultOn ? 'اجعلها بقرار' : 'اجعلها افتراضية'}
+                    </SubmitButton>
+                  </form>
+                ) : null}
+              </div>
+              {/*
+                The sentence that stops this reading as a setting for future subscribers. It is
+                not one: nothing is copied onto a workspace at onboarding, so the default keeps
+                answering and a change to it lands on everybody inheriting, at once.
+              */}
+              <span className="faint">
+                يأخذها اليوم من الافتراضي <Ltr>{count(module.inheritingDefault)}</Ltr> من
+                المشتركين، وتغيير الافتراضي يغيّر إجابتهم في الحال: لا يُنسخ شيء على مساحة العمل
+                عند إنشائها، فالافتراضي يظل هو الذي يجيب.
+              </span>
+            </div>
+          )}
 
           <div className="admin-table">
             <Table label={`خدمات ${module.nameAr}`}>

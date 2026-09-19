@@ -1,6 +1,14 @@
 import type { ReactElement } from 'react';
-import { SubmitButton } from './ui/submit-button';
+import { Card } from './ui/card';
+import { Input } from './ui/input';
+import { Ltr } from './ui/ltr';
 import { Notice } from './ui/notice';
+import { Select } from './ui/select';
+import { SubmitButton } from './ui/submit-button';
+import { Table, Th } from './ui/table';
+import { Tag } from './ui/tag';
+import { PageHeader } from './page-header';
+import { count } from './format';
 
 /** What the last save did, or why it was refused. */
 export function planNoticeAr(params: {
@@ -24,7 +32,6 @@ export function planNoticeAr(params: {
   }
   return params.saved === undefined ? null : { tone: 'done', text: 'حُفظت التغييرات.' };
 }
-import { PageHeader, Panel } from './page-header';
 
 /**
  * The plans, and the exceptions written under them.
@@ -100,7 +107,7 @@ export function OperatorPackages({
   const exceptions = subscribers.reduce((total, row) => total + row.overrides.length, 0);
 
   return (
-    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+    <div className="admin-screen" data-role="operator-packages">
       {notice === null ? null : (
         <Notice tone={notice.tone} role="plans-notice">
           {notice.text}
@@ -115,257 +122,319 @@ export function OperatorPackages({
         <article className="stat">
           <span className="stat-label">الباقات</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {packages.length}
-            </bdi>
+            <Ltr>{count(packages.length)}</Ltr>
           </strong>
         </article>
         <article className="stat">
           <span className="stat-label">المشتركون</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {subscribers.filter((row) => !row.isSandbox).length}
-            </bdi>
+            <Ltr>{count(subscribers.filter((row) => !row.isSandbox).length)}</Ltr>
           </strong>
         </article>
         <article className="stat" {...(exceptions > 10 ? { 'data-tone': 'changed' } : {})}>
           <span className="stat-label">استثناءات مكتوبة</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {exceptions}
-            </bdi>
+            <Ltr>{count(exceptions)}</Ltr>
           </strong>
           <span className="stat-hint">كثرتها تعني أن الباقات لم تعد تصف السوق</span>
         </article>
       </section>
 
-      {packages.map((plan) => (
-        <Panel
-          key={plan.code}
-          id={plan.code}
-          title={`${plan.nameAr} (${plan.code})`}
-          aside={`${billingLabel(plan.billingModel)} · ${plan.termMonths} شهراً`}
-          role="package"
-        >
-          <div className="table-scroll">
-            <table>
+      {packages.length === 0 ? (
+        <Card variant="flush" role="no-packages" label="الباقات">
+          <p className="admin-empty" data-role="empty-state">
+            لا باقة معرّفة بعد. تُضاف الباقات من شاشة «الأسعار والمنتجات».
+          </p>
+        </Card>
+      ) : (
+        packages.map((plan) => (
+          <Card
+            key={plan.code}
+            id={plan.code}
+            variant="flush"
+            role="package"
+            item={plan.code}
+            labelledBy={`plan-${plan.code}`}
+          >
+            <div className="admin-card-head">
+              <h2 className="card-title admin-card-title" id={`plan-${plan.code}`}>
+                {plan.nameAr}
+              </h2>
+              <div className="admin-head-actions">
+                <Tag tone="neutral">
+                  <Ltr>{plan.code}</Ltr>
+                </Tag>
+                <Tag tone="neutral">
+                  {billingLabel(plan.billingModel)} · <Ltr>{plan.termMonths}</Ltr> شهراً
+                </Tag>
+              </div>
+            </div>
+
+            <div className="admin-table">
+              <Table label={`وحدات ${plan.nameAr}`}>
+                <thead>
+                  <tr>
+                    <Th>الوحدة</Th>
+                    <Th>مشمولة</Th>
+                    <Th>الحصة الشهرية</Th>
+                    <Th>سعر الوحدة</Th>
+                    <Th>
+                      <span className="visually-hidden">إجراء</span>
+                    </Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allProducts.map((product) => {
+                    const included = plan.products.find(
+                      (entry) => entry.productCode === product.code,
+                    );
+                    const enabled = included?.enabled === true;
+
+                    return (
+                      <tr
+                        key={product.code}
+                        data-role="package-product"
+                        data-enabled={String(enabled)}
+                      >
+                        <td>{product.nameAr}</td>
+                        <td>
+                          {enabled ? (
+                            <Tag tone="accent-2">نعم</Tag>
+                          ) : (
+                            <Tag tone="neutral">لا</Tag>
+                          )}
+                        </td>
+                        {/*
+                          One form for the quota and the price, because they are one row of the
+                          plan. The quota used to be read only in this column while the price
+                          beside it was editable, and saving the price wiped the quota anyway.
+                        */}
+                        <td>
+                          <Input
+                            form={`plan-${plan.code}-${product.code}`}
+                            name="monthly_quota"
+                            defaultValue={included?.monthlyQuota ?? ''}
+                            placeholder="بلا حد"
+                            aria-label={`الحصة الشهرية من ${product.nameAr}`}
+                            data-role="monthly-quota"
+                            ltr
+                          />
+                        </td>
+                        <td>
+                          <form
+                            id={`plan-${plan.code}-${product.code}`}
+                            action={setProductAction}
+                            className="row"
+                          >
+                            <input type="hidden" name="package_code" value={plan.code} />
+                            <input type="hidden" name="product_code" value={product.code} />
+                            <input type="hidden" name="enabled" value={String(enabled)} />
+                            <Input
+                              name="unit_price"
+                              defaultValue={
+                                included?.unitPriceHalalas === null ||
+                                included?.unitPriceHalalas === undefined
+                                  ? ''
+                                  : (included.unitPriceHalalas / 100).toFixed(2)
+                              }
+                              placeholder="من قائمة الأسعار"
+                              inputMode="decimal"
+                              aria-label="سعر الوحدة بالريال"
+                              data-role="unit-price"
+                              ltr
+                            />
+                            <SubmitButton
+                              variant="secondary"
+                              data-role="save-price"
+                              pendingLabel="جارٍ الحفظ"
+                            >
+                              حفظ
+                            </SubmitButton>
+                          </form>
+                        </td>
+                        <td>
+                          <form action={setProductAction} className="inline">
+                            <input type="hidden" name="package_code" value={plan.code} />
+                            <input type="hidden" name="product_code" value={product.code} />
+                            <input
+                              type="hidden"
+                              name="enabled"
+                              value={enabled ? 'false' : 'true'}
+                            />
+                            <SubmitButton variant="ghost" data-role="toggle-product">
+                              {enabled ? 'تعطيل' : 'تفعيل'}
+                            </SubmitButton>
+                          </form>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </div>
+          </Card>
+        ))
+      )}
+
+      <Card variant="flush" role="subscribers" labelledBy="subscribers-title">
+        <div className="admin-card-head">
+          <h2 className="card-title admin-card-title" id="subscribers-title">
+            المشتركون
+          </h2>
+          <p className="admin-card-note">الباقة والاستثناءات</p>
+        </div>
+
+        {subscribers.length === 0 ? (
+          <p className="admin-empty" data-role="empty-state">
+            لا مشترك بعد. لا أحد يُنقل بين الباقات ولا يُكتب له استثناء.
+          </p>
+        ) : (
+          <div className="admin-table">
+            <Table label="المشتركون وباقاتهم">
               <thead>
                 <tr>
-                  <th>الوحدة</th>
-                  <th>مشمولة</th>
-                  <th>الحصة الشهرية</th>
-                  <th>سعر الوحدة</th>
-                  <th />
+                  <Th>المشترك</Th>
+                  <Th>الباقة</Th>
+                  <Th>السعة</Th>
+                  <Th>الاستثناءات</Th>
+                  <Th>نقل إلى باقة</Th>
                 </tr>
               </thead>
               <tbody>
-                {allProducts.map((product) => {
-                  const included = plan.products.find(
-                    (entry) => entry.productCode === product.code,
-                  );
-                  const enabled = included?.enabled === true;
+                {subscribers.map((row) => (
+                  <tr
+                    key={row.tenantId}
+                    data-role="subscriber"
+                    data-sandbox={String(row.isSandbox)}
+                  >
+                    <td>
+                      {row.legalName}{' '}
+                      {row.isSandbox ? (
+                        <Tag tone="neutral" role="sandbox-tag">
+                          بيئة اختبار
+                        </Tag>
+                      ) : null}
+                      <div className="faint">
+                        <Ltr>{row.slug}</Ltr>
+                      </div>
+                    </td>
+                    <td>
+                      {/* Arabic words are not an identifier, so they stay out of the LTR run. */}
+                      {row.packageCode === null ? (
+                        <span className="muted">بلا باقة</span>
+                      ) : (
+                        <Ltr>{row.packageCode}</Ltr>
+                      )}
+                    </td>
+                    <td>
+                      {row.includedTransactions === null ? (
+                        <span className="muted">بلا حد</span>
+                      ) : (
+                        <Ltr>
+                          {count(row.transactionsUsed)}/{count(row.includedTransactions)}
+                        </Ltr>
+                      )}
+                    </td>
+                    <td>
+                      {row.overrides.length === 0 ? (
+                        <span className="muted">لا استثناءات</span>
+                      ) : (
+                        <ul className="admin-offer-list">
+                          {row.overrides.map((override) => (
+                            <li
+                              key={override.productCode}
+                              className="admin-offer"
+                              data-role="override"
+                            >
+                              <span className="admin-offer-line">
+                                <span>
+                                  {override.productNameAr}
+                                  {': '}
+                                  {override.enabled === true
+                                    ? 'مفعّلة استثناءً'
+                                    : 'معطّلة استثناءً'}
+                                </span>
+                                <form action={setOverrideAction} className="inline">
+                                  <input type="hidden" name="tenant_id" value={row.tenantId} />
+                                  <input
+                                    type="hidden"
+                                    name="product_code"
+                                    value={override.productCode}
+                                  />
+                                  <input type="hidden" name="enabled" value="" />
+                                  <SubmitButton variant="ghost" data-role="clear-override">
+                                    رفع الاستثناء
+                                  </SubmitButton>
+                                </form>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
 
-                  return (
-                    <tr
-                      key={product.code}
-                      data-role="package-product"
-                      data-enabled={String(enabled)}
-                    >
-                      <td>{product.nameAr}</td>
-                      <td>
-                        {enabled ? (
-                          <span
-                            className="badge"
-                            style={{ borderColor: 'var(--fresh-line)', color: 'var(--fresh-fg)' }}
-                          >
-                            نعم
-                          </span>
-                        ) : (
-                          <span className="badge">لا</span>
-                        )}
-                      </td>
-                      {/*
-                        One form for the quota and the price, because they are one row of the
-                        plan. The quota used to be read only in this column while the price
-                        beside it was editable, and saving the price wiped the quota anyway.
-                      */}
-                      <td>
-                        <input
-                          form={`plan-${plan.code}-${product.code}`}
-                          name="monthly_quota"
-                          defaultValue={included?.monthlyQuota ?? ''}
-                          placeholder="بلا حد"
-                          dir="ltr"
-                          className="mono"
-                          style={{ width: '6rem' }}
-                          aria-label={`الحصة الشهرية من ${product.nameAr}`}
-                          data-role="monthly-quota"
-                        />
-                      </td>
-                      <td>
-                        <form
-                          id={`plan-${plan.code}-${product.code}`}
-                          action={setProductAction}
-                          className="row"
+                      <form action={setOverrideAction} className="row admin-inline-form">
+                        <input type="hidden" name="tenant_id" value={row.tenantId} />
+                        <Select name="product_code" aria-label="وحدة">
+                          {allProducts.map((product) => (
+                            <option key={product.code} value={product.code}>
+                              {product.nameAr}
+                            </option>
+                          ))}
+                        </Select>
+                        <Select name="enabled" aria-label="الحالة">
+                          <option value="true">تفعيل استثناءً</option>
+                          <option value="false">تعطيل استثناءً</option>
+                        </Select>
+                        <SubmitButton
+                          variant="secondary"
+                          data-role="add-override"
+                          pendingLabel="جارٍ الكتابة"
                         >
-                          <input type="hidden" name="package_code" value={plan.code} />
-                          <input type="hidden" name="product_code" value={product.code} />
-                          <input type="hidden" name="enabled" value={String(enabled)} />
-                          <input
-                            name="unit_price"
-                            defaultValue={
-                              included?.unitPriceHalalas === null ||
-                              included?.unitPriceHalalas === undefined
-                                ? ''
-                                : (included.unitPriceHalalas / 100).toFixed(2)
-                            }
-                            placeholder="من قائمة الأسعار"
-                            dir="ltr"
-                            className="mono"
-                            style={{ width: '7rem' }}
-                            aria-label="سعر الوحدة بالريال"
-                            data-role="unit-price"
-                          />
-                          <SubmitButton variant="secondary" data-role="save-price" pendingLabel="جارٍ الحفظ">
-                            حفظ
-                          </SubmitButton>
-                        </form>
-                      </td>
-                      <td>
-                        <form action={setProductAction} className="inline">
-                          <input type="hidden" name="package_code" value={plan.code} />
-                          <input type="hidden" name="product_code" value={product.code} />
-                          <input type="hidden" name="enabled" value={enabled ? 'false' : 'true'} />
-                          <button type="submit" className="link" data-role="toggle-product">
-                            {enabled ? 'تعطيل' : 'تفعيل'}
-                          </button>
-                        </form>
-                      </td>
-                    </tr>
-                  );
-                })}
+                          اكتب استثناءً
+                        </SubmitButton>
+                      </form>
+                    </td>
+                    <td>
+                      {/*
+                        Moving a subscriber changes what they may run and what they are charged
+                        for it, in one press and with nothing to undo it. Two steps, and the
+                        consequence above the button that causes it, the same pattern the API
+                        key revoke uses (ADR-167).
+                      */}
+                      <details className="revoke" data-role="assign-package">
+                        <summary>انقله إلى باقة أخرى</summary>
+                        <div className="stack" style={{ gap: 'var(--space-2)' }}>
+                          <span className="faint">
+                            تُستبدل باقته الحالية: المدة والرسوم والسعة والوحدات المشمولة تصير
+                            كلها من الباقة الجديدة. الاستثناءات المكتوبة له تبقى كما هي.
+                          </span>
+                          <form action={assignAction} className="row">
+                            <input type="hidden" name="tenant_id" value={row.tenantId} />
+                            <Select name="package_code" aria-label="باقة">
+                              {packages.map((plan) => (
+                                <option key={plan.code} value={plan.code}>
+                                  {plan.nameAr}
+                                </option>
+                              ))}
+                            </Select>
+                            <SubmitButton
+                              variant="secondary"
+                              data-role="assign-confirm"
+                              pendingLabel="جارٍ النقل"
+                            >
+                              انقله
+                            </SubmitButton>
+                          </form>
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
-            </table>
+            </Table>
           </div>
-        </Panel>
-      ))}
-
-      <Panel title="المشتركون" aside="الباقة والاستثناءات" role="subscribers">
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>المشترك</th>
-                <th>الباقة</th>
-                <th>السعة</th>
-                <th>الاستثناءات</th>
-                <th>نقل إلى باقة</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subscribers.map((row) => (
-                <tr key={row.tenantId} data-role="subscriber" data-sandbox={String(row.isSandbox)}>
-                  <td>
-                    {row.legalName}
-                    {row.isSandbox ? (
-                      <span className="muted" data-role="sandbox-tag">
-                        {' '}
-                        · بيئة اختبار
-                      </span>
-                    ) : null}
-                    <div className="faint">
-                      <bdi dir="ltr" className="mono">
-                        {row.slug}
-                      </bdi>
-                    </div>
-                  </td>
-                  <td>
-                    <bdi dir="ltr" className="mono">
-                      {row.packageCode ?? 'بلا باقة'}
-                    </bdi>
-                  </td>
-                  <td>
-                    <bdi dir="ltr" className="mono">
-                      {row.includedTransactions === null
-                        ? 'بلا حد'
-                        : `${row.transactionsUsed}/${row.includedTransactions}`}
-                    </bdi>
-                  </td>
-                  <td>
-                    {row.overrides.length === 0 ? (
-                      <span className="muted">لا استثناءات</span>
-                    ) : (
-                      <ul style={{ margin: 0, paddingInlineStart: '1rem' }}>
-                        {row.overrides.map((override) => (
-                          <li key={override.productCode} data-role="override">
-                            {override.productNameAr}
-                            {': '}
-                            {override.enabled === true ? 'مفعّلة استثناءً' : 'معطّلة استثناءً'}
-                            <form action={setOverrideAction} className="inline">
-                              <input type="hidden" name="tenant_id" value={row.tenantId} />
-                              <input
-                                type="hidden"
-                                name="product_code"
-                                value={override.productCode}
-                              />
-                              <input type="hidden" name="enabled" value="" />
-                              <button type="submit" className="link" data-role="clear-override">
-                                {' '}
-                                رفع الاستثناء
-                              </button>
-                            </form>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    <form
-                      action={setOverrideAction}
-                      className="row"
-                      style={{ marginBlockStart: 'var(--s-2)' }}
-                    >
-                      <input type="hidden" name="tenant_id" value={row.tenantId} />
-                      <select name="product_code" aria-label="وحدة" style={{ width: 'auto' }}>
-                        {allProducts.map((product) => (
-                          <option key={product.code} value={product.code}>
-                            {product.nameAr}
-                          </option>
-                        ))}
-                      </select>
-                      <select name="enabled" aria-label="الحالة" style={{ width: 'auto' }}>
-                        <option value="true">تفعيل استثناءً</option>
-                        <option value="false">تعطيل استثناءً</option>
-                      </select>
-                      <button type="submit" className="btn btn-secondary" data-role="add-override">
-                        اكتب استثناءً
-                      </button>
-                    </form>
-                  </td>
-                  <td>
-                    <form action={assignAction} className="row">
-                      <input type="hidden" name="tenant_id" value={row.tenantId} />
-                      <select name="package_code" aria-label="باقة" style={{ width: 'auto' }}>
-                        {packages.map((plan) => (
-                          <option key={plan.code} value={plan.code}>
-                            {plan.nameAr}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="submit"
-                        className="btn btn-secondary"
-                        data-role="assign-package"
-                      >
-                        نقل
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
+        )}
+      </Card>
     </div>
   );
 }

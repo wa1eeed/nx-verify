@@ -17,8 +17,13 @@ import { count, dayMonthAr, shortMask } from './format';
  *
  * Every company, establishment and freelancer this subscriber verified, in one table: what
  * kind, its number masked, how complete the file is, where it stands, its risk, when it was
- * last verified, and the way into it. Filtered by kind or by open alerts, searched by name,
- * number or IBAN. Each figure is the file's own (ADR-116).
+ * last verified, and the way into it. Filtered by kind, by open alerts or by the high risk
+ * band, searched by name, number or IBAN. Each figure is the file's own (ADR-116).
+ *
+ * The «مخاطر عالية» facet is the one question this screen is opened to ask and could not
+ * answer: the score each row shows is computed live, so a person had to read every page to
+ * find the customers worth reading. It filters on the standing the sweep keeps, so it can lag
+ * behind a score computed a second ago, exactly as «مكتمل» and «تنبيهات مفتوحة» already do.
  */
 
 export type CustomersFilter = 'all' | 'COMPANY' | 'ESTABLISHMENT' | 'FREELANCER';
@@ -36,9 +41,12 @@ export interface CustomersView {
     complete: number;
     incomplete: number;
     alerts: number;
+    highRisk: number;
   };
   filter: CustomersFilter;
   alertsOnly: boolean;
+  /** Only the customers in this subscriber's high band, from the standing the sweep keeps. */
+  highRiskOnly: boolean;
   /** A name searched for, kept in the field. */
   search: string;
   /** A number was searched for: it is not repeated, only said. */
@@ -66,16 +74,26 @@ function standingTone(summary: CustomerSummary): TagTone {
       : 'neutral';
 }
 
-function href(filter: CustomersFilter, alertsOnly: boolean, search: string): string {
+interface Facets {
+  filter: CustomersFilter;
+  alertsOnly: boolean;
+  highRiskOnly: boolean;
+  search: string;
+}
+
+function href(facets: Facets): string {
   const params = new URLSearchParams();
-  if (filter !== 'all') {
-    params.set('kind', filter);
+  if (facets.filter !== 'all') {
+    params.set('kind', facets.filter);
   }
-  if (alertsOnly) {
+  if (facets.alertsOnly) {
     params.set('alerts', '1');
   }
-  if (search !== '') {
-    params.set('q', search);
+  if (facets.highRiskOnly) {
+    params.set('risk', 'high');
+  }
+  if (facets.search !== '') {
+    params.set('q', facets.search);
   }
   const query = params.toString();
   return query === '' ? '/customers' : `/customers?${query}`;
@@ -83,6 +101,9 @@ function href(filter: CustomersFilter, alertsOnly: boolean, search: string): str
 
 export function Customers({ view }: { view: CustomersView }): ReactElement {
   const { counts } = view;
+  // The three facets are one choice, as they have always been on this screen: picking a kind
+  // clears the other two rather than intersecting with them.
+  const plain = { alertsOnly: false, highRiskOnly: false, search: view.search };
   const filters: { filter: CustomersFilter; label: string; total: number }[] = [
     { filter: 'all', label: 'الكل', total: counts.all },
     { filter: 'COMPANY', label: 'شركات', total: counts.companies },
@@ -116,6 +137,7 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
         <form action={view.searchAction} className="customers-search" role="search">
           <input type="hidden" name="kind" value={view.filter} />
           {view.alertsOnly ? <input type="hidden" name="alerts" value="1" /> : null}
+          {view.highRiskOnly ? <input type="hidden" name="risk" value="high" /> : null}
           <input
             className="input"
             name="q"
@@ -128,31 +150,52 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
           />
         </form>
         <nav className="customers-tags" aria-label="تصنيف العملاء">
-          {filters.map((entry) => (
-            <TagLink
-              key={entry.filter}
-              href={href(entry.filter, false, view.search)}
-              tone={entry.filter === view.filter && !view.alertsOnly ? 'accent' : 'neutral'}
-              current={entry.filter === view.filter && !view.alertsOnly}
-              role={`filter-${entry.filter}`}
-            >
-              {entry.label} · <Ltr>{count(entry.total)}</Ltr>
-            </TagLink>
-          ))}
+          {filters.map((entry) => {
+            const current = entry.filter === view.filter && !view.alertsOnly && !view.highRiskOnly;
+            return (
+              <TagLink
+                key={entry.filter}
+                href={href({ ...plain, filter: entry.filter })}
+                tone={current ? 'accent' : 'neutral'}
+                current={current}
+                role={`filter-${entry.filter}`}
+              >
+                {entry.label} · <Ltr>{count(entry.total)}</Ltr>
+              </TagLink>
+            );
+          })}
           <TagLink
-            href={href('all', !view.alertsOnly, view.search)}
+            href={href({ ...plain, filter: 'all', alertsOnly: !view.alertsOnly })}
             tone={view.alertsOnly ? 'accent' : 'outline'}
             current={view.alertsOnly}
             role="filter-alerts"
           >
             تنبيهات مفتوحة · <Ltr>{count(counts.alerts)}</Ltr>
           </TagLink>
+          <TagLink
+            href={href({ ...plain, filter: 'all', highRiskOnly: !view.highRiskOnly })}
+            tone={view.highRiskOnly ? 'accent' : 'outline'}
+            current={view.highRiskOnly}
+            role="filter-risk"
+          >
+            مخاطر عالية · <Ltr>{count(counts.highRisk)}</Ltr>
+          </TagLink>
         </nav>
       </div>
 
       {view.searchedByNumber ? (
         <p className="customers-searched" data-role="searched-by-number">
-          نتائج البحث بالرقم · <Link href={href(view.filter, view.alertsOnly, '')}>عرض الكل</Link>
+          نتائج البحث بالرقم ·{' '}
+          <Link
+            href={href({
+              filter: view.filter,
+              alertsOnly: view.alertsOnly,
+              highRiskOnly: view.highRiskOnly,
+              search: '',
+            })}
+          >
+            عرض الكل
+          </Link>
         </p>
       ) : null}
 
@@ -164,9 +207,11 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
                 ? 'لا عميل يطابق هذا البحث.'
                 : view.alertsOnly
                   ? 'لا تنبيهات مفتوحة على أي عميل.'
-                  : counts.all === 0
-                    ? 'لا عملاء بعد. أضف أول عميل وتحقق منه من زر «عميل جديد».'
-                    : 'لا عملاء من هذا النوع بعد.'}
+                  : view.highRiskOnly
+                    ? 'لا عميل ضمن نطاق المخاطر العالية.'
+                    : counts.all === 0
+                      ? 'لا عملاء بعد. أضف أول عميل وتحقق منه من زر «عميل جديد».'
+                      : 'لا عملاء من هذا النوع بعد.'}
             </p>
           ) : (
             <Table label="العملاء">

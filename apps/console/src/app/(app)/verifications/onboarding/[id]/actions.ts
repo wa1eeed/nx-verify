@@ -9,6 +9,7 @@ import {
   audit,
   getCase,
   inferIdentifiers,
+  sealCaseBundle,
   waiveStep,
   type WaiveReason,
 } from '@nx-verify/core';
@@ -119,6 +120,50 @@ export async function waiveStepAction(formData: FormData): Promise<void> {
 
   revalidatePath(HERE(caseId));
   back(caseId, 'waived');
+}
+
+/**
+ * Seals the file's checks as one document.
+ *
+ * Gated on issuing documents rather than on running checks: sealing costs nothing and runs
+ * nothing, and what it produces is a page that leaves the workspace.
+ *
+ * Nothing about the applicant is passed in or written out here. The bundle is built from the
+ * file's own rows, so no identifier passes through this action, its arguments or its redirect
+ * (rule 4).
+ */
+export async function sealCaseBundleAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'share.create');
+  const caseId = String(formData.get('case_id') ?? '');
+  if (caseId === '') {
+    back(caseId, 'seal-failed');
+  }
+
+  try {
+    await query(async (tx) => {
+      const keys = getKeys();
+      // The version in force now, recorded with the seal so a rotation later does not make
+      // this document unverifiable.
+      const keyVersion = await keys.currentVersion();
+      await sealCaseBundle(tx, {
+        caseId,
+        signingKey: await keys.signingKey(tx.tenantId, keyVersion),
+        keyVersion,
+      });
+    });
+  } catch (error) {
+    if (isRedirect(error)) {
+      throw error;
+    }
+    back(
+      caseId,
+      error instanceof NxError && error.code === 'NX-4002' ? 'nothing-to-seal' : 'seal-failed',
+    );
+  }
+
+  revalidatePath(HERE(caseId));
+  back(caseId, 'sealed');
 }
 
 /** Whether the file still has a check nobody has run. */

@@ -64,14 +64,22 @@ const ACTIONS: Readonly<Record<string, string>> = {
   'staff.second_factor_reset': 'إعادة تعيين المصادقة الثنائية',
   'staff.recovery_code_used': 'دخول برمز استرداد',
   'pricing.list_price': 'تعديل سعر منتج',
+  'pricing.price_cleared': 'إلغاء سعر منتج',
   'pricing.product_suspended': 'إيقاف بيع منتج',
   'pricing.product_resumed': 'إعادة بيع منتج',
+  // Kept for rows written before adding and replacing were told apart.
   'pricing.bundle_saved': 'حفظ حزمة رصيد',
+  'pricing.bundle_added': 'إضافة حزمة رصيد',
+  'pricing.bundle_replaced': 'استبدال حزمة رصيد',
   'pricing.bundle_retired': 'إيقاف بيع حزمة',
   'pricing.plan_added': 'إضافة باقة',
+  'pricing.plan_terms': 'تعديل شروط باقة',
+  'pricing.plan_product': 'تعديل منتج داخل باقة',
+  'pricing.tenant_exception': 'استثناء لمشترك',
   'pricing.special_price': 'سعر خاص لمشترك',
   'pricing.discount': 'خصم لمشترك',
   'pricing.provider_cost': 'تعديل تكلفة نداء',
+  'pricing.module_default': 'تعديل افتراضي وحدة تحقق',
   'vat.period_set': 'ضبط فترة ضريبة القيمة المضافة',
   'settings.updated': 'تعديل إعدادات التحقق',
   'settings.section': 'تعديل الأقسام المطلوبة',
@@ -159,6 +167,11 @@ export function auditTargetAr(target: string, names: AuditNames): string {
   if (scope === 'pricing' && kind === 'plan') {
     return names.plans.get(id) ?? id;
   }
+  // A module by its code: the panel holds no map of module names, and the code is what every
+  // other screen prints beside one.
+  if (scope === 'pricing' && kind === 'module') {
+    return id;
+  }
   if (scope === 'pricing' && kind === 'tenant') {
     return names.tenants.get(id) ?? 'مشترك';
   }
@@ -181,6 +194,42 @@ function money(value: unknown): string | null {
   return typeof value === 'number' ? riyals(value) : null;
 }
 
+/** Only what moved, because the plan terms are written as a change and not as a state. */
+function planTermsAr(meta: Readonly<Record<string, unknown>>): string {
+  const parts: string[] = [];
+  if (typeof meta['fee'] === 'number') {
+    parts.push(`الرسم ${riyals(meta['fee'])} ر.س`);
+  }
+  if ('operations' in meta) {
+    parts.push(
+      meta['operations'] === null ? 'حد مخصص' : `${String(meta['operations'])} عملية مشمولة`,
+    );
+  }
+  if ('overage' in meta) {
+    parts.push(
+      typeof meta['overage'] === 'number'
+        ? `تجاوز ${riyals(meta['overage'])} ر.س`
+        : 'بلا سعر تجاوز',
+    );
+  }
+  if (typeof meta['term_months'] === 'number') {
+    parts.push(`التزام ${monthsAr(meta['term_months'])}`);
+  }
+  if (typeof meta['free_reverify_days'] === 'number') {
+    parts.push(`إعادة التحقق المجانية ${meta['free_reverify_days']} يوماً`);
+  }
+  if (typeof meta['setup_fee'] === 'number') {
+    parts.push(`رسم التأسيس ${riyals(meta['setup_fee'])} ر.س`);
+  }
+  if (typeof meta['commitment_credits'] === 'number') {
+    parts.push(`رصيد التوقيع ${riyals(meta['commitment_credits'])} ر.س`);
+  }
+  if (typeof meta['overage_allowed'] === 'boolean') {
+    parts.push(meta['overage_allowed'] ? 'يستمر العمل بعد الحد' : 'يتوقف العمل عند الحد');
+  }
+  return parts.length === 0 ? 'بلا تغيير' : parts.join('، ');
+}
+
 /** What changed, in a line: figures from and to, never a value that is material. */
 export function auditChangeAr(row: Pick<OperatorAuditRow, 'action' | 'metadata'>): string {
   const meta = row.metadata;
@@ -189,20 +238,67 @@ export function auditChangeAr(row: Pick<OperatorAuditRow, 'action' | 'metadata'>
       const from = money(meta['from']);
       const to = money(meta['to']);
       const margin = typeof meta['margin_pct'] === 'number' ? ` · هامش ${meta['margin_pct']}%` : '';
-      return from === null ? `${to ?? '·'}${margin}` : `من ${from} إلى ${to ?? '·'}${margin}`;
+      const price = from === null ? `${to ?? '·'}${margin}` : `من ${from} إلى ${to ?? '·'}${margin}`;
+      // Written only when they moved, and they decide what a not found or a cached answer is
+      // charged, so a change to one of them is a change to the bill.
+      const rates = [
+        ['غير موجود', meta['negative_pct']],
+        ['نتيجة مخزّنة', meta['cache_pct']],
+      ]
+        .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+        .map(([label, fraction]) => `${label} ${Math.round(fraction * 100)}%`);
+      return rates.length === 0 ? price : `${price} · ${rates.join(' · ')}`;
     }
     case 'pricing.bundle_saved':
-      return `${money(meta['price']) ?? '·'} ر.س · ${
-        typeof meta['months'] === 'number' ? monthsAr(meta['months']) : '·'
-      }`;
+    case 'pricing.bundle_added':
+    case 'pricing.bundle_replaced': {
+      const parts = [
+        `${money(meta['price']) ?? '·'} ر.س`,
+        typeof meta['months'] === 'number' ? monthsAr(meta['months']) : '·',
+      ];
+      if (typeof meta['from'] === 'number') {
+        parts.unshift(`من ${money(meta['from']) ?? '·'} ر.س`);
+      }
+      if (meta['resumed'] === true) {
+        parts.push('وأُعيدت للبيع');
+      }
+      return parts.join(' · ');
+    }
     case 'pricing.plan_added':
       return `${money(meta['fee']) ?? '·'} ر.س شهرياً · ${String(meta['operations'] ?? '·')} عملية`;
+    case 'pricing.plan_terms':
+      return planTermsAr(meta);
+    case 'pricing.plan_product':
+    case 'pricing.tenant_exception': {
+      const parts = [String(meta['product'] ?? '·')];
+      if (typeof meta['enabled'] === 'boolean') {
+        parts.push(meta['enabled'] ? 'مفعّل' : 'موقوف');
+      }
+      if ('monthly_quota' in meta) {
+        parts.push(
+          meta['monthly_quota'] === null
+            ? 'بلا حد شهري'
+            : `حد شهري ${String(meta['monthly_quota'])}`,
+        );
+      }
+      if ('price' in meta) {
+        parts.push(meta['price'] === null ? 'بلا سعر خاص' : `${money(meta['price']) ?? '·'} ر.س`);
+      }
+      return parts.join(' · ');
+    }
     case 'pricing.special_price':
       return meta['price'] === null
         ? 'إلغاء السعر الخاص'
         : `${String(meta['product'] ?? '')} ${money(meta['price']) ?? ''}`.trim();
     case 'pricing.discount':
       return meta['discount_pct'] === null ? 'إلغاء الخصم' : `خصم ${String(meta['discount_pct'])}%`;
+    case 'pricing.module_default': {
+      // The count is written with the change because it is not recoverable afterwards: the
+      // cascade keeps no memory of who was moved, so the row is the only place it survives.
+      const moved =
+        typeof meta['affected'] === 'number' ? ` · مسّت ${meta['affected']} من المشتركين` : '';
+      return `${meta['default_on'] === true ? 'تُمنح افتراضياً' : 'لا تُمنح إلا بقرار'}${moved}`;
+    }
     case 'settings.updated':
       return Object.entries(meta)
         .map(([key, value]) => {

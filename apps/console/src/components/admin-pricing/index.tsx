@@ -18,14 +18,15 @@ import { Table, Th } from '../ui/table';
 import { Tag } from '../ui/tag';
 import { TagToggle } from '../ui/tag-toggle';
 import { count, riyals } from '../format';
-import { AddBundleDialog, AddPlanDialog, SpecialPriceDialog } from './dialogs';
+import { AddPlanDialog, BundleDialog, PlanTermsDialog, SpecialPriceDialog } from './dialogs';
 import {
-  bundlesLineAr,
+  bundleTermsAr,
   discountAr,
   lastChangeAr,
   operationsAr,
   planLinesAr,
   priceField,
+  ratePctField,
   sar,
   specialLineAr,
 } from './model';
@@ -58,6 +59,14 @@ export interface AdminPricingView {
   vatPeriods: readonly VatPeriodView[];
   today: string;
   bundles: readonly CreditBundle[];
+  /**
+   * Every bundle ever defined, retired ones included, for the dialog alone.
+   *
+   * A bundle is named after its number of operations, so the dialog has to know that the
+   * number just typed is already taken before it offers to add it: the alternative is the
+   * silent replacement this screen used to do.
+   */
+  definedBundles: readonly { code: string; operations: number; retired: boolean }[];
   plans: readonly PlanSummary[];
   specialPrices: readonly SpecialPrice[];
   settings: Pick<
@@ -83,6 +92,7 @@ export interface AdminPricingActions {
   addBundle: Action;
   retireBundle: Action;
   addPlan: Action;
+  setPlanTerms: Action;
   setSpecialPrice: Action;
   setVat: Action;
 }
@@ -153,7 +163,8 @@ function PricingModel(): ReactElement {
           <span className="stack" style={{ gap: 0, flex: 1 }}>
             <strong>نافذة إعادة التحقق المجانية</strong>
             <span className="faint">
-              إعادة التحقق من العميل نفسه خلال المدة المحددة في باقته لا تُحتسب إطلاقاً.
+              إعادة التحقق من العميل نفسه خلال المدة المحددة في باقته لا تُحتسب إطلاقاً. والمدة
+              مكتوبة على بطاقة كل باقة، وتُضبط من زر شروطها.
             </span>
           </span>
         </li>
@@ -269,8 +280,15 @@ export function AdminPricing({
           <h2 className="card-title admin-card-title" id="price-table-title">
             سعر كل منتج تحقق
           </h2>
+          {/*
+            This line used to read «العمليات الفاشلة لا تُحسب», which is not true of a NOT_FOUND
+            answer: the authority answered, and the price row charges it at its own share. The
+            margin beside it is the margin of a run where every step answered, which is its
+            best case, so the screen says on what the figure is computed.
+          */}
           <p className="admin-card-note">
-            السعر بالريال لكل عملية ناجحة · العمليات الفاشلة لا تُحسب
+            السعر بالريال بلا ضريبة لعملية ناجحة كاملة · نتيجة «غير موجود» تُحسب بنسبتها أدناه،
+            والفشل التقني والخطوة المتخطاة لا تُحسبان · الهامش محسوب على عملية ناجحة كاملة
             {view.vat.registered ? (
               <>
                 {' · '}السعر المعروض للمشترك يشمل ضريبة {view.vat.ratePct}%
@@ -293,6 +311,7 @@ export function AdminPricing({
                   <Th>المزوّد</Th>
                   <Th>التكلفة</Th>
                   <Th>سعر البيع</Th>
+                  <Th>نسب الحالات الأخرى</Th>
                   <Th>يدفعه المشترك</Th>
                   <Th>الهامش</Th>
                   <Th>استهلاك 30 يوماً</Th>
@@ -306,7 +325,23 @@ export function AdminPricing({
                     data-role="price-row"
                     data-product={product.productCode}
                   >
-                    <td>{product.nameAr}</td>
+                    <td>
+                      <span className="stack" style={{ gap: 0 }}>
+                        {product.nameAr}
+                        {/*
+                          A composite check carries one price shared between its calls by
+                          step_weight (compute.ts), so a run where one call answered is not
+                          billed at the whole price. The count is read only here: which call
+                          weighs what belongs to the catalogue, and the catalogue is rows
+                          (rule 8), not a field on a pricing screen.
+                        */}
+                        {product.stepCount > 1 ? (
+                          <span className="faint" data-role="steps">
+                            {product.stepCount} خطوات · يتقاسمن السعر بأوزانهن
+                          </span>
+                        ) : null}
+                      </span>
+                    </td>
                     <td data-role="provider">
                       {product.providers.length === 0 ? (
                         <span className="admin-empty-cell">لم يُوجَّه</span>
@@ -341,17 +376,69 @@ export function AdminPricing({
                       )}
                     </td>
                     <td>
-                      <span className="admin-price-field">
-                        <Input
-                          form={PRICING_FORM}
-                          name={`price:${product.productCode}`}
-                          defaultValue={priceField(product.priceHalalas)}
-                          inputMode="decimal"
-                          aria-label={`سعر بيع ${product.nameAr} بالريال`}
-                          disabled={!view.canEditPricing}
-                          ltr
-                        />
+                      <span className="stack" style={{ gap: 'var(--space-1)' }}>
+                        <span className="admin-price-field">
+                          <Input
+                            form={PRICING_FORM}
+                            name={`price:${product.productCode}`}
+                            defaultValue={priceField(product.priceHalalas)}
+                            inputMode="decimal"
+                            aria-label={`سعر بيع ${product.nameAr} بالريال`}
+                            disabled={!view.canEditPricing}
+                            ltr
+                          />
+                        </span>
+                        {/*
+                          A check on sale with no price fails on every run at resolvePrice with
+                          NX-4041, and nothing said so: the cell showed «·» and the margin column
+                          another. Amber, because it is something to look at rather than
+                          something that already failed (ADR-122).
+                        */}
+                        {product.priceHalalas === null &&
+                        product.availability === 'AVAILABLE' &&
+                        product.status === 'active' ? (
+                          <Tag tone="accent" role="no-price">
+                            بلا سعر · كل تشغيل يفشل
+                          </Tag>
+                        ) : null}
                       </span>
+                    </td>
+                    <td data-role="rates">
+                      {product.rates === null ? (
+                        <span className="admin-empty-cell">يُضبط مع أول سعر</span>
+                      ) : (
+                        <span className="stack" style={{ gap: 'var(--space-1)' }}>
+                          {(
+                            [
+                              ['negative', 'غير موجود', product.rates.negativePct],
+                              ['cached', 'نتيجة مخزّنة', product.rates.cachePct],
+                            ] as const
+                          ).map(([field, label, value]) => (
+                            <span
+                              key={field}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 'var(--space-1)',
+                              }}
+                            >
+                              <span className="faint">{label}</span>
+                              <span className="admin-price-field">
+                                <Input
+                                  form={PRICING_FORM}
+                                  name={`${field}:${product.productCode}`}
+                                  defaultValue={ratePctField(value)}
+                                  inputMode="numeric"
+                                  aria-label={`نسبة ${label} من سعر ${product.nameAr} بالمئة`}
+                                  disabled={!view.canEditPricing}
+                                  ltr
+                                />
+                              </span>
+                              <span className="faint">%</span>
+                            </span>
+                          ))}
+                        </span>
+                      )}
                     </td>
                     <td data-role="customer-pays">
                       {product.priceWithVatHalalas === null ? (
@@ -403,7 +490,7 @@ export function AdminPricing({
           <h2 className="card-title admin-offer-title" id="bundles-title">
             حزم الرصيد مسبقة الدفع
           </h2>
-          <p className="admin-card-note">{bundlesLineAr(view.bundles)}</p>
+          <p className="admin-card-note">تُشترى مرة واحدة وتُصرف على أي تحقق مهما كان سعره</p>
           {view.bundles.length === 0 ? (
             <p className="admin-empty">لا حزمة معروضة للبيع.</p>
           ) : (
@@ -433,11 +520,18 @@ export function AdminPricing({
                       ) : null}
                     </span>
                   </span>
+                  {/* The price of one operation: what the constraint is written against, and
+                      what makes two bundles comparable at all. */}
+                  <span className="admin-offer-terms" data-role="bundle-terms">
+                    {bundleTermsAr(bundle)}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
-          {view.canEditPricing ? <AddBundleDialog action={actions.addBundle} /> : null}
+          {view.canEditPricing ? (
+            <BundleDialog action={actions.addBundle} defined={view.definedBundles} />
+          ) : null}
         </Card>
 
         <Card role="plans" labelledBy="plans-title">
@@ -460,9 +554,19 @@ export function AdminPricing({
                       >
                         {plan.nameAr}
                       </Link>
-                      <span>{lines.price}</span>
+                      <span className="admin-offer-end">
+                        <span>{lines.price}</span>
+                        {view.canEditPricing ? (
+                          <PlanTermsDialog action={actions.setPlanTerms} plan={plan} />
+                        ) : null}
+                      </span>
                     </span>
                     <span className="admin-offer-terms">{lines.terms}</span>
+                    {/* The free re-verification window, the term and the setup fee: money
+                        decided by columns that were literals in the code until now. */}
+                    <span className="admin-offer-terms" data-role="plan-commitment">
+                      {lines.commitment}
+                    </span>
                   </li>
                 );
               })}

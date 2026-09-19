@@ -3,15 +3,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { slicePage } from '@nx-verify/core';
 import { AdminPricing, type AdminPricingView } from '../src/components/admin-pricing';
 import {
-  bundlesLineAr,
+  bundleTermsAr,
   daysField,
   lastChangeAr,
   noticeAr,
   parsePercent,
+  parseRateFraction,
   parseRiyals,
   parseWholeNumber,
   planLinesAr,
   priceField,
+  ratePctField,
   sar,
   specialLineAr,
 } from '../src/components/admin-pricing/model';
@@ -31,8 +33,18 @@ const actions = {
   addBundle: noop,
   retireBundle: noop,
   addPlan: noop,
+  setPlanTerms: noop,
   setSpecialPrice: noop,
   setVat: noop,
+};
+
+/** The terms every plan carries, as the seed sets them, for the fixtures below. */
+const PLAN_TERMS = {
+  termMonths: 12,
+  freeReverifyDays: 30,
+  setupFeeHalalas: 0,
+  commitmentCreditsHalalas: 0,
+  overageAllowed: true,
 };
 
 function view(overrides: Partial<AdminPricingView> = {}): AdminPricingView {
@@ -52,6 +64,8 @@ function view(overrides: Partial<AdminPricingView> = {}): AdminPricingView {
         providers: ['واثق'],
         priceHalalas: 300,
         priceWithVatHalalas: 300,
+        rates: { negativePct: 0.5, cachePct: 1 },
+        stepCount: 1,
         marginHalalas: 190,
         marginPct: 63,
         runs30: 8412,
@@ -68,6 +82,8 @@ function view(overrides: Partial<AdminPricingView> = {}): AdminPricingView {
         providers: ['واثق'],
         priceHalalas: 110,
         priceWithVatHalalas: 110,
+        rates: { negativePct: 0.25, cachePct: 0 },
+        stepCount: 2,
         marginHalalas: 20,
         marginPct: 18,
         runs30: 6004,
@@ -84,11 +100,32 @@ function view(overrides: Partial<AdminPricingView> = {}): AdminPricingView {
         providers: [],
         priceHalalas: null,
         priceWithVatHalalas: null,
+        rates: null,
+        stepCount: 1,
         marginHalalas: null,
         marginPct: null,
         runs30: 0,
         status: 'active',
         availability: 'COMING_SOON',
+      },
+      {
+        // On sale, and with no price at all: every run of it fails at resolvePrice.
+        productCode: 'IBAN_VERIFICATION',
+        nameAr: 'الآيبان',
+        costHalalas: 80,
+        effectiveCostHalalas: 80,
+        costVatBps: 1500,
+        costKnown: true,
+        providers: ['واثق'],
+        priceHalalas: null,
+        priceWithVatHalalas: null,
+        rates: null,
+        stepCount: 1,
+        marginHalalas: null,
+        marginPct: null,
+        runs30: 12,
+        status: 'active',
+        availability: 'AVAILABLE',
       },
     ],
     vat: { registered: false, ratePct: 15 },
@@ -119,11 +156,16 @@ function view(overrides: Partial<AdminPricingView> = {}): AdminPricingView {
         code: 'BUNDLE_2000',
         operations: 2000,
         priceHalalas: 460_000,
-        validityMonths: 12,
+        validityMonths: 24,
         status: 'active',
         perOperationHalalas: 230,
         discountPct: 8,
       },
+    ],
+    definedBundles: [
+      { code: 'BUNDLE_500', operations: 500, retired: false },
+      { code: 'BUNDLE_2000', operations: 2000, retired: false },
+      { code: 'BUNDLE_10000', operations: 10_000, retired: true },
     ],
     plans: [
       {
@@ -131,18 +173,25 @@ function view(overrides: Partial<AdminPricingView> = {}): AdminPricingView {
         nameAr: 'البداية',
         billingModel: 'MONTHLY',
         monthlyFeeHalalas: 99_000,
+        platformFeeHalalas: 99_000,
         includedTransactions: 300,
         overageUnitHalalas: 320,
         negotiated: false,
+        ...PLAN_TERMS,
       },
       {
         code: 'ENTERPRISE',
         nameAr: 'المؤسسات',
         billingModel: 'ANNUAL',
         monthlyFeeHalalas: 0,
+        platformFeeHalalas: 0,
         includedTransactions: null,
         overageUnitHalalas: null,
         negotiated: true,
+        ...PLAN_TERMS,
+        termMonths: 24,
+        freeReverifyDays: 0,
+        setupFeeHalalas: 500_000,
       },
     ],
     specialPrices: [
@@ -206,15 +255,18 @@ describe('the prices screen (handoff screen 05)', () => {
       'سجل التغييرات',
       'حفظ التغييرات',
       'سعر كل منتج تحقق',
-      'السعر بالريال لكل عملية ناجحة · العمليات الفاشلة لا تُحسب',
+      'السعر بالريال بلا ضريبة لعملية ناجحة كاملة',
+      'نتيجة «غير موجود» تُحسب بنسبتها أدناه، والفشل التقني والخطوة المتخطاة لا تُحسبان',
+      'الهامش محسوب على عملية ناجحة كاملة',
       'المنتج',
       'التكلفة',
       'سعر البيع',
+      'نسب الحالات الأخرى',
       'الهامش',
       'استهلاك 30 يوماً',
       'الحالة',
       'حزم الرصيد مسبقة الدفع',
-      'تُشترى مرة واحدة ولا تنتهي قبل 12 شهراً',
+      'تُشترى مرة واحدة وتُصرف على أي تحقق مهما كان سعره',
       'إضافة حزمة',
       'الاشتراكات',
       'حد شهري للعمليات مع سعر تجاوز',
@@ -258,6 +310,26 @@ describe('the prices screen (handoff screen 05)', () => {
     expect(html).toContain('قريباً');
   });
 
+  it('shows the two rates that decide what an answer other than a plain success costs', () => {
+    // Invisible and uneditable until now, and they charge a NOT_FOUND at half the price.
+    expect(html).toMatch(/<input[^>]*name="negative:CR_FULL"[^>]*value="50"/);
+    expect(html).toMatch(/<input[^>]*name="cached:CR_FULL"[^>]*value="100"/);
+    expect(html).toMatch(/<input[^>]*name="negative:NATIONAL_ADDRESS"[^>]*value="25"/);
+    expect(html).toMatch(/<input[^>]*name="cached:NATIONAL_ADDRESS"[^>]*value="0"/);
+    expect(html).toContain('غير موجود');
+    expect(html).toContain('نتيجة مخزّنة');
+    // A check with no price has no row to carry them yet, and says so.
+    expect(html).toContain('يُضبط مع أول سعر');
+  });
+
+  it('says a composite check shares its price between its steps', () => {
+    expect(html).toContain('2 خطوات · يتقاسمن السعر بأوزانهن');
+  });
+
+  it('marks a check that is on sale with no price at all', () => {
+    expect(html).toMatch(/data-role="no-price"[^>]*>بلا سعر · كل تشغيل يفشل/);
+  });
+
   it('marks a margin under the minimum rather than hiding it', () => {
     expect(html).toMatch(/data-tone="thin"[^>]*>.*18%/s);
   });
@@ -274,6 +346,20 @@ describe('the prices screen (handoff screen 05)', () => {
     expect(html).toContain('خصم 18% على كل المنتجات');
   });
 
+  it('says what one operation of a bundle costs, how long it lasts, and against what', () => {
+    // The figure the whole model hangs on, computed and never shown until now, and a validity
+    // per bundle rather than one line claiming the shortest one's.
+    expect(html).toContain('سعر العملية 2.50 ر.س · صالحة 12 شهراً');
+    expect(html).toContain('سعر العملية 2.30 ر.س · صالحة 24 شهراً');
+    expect(html).toContain('أقل 8% من سعر العملية في أصغر حزمة');
+  });
+
+  it('says the terms of each plan, the free re-verification window first', () => {
+    expect(html).toContain('التزام 12 شهراً · إعادة التحقق خلال 30 يوماً بلا رسم · بلا رسم تأسيس');
+    expect(html).toContain('التزام 24 شهراً · كل إعادة تحقق تُحسب · رسم تأسيس 5,000 ر.س');
+    expect(html).toContain('data-role="edit-plan"');
+  });
+
   it('draws required sections in the accent and optional ones neutral, the registry fixed', () => {
     expect(html).toContain('المدراء · اختياري');
     expect(html).toContain('وثيقة العمل الحر');
@@ -288,8 +374,11 @@ describe('the prices screen (handoff screen 05)', () => {
     expect(readOnly).not.toContain('btn-primary');
     expect(readOnly).not.toContain('إضافة حزمة');
     expect(readOnly).not.toContain('name="on_sale"');
+    expect(readOnly).not.toContain('data-role="edit-plan"');
     expect(readOnly).toContain('disabled=""');
     expect(readOnly).toContain('سجل التغييرات');
+    // The rates are readable by a role that may not price, and not editable.
+    expect(readOnly).toMatch(/<input[^>]*disabled=""[^>]*name="negative:CR_FULL"/);
   });
 
   it('says what a save did or why it was refused', () => {
@@ -299,7 +388,13 @@ describe('the prices screen (handoff screen 05)', () => {
   });
 
   it('has an empty state for a catalogue with nothing in it', () => {
-    const empty = render({ products: [], bundles: [], plans: [], specialPrices: [] });
+    const empty = render({
+      products: [],
+      bundles: [],
+      definedBundles: [],
+      plans: [],
+      specialPrices: [],
+    });
     expect(empty).toContain('لا منتج تحقق في الكتالوج بعد.');
     expect(empty).toContain('لا حزمة معروضة للبيع.');
     expect(empty).toContain('لا باقة اشتراك بعد.');
@@ -329,6 +424,17 @@ describe('the words and figures of screen 05', () => {
     expect(parsePercent('18%')).toBe(18);
     expect(parsePercent('12.5')).toBe(12.5);
     expect(parsePercent('100')).toBeNull();
+    // A share of the price is a different figure: a hundred is a real answer, and a fraction
+    // of a percent is not storable in a numeric(4,2) fraction, so it is refused not rounded.
+    expect(parseRateFraction('50')).toBe(0.5);
+    expect(parseRateFraction('١٠٠')).toBe(1);
+    expect(parseRateFraction('0')).toBe(0);
+    expect(parseRateFraction('101')).toBeNull();
+    expect(parseRateFraction('12.5')).toBeNull();
+    expect(parseRateFraction('')).toBeNull();
+    expect(ratePctField(0.5)).toBe('50');
+    expect(ratePctField(1)).toBe('100');
+    expect(ratePctField(null)).toBe('');
     expect(daysField(90)).toBe('90 يوماً');
     expect(daysField(7)).toBe('7 أيام');
     expect(daysField(1)).toBe('1 يوم');
@@ -337,18 +443,51 @@ describe('the words and figures of screen 05', () => {
   it('writes amounts, bundles and plans as the screen does', () => {
     expect(sar(125_000)).toBe('1,250 ر.س');
     expect(sar(125_050)).toBe('1,250.50 ر.س');
-    expect(bundlesLineAr([])).toBe('تُشترى مرة واحدة ولا تنتهي قبل 12 شهراً');
+    expect(
+      bundleTermsAr({
+        code: 'BUNDLE_2000',
+        operations: 2000,
+        priceHalalas: 460_000,
+        validityMonths: 24,
+        status: 'active',
+        perOperationHalalas: 230,
+        discountPct: 8,
+      }),
+    ).toBe('سعر العملية 2.30 ر.س · صالحة 24 شهراً · أقل 8% من سعر العملية في أصغر حزمة');
     expect(
       planLinesAr({
         code: 'GROWTH',
         nameAr: 'النمو',
         billingModel: 'MONTHLY',
         monthlyFeeHalalas: 290_000,
+        platformFeeHalalas: 290_000,
         includedTransactions: 1200,
         overageUnitHalalas: 260,
         negotiated: false,
+        ...PLAN_TERMS,
+        commitmentCreditsHalalas: 500_000,
       }),
-    ).toEqual({ price: '2,900 ر.س / شهر', terms: '1,200 عملية · تجاوز 2.60 ر.س' });
+    ).toEqual({
+      price: '2,900 ر.س / شهر',
+      terms: '1,200 عملية · تجاوز 2.60 ر.س',
+      commitment:
+        'التزام 12 شهراً · إعادة التحقق خلال 30 يوماً بلا رسم · بلا رسم تأسيس · رصيد عند التوقيع 5,000 ر.س',
+    });
+    // A plan that stops at its limit says so instead of naming a price nobody can reach.
+    expect(
+      planLinesAr({
+        code: 'CAPPED',
+        nameAr: 'المحدودة',
+        billingModel: 'MONTHLY',
+        monthlyFeeHalalas: 50_000,
+        platformFeeHalalas: 50_000,
+        includedTransactions: 100,
+        overageUnitHalalas: 260,
+        negotiated: false,
+        ...PLAN_TERMS,
+        overageAllowed: false,
+      }).terms,
+    ).toBe('100 عملية · يتوقف العمل عند الحد');
     expect(
       specialLineAr({
         tenantId: 't',
@@ -373,6 +512,33 @@ describe('the words and figures of screen 05', () => {
         ?.text,
     ).toContain('سعر السجل التجاري أقل من تكلفته');
     expect(noticeAr({}, (code) => code)).toBeNull();
+  });
+
+  it('names the checks whose price was removed, and refuses to remove one still on sale', () => {
+    const names = new Map([['CR_FULL', 'السجل التجاري']]);
+    const nameOf = (code: string): string => names.get(code) ?? code;
+    expect(noticeAr({ saved: '1', cleared: 'CR_FULL' }, nameOf)).toEqual({
+      tone: 'done',
+      text: 'حُفظت التغييرات. أُلغي سعر: السجل التجاري.',
+    });
+    expect(noticeAr({ refused: 'clear-on-sale', product: 'CR_FULL' }, nameOf)?.text).toContain(
+      'أوقف بيعه ثم امسح السعر',
+    );
+    expect(noticeAr({ refused: 'no-price', product: 'CR_FULL' }, nameOf)?.text).toContain(
+      'لا يُعرض للبيع منتج بلا سعر',
+    );
+  });
+
+  it('tells adding a bundle from replacing one, and says which happened', () => {
+    const nameOf = (code: string): string => code;
+    expect(noticeAr({ saved: 'bundle' }, nameOf)?.text).toBe('أُضيفت الحزمة.');
+    expect(noticeAr({ saved: 'bundle-replaced' }, nameOf)?.text).toContain('اُستبدلت الحزمة');
+    expect(noticeAr({ refused: 'bundle-exists' }, nameOf)?.text).toContain(
+      'توجد حزمة بعدد العمليات نفسه',
+    );
+    expect(noticeAr({ saved: 'plan-terms' }, nameOf)?.text).toContain(
+      'يسريان على المشتركين الحاليين',
+    );
   });
 });
 
@@ -413,6 +579,40 @@ describe('the staff and the trail (الصلاحيات والتدقيق)', () => 
     );
     expect(auditScopeOf('pricing')).toBe('pricing');
     expect(auditScopeOf('anything')).toBe('all');
+  });
+
+  it('says the changes the plans screen makes, which reached no panel trail at all', () => {
+    expect(
+      auditChangeAr({
+        action: 'pricing.plan_product',
+        metadata: { product: 'CR_FULL', enabled: true, monthly_quota: 200, price: 2400 },
+      }),
+    ).toBe('CR_FULL · مفعّل · حد شهري 200 · 24.00 ر.س');
+    expect(
+      auditChangeAr({
+        action: 'pricing.tenant_exception',
+        metadata: { product: 'CR_FULL', enabled: null },
+      }),
+    ).toBe('CR_FULL');
+    expect(
+      auditChangeAr({
+        action: 'pricing.plan_terms',
+        metadata: { free_reverify_days: 0, overage_allowed: false },
+      }),
+    ).toBe('إعادة التحقق المجانية 0 يوماً، يتوقف العمل عند الحد');
+    expect(
+      auditChangeAr({
+        action: 'pricing.bundle_replaced',
+        metadata: { price: 460_000, months: 24, from: 500_000, resumed: true },
+      }),
+    ).toBe('من 5,000.00 ر.س · 4,600.00 ر.س · 24 شهراً · وأُعيدت للبيع');
+    // A rate that moved is a change to the bill, so the line says it beside the price.
+    expect(
+      auditChangeAr({
+        action: 'pricing.list_price',
+        metadata: { from: 300, to: 300, margin_pct: 50, negative_pct: 0.25 },
+      }),
+    ).toBe('من 3.00 إلى 3.00 · هامش 50% · غير موجود 25%');
   });
 
   const accessView = (overrides: Partial<AdminAccessView> = {}): AdminAccessView => ({

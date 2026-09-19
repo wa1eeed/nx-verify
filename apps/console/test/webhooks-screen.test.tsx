@@ -32,6 +32,7 @@ const endpoint = (over: Partial<EndpointView> = {}): EndpointView => ({
   url: 'https://api.example.sa/nx-hooks',
   events: ['verification.completed'],
   status: 'active',
+  health: null,
   ...over,
 });
 
@@ -135,5 +136,41 @@ describe('the decision rules, which nothing could write', () => {
 
   it('says why the defaults cannot be changed rather than only disabling a button', () => {
     expect(studio({ outcome: 'default' })).toContain('يرثها كل مشترك');
+  });
+});
+
+/**
+ * Whether anything actually arrived (ADR-169).
+ *
+ * The deliveries table recorded every attempt and nothing read it, so a subscriber registered
+ * an address and could not tell whether one event had ever landed. We stop after the retries
+ * and the other end simply goes quiet.
+ */
+describe('delivery', () => {
+  it('says nothing has been sent yet rather than showing zeros', () => {
+    const html = render([endpoint()]);
+    expect(html).toContain('لم يُرسَل شيء بعد');
+  });
+
+  it('names what was given up on separately from what is still being retried', () => {
+    // A failing delivery is still being tried. An abandoned one is past the schedule and is
+    // never coming back by itself, which is the only state a person has to act on.
+    const html = render([
+      endpoint({
+        health: {
+          delivered: 40,
+          failing: 2,
+          abandoned: 3,
+          pending: 1,
+          lastDeliveredAt: new Date('2026-09-18T09:00:00Z'),
+          lastStatus: 502,
+        },
+      }),
+    ]);
+    expect(html).toContain('data-role="abandoned"');
+    expect(html).toContain('data-role="pending"');
+    expect(html).toContain('40');
+    // The HTTP code the subscriber's own address returned, which is what they debug from.
+    expect(html).toContain('502');
   });
 });

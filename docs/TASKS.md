@@ -85,18 +85,19 @@
 
 ### دوال وحقول ميتة
 
-- [ ] `platformRiskPolicy` بلا منادٍ، وتعليقها يسمّي منادِيَين لا وجود لهما
-- [ ] `SIGNAL_WEIGHTS` و`INCOMPLETE_SECTION_WEIGHT` بلا منادٍ
-- [ ] `Assessment.signals` يُنتَج ولا يُعرض في أي شاشة
-- [ ] `customer_standing.risk_score` يُكتب ولا يُقرأ، وعقد «أو تغيّر النموذج» في ترحيل 0053 غير منفَّذ
+- [x] ~~`platformRiskPolicy` بلا منادٍ~~ ✅ حُذفت (ADR-169)
+- [x] ~~`SIGNAL_WEIGHTS` و`INCOMPLETE_SECTION_WEIGHT`~~ ✅ حُذفا
+- [x] ~~`Assessment.signals` لا يُعرض~~ ✅ حُذف: `riskReasons` يحمل نفس الجمل
+- [x] ~~`risk_score` يُكتب ولا يُقرأ~~ ✅ تصفية «مخاطر عالية» وعدّادها، والتعليق الكاذب صُحّح في ترحيل 0066
+- [ ] **قرار مؤجَّل:** إعطاء دور اللوحة سياسةً على `customer_standing` ليختم تغيّرُ النموذج الصفوف فوراً بدل انتظار مسح العُمر. قرارٌ حقيقي عن القاعدة 2، لا تفصيل.
 - [x] ~~`SavedView.alertOnEnter` حقل ميت~~ ✅ حُذف، والقدرة الحقيقية على المجموعات
 - [x] ~~`capacityRemaining` يُعاد إسناده~~ ✅
 
 ### من المسح السابق (مسجّل في `progress.md`)
 
 - [ ] اعتماد المشترك نفسه (BYOC): `setTenantBinding` و`resolveExecutionMode` بلا منادٍ
-- [ ] حزمة أدلة: `sealBundle` و`checkEvidence` بلا منادٍ
-- [ ] `getAttestationTimeline` بلا منادٍ: «ماذا كان هذا الحقل يقول قبل سنة» مخزَّن وغير مقروء
+- [x] ~~حزمة الأدلة والفاحص~~ ✅ ADR-169
+- [x] ~~`getAttestationTimeline` بلا منادٍ~~ ✅ `/customers/[id]/attestations`
 - [ ] `/operator/pricing/modules` للقراءة فقط
 - [ ] `findSandboxOf` بلا منادٍ (و`findEntitiesLinkedToMany` صار موصولاً)
 

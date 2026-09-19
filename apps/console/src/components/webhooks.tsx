@@ -4,6 +4,7 @@ import { useActionState, type ReactElement } from 'react';
 import { EVENT_TYPES, eventLabelAr as labelOf } from './events';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { SubmitButton } from './ui/submit-button';
+import { Ltr } from './ui/ltr';
 
 /**
  * The addresses we call when something happens (ADR-147).
@@ -33,6 +34,23 @@ export interface EndpointView {
   url: string;
   events: string[];
   status: string;
+  /**
+   * How this address is actually doing (ADR-169).
+   *
+   * `webhook_deliveries` recorded every attempt and nothing read it, so a subscriber registered
+   * an address and was blind to whether one event had ever arrived. That is the worst shape a
+   * failure can take here: we give up after the retries and record that we gave up, the
+   * integration on the other end simply goes quiet, and somebody notices weeks later when a
+   * customer asks why an alert never came.
+   */
+  health: {
+    delivered: number;
+    failing: number;
+    abandoned: number;
+    pending: number;
+    lastDeliveredAt: Date | null;
+    lastStatus: number | null;
+  } | null;
 }
 
 export interface IssuedSecretState {
@@ -51,6 +69,44 @@ const REFUSALS: Record<NonNullable<IssuedSecretState['refused']>, string> = {
   readonly: 'مخزن الأسرار للقراءة فقط في هذا النشر، فلا يمكن حفظ مفتاح توقيع.',
   failed: 'لم يُسجَّل العنوان. حاول مرة أخرى.',
 };
+
+/**
+ * Delivery in one cell: what arrived, what is still trying, and what we gave up on.
+ *
+ * «متروك» is the one that matters and is named separately from «متعثر» for that reason: a
+ * failing delivery is still being retried, an abandoned one is past the schedule and is never
+ * coming back by itself. Folding them together would hide the only state a person has to act on.
+ */
+function DeliveryCell({ health }: { health: EndpointView['health'] }): ReactElement {
+  if (health === null || health.delivered + health.failing + health.abandoned + health.pending === 0) {
+    return <span className="muted">لم يُرسَل شيء بعد</span>;
+  }
+
+  return (
+    <span className="stack" style={{ gap: 0 }}>
+      <span className="row" style={{ gap: 'var(--s-2)', flexWrap: 'wrap' }}>
+        <span data-role="delivered">
+          وصل <Ltr>{health.delivered}</Ltr>
+        </span>
+        {health.pending > 0 ? (
+          <span className="muted" data-role="pending">
+            · قيد المحاولة <Ltr>{health.pending}</Ltr>
+          </span>
+        ) : null}
+        {health.abandoned > 0 ? (
+          <span className="badge" data-tone="critical" data-role="abandoned">
+            تُرك <Ltr>{health.abandoned}</Ltr>
+          </span>
+        ) : null}
+      </span>
+      {health.lastStatus === null ? null : (
+        <span className="faint" data-role="last-status">
+          آخر رد من عنوانك: <Ltr>{health.lastStatus}</Ltr>
+        </span>
+      )}
+    </span>
+  );
+}
 
 export function eventLabelAr(eventType: string): string {
   return labelOf(eventType);
@@ -149,6 +205,7 @@ export function Webhooks({
                 <tr>
                   <th>العنوان</th>
                   <th>الأحداث</th>
+                  <th>التسليم آخر 30 يوماً</th>
                   <th>الحالة</th>
                   <th />
                 </tr>
@@ -162,6 +219,14 @@ export function Webhooks({
                       </bdi>
                     </td>
                     <td>{endpoint.events.map(eventLabelAr).join('، ')}</td>
+                    {/*
+                      What actually arrived. Registering an address and being unable to tell
+                      whether one event ever landed is the worst shape a failure takes here:
+                      we stop after the retries, and the other end simply goes quiet (ADR-169).
+                    */}
+                    <td data-role="endpoint-health">
+                      <DeliveryCell health={endpoint.health} />
+                    </td>
                     <td>
                       <span className="badge" data-status={endpoint.status}>
                         {endpoint.status === 'active' ? 'يعمل' : 'موقوف، ولا يُنادى'}

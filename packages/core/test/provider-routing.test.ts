@@ -245,6 +245,40 @@ describe('provider routing is per subscriber', () => {
     expect(entries[0]?.actorId).toBe(OPERATOR);
   });
 
+  it('reads one named subscriber on the operator connection, and refuses to read none', async () => {
+    // The panel's own connection carries no tenant, so the screen names the subscriber it is
+    // showing. What comes back is that subscriber's bindings and nobody else's.
+    const bindings = await listTenantBindings(db.operatorPool, second.tenantId);
+    expect(bindings.map((binding) => binding.provider)).toEqual([BETA]);
+
+    await expect(listTenantBindings(db.operatorPool)).rejects.toMatchObject({ code: 'NX-4001' });
+  });
+
+  it('refuses to call a binding BYOC when it names no credential of its own', async () => {
+    const fresh = await seedTenant(db.appPool, 'Bring Your Own Nothing');
+
+    // The failure this stops: resolveCredential falls through a reference-less binding to the
+    // platform's connection, so the call goes out on our credential, while resolveExecutionMode
+    // reads BYOC from this table and the run is recorded as having cost us nothing.
+    await expect(
+      setTenantBinding(
+        db.operatorPool,
+        { tenantId: fresh.tenantId, provider: ALPHA, mode: 'BYOC', credentialRef: null },
+        OPERATOR,
+      ),
+    ).rejects.toMatchObject({ code: 'NX-4001' });
+
+    expect(await listTenantBindings(db.operatorPool, fresh.tenantId)).toEqual([]);
+
+    // The same subscriber on our account is ordinary, and needs no reference of its own.
+    await setTenantBinding(
+      db.operatorPool,
+      { tenantId: fresh.tenantId, provider: ALPHA, mode: 'MANAGED' },
+      OPERATOR,
+    );
+    expect((await listTenantBindings(db.operatorPool, fresh.tenantId))[0]?.mode).toBe('MANAGED');
+  });
+
   it('refuses a credential that is not a KMS reference', async () => {
     await expect(
       setTenantBinding(

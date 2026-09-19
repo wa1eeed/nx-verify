@@ -24,6 +24,12 @@ export { markStandingStale, markStandingStaleFromRun } from './standing-stale.js
  * What is never stale is what a reader sees. The rows a screen draws are summarised live from
  * the model, and this table decides only which rows and in what order. A facet that lags a
  * minute is useful; a facet that waits for a million rows is not.
+ *
+ * `risk_score` is here for the same reason the other two are: it is what «مخاطر عالية» filters
+ * and counts by, held against the bands the subscriber set rather than against a number stored
+ * beside it, so moving a band moves the facet at once and moves each row's score on the next
+ * sweep. A customer nobody has swept yet has no score and falls in no band, so the facet
+ * under-reports rather than inventing a band for somebody nobody has rated.
  */
 
 export interface StandingRefresh {

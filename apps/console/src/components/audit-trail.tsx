@@ -142,13 +142,40 @@ export function AuditTrail({
   rows,
   action,
   actions,
+  from,
+  to,
+  more = false,
+  nextBefore = null,
 }: {
   rows: AuditRowView[];
   /** The action filter in force, if any. */
   action?: string | undefined;
   /** Every action this workspace's trail actually contains, for the filter. */
   actions: string[];
+  /** The window in force, as days, or undefined for «since the beginning». */
+  from?: string | undefined;
+  to?: string | undefined;
+  /**
+   * Whether the trail has more than this page (ADR-169).
+   *
+   * It used to ask for two hundred rows and print the count beside the title, so a truncated
+   * list and a complete one looked identical and a question about last quarter had no answer.
+   */
+  more?: boolean;
+  /** Where the next page starts: the id of the oldest row shown. */
+  nextBefore?: string | null;
 }): ReactElement {
+  const params = (over: Record<string, string | undefined>): string => {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries({ action, from, to, ...over })) {
+      if (value !== undefined && value !== '') {
+        search.set(key, value);
+      }
+    }
+    const query = search.toString();
+    return query === '' ? '/settings/audit' : `/settings/audit?${query}`;
+  };
+
   return (
     <section className="stack" data-role="audit-trail" style={{ gap: 'var(--s-5)' }}>
       <PageHeader
@@ -169,7 +196,7 @@ export function AuditTrail({
         >
           <Link
             className={`btn ${action === undefined ? 'btn-secondary' : 'btn-ghost'}`}
-            href="/settings/audit"
+            href={params({ action: undefined, before: undefined })}
           >
             الكل
           </Link>
@@ -177,7 +204,7 @@ export function AuditTrail({
             <Link
               key={code}
               className={`btn ${action === code ? 'btn-secondary' : 'btn-ghost'}`}
-              href={`/settings/audit?action=${encodeURIComponent(code)}`}
+              href={params({ action: code, before: undefined })}
             >
               {actionLabel(code)}
             </Link>
@@ -185,10 +212,36 @@ export function AuditTrail({
         </nav>
       )}
 
+      {/*
+        A window, because the trail is read years later and «the last two hundred rows» is not
+        an answer to «what happened in March». A plain GET, so the range is in the address and
+        can be sent to somebody.
+      */}
+      <form
+        method="get"
+        action="/settings/audit"
+        className="row"
+        data-role="audit-window"
+        style={{ gap: 'var(--s-3)', flexWrap: 'wrap', alignItems: 'flex-end' }}
+      >
+        {action === undefined ? null : <input type="hidden" name="action" value={action} />}
+        <label className="stack" style={{ gap: 'var(--s-1)' }}>
+          <span className="stat-label">من</span>
+          <input type="date" name="from" defaultValue={from ?? ''} dir="ltr" />
+        </label>
+        <label className="stack" style={{ gap: 'var(--s-1)' }}>
+          <span className="stat-label">إلى</span>
+          <input type="date" name="to" defaultValue={to ?? ''} dir="ltr" />
+        </label>
+        <button type="submit" className="btn btn-secondary" data-role="audit-window-apply">
+          اعرض المدة
+        </button>
+      </form>
+
       {rows.length === 0 ? (
         <EmptyState>لا شيء مسجّل بعد لهذا الفرز.</EmptyState>
       ) : (
-        <Panel title="آخر ما جرى" aside={`${rows.length}`}>
+        <Panel title="آخر ما جرى" aside={more ? `${rows.length}+` : `${rows.length}`}>
           <div className="table-scroll">
             <table>
               <thead>
@@ -232,6 +285,21 @@ export function AuditTrail({
               </tbody>
             </table>
           </div>
+          {/*
+            A cursor, not an offset: the trail grows while somebody reads it, and an offset
+            would skip or repeat rows as it does.
+          */}
+          {more && nextBefore !== null ? (
+            <div className="row" style={{ gap: 'var(--s-3)', padding: 'var(--s-3)' }}>
+              <Link
+                className="btn btn-secondary"
+                href={params({ before: nextBefore })}
+                data-role="audit-older"
+              >
+                أقدم من ذلك
+              </Link>
+            </div>
+          ) : null}
         </Panel>
       )}
     </section>

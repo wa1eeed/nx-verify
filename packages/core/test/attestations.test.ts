@@ -153,6 +153,46 @@ describe('recording attestations and reading the profile', () => {
     );
   });
 
+  it('marks the row where a field changed and leaves the first observation alone', async () => {
+    await write('cr.name', { name: 'الأولى' }, new Date(Date.now() - 3 * HOUR));
+    await write('cr.name', { name: 'الأولى' }, new Date(Date.now() - 2 * HOUR));
+    await write('cr.name', { name: 'الثانية' }, new Date(Date.now() - HOUR));
+
+    const ledger = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getAttestationTimeline(tx, tenant.entityId, { fieldPath: 'cr.name' }),
+    );
+
+    // Newest first: the change, the confirmation, the first sighting.
+    expect(ledger.map((entry) => entry.changed)).toEqual([true, false, false]);
+    // The oldest row we hold replaced nothing, so it is not a change. Calling it one would
+    // put a change marker on every first verification.
+    expect(ledger[2]?.supersededBy).not.toBeNull();
+    expect(ledger[0]?.supersededBy).toBeNull();
+  });
+
+  it('holds the whole ledger when the verification behind a row is gone', async () => {
+    const ledger = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getAttestationTimeline(tx, tenant.entityId),
+    );
+
+    // Retention removes runs long before it removes facts. A ledger that dropped a fact
+    // because its run had aged out would lose the answer the append only design exists to
+    // give, and the honest answer to "what set this off" is that we no longer know.
+    expect(ledger.length).toBeGreaterThan(0);
+    for (const entry of ledger) {
+      expect(entry.runId).toBeTruthy();
+      expect(entry.triggeredBy).toBeNull();
+      expect(entry.runReference).toBeNull();
+    }
+  });
+
+  it('cuts the ledger by rows and not by fields', async () => {
+    const ledger = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      getAttestationTimeline(tx, tenant.entityId, { limit: 2 }),
+    );
+    expect(ledger).toHaveLength(2);
+  });
+
   it('never exposes the provider through the profile or the timeline', async () => {
     const profile = await withTenant(db.appPool, tenant.tenantId, (tx) =>
       getEntityProfile(tx, tenant.entityId),

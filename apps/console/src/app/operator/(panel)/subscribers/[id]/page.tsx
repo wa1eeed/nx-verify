@@ -2,14 +2,18 @@ import { notFound } from 'next/navigation';
 import type { ReactElement } from 'react';
 import {
   getSubscriberDetail,
+  listCatalog,
   listPlans,
   listSpecialPrices,
+  listTenantBindings,
   operatorCan,
   subscribersBoard,
   tenantModules,
   tenantRiskModel,
 } from '@nx-verify/core';
+import { secretStoreFromEnv } from '@nx-verify/providers';
 import { AdminSubscriber } from '../../../../../components/admin-subscribers/detail';
+import type { SubscriberSourceView } from '../../../../../components/admin-subscribers/source';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { SUBSCRIBER_TABS } from '../../../../../components/operator-shell';
 import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
@@ -21,6 +25,7 @@ import {
   setRiskSignalAction,
   setSuspendedAction,
 } from '../actions';
+import { setSourceAction } from './actions';
 
 /** Never prerendered, and refuses to render without a sign in. */
 export const dynamic = 'force-dynamic';
@@ -59,6 +64,27 @@ const NOTICES: Readonly<Record<string, { tone: 'done' | 'refused'; text: string 
     tone: 'refused',
     text: 'لم يُحفظ: الوزن من صفر إلى مئة، والعتبة رقم موجب، وحد «المتوسطة» أقل من حد «العالية».',
   },
+  'saved:source': {
+    tone: 'done',
+    text: 'حُفظ الربط. نداء هذا المشترك التالي يخرج على الاعتماد المحدَّد، ولا يتغير شيء في كونسوله ولا في استجاباته.',
+  },
+  'saved:source_started': { tone: 'done', text: 'فُعِّل الربط. صار هذا المزوّد في صف من يخدمه.' },
+  'saved:source_stopped': {
+    tone: 'done',
+    text: 'أُوقف الربط. يعود هذا المشترك إلى توجيه المنصة وإلى اعتمادها لبيئة مساحته.',
+  },
+  'refused:source': {
+    tone: 'refused',
+    text: 'لم يُحفظ: تحقق من المزوّد ومن الترتيب، والترتيب رقم صحيح أكبر من صفر.',
+  },
+  'refused:source_ref': {
+    tone: 'refused',
+    text: 'لم يُحفظ: مرجع الاعتماد يبدأ بـ kms:// ويشير إلى خزنة الأسرار. لا تُلصق هنا قيمة سر.',
+  },
+  'refused:source_byoc': {
+    tone: 'refused',
+    text: 'لم يُحفظ: «على اعتماد المشترك» يلزمه مرجع اعتماد. بلا مرجع يخرج النداء على اعتماد المنصة ويُسجَّل بلا تكلفة علينا.',
+  },
 };
 
 export default async function OperatorSubscriberPage({
@@ -84,11 +110,43 @@ export default async function OperatorSubscriberPage({
     special: (await listSpecialPrices(db)).find((entry) => entry.tenantId === id) ?? null,
     modules: await tenantModules(db, id),
     risk: await tenantRiskModel(db, id),
+    bindings: await listTenantBindings(db, id),
+    catalogue: await listCatalog(db),
   }));
   const row = data.board.rows.find((entry) => entry.tenantId === id);
   if (!data.detail || !row) {
     notFound();
   }
+
+  const store = secretStoreFromEnv();
+  const source: SubscriberSourceView = {
+    bindings: await Promise.all(
+      data.bindings.map(async (binding) => ({
+        provider: binding.provider,
+        nameAr:
+          data.catalogue.find((entry) => entry.code === binding.provider)?.nameAr ??
+          binding.provider,
+        mode: binding.mode,
+        credentialRef: binding.credentialRef,
+        // Described, never fetched for display: the screen learns which fields are set behind
+        // the reference and a fingerprint of each, and no value reaches the page (rule 10).
+        credential:
+          binding.credentialRef === null || store.describe === undefined
+            ? null
+            : await store.describe(binding.credentialRef).catch(() => null),
+        priority: binding.priority,
+        healthStatus: binding.healthStatus,
+        activatedAt: binding.activatedAt,
+      })),
+    ),
+    catalogue: data.catalogue
+      .filter((entry) => entry.status === 'active')
+      .map((entry) => ({ code: entry.code, nameAr: entry.nameAr })),
+    storeDescribes: store.describe !== undefined,
+    // Whose account a subscriber runs on is the permission that guards every other provider
+    // credential, not the one that moves plans and stops accounts.
+    canManage: operatorCan(operator.role, 'integration'),
+  };
 
   const key =
     typeof query['refused'] === 'string'
@@ -109,6 +167,7 @@ export default async function OperatorSubscriberPage({
           specialPrice: data.special,
           modules: data.modules,
           risk: data.risk,
+          source,
           notice: key === null ? null : (NOTICES[key] ?? null),
         }}
         actions={{
@@ -118,6 +177,7 @@ export default async function OperatorSubscriberPage({
           setRiskSignal: setRiskSignalAction,
           setRiskBands: setRiskBandsAction,
           setRiskCategory: setRiskCategoryAction,
+          setSource: setSourceAction,
         }}
       />
     </div>

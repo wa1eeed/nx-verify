@@ -25,6 +25,25 @@ interface NxErrorShape {
   messageEn: string;
 }
 
+/**
+ * Every error the API can return, for the reference screen (ADR-169).
+ *
+ * The screen cited NX-4031 as an example and had no table, and the call log printed codes raw
+ * with nothing to look them up in. A developer integrating against this platform met a code
+ * and had to ask us what it meant, which is the one thing an error code exists to avoid.
+ */
+export function errorCatalogue(): {
+  code: NxErrorCode;
+  status: number;
+  retryable: boolean;
+  messageAr: string;
+  messageEn: string;
+}[] {
+  return (Object.keys(CATALOG) as NxErrorCode[])
+    .sort()
+    .map((code) => ({ code, ...CATALOG[code] }));
+}
+
 const CATALOG: Record<NxErrorCode, NxErrorShape> = {
   'NX-4001': {
     status: 400,

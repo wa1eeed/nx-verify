@@ -1,7 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { NxError, setPackageProduct, setTenantOverride, setTenantPackage } from '@nx-verify/core';
+import {
+  NxError,
+  assignSubscriberPlan,
+  setPackageProduct,
+  setTenantOverride,
+} from '@nx-verify/core';
 import { redirect } from 'next/navigation';
 import {
   parseRiyals,
@@ -97,16 +102,22 @@ export async function setOverrideAction(formData: FormData): Promise<void> {
   revalidatePath('/operator/pricing/plans');
 }
 
+/**
+ * Moves a subscriber onto a plan.
+ *
+ * Through the same call the subscribers board uses, not through `setTenantPackage` directly:
+ * that one writes the subscriber's own trail and nothing else, so a plan changed from this
+ * screen appeared in no panel trail at all, while the very same change made two screens away
+ * did. One move, one pair of entries, whichever screen it was made from.
+ */
 export async function assignPackageAction(formData: FormData): Promise<void> {
-  const { id: operatorId } = await requireOperatorPermission('subscribers');
+  const actor = await requireOperatorPermission('subscribers');
   await operatorQuery((db) =>
-    setTenantPackage(
+    assignSubscriberPlan(
       db,
-      {
-        tenantId: String(formData.get('tenant_id') ?? ''),
-        packageCode: String(formData.get('package_code') ?? ''),
-      },
-      operatorId,
+      actor,
+      String(formData.get('tenant_id') ?? ''),
+      String(formData.get('package_code') ?? ''),
     ),
   );
   revalidatePath('/operator/pricing/plans');

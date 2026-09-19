@@ -1,4 +1,4 @@
-import type { Queryable, TenantTransaction } from '@nx-verify/db';
+import type { TenantTransaction } from '@nx-verify/db';
 
 /**
  * The risk model, as rows rather than as literals (ADR-138, migration 0052).
@@ -94,6 +94,30 @@ interface BandRow {
 }
 
 /**
+ * Where this subscriber's two lines fall: theirs where they have an opinion, ours otherwise.
+ *
+ * Its own function because the customers list needs the bands without the thirteen signals:
+ * «who is in the high band» is one comparison against a stored score, and reading the whole
+ * model to answer it would be reading twelve rows to use none of them.
+ */
+export async function resolveRiskBands(
+  tx: TenantTransaction,
+): Promise<Pick<RiskPolicy, 'highFrom' | 'mediumFrom'>> {
+  const { rows } = await tx.query<BandRow>(
+    `SELECT COALESCE(t.risk_high_from, p.risk_high_from) AS high_from,
+            COALESCE(t.risk_medium_from, p.risk_medium_from) AS medium_from
+       FROM platform_settings p
+       LEFT JOIN tenant_risk_settings t ON t.tenant_id = $1`,
+    [tx.tenantId],
+  );
+  const band = rows[0];
+  return {
+    highFrom: band?.high_from ?? DEFAULT_RISK_POLICY.highFrom,
+    mediumFrom: band?.medium_from ?? DEFAULT_RISK_POLICY.mediumFrom,
+  };
+}
+
+/**
  * The policy in force for this subscriber: the platform's model, with their disagreements.
  *
  * One query for the signals and one for the bands, both read on the subscriber's own
@@ -112,13 +136,7 @@ export async function resolveRiskPolicy(tx: TenantTransaction): Promise<RiskPoli
         ORDER BY s.position, s.code`,
       [tx.tenantId],
     ),
-    await tx.query<BandRow>(
-      `SELECT COALESCE(t.risk_high_from, p.risk_high_from) AS high_from,
-              COALESCE(t.risk_medium_from, p.risk_medium_from) AS medium_from
-         FROM platform_settings p
-         LEFT JOIN tenant_risk_settings t ON t.tenant_id = $1`,
-      [tx.tenantId],
-    ),
+    await resolveRiskBands(tx),
   ];
 
   if (signals.rows.length === 0) {
@@ -135,40 +153,5 @@ export async function resolveRiskPolicy(tx: TenantTransaction): Promise<RiskPoli
     };
   }
 
-  const band = bands.rows[0];
-  return {
-    signals: resolved,
-    highFrom: band?.high_from ?? DEFAULT_RISK_POLICY.highFrom,
-    mediumFrom: band?.medium_from ?? DEFAULT_RISK_POLICY.mediumFrom,
-  };
-}
-
-/** The platform's model alone, for a caller with no subscriber: the panel, and the worker. */
-export async function platformRiskPolicy(db: Queryable): Promise<RiskPolicy> {
-  const [signals, bands] = [
-    await db.query<Pick<PolicyRow, 'code' | 'weight' | 'enabled' | 'threshold'>>(
-      `SELECT code, weight, enabled, threshold::text AS threshold
-         FROM risk_signals ORDER BY position, code`,
-    ),
-    await db.query<BandRow>(
-      `SELECT risk_high_from AS high_from, risk_medium_from AS medium_from FROM platform_settings`,
-    ),
-  ];
-  if (signals.rows.length === 0) {
-    return DEFAULT_RISK_POLICY;
-  }
-  const resolved: Record<string, RiskSignalPolicy> = {};
-  for (const row of signals.rows) {
-    resolved[row.code] = {
-      weight: row.weight,
-      enabled: row.enabled,
-      threshold: row.threshold === null ? null : Number(row.threshold),
-    };
-  }
-  const band = bands.rows[0];
-  return {
-    signals: resolved,
-    highFrom: band?.high_from ?? DEFAULT_RISK_POLICY.highFrom,
-    mediumFrom: band?.medium_from ?? DEFAULT_RISK_POLICY.mediumFrom,
-  };
+  return { signals: resolved, ...bands };
 }

@@ -2058,6 +2058,7 @@ describe('the reference and the support screen', () => {
     <Docs
       view={{
         apiBaseUrl: 'https://api.nx.sa',
+        errors: [],
         products: [
           {
             code: 'ADDRESS_ONLY',
@@ -2070,6 +2071,8 @@ describe('the reference and the support screen', () => {
             },
             allowed: true,
             refusalAr: null,
+            priceHalalas: 300,
+            coveredByPlan: false,
           },
           {
             code: 'INCOME_VERIFICATION',
@@ -2078,6 +2081,8 @@ describe('the reference and the support screen', () => {
             inputSchema: { type: 'object', required: ['account_reference'] },
             allowed: false,
             refusalAr: 'هذه الوحدة غير مشمولة في باقتك.',
+            priceHalalas: 300,
+            coveredByPlan: false,
           },
         ],
       }}
@@ -2368,5 +2373,65 @@ describe('the order a verification is paid in', () => {
     const bundle = html.slice(html.indexOf('data-step="bundle"'), html.indexOf('data-step="wallet"'));
     expect(bundle).toContain('data-role="next-step"');
     expect(html).not.toContain('data-role="spend-nothing"');
+  });
+});
+
+/**
+ * The API reference (ADR-169).
+ *
+ * Its own subtitle promised «مدخلاتها، ومخرجاتها، وسعر كل واحدة» and it showed the inputs
+ * alone. It cited NX-4031 as an example of an error code and carried no table of them, while
+ * the call log printed those codes raw with nothing to look them up in.
+ */
+describe('the API reference', () => {
+  const product = {
+    code: 'CR_FULL',
+    nameAr: 'السجل التجاري',
+    subjectType: 'BUSINESS',
+    inputSchema: { type: 'object', required: ['unn'] },
+    allowed: true,
+    refusalAr: null,
+    priceHalalas: 300,
+    coveredByPlan: false,
+  };
+
+  it('says what a call costs, since that is what a developer chooses on', () => {
+    const html = renderToStaticMarkup(
+      <Docs view={{ apiBaseUrl: 'https://api.nx.sa', products: [product], errors: [] }} />,
+    );
+    expect(html).toContain('3.00 ر.س للعملية');
+  });
+
+  it('says «من باقتك» rather than a price the caller will not be charged', () => {
+    const html = renderToStaticMarkup(
+      <Docs
+        view={{
+          apiBaseUrl: 'https://api.nx.sa',
+          products: [{ ...product, coveredByPlan: true }],
+          errors: [],
+        }}
+      />,
+    );
+    expect(html).toContain('من باقتك');
+    expect(html).not.toContain('ر.س للعملية');
+  });
+
+  it('lists the error codes, and whether each is worth retrying', () => {
+    const html = renderToStaticMarkup(
+      <Docs
+        view={{
+          apiBaseUrl: 'https://api.nx.sa',
+          products: [],
+          errors: [
+            { code: 'NX-4031', status: 403, retryable: false, messageAr: 'ممنوع' },
+            { code: 'NX-5031', status: 503, retryable: true, messageAr: 'المصدر غير متاح' },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('data-code="NX-4031"');
+    // The one field a client acts on: retry, or stop and fix the call.
+    expect(html).toContain('لا، صحّح النداء');
+    expect(html).toContain('نعم، أعد المحاولة');
   });
 });

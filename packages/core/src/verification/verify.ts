@@ -1,5 +1,6 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
+import { audit, type ActorType } from '../auth/audit.js';
 import { requireProduct } from '../products/catalog.js';
 import { assertValidSubject } from '../products/input-validation.js';
 import { executeProduct, type StepRunner } from '../orchestration/executor.js';
@@ -60,6 +61,21 @@ import { loadWait, markResumed, openWaits } from './waits.js';
  * same result, one charge" means.
  */
 
+/**
+ * Who asked for this verification, for the subscriber's own audit trail.
+ *
+ * Supplied by the layer that knows. The API knows which key was presented, the address it came
+ * from and the request it arrived on; the domain knows none of those. Absent, the entry is
+ * still written and named from what the run itself carries, because a run with no entry is the
+ * subscriber's money spent with no trace of who spent it.
+ */
+export interface VerifyActor {
+  actorType: ActorType;
+  actorId: string;
+  ip?: string | null;
+  requestId?: string | null;
+}
+
 export interface VerifyInput {
   productCode: string;
   subject: Readonly<Record<string, unknown>>;
@@ -92,6 +108,8 @@ export interface VerifyInput {
   requestedBy?: string | null;
   /** Groups the checks of one full verification. */
   bundleKey?: string | null;
+  /** Who to name in the trail. Derived from the run when absent. */
+  actor?: VerifyActor;
 }
 
 export interface VerifyResult {
@@ -109,7 +127,65 @@ export interface VerifyResult {
   replayed: boolean;
 }
 
+/**
+ * One verification, and a line in the subscriber's trail saying it happened.
+ *
+ * The trail entry is written here rather than by each caller because every caller spends the
+ * same money. The API route, the console's check screen, an onboarding case, a batch and a
+ * monitor sweep all end at this function, and the entry used to be written by exactly one of
+ * them: a subscriber reading their own trail could see the calls made against their key and
+ * none of the calls made from their own screens.
+ *
+ * Nothing about the subject goes in it. Rule 4 has no exception for an audit row, and the
+ * identifier that was verified is precisely the thing a reader of this trail must not find
+ * here. The run id is the handle; the subject lives on the run, behind its own rules.
+ */
 export async function verify(tx: TenantTransaction, input: VerifyInput): Promise<VerifyResult> {
+  const result = await runVerification(tx, input);
+
+  const entry = {
+    ...actorOf(input),
+    target: result.runId,
+    metadata: {
+      product: input.productCode,
+      status: result.status,
+      triggered_by: input.triggeredBy,
+      // What it cost them, in halalas. A trail that records the call and not the charge
+      // still leaves «why is this month's bill that figure» unanswerable.
+      billed_halalas: result.billing.amount,
+    },
+  };
+  // Written as two calls rather than one with a ternary so that the screen's vocabulary test,
+  // which reads these action names out of the source, holds both labels in place.
+  if (result.replayed) {
+    await audit(tx, { ...entry, action: 'verification.replayed' });
+  } else {
+    await audit(tx, { ...entry, action: 'verification.created' });
+  }
+
+  return result;
+}
+
+/**
+ * Who the trail names.
+ *
+ * A console run carries the person who pressed the button. A monitor sweep and a batch carry
+ * nobody, and «the system» is the truth about them: attributing a nightly sweep to whoever
+ * created the schedule months ago would put a name on an act that person did not perform.
+ */
+function actorOf(input: VerifyInput): VerifyActor {
+  if (input.actor) {
+    return input.actor;
+  }
+  return input.requestedBy
+    ? { actorType: 'USER', actorId: input.requestedBy }
+    : { actorType: 'SYSTEM', actorId: input.triggeredBy.toLowerCase() };
+}
+
+async function runVerification(
+  tx: TenantTransaction,
+  input: VerifyInput,
+): Promise<VerifyResult> {
   const product = await requireProduct(tx, input.productCode);
 
   // Shown in the catalogue so the offer is honest about what is coming, and never run:

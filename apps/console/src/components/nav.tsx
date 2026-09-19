@@ -49,6 +49,7 @@ export const VERIFICATION_TABS: readonly Gated<SectionTab>[] = [
   { href: '/verifications', label: 'سجل العمليات' },
   { href: '/verifications/failed', label: 'العمليات المتعثرة' },
   { href: '/verifications/onboarding', label: 'ملفات التأهيل' },
+  { href: '/verifications/evidence', label: 'فحص مستند' },
 ];
 
 export const BILLING_TABS: readonly Gated<SectionTab>[] = [

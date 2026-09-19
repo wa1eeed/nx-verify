@@ -50,6 +50,28 @@ export function parsePercent(raw: string): number | null {
   return /^\d{1,2}(\.\d{1,2})?$/.test(value) ? Number(value) : null;
 }
 
+/**
+ * What a NOT_FOUND or a CACHED answer earns, typed as a whole percentage, as the fraction the
+ * price row holds: «50» is 0.5 and «100» is 1.
+ *
+ * A hundred is a real answer here, unlike a discount, and a fraction of a percent is not: the
+ * column keeps two decimals of a fraction, so «12.5%» would be stored as something nobody
+ * typed. It is refused rather than rounded.
+ */
+export function parseRateFraction(raw: string): number | null {
+  const value = latinDigits(raw).replace('%', '').trim();
+  if (!/^\d{1,3}$/.test(value)) {
+    return null;
+  }
+  const percent = Number(value);
+  return percent > 100 ? null : percent / 100;
+}
+
+/** «50» for a half: the rate fields show whole percents. */
+export function ratePctField(fraction: number | null | undefined): string {
+  return fraction === null || fraction === undefined ? '' : String(Math.round(fraction * 100));
+}
+
 /** A price as the field shows it: «3.00», without grouping, so it reads back as typed. */
 export function priceField(halalas: number | null): string {
   return halalas === null ? '' : (halalas / 100).toFixed(2);
@@ -84,10 +106,24 @@ export function sar(halalas: number): string {
   return halalas % 100 === 0 ? `${count(halalas / 100)} ر.س` : `${riyals(halalas)} ر.س`;
 }
 
-/** The line under the bundles' title: how long the shortest bundle lasts. */
-export function bundlesLineAr(bundles: readonly CreditBundle[]): string {
-  const months = bundles.length === 0 ? 12 : Math.min(...bundles.map((b) => b.validityMonths));
-  return `تُشترى مرة واحدة ولا تنتهي قبل ${monthsAr(months)}`;
+/**
+ * What one operation of a bundle costs, how long it lasts, and against what its discount is
+ * measured.
+ *
+ * The card used to show the whole price and a «−8%» with no base named, and one line at the
+ * top claiming a validity that was the shortest bundle's rather than this one's. The price of
+ * an operation is the figure two bundles are compared by and the one the cost floor is
+ * measured against, and it was computed and never shown.
+ */
+export function bundleTermsAr(bundle: CreditBundle): string {
+  const parts = [
+    `سعر العملية ${riyals(bundle.perOperationHalalas)} ر.س`,
+    `صالحة ${monthsAr(bundle.validityMonths)}`,
+  ];
+  if (bundle.discountPct !== null) {
+    parts.push(`أقل ${bundle.discountPct}% من سعر العملية في أصغر حزمة`);
+  }
+  return parts.join(' · ');
 }
 
 /** «−8%»: how much cheaper an operation is than in the smallest bundle. */
@@ -95,21 +131,47 @@ export function discountAr(pct: number | null): string | null {
   return pct === null ? null : `−${pct}%`;
 }
 
-/** A plan's price and its terms, as the subscriptions card lists them. */
-export function planLinesAr(plan: PlanSummary): { price: string; terms: string } {
+/**
+ * A plan's price, what it includes, and the terms that decide money nobody could see.
+ *
+ * The third line is the point: the free re-verification window prices a repeat check at zero
+ * (verify.ts), and it was a literal in the code that no screen printed. Beside it the term, the
+ * setup fee, the credit the term grants, and whether work continues at all past the included
+ * operations.
+ */
+export function planLinesAr(plan: PlanSummary): {
+  price: string;
+  terms: string;
+  commitment: string;
+} {
+  const commitment = [
+    `التزام ${monthsAr(plan.termMonths)}`,
+    plan.freeReverifyDays === 0
+      ? 'كل إعادة تحقق تُحسب'
+      : `إعادة التحقق خلال ${daysField(plan.freeReverifyDays)} بلا رسم`,
+    plan.setupFeeHalalas === 0 ? 'بلا رسم تأسيس' : `رسم تأسيس ${sar(plan.setupFeeHalalas)}`,
+    ...(plan.commitmentCreditsHalalas === 0
+      ? []
+      : [`رصيد عند التوقيع ${sar(plan.commitmentCreditsHalalas)}`]),
+  ].join(' · ');
+
   if (plan.billingModel === 'PAYG') {
-    return { price: 'بلا رسم شهري', terms: 'كل عملية بسعر منتجها' };
+    return { price: 'بلا رسم شهري', terms: 'كل عملية بسعر منتجها', commitment };
   }
   if (plan.negotiated) {
-    return { price: 'سعر تفاوضي', terms: 'حد مخصص · تجاوز مخصص' };
+    return { price: 'سعر تفاوضي', terms: 'حد مخصص · تجاوز مخصص', commitment };
   }
   const included =
     plan.includedTransactions === null ? 'حد مخصص' : operationsAr(plan.includedTransactions);
-  const overage =
-    plan.overageUnitHalalas === null ? 'بلا تجاوز' : `تجاوز ${riyals(plan.overageUnitHalalas)} ر.س`;
+  const overage = !plan.overageAllowed
+    ? 'يتوقف العمل عند الحد'
+    : plan.overageUnitHalalas === null
+      ? 'بلا تجاوز'
+      : `تجاوز ${riyals(plan.overageUnitHalalas)} ر.س`;
   return {
     price: plan.monthlyFeeHalalas === 0 ? 'بلا رسم شهري' : `${sar(plan.monthlyFeeHalalas)} / شهر`,
     terms: `${included} · ${overage}`,
+    commitment,
   };
 }
 
@@ -180,6 +242,38 @@ export function noticeAr(
         tone: 'refused',
         text: `لم تُحفظ التغييرات: سعر ${product} أقل من تكلفته، والسعر لا ينزل عن التكلفة.`,
       };
+    case 'rate':
+      return {
+        tone: 'refused',
+        text: `لم تُحفظ التغييرات: نسبة حالة في ${product} خارج المدى. النسبة رقم صحيح من 0 إلى 100.`,
+      };
+    case 'clear-on-sale':
+      return {
+        tone: 'refused',
+        text: `لم تُحفظ التغييرات: ${product} معروض للبيع، وبلا سعر يفشل كل تشغيل له. أوقف بيعه ثم امسح السعر.`,
+      };
+    case 'no-price':
+      return {
+        tone: 'refused',
+        text: `لم تُحفظ التغييرات: لا سعر لـ${product}، ولا يُعرض للبيع منتج بلا سعر.`,
+      };
+    case 'bundle-exists':
+      return {
+        tone: 'refused',
+        text: 'لم تُضف الحزمة: توجد حزمة بعدد العمليات نفسه. اختر عدداً آخر، أو استبدلها من زر التعديل بجانبها.',
+      };
+    case 'bundle-missing':
+      return {
+        tone: 'refused',
+        text: 'لم تُحفظ الحزمة: الحزمة المراد استبدالها لم تعد موجودة.',
+      };
+    case 'plan-missing':
+      return { tone: 'refused', text: 'لم تُحفظ الشروط: لا باقة مفعّلة بهذا الرمز.' };
+    case 'plan-terms':
+      return {
+        tone: 'refused',
+        text: 'لم تُحفظ الشروط: الالتزام 3 أو 12 أو 24 شهراً، ونافذة إعادة التحقق المجانية من 0 إلى 365 يوماً.',
+      };
     case 'settings':
       return {
         tone: 'refused',
@@ -218,7 +312,12 @@ export function noticeAr(
     case undefined:
       return null;
     case 'bundle':
-      return { tone: 'done', text: 'حُفظت الحزمة.' };
+      return { tone: 'done', text: 'أُضيفت الحزمة.' };
+    case 'bundle-replaced':
+      return {
+        tone: 'done',
+        text: 'اُستبدلت الحزمة. ما اشتراه المشتركون بسعرها السابق يبقى كما اشتروه.',
+      };
     case 'bundle-retired':
       return {
         tone: 'done',
@@ -226,6 +325,11 @@ export function noticeAr(
       };
     case 'plan':
       return { tone: 'done', text: 'أُضيفت الباقة.' };
+    case 'plan-terms':
+      return {
+        tone: 'done',
+        text: 'حُفظت شروط الباقة. نافذة إعادة التحقق المجانية وإيقاف العمل عند الحد يسريان على المشتركين الحاليين، وسعر التجاوز على من يوقّع بعد الآن.',
+      };
     case 'special':
       return { tone: 'done', text: 'حُفظ السعر الخاص.' };
     case 'vat':
@@ -234,14 +338,18 @@ export function noticeAr(
         text: 'أُعلنت قاعدة الضريبة. ما صدر من فواتير يبقى محسوباً بقاعدة تاريخه.',
       };
     default: {
-      const thin = (params['thin'] ?? '').split(',').filter((code) => code !== '');
-      return {
-        tone: 'done',
-        text:
-          thin.length === 0
-            ? 'حُفظت التغييرات.'
-            : `حُفظت التغييرات. الهامش أقل من 30% في: ${thin.map(nameOf).join('، ')}.`,
-      };
+      const codes = (key: string): string[] =>
+        (params[key] ?? '').split(',').filter((code) => code !== '');
+      const thin = codes('thin');
+      const cleared = codes('cleared');
+      const sentences = ['حُفظت التغييرات.'];
+      if (cleared.length > 0) {
+        sentences.push(`أُلغي سعر: ${cleared.map(nameOf).join('، ')}.`);
+      }
+      if (thin.length > 0) {
+        sentences.push(`الهامش أقل من 30% في: ${thin.map(nameOf).join('، ')}.`);
+      }
+      return { tone: 'done', text: sentences.join(' ') };
     }
   }
 }

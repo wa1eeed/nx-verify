@@ -17,11 +17,12 @@ import {
  * risk" is shown the lines that made it high, each with its weight, because a verdict
  * without its reason is one nobody can act on or defend to an auditor.
  *
- * Indicators say what has been established. Signals say what deserves attention. The risk
- * score (handoff screen 03) adds the signals' weights and ten for each required section
- * still missing, up to one hundred; its level is the band the score falls in. A signal the
- * product treats as serious weighs sixty, so it alone makes the level high. Nothing is rated
- * until the anchor fact has been checked: an unverified company is not a low risk company.
+ * Indicators say what has been established. Reasons say what deserves attention and what it
+ * costs: the risk score (handoff screen 03) is their weights added, up to one hundred, and its
+ * level is the band that sum falls in. Every weight, threshold and band is a row a subscriber
+ * may disagree with (ADR-138, migration 0052), so no number is written here except as the
+ * model we ship in `risk-policy.ts`. Nothing is rated until the anchor fact has been checked:
+ * an unverified company is not a low risk company.
  */
 
 export type IndicatorState = 'PASS' | 'FAIL' | 'WARN' | 'UNKNOWN' | 'NA';
@@ -35,9 +36,17 @@ export interface Indicator {
   detailAr: string | null;
 }
 
-export type SignalSeverity = 'HIGH' | 'MEDIUM' | 'LOW';
+type SignalSeverity = 'HIGH' | 'MEDIUM' | 'LOW';
 
-export interface RiskSignal {
+/**
+ * A signal on its way to becoming a reason.
+ *
+ * Internal, and it stays internal. It used to be carried out of here on the assessment beside
+ * `riskReasons`, which no screen ever drew: the same sentences twice, one list ordered by the
+ * platform's opinion of severity and one by the weight that actually makes the score. A reader
+ * is shown the weights, so the weights are the list.
+ */
+interface RiskSignal {
   key: string;
   severity: SignalSeverity;
   textAr: string;
@@ -78,9 +87,11 @@ export interface Assessment {
   bands: { highFrom: number; mediumFrom: number };
   /** Zero to one hundred. Null until there is anything to rate. */
   riskScore: number | null;
-  /** The weights that make the score, heaviest first. */
+  /**
+   * Every signal that counts against this customer and what each adds, heaviest first. The
+   * whole of what the score is made of: there is no second list with anything else in it.
+   */
   riskReasons: RiskReason[];
-  signals: RiskSignal[];
 }
 
 export interface FactView {
@@ -147,22 +158,6 @@ const STANDING_LABELS: Record<Standing, string> = {
   DEFICIENT: 'ناقص',
   IN_PROGRESS: 'قيد الإكمال',
 };
-
-/**
- * What each signal adds to the score, as the platform ships it.
- *
- * Serious signals weigh sixty, so one of them makes the level high on its own; the ones a
- * person should look at weigh thirty, the medium band's floor; the rest nudge. Every one of
- * these is a row now (migration 0052) and a subscriber may disagree with any of them; this
- * map is what answers when nobody has.
- */
-export const SIGNAL_WEIGHTS: Readonly<Record<string, number>> = Object.fromEntries(
-  Object.entries(DEFAULT_RISK_POLICY.signals).map(([code, signal]) => [code, signal.weight]),
-);
-
-/** Each required section still missing adds this much, for at most three of them. */
-export const INCOMPLETE_SECTION_WEIGHT =
-  DEFAULT_RISK_POLICY.signals.incomplete_section?.weight ?? 10;
 
 /**
  * Which band a score falls in.
@@ -439,6 +434,9 @@ function signalsFor(input: AssessmentInput): RiskSignal[] {
     });
   }
 
+  // Severity decides nothing about the score and everything about a tie in it: the reasons are
+  // sorted by weight with a stable sort, so two signals worth thirty are read in the order the
+  // platform thinks they matter rather than in the order the conditions happen to be written.
   const order: Record<SignalSeverity, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
   return signals.sort((left, right) => order[left.severity] - order[right.severity]);
 }
@@ -518,6 +516,5 @@ export function assessCustomer(input: AssessmentInput): Assessment {
     riskLabelAr: RISK_LABELS[riskLevel],
     riskScore,
     riskReasons,
-    signals,
   };
 }

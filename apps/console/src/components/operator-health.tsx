@@ -1,5 +1,9 @@
 import type { ReactElement } from 'react';
-import { PageHeader, Panel } from './page-header';
+import { PageHeader } from './page-header';
+import { Card } from './ui/card';
+import { Ltr } from './ui/ltr';
+import { Table, Th } from './ui/table';
+import { StateTag, Tag } from './ui/tag';
 import { count, riyals } from './format';
 
 /**
@@ -11,6 +15,10 @@ import { count, riyals } from './format';
  *
  * It shows telemetry about our own service and money about their account, and nothing
  * about whom they verified. That boundary is the reason staff may look at all.
+ *
+ * Red is kept for what already failed. A low balance and an unhealthy provider are things
+ * to look at, so they are amber, and they are amber here in the same words and the same
+ * tone the subscribers screen uses for them (CLAUDE.md, interface).
  */
 
 export interface HealthRowView {
@@ -39,7 +47,7 @@ export function OperatorHealth({
   const degraded = rows.filter((row) => row.unhealthyProviders.length > 0);
 
   return (
-    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+    <div className="admin-screen" data-role="operator-health">
       <PageHeader
         title="صحة الخدمة"
         subtitle={`آخر ${windowHours} ساعة. ما فعلته خدمتنا حين نُوديت، ورصيد كل مشترك. لا شيء هنا عمّن تحقّق منه أحد.`}
@@ -49,116 +57,113 @@ export function OperatorHealth({
         <article className="stat" {...(failing.length > 0 ? { 'data-tone': 'critical' } : {})}>
           <span className="stat-label">مشتركون يرون فشلاً</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {count(failing.length)}
-            </bdi>
+            <Ltr>{count(failing.length)}</Ltr>
           </strong>
         </article>
-        <article className="stat" {...(lowBalance.length > 0 ? { 'data-tone': 'critical' } : {})}>
+        <article className="stat" {...(lowBalance.length > 0 ? { 'data-tone': 'changed' } : {})}>
           <span className="stat-label">أرصدة منخفضة</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {count(lowBalance.length)}
-            </bdi>
+            <Ltr>{count(lowBalance.length)}</Ltr>
           </strong>
           <span className="stat-hint">توشك أن توقف العمل</span>
         </article>
         <article className="stat" {...(degraded.length > 0 ? { 'data-tone': 'changed' } : {})}>
           <span className="stat-label">مزودون غير أصحاء</span>
           <strong className="stat-value">
-            <bdi dir="ltr" className="mono">
-              {count(degraded.length)}
-            </bdi>
+            <Ltr>{count(degraded.length)}</Ltr>
           </strong>
           <span className="stat-hint">عند مشتركين مرتبطين بهم</span>
         </article>
       </section>
 
-      <Panel title="المشتركون" aside="الأسوأ أولاً">
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>المشترك</th>
-                <th>نداءات</th>
-                <th>فشل</th>
-                <th>أبطأ نداء</th>
-                <th>الرصيد (ر.س)</th>
-                <th>المزودون</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.tenantId}
-                  data-role="health-row"
-                  data-failing={row.failures > 0 ? 'true' : 'false'}
-                >
-                  <td>
-                    {row.legalName}
-                    {row.isSandbox ? <span className="muted"> · بيئة اختبار</span> : null}
-                    <div className="faint">
-                      <bdi dir="ltr" className="mono">
-                        {row.slug}
-                      </bdi>
-                    </div>
-                  </td>
-                  <td>
-                    <bdi dir="ltr" className="mono">
-                      {count(row.calls)}
-                    </bdi>
-                  </td>
-                  <td>
-                    <bdi
-                      dir="ltr"
-                      className="mono"
-                      style={row.failures > 0 ? { color: 'var(--critical-fg)' } : undefined}
-                    >
-                      {count(row.failures)}
-                    </bdi>
-                  </td>
-                  <td>
-                    <bdi dir="ltr" className="mono">
-                      {count(row.slowestMs)}
-                    </bdi>
-                  </td>
-                  <td>
-                    <bdi dir="ltr" className="mono">
-                      {riyals(row.balanceHalalas)}
-                    </bdi>
-                    {row.balanceLow ? (
-                      <span
-                        className="badge"
-                        data-role="low-balance"
-                        style={{
-                          borderColor: 'var(--critical-line)',
-                          color: 'var(--critical-fg)',
-                          marginInlineStart: 'var(--s-2)',
-                        }}
-                      >
-                        منخفض
-                      </span>
-                    ) : null}
-                  </td>
-                  <td>
-                    {row.unhealthyProviders.length === 0 ? (
-                      <span className="muted">أصحّاء</span>
-                    ) : (
-                      // The provider name is internal, and this is the operator screen:
-                      // the one place in the console where naming one is allowed.
-                      <span className="badge" data-role="unhealthy-provider">
-                        <bdi dir="ltr" className="mono">
-                          {row.unhealthyProviders.join('، ')}
-                        </bdi>
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Card variant="flush" role="health-subscribers" labelledBy="health-subscribers-title">
+        <div className="admin-card-head">
+          <h2 className="card-title admin-card-title" id="health-subscribers-title">
+            المشتركون
+          </h2>
+          <p className="admin-card-note">الأسوأ أولاً</p>
         </div>
-      </Panel>
+
+        {rows.length === 0 ? (
+          <p className="admin-empty" data-role="empty-state">
+            لا مشترك مفعّل بعد، فلا صحة خدمة تُقاس.
+          </p>
+        ) : (
+          <div className="admin-table">
+            <Table label="صحة خدمة المشتركين">
+              <thead>
+                <tr>
+                  <Th>المشترك</Th>
+                  <Th>نداءات</Th>
+                  <Th>فشل</Th>
+                  {/* The unit beside the column name, as «الرصيد (ر.س)» does: the figure is
+                      milliseconds, and a bare 900 in this column read as seconds. */}
+                  <Th>أبطأ نداء (مللي ثانية)</Th>
+                  <Th>الرصيد (ر.س)</Th>
+                  <Th>المزودون</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr
+                    key={row.tenantId}
+                    data-role="health-row"
+                    data-failing={row.failures > 0 ? 'true' : 'false'}
+                  >
+                    <td>
+                      {row.legalName}{' '}
+                      {row.isSandbox ? <Tag tone="neutral">بيئة اختبار</Tag> : null}
+                      <div className="faint">
+                        <Ltr>{row.slug}</Ltr>
+                      </div>
+                    </td>
+                    <td>
+                      <Ltr>{count(row.calls)}</Ltr>
+                    </td>
+                    <td>
+                      {row.failures === 0 ? (
+                        <Ltr>{count(row.failures)}</Ltr>
+                      ) : (
+                        <Tag tone="critical">
+                          <Ltr>{count(row.failures)}</Ltr>
+                        </Tag>
+                      )}
+                    </td>
+                    <td>
+                      {/* Nothing was called, so the slowest call is not zero milliseconds: it
+                          does not exist. Printing 0 here reads as an instant answer. */}
+                      {row.calls === 0 ? (
+                        <span className="muted">لا نداءات</span>
+                      ) : (
+                        <Ltr>{count(row.slowestMs)}</Ltr>
+                      )}
+                    </td>
+                    <td>
+                      <Ltr>{riyals(row.balanceHalalas)}</Ltr>{' '}
+                      {row.balanceLow ? (
+                        <StateTag state="LOW_BALANCE" role="low-balance">
+                          منخفض
+                        </StateTag>
+                      ) : null}
+                    </td>
+                    <td>
+                      {row.unhealthyProviders.length === 0 ? (
+                        <span className="muted">أصحّاء</span>
+                      ) : (
+                        // The provider name is internal, and this is the operator screen:
+                        // the one place in the console where naming one is allowed.
+                        <Tag tone="accent" role="unhealthy-provider">
+                          <Ltr>{row.unhealthyProviders.join('، ')}</Ltr>
+                        </Tag>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

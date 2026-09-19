@@ -2,6 +2,7 @@ import type { TenantTransaction } from '@nx-verify/db';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
 import { findEntityIdByIdentifier } from '../repositories/identifiers.js';
 import type { CustomerKind } from './checks.js';
+import { resolveRiskBands } from './risk-policy.js';
 
 /**
  * The customers list.
@@ -19,7 +20,8 @@ import type { CustomerKind } from './checks.js';
  * (docs/explanation/measurements.md).
  *
  * Searching accepts a name or a number: a number is looked up by its keyed hash, the only way
- * it can be found (rule 4).
+ * it can be found (rule 4). Filtering accepts a kind, an open alert, and the high risk band,
+ * which is the one question a compliance officer opens this screen to ask.
  */
 
 export interface CustomerRow {
@@ -41,6 +43,15 @@ export interface CustomerFilter {
   search?: string | null;
   /** Only customers with something open: a conflict, or a change nobody has read. */
   alertsOnly?: boolean;
+  /**
+   * Only customers whose last computed score sits in this subscriber's high band (ADR-138).
+   *
+   * Read from `customer_standing.risk_score`, which is the model's answer from the last sweep
+   * rather than a fresh one, so this facet lags exactly as «مكتمل» and «تنبيهات» do. A customer
+   * nobody has swept yet has no score and is in no band, which is the right way to be wrong:
+   * the filter under-reports rather than guessing a band for a customer nobody has rated.
+   */
+  highRiskOnly?: boolean;
   /**
    * Exactly these customers, in the order given. Skips the index and every filter: it is how
    * a page already chosen is read, and how one customer is refreshed.
@@ -131,13 +142,25 @@ async function searchedEntity(
   return null;
 }
 
-/** The filter, as the four parameters every query over the standing table takes. */
+/** The filter, as the parameters every query over the standing table takes. */
+type StandingParams = [
+  string,
+  string | null,
+  string | null,
+  string | null,
+  boolean,
+  string[] | null,
+  boolean,
+  number | null,
+];
+
 function standingParams(
   tx: TenantTransaction,
   filter: CustomerFilter,
   byIdentifier: string | null,
   search: string,
-): [string, string | null, string | null, string | null, boolean, string[] | null] {
+  highFrom: number | null,
+): StandingParams {
   return [
     tx.tenantId,
     byIdentifier,
@@ -145,6 +168,8 @@ function standingParams(
     filter.kind ?? null,
     filter.alertsOnly === true,
     filter.entityIds === undefined ? null : [...filter.entityIds].slice(0, MAX_PAGE),
+    filter.highRiskOnly === true,
+    highFrom,
   ];
 }
 
@@ -153,6 +178,10 @@ function standingParams(
  *
  * Written once because the page and its count must agree exactly. A count that answers a
  * different question from the rows below it is worse than no count.
+ *
+ * The band is a parameter rather than a literal because it is a subscriber's to set: the same
+ * score of sixty is high to a lender and ordinary to a marketplace, and a number compiled into
+ * this string would be one more copy of the model to drift (rule 8).
  */
 const STANDING_WHERE = `
   s.tenant_id = $1
@@ -161,7 +190,8 @@ const STANDING_WHERE = `
   AND ($3::text IS NULL OR e.display_name ILIKE '%' || $3 || '%')
   AND ($4::text IS NULL OR s.kind = $4)
   AND ($5 IS NOT TRUE OR s.open_alerts > 0)
-  AND ($6::uuid[] IS NULL OR s.entity_id = ANY($6::uuid[]))`;
+  AND ($6::uuid[] IS NULL OR s.entity_id = ANY($6::uuid[]))
+  AND ($7 IS NOT TRUE OR s.risk_score >= $8::int)`;
 
 /** Which customers this page is, and how many there are in all under the same filter. */
 export async function pickCustomers(
@@ -174,7 +204,10 @@ export async function pickCustomers(
   if (byIdentifier === null && /^[0-9]{10}$/.test(search)) {
     return { entityIds: [], total: 0 };
   }
-  const params = standingParams(tx, filter, byIdentifier, search);
+  // The bands are read only when something asks about them, so the ordinary page still costs
+  // the two queries it always did.
+  const highFrom = filter.highRiskOnly === true ? (await resolveRiskBands(tx)).highFrom : null;
+  const params = standingParams(tx, filter, byIdentifier, search, highFrom);
   const { limit, offset } = windowOf(filter);
 
   const [{ rows: picked }, { rows: counted }] = [
@@ -184,7 +217,7 @@ export async function pickCustomers(
          JOIN entities e ON e.tenant_id = s.tenant_id AND e.id = s.entity_id
         WHERE ${STANDING_WHERE}
         ORDER BY s.last_verified_at DESC NULLS LAST, s.entity_id DESC
-        LIMIT $7 OFFSET $8`,
+        LIMIT $9 OFFSET $10`,
       [...params, limit, offset],
     ),
     await tx.query<{ total: string }>(
@@ -388,6 +421,8 @@ export interface CustomerCounts {
   complete: number;
   incomplete: number;
   alerts: number;
+  /** In this subscriber's high band at their last sweep, which is what `risk_score` is for. */
+  highRisk: number;
 }
 
 /**
@@ -395,11 +430,15 @@ export interface CustomerCounts {
  *
  * Three of these used to be counted by summarising every customer in the workspace and
  * counting the results in JavaScript, which is why the screen asked for five thousand
- * summaries to draw twenty five rows. Completeness and alerts are the model's answers, so
- * they are read from the standing row the worker keeps rather than recomputed here: a facet
- * that lags a minute is useful, and one that waits for a million rows is not.
+ * summaries to draw twenty five rows. Completeness, alerts and the risk band are the model's
+ * answers, so they are read from the standing row the worker keeps rather than recomputed
+ * here: a facet that lags a minute is useful, and one that waits for a million rows is not.
+ *
+ * The band comes with them rather than from a literal, because where «عالية» starts is a
+ * subscriber's decision (ADR-138) and this count must agree with the word each row shows.
  */
 export async function countCustomers(tx: TenantTransaction): Promise<CustomerCounts> {
+  const { highFrom } = await resolveRiskBands(tx);
   const { rows } = await tx.query<{
     all: string;
     companies: string;
@@ -407,17 +446,19 @@ export async function countCustomers(tx: TenantTransaction): Promise<CustomerCou
     freelancers: string;
     complete: string;
     alerts: string;
+    high_risk: string;
   }>(
     `SELECT count(*)::text AS all,
             count(*) FILTER (WHERE s.kind = 'COMPANY')::text AS companies,
             count(*) FILTER (WHERE s.kind = 'ESTABLISHMENT')::text AS establishments,
             count(*) FILTER (WHERE s.kind = 'FREELANCER')::text AS freelancers,
             count(*) FILTER (WHERE s.completeness = 100)::text AS complete,
-            count(*) FILTER (WHERE s.open_alerts > 0)::text AS alerts
+            count(*) FILTER (WHERE s.open_alerts > 0)::text AS alerts,
+            count(*) FILTER (WHERE s.risk_score >= $2)::text AS high_risk
        FROM customer_standing s
        JOIN entities e ON e.tenant_id = s.tenant_id AND e.id = s.entity_id
       WHERE s.tenant_id = $1 AND e.archived_at IS NULL`,
-    [tx.tenantId],
+    [tx.tenantId, highFrom],
   );
   const row = rows[0];
   const all = Number(row?.all ?? 0);
@@ -430,5 +471,6 @@ export async function countCustomers(tx: TenantTransaction): Promise<CustomerCou
     complete,
     incomplete: all - complete,
     alerts: Number(row?.alerts ?? 0),
+    highRisk: Number(row?.high_risk ?? 0),
   };
 }

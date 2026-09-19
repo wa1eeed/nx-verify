@@ -264,3 +264,127 @@ export async function queueEventTo(
   );
   return rows[0]?.id ?? null;
 }
+
+/**
+ * How an endpoint is actually doing (ADR-169).
+ *
+ * `webhook_deliveries` records every attempt: its status, how many tries it took, the HTTP code
+ * that came back, and when it landed. The worker writes all of it and nothing ever reads it, so
+ * a subscriber registers an address and is blind to whether a single event has ever arrived.
+ *
+ * That is the worst shape a failure can take here. A webhook that stops delivering makes no
+ * noise on either side: we give up after the retries and record that we gave up, and the
+ * integration on the other end simply goes quiet. Somebody notices weeks later when a customer
+ * asks why an alert never came.
+ */
+export interface EndpointHealth {
+  endpointId: string;
+  /** Delivered, failed and abandoned in the window, so a rate is derivable on screen. */
+  delivered: number;
+  failing: number;
+  /** Given up on: past the retry schedule, and never coming back by itself. */
+  abandoned: number;
+  /** Still queued or between retries. */
+  pending: number;
+  lastAttemptAt: Date | null;
+  lastDeliveredAt: Date | null;
+  /** The HTTP code of the most recent attempt, which is what a developer debugs from. */
+  lastStatus: number | null;
+}
+
+export async function endpointHealth(
+  tx: TenantTransaction,
+  windowDays = 30,
+): Promise<EndpointHealth[]> {
+  const { rows } = await tx.query<{
+    endpoint_id: string;
+    delivered: string;
+    failing: string;
+    abandoned: string;
+    pending: string;
+    last_attempt_at: Date | null;
+    last_delivered_at: Date | null;
+    last_status: number | null;
+  }>(
+    `SELECT endpoint_id,
+            count(*) FILTER (WHERE status = 'delivered')::text AS delivered,
+            count(*) FILTER (WHERE status = 'failed')::text AS failing,
+            count(*) FILTER (WHERE status = 'abandoned')::text AS abandoned,
+            count(*) FILTER (WHERE status = 'pending')::text AS pending,
+            max(created_at) AS last_attempt_at,
+            max(delivered_at) AS last_delivered_at,
+            (array_agg(last_status ORDER BY created_at DESC))[1] AS last_status
+       FROM webhook_deliveries
+      WHERE tenant_id = $1 AND created_at > now() - make_interval(days => $2)
+      GROUP BY endpoint_id`,
+    [tx.tenantId, windowDays],
+  );
+
+  return rows.map((row) => ({
+    endpointId: row.endpoint_id,
+    delivered: Number(row.delivered),
+    failing: Number(row.failing),
+    abandoned: Number(row.abandoned),
+    pending: Number(row.pending),
+    lastAttemptAt: row.last_attempt_at,
+    lastDeliveredAt: row.last_delivered_at,
+    lastStatus: row.last_status,
+  }));
+}
+
+export interface DeliveryRecord {
+  id: string;
+  endpointId: string;
+  eventType: string;
+  status: 'pending' | 'delivered' | 'failed' | 'abandoned';
+  attempts: number;
+  lastStatus: number | null;
+  createdAt: Date;
+  deliveredAt: Date | null;
+  nextRetryAt: Date | null;
+}
+
+/**
+ * The recent attempts, newest first.
+ *
+ * The payload is deliberately not returned. It carries what was verified about somebody, and
+ * this list exists to answer «did it arrive», not «what was in it». A screen that shows the
+ * body of every event is a second copy of the customer data, in a place nobody thought of it
+ * as customer data.
+ */
+export async function listDeliveries(
+  tx: TenantTransaction,
+  options: { endpointId?: string; limit?: number } = {},
+): Promise<DeliveryRecord[]> {
+  const { rows } = await tx.query<{
+    id: string;
+    endpoint_id: string;
+    event_type: string;
+    status: DeliveryRecord['status'];
+    attempts: number;
+    last_status: number | null;
+    created_at: Date;
+    delivered_at: Date | null;
+    next_retry_at: Date | null;
+  }>(
+    `SELECT id, endpoint_id, event_type, status, attempts, last_status,
+            created_at, delivered_at, next_retry_at
+       FROM webhook_deliveries
+      WHERE tenant_id = $1 AND ($2::uuid IS NULL OR endpoint_id = $2::uuid)
+      ORDER BY created_at DESC
+      LIMIT $3`,
+    [tx.tenantId, options.endpointId ?? null, Math.min(options.limit ?? 50, 200)],
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    endpointId: row.endpoint_id,
+    eventType: row.event_type,
+    status: row.status,
+    attempts: row.attempts,
+    lastStatus: row.last_status,
+    createdAt: row.created_at,
+    deliveredAt: row.delivered_at,
+    nextRetryAt: row.next_retry_at,
+  }));
+}

@@ -34,9 +34,9 @@ export const dynamic = 'force-dynamic';
  * answering at all.
  *
  * The counts beside the filters come from one row per customer rather than from the summaries,
- * so they still add up to what the filters show. Two of them, «مكتمل» and «تنبيهات», are the
- * model's answers and are read from the standing the worker keeps: they can lag a sweep behind
- * what a row shows, and a row is never wrong because it is summarised live.
+ * so they still add up to what the filters show. Three of them, «مكتمل», «تنبيهات» and «مخاطر
+ * عالية», are the model's answers and are read from the standing the worker keeps: they can lag
+ * a sweep behind what a row shows, and a row is never wrong because it is summarised live.
  *
  * The related records behind them moved to their own tab; an old address that still asks for
  * one of those views is sent there rather than shown an empty list.
@@ -53,6 +53,7 @@ export default async function CustomersPage({
     kind?: string;
     q?: string;
     alerts?: string;
+    risk?: string;
     ids?: string;
     page?: string;
     size?: string;
@@ -70,6 +71,7 @@ export default async function CustomersPage({
 
   const kind = KINDS.has(params.kind as CustomerKind) ? (params.kind as CustomerKind) : null;
   const alertsOnly = params.alerts === '1';
+  const highRiskOnly = params.risk === 'high';
   const search = (params.q ?? '').trim().slice(0, 80);
   const ids =
     params.ids === undefined
@@ -87,6 +89,7 @@ export default async function CustomersPage({
     const filter = {
       kind,
       alertsOnly,
+      highRiskOnly,
       search,
       ...(ids === null ? {} : { entityIds: [...ids] }),
     };
@@ -111,7 +114,11 @@ export default async function CustomersPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--layout-content-gap)' }}>
-      <SectionTabs tabs={visible(CUSTOMER_TABS, actor.capabilities)} current="/customers" label="أقسام العملاء" />
+      <SectionTabs
+        tabs={visible(CUSTOMER_TABS, actor.capabilities)}
+        current="/customers"
+        label="أقسام العملاء"
+      />
       <Customers
         view={{
           page: {
@@ -125,6 +132,7 @@ export default async function CustomersPage({
           counts: data.counts,
           filter: (kind ?? 'all') as CustomersFilter,
           alertsOnly,
+          highRiskOnly,
           search,
           searchedByNumber: ids !== null,
           searchAction: searchCustomersAction,

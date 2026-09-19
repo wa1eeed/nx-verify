@@ -1,5 +1,6 @@
 import type { Queryable } from '@nx-verify/db';
 import { NxError } from '../errors.js';
+import { recordOperatorAudit } from '../operators/audit.js';
 
 /**
  * Editing what each plan sells, and what one customer was promised instead.
@@ -10,9 +11,14 @@ import { NxError } from '../errors.js';
  * that subscriber verified. That distinction is the one guard 02 enforces and the one this
  * file must keep honouring as it grows.
  *
- * Every write is audited against the subscriber it affects and carries the operator who
- * made it, because "who turned this module off in March" is asked by the customer, not by
- * us.
+ * Every write lands in two trails, and both are needed.
+ *
+ *   audit_log       against the subscriber it affects, because "who turned this module off
+ *                   in March" is a question the customer asks about their own account.
+ *   operator_audit  against the member of staff who did it, because the panel's own screen
+ *                   says «كل تغيير أجراه الفريق» and these were missing from it entirely:
+ *                   plan prices, plan quotas and per subscriber exceptions were set from a
+ *                   panel screen and appeared in no panel trail.
  */
 
 export interface PackageProductRow {
@@ -176,6 +182,20 @@ export async function setPackageProduct(
       input.packageCode,
     ],
   );
+
+  await recordOperatorAudit(operator, {
+    operatorId,
+    action: 'pricing.plan_product',
+    target: `pricing:plan:${input.packageCode}`,
+    metadata: {
+      product: input.productCode,
+      enabled: input.enabled,
+      // Absent means the caller left the field alone, which is not the same as clearing it,
+      // so the trail says which of the two happened.
+      ...(input.monthlyQuota === undefined ? {} : { monthly_quota: input.monthlyQuota }),
+      ...(input.unitPriceHalalas === undefined ? {} : { price: input.unitPriceHalalas }),
+    },
+  });
 }
 
 export interface SubscriberRow {
@@ -332,6 +352,18 @@ export async function setTenantOverride(
       }),
     ],
   );
+
+  await recordOperatorAudit(operator, {
+    operatorId,
+    action: 'pricing.tenant_exception',
+    target: `pricing:tenant:${input.tenantId}`,
+    metadata: {
+      product: input.productCode,
+      ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
+      ...(input.monthlyQuota === undefined ? {} : { monthly_quota: input.monthlyQuota }),
+      ...(input.unitPriceHalalas === undefined ? {} : { price: input.unitPriceHalalas }),
+    },
+  });
 }
 
 /** Moves a subscriber onto a plan, recording what that plan granted at the time. */

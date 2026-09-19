@@ -122,11 +122,24 @@ export interface AttestationTimelineEntry {
   validUntil: Date | null;
   supersededBy: string | null;
   runId: string;
+  /** The number of the verification that recorded it, once that run has one. */
+  runReference: string | null;
+  /** What set that verification off: a call, a person, a monitor sweep, a batch. */
+  triggeredBy: string | null;
+  /** True when this row differs from the one it superseded for the same field. */
+  changed: boolean;
 }
 
 /**
- * The entity timeline. Rule 5 again: `source` is not selected, so a provider name cannot
- * reach a caller through this path even by accident.
+ * Everything ever recorded about one entity, newest first, field by field.
+ *
+ * `getFieldHistory` answers about one field and `getVerificationHistory` groups by the run
+ * that produced the facts. This is the flat ledger behind both: the answer to "how did you
+ * come to believe that, and when did you find out", which is the question an auditor asks
+ * and the reason none of these rows is ever updated.
+ *
+ * Rule 5 again: `source` is not selected, so a provider name cannot reach a caller through
+ * this path even by accident. What is selected is `triggered_by`, which is ours.
  */
 export async function getAttestationTimeline(
   tx: TenantTransaction,
@@ -142,12 +155,30 @@ export async function getAttestationTimeline(
     valid_until: Date | null;
     superseded_by: string | null;
     run_id: string;
+    run_reference: string | null;
+    triggered_by: string | null;
+    previous_value: unknown;
+    had_previous: boolean;
   }>(
-    `SELECT id, field_path, value, authority, observed_at, valid_until, superseded_by, run_id
-     FROM attestations
-     WHERE tenant_id = $1 AND entity_id = $2
-       AND ($3::text IS NULL OR field_path = $3)
-     ORDER BY observed_at DESC, created_at DESC
+    // The comparison runs over the field's whole history before the limit is applied. A
+    // window computed after the cut would call the oldest row on the page a change merely
+    // because the row it replaced fell off the end.
+    `WITH ordered AS (
+       SELECT a.id, a.field_path, a.value, a.authority, a.observed_at, a.created_at,
+              a.valid_until, a.superseded_by, a.run_id,
+              lag(a.value) OVER w AS previous_value,
+              lag(a.id) OVER w IS NOT NULL AS had_previous
+       FROM attestations a
+       WHERE a.tenant_id = $1 AND a.entity_id = $2
+       WINDOW w AS (PARTITION BY a.field_path ORDER BY a.observed_at, a.created_at)
+     )
+     SELECT o.id, o.field_path, o.value, o.authority, o.observed_at, o.valid_until,
+            o.superseded_by, o.run_id, o.previous_value, o.had_previous,
+            r.reference AS run_reference, r.triggered_by
+     FROM ordered o
+     LEFT JOIN verification_runs r ON r.tenant_id = $1 AND r.id = o.run_id
+     WHERE ($3::text IS NULL OR o.field_path = $3)
+     ORDER BY o.observed_at DESC, o.created_at DESC
      LIMIT $4`,
     [tx.tenantId, entityId, options.fieldPath ?? null, options.limit ?? 200],
   );
@@ -161,6 +192,10 @@ export async function getAttestationTimeline(
     validUntil: row.valid_until,
     supersededBy: row.superseded_by,
     runId: row.run_id,
+    runReference: row.run_reference,
+    triggeredBy: row.triggered_by,
+    // The oldest row we hold is not a change: there was nothing before it to differ from.
+    changed: row.had_previous && !sameValue(row.value, row.previous_value),
   }));
 }
 

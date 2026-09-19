@@ -22,7 +22,7 @@ import type { IconName } from '../ui/icon';
 import { Input } from '../ui/input';
 import { Ltr } from '../ui/ltr';
 import { SubmitButton } from '../ui/submit-button';
-import { StateTag, Tag, type TagState } from '../ui/tag';
+import { StateTag, Tag, TagLink, type TagState } from '../ui/tag';
 import { Table, Th } from '../ui/table';
 import { FieldHistory } from './field-history';
 import { historyStretches } from './field-history-model';
@@ -224,12 +224,15 @@ function wordsOf(entry: FieldHistoryView): string {
 function FieldCell({
   field,
   section,
+  entityId,
   history,
   alert,
   valueOverride,
 }: {
   field: FileField;
   section: FileSection;
+  /** Whose file this is, so a field can open its own page of the ledger. */
+  entityId: string;
   history: FieldHistoryView[] | undefined;
   alert?: boolean;
   valueOverride?: ReactNode;
@@ -278,24 +281,39 @@ function FieldCell({
           </span>
         ) : null}
         {history && history.length > 0 ? (
-          <FieldHistory
-            label={field.labelAr}
-            current={renderValue(field)}
-            stretches={historyStretches(
-              {
-                value: field.value,
-                valueAr: '',
-                observedAt: isoDate(field.observedAt),
-                authority: field.authority,
-              },
-              history.map((entry) => ({
-                value: entry.value,
-                valueAr: wordsOf(entry),
-                observedAt: isoDate(entry.observedAt),
-                authority: entry.authority,
-              })),
-            )}
-          />
+          // One line for both, wrapping on a narrow screen rather than stacking a chip under
+          // a chip in every field of the grid.
+          <span className="row" style={{ gap: 'var(--s-2)' }}>
+            <FieldHistory
+              label={field.labelAr}
+              current={renderValue(field)}
+              stretches={historyStretches(
+                {
+                  value: field.value,
+                  valueAr: '',
+                  observedAt: isoDate(field.observedAt),
+                  authority: field.authority,
+                },
+                history.map((entry) => ({
+                  value: entry.value,
+                  valueAr: wordsOf(entry),
+                  observedAt: isoDate(entry.observedAt),
+                  authority: entry.authority,
+                })),
+              )}
+            />
+            {/*
+              The story above collapses repeats into stretches, which is what a reader
+              wants first. The ledger behind it keeps every line with the verification that
+              wrote it and what set that off, which is what an auditor asks for next.
+            */}
+            <TagLink
+              href={`/customers/${entityId}/attestations?field=${encodeURIComponent(field.fieldPath)}`}
+              role="field-ledger"
+            >
+              سجل الإفادات
+            </TagLink>
+          </span>
         ) : null}
       </dd>
     </div>
@@ -393,6 +411,7 @@ function SectionParts({
                     key={field.fieldPath}
                     field={field}
                     section={section}
+                    entityId={context.file.entityId}
                     history={context.histories[field.fieldPath]}
                   />
                 ))}
@@ -925,6 +944,7 @@ function BankFields({
             key={field.fieldPath}
             field={field}
             section={section}
+            entityId={file.entityId}
             history={context.histories[field.fieldPath]}
           />
         ))}
@@ -932,6 +952,7 @@ function BankFields({
           <FieldCell
             field={{ ...score, labelAr: 'مطابقة الاسم' }}
             section={section}
+            entityId={file.entityId}
             history={undefined}
             alert={match.pct < file.nameMatchThresholdPct}
             valueOverride={

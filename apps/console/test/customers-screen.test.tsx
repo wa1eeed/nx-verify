@@ -79,9 +79,11 @@ function view(overrides: Partial<CustomersView> = {}): CustomersView {
       complete: 312,
       incomplete: 27,
       alerts: 4,
+      highRisk: 9,
     },
     filter: 'all',
     alertsOnly: false,
+    highRiskOnly: false,
     search: '',
     searchedByNumber: false,
     searchAction: '/customers/search',
@@ -118,6 +120,23 @@ describe('the customers of screen 04', () => {
     const alerts = render({ alertsOnly: true });
     expect(alerts).toMatch(
       /class="tag tag-accent tag-link"[^>]*aria-current="true"[^>]*>تنبيهات مفتوحة/,
+    );
+  });
+
+  it('offers the high risk band as a facet, which is the question this screen is opened to ask', () => {
+    expect(html).toMatch(
+      /<a class="tag tag-outline tag-link"[^>]*href="\/customers\?risk=high"[^>]*>مخاطر عالية · /,
+    );
+    expect(html).toContain('>مخاطر عالية · <bdi dir="ltr" class="ltr">9</bdi>');
+    const risky = render({ highRiskOnly: true });
+    expect(risky).toMatch(
+      /class="tag tag-accent tag-link"[^>]*aria-current="true"[^>]*>مخاطر عالية/,
+    );
+    // Picking it clears the other facets rather than intersecting with them, as picking a kind
+    // has always done on this screen.
+    expect(risky).toMatch(/href="\/customers"[^>]*>الكل · /);
+    expect(render({ page: firstPage([]), highRiskOnly: true })).toContain(
+      'لا عميل ضمن نطاق المخاطر العالية.',
     );
   });
 

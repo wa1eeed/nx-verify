@@ -1,14 +1,15 @@
 import type { ReactElement } from 'react';
 import { NoAccess } from '../../../../../components/no-access';
 import { notFound } from 'next/navigation';
-import { getCase, listCaseActions, listJourneys, listProducts } from '@nx-verify/core';
+import { getCase, listCaseActions, listCaseSeals, listJourneys, listProducts } from '@nx-verify/core';
 import {
   OnboardingCaseView,
   type CaseDetailView,
   type CaseStepView,
 } from '../../../../../components/onboarding-case';
+import { CaseBundlePanel, type CaseSealView } from './bundle';
 import { actingUser, query } from '../../../../../lib/context';
-import { advanceCaseAction, waiveStepAction } from './actions';
+import { advanceCaseAction, sealCaseBundleAction, waiveStepAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +27,7 @@ export default async function OnboardingCasePage({
   const { id } = await params;
   const { outcome } = await searchParams;
 
-  const view = await query(async (tx): Promise<CaseDetailView | null> => {
+  const data = await query(async (tx): Promise<{ view: CaseDetailView; seals: CaseSealView[] } | null> => {
     const onboarding = await getCase(tx, id);
     if (!onboarding) {
       return null;
@@ -65,7 +66,9 @@ export default async function OnboardingCasePage({
         ).rows[0]?.display_name ?? null)
       : null;
 
-    return {
+    const seals = await listCaseSeals(tx, id);
+
+    const view: CaseDetailView = {
       caseId: onboarding.caseId,
       reference: onboarding.reference,
       journeyNameAr: journeyName.get(onboarding.journeyCode) ?? onboarding.journeyCode,
@@ -96,18 +99,38 @@ export default async function OnboardingCasePage({
         at: action.at,
       })),
     };
+
+    return {
+      view,
+      seals: seals.map((seal) => ({
+        evidenceId: seal.evidenceId,
+        contentHash: seal.contentHash,
+        publicToken: seal.publicToken,
+        signedAt: seal.signedAt,
+      })),
+    };
   });
 
-  if (!view) {
+  if (!data) {
     notFound();
   }
 
   return (
-    <OnboardingCaseView
-      view={view}
-      outcome={outcome}
-      advanceAction={advanceCaseAction}
-      waiveAction={waiveStepAction}
-    />
+    <div className="stack" style={{ gap: 'var(--s-5)' }}>
+      <OnboardingCaseView
+        view={data.view}
+        outcome={outcome}
+        advanceAction={advanceCaseAction}
+        waiveAction={waiveStepAction}
+      />
+      <CaseBundlePanel
+        caseId={data.view.caseId}
+        runCount={data.view.steps.filter((step) => step.runId !== null).length}
+        stepCount={data.view.steps.length}
+        seals={data.seals}
+        {...(actor.can('share.create') ? { action: sealCaseBundleAction } : {})}
+        outcome={outcome}
+      />
+    </div>
   );
 }

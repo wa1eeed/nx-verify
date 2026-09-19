@@ -1,4 +1,12 @@
 import type { ReactElement } from 'react';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { Field } from './ui/field';
+import { Input } from './ui/input';
+import { Ltr } from './ui/ltr';
+import { SubmitButton } from './ui/submit-button';
+import { Table, Th } from './ui/table';
+import { Tag, type TagTone } from './ui/tag';
 import { count, ibanGroups, isoDate, riyals } from './format';
 
 /**
@@ -39,6 +47,13 @@ const STATUS_LABELS: Record<TopUpRowView['status'], string> = {
   REJECTED: 'لم يُقبل',
 };
 
+/** Waiting is neutral, arrived is the sage of something done, refused is the red of a failure. */
+const STATUS_TONES: Record<TopUpRowView['status'], TagTone> = {
+  REQUESTED: 'neutral',
+  CONFIRMED: 'accent-2',
+  REJECTED: 'critical',
+};
+
 /** «حزمة 500 عملية», from a bundle's code, or null for credit in riyals. */
 export function bundleLabelOf(bundleCode: string | null): string | null {
   if (bundleCode === null) {
@@ -63,58 +78,39 @@ export function TopUpPanel({
   const bankKnown = bank.iban !== null && bank.iban !== '';
 
   return (
-    <section className="card stack" data-role="topup" style={{ gap: 'var(--s-4)' }}>
-      <div>
-        <h2 style={{ margin: 0 }}>شحن الرصيد</h2>
-        <p className="faint" style={{ margin: 0 }}>
-          اختر المبلغ، ثم تُراجع التفاصيل وبيانات التحويل قبل إرسال الطلب.
-        </p>
-      </div>
+    <Card role="topup" labelledBy="topup-title">
+      <h2 className="card-title admin-card-title" id="topup-title">
+        شحن الرصيد
+      </h2>
+      <p className="admin-card-note">
+        اختر المبلغ، ثم تُراجع التفاصيل وبيانات التحويل قبل إرسال الطلب.
+      </p>
 
       {issued ? (
-        <div
-          className="stack"
-          data-role="issued-topup"
-          style={{
-            gap: 'var(--s-2)',
-            border: '1px solid var(--fresh-line)',
-            background: 'var(--fresh-bg)',
-            borderRadius: 'var(--radius)',
-            padding: 'var(--s-3)',
-          }}
-        >
+        <Card as="div" variant="plain" tone="accent-2" role="issued-topup">
           <span className="stat-label">الرقم المرجعي للحوالة</span>
-          <strong
-            className="mono"
-            dir="ltr"
-            style={{ fontSize: '24px' }}
-            data-role="topup-reference"
-          >
-            {issued.reference}
+          <strong className="stat-value" data-role="topup-reference">
+            <Ltr>{issued.reference}</Ltr>
           </strong>
           <span>
-            المبلغ المطلوب تحويله{' '}
-            <bdi dir="ltr" className="mono">
-              {riyals(issued.totalWithVatHalalas)}
-            </bdi>{' '}
-            ر.س.
+            المبلغ المطلوب تحويله <Ltr>{riyals(issued.totalWithVatHalalas)}</Ltr> ر.س.
           </span>
           {bankKnown ? (
-            <div className="stack" style={{ gap: 0 }} data-role="bank-details">
+            <div className="admin-offer" data-role="bank-details">
               <span className="faint">{bank.accountName}</span>
               <span className="faint">{bank.bankName}</span>
               {/* In fours: a run of twenty four characters is where the eye loses its place
                   copying an account number into a banking app. */}
-              <bdi dir="ltr" className="mono" data-role="bank-iban">
-                {ibanGroups(bank.iban ?? '')}
-              </bdi>
+              <Ltr>
+                <span data-role="bank-iban">{ibanGroups(bank.iban ?? '')}</span>
+              </Ltr>
             </div>
           ) : (
             <span className="stat-hint" data-role="bank-unknown">
               بيانات الحساب البنكي غير مضبوطة في هذا النشر. تواصل معنا وسنرسلها.
             </span>
           )}
-        </div>
+        </Card>
       ) : null}
 
       {/*
@@ -125,84 +121,76 @@ export function TopUpPanel({
         action="/billing/checkout"
         method="get"
         className="row"
-        style={{ gap: 'var(--s-3)', flexWrap: 'wrap' }}
+        style={{ gap: 'var(--space-3)' }}
       >
-        <label className="stack" style={{ gap: 'var(--s-1)' }}>
-          <span className="stat-label">المبلغ بالريال</span>
-          <input
-            name="amount"
-            type="number"
-            min="100"
-            step="1"
-            defaultValue="1000"
-            dir="ltr"
-            className="mono"
-            style={{ width: 'auto' }}
-            required
-          />
-        </label>
-        <button type="submit" className="btn btn-secondary" data-role="request-topup">
+        <Field id="topup-amount" label="المبلغ بالريال">
+          {(control) => (
+            <Input
+              {...control}
+              name="amount"
+              type="number"
+              min="100"
+              step="1"
+              defaultValue="1000"
+              required
+              ltr
+            />
+          )}
+        </Field>
+        <Button type="submit" data-role="request-topup">
           تابع الشراء
-        </button>
+        </Button>
       </form>
 
       {requests.length > 0 ? (
-        <div className="table-scroll">
-          <table data-role="topup-list">
-            <thead>
-              <tr>
-                <th>المرجع</th>
-                <th>المبلغ</th>
-                <th>الحالة</th>
-                <th>الفاتورة الضريبية</th>
-                <th>التاريخ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map((request) => (
-                <tr key={request.id} data-status={request.status}>
-                  <td>
-                    <bdi dir="ltr" className="mono">
-                      {request.reference}
-                    </bdi>
-                  </td>
-                  <td>
-                    <bdi dir="ltr" className="mono">
-                      {riyals(request.totalWithVatHalalas)}
-                    </bdi>
-                  </td>
-                  <td>
+        <Table label="طلبات شحن الرصيد">
+          <thead>
+            <tr>
+              <Th>المرجع</Th>
+              <Th>المبلغ</Th>
+              <Th>الحالة</Th>
+              <Th>الفاتورة الضريبية</Th>
+              <Th>التاريخ</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {requests.map((request) => (
+              <tr key={request.id} data-role="topup-request" data-status={request.status}>
+                <td>
+                  <Ltr>{request.reference}</Ltr>
+                </td>
+                <td>
+                  <Ltr>{riyals(request.totalWithVatHalalas)}</Ltr> ر.س
+                </td>
+                <td>
+                  <Tag tone={STATUS_TONES[request.status]} role="topup-status">
                     {request.bundleLabel && request.status === 'CONFIRMED'
                       ? `أُضيفت ${request.bundleLabel}`
                       : STATUS_LABELS[request.status]}
-                    {request.bundleLabel && request.status !== 'CONFIRMED' ? (
-                      <span className="muted" data-role="topup-bundle">
-                        {' '}
-                        · {request.bundleLabel}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td>
-                    {request.vatInvoiceId ? (
-                      <bdi dir="ltr" className="mono">
-                        {request.vatInvoiceId}
-                      </bdi>
-                    ) : (
-                      <span className="faint">تصدر عند الإضافة</span>
-                    )}
-                  </td>
-                  <td>
-                    <bdi dir="ltr" className="mono">
-                      {isoDate(request.requestedAt)}
-                    </bdi>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </Tag>
+                  {request.bundleLabel && request.status !== 'CONFIRMED' ? (
+                    <span className="admin-offer-terms" data-role="topup-bundle">
+                      {' · '}
+                      {request.bundleLabel}
+                    </span>
+                  ) : null}
+                </td>
+                <td>
+                  {request.vatInvoiceId ? (
+                    <Ltr>{request.vatInvoiceId}</Ltr>
+                  ) : (
+                    <span className="faint">تصدر عند الإضافة</span>
+                  )}
+                </td>
+                <td>
+                  <Ltr>{isoDate(request.requestedAt)}</Ltr>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -229,79 +217,98 @@ export function PendingTopUps({
 }): ReactElement {
   if (pending.length === 0) {
     return (
-      <p className="empty" data-role="no-pending-topups">
-        لا حوالات بانتظار التأكيد.
-      </p>
+      <Card variant="flush" label="الحوالات">
+        <p className="admin-empty" data-role="no-pending-topups">
+          لا حوالات بانتظار التأكيد.
+        </p>
+      </Card>
     );
   }
 
   return (
-    <div className="table-scroll">
-      <table data-role="pending-topups">
-        <thead>
-          <tr>
-            <th>المشترك</th>
-            <th>المرجع</th>
-            <th>بلا ضريبة</th>
-            <th>شامل الضريبة</th>
-            <th>التأكيد</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pending.map((request) => (
-            <tr key={request.id}>
-              <td>
-                {request.tenantName}
-                {request.bundleLabel ? (
-                  <span className="muted" data-role="topup-bundle">
-                    {' '}
-                    · {request.bundleLabel}
-                  </span>
-                ) : null}
-              </td>
-              <td>
-                <bdi dir="ltr" className="mono">
-                  {request.reference}
-                </bdi>
-              </td>
-              <td>
-                <bdi dir="ltr" className="mono">
-                  {riyals(request.amountHalalas)}
-                </bdi>
-              </td>
-              <td>
-                <bdi dir="ltr" className="mono">
-                  {riyals(request.totalWithVatHalalas)}
-                </bdi>
-              </td>
-              <td>
-                <form action={confirmAction} className="row" style={{ gap: 'var(--s-2)' }}>
-                  <input type="hidden" name="request_id" value={request.id} />
-                  <input type="hidden" name="tenant_id" value={request.tenantId} />
-                  <input
-                    name="vat_invoice_id"
-                    placeholder="رقم الفاتورة الضريبية"
-                    dir="ltr"
-                    className="mono"
-                    required
-                    style={{ width: 'auto' }}
-                  />
-                  <button type="submit" className="btn btn-secondary" data-role="confirm-topup">
-                    أضف للرصيد
-                  </button>
-                </form>
-                <form action={rejectAction}>
-                  <input type="hidden" name="request_id" value={request.id} />
-                  <input type="hidden" name="tenant_id" value={request.tenantId} />
-                  <button type="submit" className="btn btn-secondary" data-role="reject-topup">
-                    لم تصل
-                  </button>
-                </form>
-              </td>
+    <Card variant="flush" role="pending-topups" label="حوالات بانتظار التأكيد">
+      <div className="admin-table">
+        <Table label="حوالات بانتظار التأكيد">
+          <thead>
+            <tr>
+              <Th>المشترك</Th>
+              <Th>المرجع</Th>
+              <Th>بلا ضريبة</Th>
+              <Th>شامل الضريبة</Th>
+              <Th>التأكيد</Th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {pending.map((request) => (
+              <tr key={request.id} data-role="pending-topup">
+                <td>
+                  {request.tenantName}
+                  {request.bundleLabel ? (
+                    <span className="admin-offer-terms" data-role="topup-bundle">
+                      {' · '}
+                      {request.bundleLabel}
+                    </span>
+                  ) : null}
+                </td>
+                <td>
+                  <Ltr>{request.reference}</Ltr>
+                </td>
+                <td>
+                  <Ltr>{riyals(request.amountHalalas)}</Ltr> ر.س
+                </td>
+                <td>
+                  <Ltr>{riyals(request.totalWithVatHalalas)}</Ltr> ر.س
+                </td>
+                <td>
+                  <form action={confirmAction} className="row">
+                    <input type="hidden" name="request_id" value={request.id} />
+                    <input type="hidden" name="tenant_id" value={request.tenantId} />
+                    <Input
+                      name="vat_invoice_id"
+                      placeholder="رقم الفاتورة الضريبية"
+                      required
+                      aria-label={`رقم الفاتورة الضريبية لحوالة ${request.reference}`}
+                      ltr
+                    />
+                    <SubmitButton
+                      variant="secondary"
+                      data-role="confirm-topup"
+                      pendingLabel="جارٍ الإضافة"
+                    >
+                      أضف للرصيد
+                    </SubmitButton>
+                  </form>
+                  {/*
+                    Rejecting closes the request for good: nothing reopens it and nothing in
+                    this screen can undo it. Two steps, and the consequence above the button
+                    that causes it, the same pattern the API key revoke uses (ADR-167).
+                  */}
+                  <details className="revoke" data-role="reject-topup">
+                    <summary>لم تصل الحوالة</summary>
+                    <div className="stack" style={{ gap: 'var(--space-2)' }}>
+                      <span className="faint">
+                        يُغلق الطلب ولا يُضاف للرصيد شيء، ولا يعود إلى هذه القائمة. إن وصلت
+                        الحوالة بعد ذلك فالمشترك يطلب شحناً جديداً.
+                      </span>
+                      <form action={rejectAction} className="inline">
+                        <input type="hidden" name="request_id" value={request.id} />
+                        <input type="hidden" name="tenant_id" value={request.tenantId} />
+                        <SubmitButton
+                          variant="ghost"
+                          data-role="reject-confirm"
+                          pendingLabel="جارٍ الإغلاق"
+                        >
+                          أكّد أنها لم تصل
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </details>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+    </Card>
   );
 }

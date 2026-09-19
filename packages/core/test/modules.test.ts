@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { withTenant } from '../../../packages/db/src/client.js';
-import { listModules, setTenantModule, tenantModules } from '../src/modules/modules.js';
+import {
+  listModules,
+  setModuleDefault,
+  setTenantModule,
+  tenantModules,
+} from '../src/modules/modules.js';
+import type { OperatorIdentity } from '../src/operators/accounts.js';
 import { listChecks, runChecks, type RunChecksDependencies } from '../src/customers/checks.js';
 import { getCustomerFile } from '../src/customers/customer-file.js';
 import { resolveEntitlement } from '../src/billing/entitlements.js';
@@ -278,5 +284,123 @@ describe('modules', () => {
     const modules = await listModules(db.operatorPool);
     expect(modules.find((module) => module.code === 'INCOME')?.switchedOn).toBe(1);
     expect(modules.find((module) => module.code === 'BANKING')?.switchedOn).toBe(0);
+  });
+});
+
+/**
+ * The platform default: the one column of a module that had no way in.
+ *
+ * A module is rows (rule 8), and every other column is written by provisioning, but
+ * `default_on` was reachable only from the seed file. The panel could read it and nothing
+ * could write it, so the answer for a subscriber with no plan was whatever that file happened
+ * to say on the day the database was built.
+ *
+ * The figure this had to get right is the second one: flipping a default is not a setting for
+ * future subscribers. Nothing is copied onto a workspace at onboarding, so the column keeps
+ * answering for everybody who has neither a switch nor a plan that carries it.
+ */
+describe('the platform default of a module', () => {
+  let db: TestDatabase;
+  let tenant: SeededTenant;
+  const owner: OperatorIdentity = { id: 'nx-staff:owner', displayName: 'مالك', role: 'OWNER' };
+  const readOnly: OperatorIdentity = {
+    id: 'nx-staff:reader',
+    displayName: 'قارئ',
+    role: 'READ_ONLY',
+  };
+
+  const moduleOf = async (code: string) =>
+    (await listModules(db.operatorPool)).find((module) => module.code === code);
+
+  beforeAll(async () => {
+    db = await createTestDatabase();
+    tenant = await seedTenant(db.appPool, 'Default Modules Tenant');
+    // On a plan that carries neither property nor income, so both of those answer from the
+    // default for this subscriber and the count below is a real one.
+    await preparePricedTenant(db, tenant.tenantId, { packageCode: 'ESSENTIAL' });
+  });
+
+  afterAll(async () => {
+    await db.close();
+  });
+
+  it('counts the subscribers the default still answers for, which is who a change moves', async () => {
+    const property = await moduleOf('PROPERTY');
+    expect(property?.defaultOn).toBe(false);
+    expect(property?.inheritingDefault).toBeGreaterThanOrEqual(1);
+
+    // Not the subscribers whose plan already carries the module: their plan answers first, so
+    // the default never reaches them and a change to it leaves them where they are.
+    const registry = await moduleOf('REGISTRY');
+    expect(registry?.inheritingDefault).toBe(0);
+  });
+
+  it('gives an add on to everybody who was inheriting, and says how many that was', async () => {
+    const before = await moduleOf('PROPERTY');
+    const change = await setModuleDefault(db.operatorPool, owner, {
+      moduleCode: 'PROPERTY',
+      defaultOn: true,
+    });
+
+    expect(change.changed).toBe(true);
+    expect(change.affected).toBe(before?.inheritingDefault);
+    expect((await moduleOf('PROPERTY'))?.defaultOn).toBe(true);
+
+    // And the subscriber who was inheriting now has it, without a row being written for them:
+    // the cascade answered differently, which is what the default is.
+    const view = await tenantModules(db.operatorPool, tenant.tenantId);
+    expect(view.find((module) => module.code === 'PROPERTY')).toMatchObject({
+      enabled: true,
+      source: 'default',
+      decided: null,
+    });
+  });
+
+  it('writes the change to the panel trail, with who made it and how many it moved', async () => {
+    const { rows } = await db.operatorPool.query<{
+      operator_id: string;
+      target: string;
+      metadata: { default_on: boolean; affected: number };
+    }>(
+      `SELECT operator_id, target, metadata FROM operator_audit
+        WHERE action = 'pricing.module_default' ORDER BY at`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.operator_id).toBe(owner.id);
+    expect(rows[0]?.target).toBe('pricing:module:PROPERTY');
+    expect(rows[0]?.metadata.default_on).toBe(true);
+  });
+
+  it('writes nothing when the default already says that', async () => {
+    const change = await setModuleDefault(db.operatorPool, owner, {
+      moduleCode: 'PROPERTY',
+      defaultOn: true,
+    });
+    expect(change.changed).toBe(false);
+    // A trail of somebody pressing a button is not a catalogue history.
+    const { rows } = await db.operatorPool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM operator_audit WHERE action = 'pricing.module_default'`,
+    );
+    expect(rows[0]?.count).toBe('1');
+  });
+
+  it('refuses to take the default off the module every customer file is drawn from', async () => {
+    await expect(
+      setModuleDefault(db.operatorPool, owner, { moduleCode: 'REGISTRY', defaultOn: false }),
+    ).rejects.toMatchObject({ code: 'NX-4003' });
+    expect((await moduleOf('REGISTRY'))?.defaultOn).toBe(true);
+  });
+
+  it('refuses a role that may look and not change', async () => {
+    await expect(
+      setModuleDefault(db.operatorPool, readOnly, { moduleCode: 'PROPERTY', defaultOn: false }),
+    ).rejects.toMatchObject({ code: 'NX-4031' });
+    expect((await moduleOf('PROPERTY'))?.defaultOn).toBe(true);
+  });
+
+  it('refuses a module nobody has heard of, rather than writing nothing and saying it saved', async () => {
+    await expect(
+      setModuleDefault(db.operatorPool, owner, { moduleCode: 'NOT_A_MODULE', defaultOn: true }),
+    ).rejects.toMatchObject({ code: 'NX-4041' });
   });
 });

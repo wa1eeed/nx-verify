@@ -46,9 +46,33 @@ export interface AuditRecord extends AuditEntry {
   createdAt: Date;
 }
 
+/**
+ * What was done in this workspace, most recent first.
+ *
+ * Takes a window and a cursor, because it used to take neither: the screen asked for the last
+ * two hundred rows and showed them, so a question about last quarter had no answer and the
+ * reader had no way to tell a truncated list from a complete one (ADR-169).
+ *
+ * `before` is the id of the oldest row already shown. A cursor rather than an offset, because
+ * the trail grows while somebody reads it and an offset would skip or repeat rows as it does.
+ *
+ * The id and not the timestamp, which is what the first attempt used and what a test caught:
+ * `now()` in PostgreSQL is the transaction's clock, so every row a single transaction writes
+ * shares one `created_at`, and a verification writes several. A timestamp cursor either
+ * skipped the rest of that transaction or never advanced past it. The id is the identity
+ * column and is monotonic by construction.
+ */
 export async function readAudit(
   tx: TenantTransaction,
-  options: { limit?: number; action?: string } = {},
+  options: {
+    limit?: number;
+    action?: string;
+    /** Inclusive, in UTC. */
+    from?: Date;
+    to?: Date;
+    /** The id of the oldest row already shown. */
+    before?: string;
+  } = {},
 ): Promise<AuditRecord[]> {
   const { rows } = await tx.query<{
     id: string;
@@ -65,9 +89,20 @@ export async function readAudit(
             request_id, metadata, created_at
      FROM audit_log
      WHERE tenant_id = $1 AND ($2::text IS NULL OR action = $2)
-     ORDER BY created_at DESC
+       AND ($4::timestamptz IS NULL OR created_at >= $4)
+       AND ($5::timestamptz IS NULL OR created_at < $5)
+       AND ($6::bigint IS NULL OR id < $6::bigint)
+     ORDER BY created_at DESC, id DESC
      LIMIT $3`,
-    [tx.tenantId, options.action ?? null, options.limit ?? 100],
+    [
+      tx.tenantId,
+      options.action ?? null,
+      Math.min(options.limit ?? 100, 500),
+      options.from ?? null,
+      // Exclusive, so a caller passing a day gets that whole day by passing the next one.
+      options.to ?? null,
+      options.before ?? null,
+    ],
   );
 
   return rows.map((row) => ({

@@ -1,10 +1,14 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant, withoutTenant } from '../../../packages/db/src/client.js';
 import { verify } from '../src/verification/verify.js';
 import {
   buildEvidenceContent,
   checkEvidence,
+  evidenceStorageKey,
+  findSeal,
   hashContent,
+  listCaseSeals,
   resolvePublicEvidence,
   sealEvidence,
 } from '../src/evidence/evidence.js';
@@ -230,6 +234,152 @@ describe('sealed evidence', () => {
           runId,
           signingKey: await keys.signingKey(tenant.tenantId),
         }),
+      ),
+    ).rejects.toMatchObject({ code: 'NX-4002' });
+  });
+
+  it('stamps the row with the moment the document says it was sealed', async () => {
+    const { content, sealed } = await seal();
+    // The document prints this from the content and the public page prints it from the
+    // row. Two values a few milliseconds apart, shown to the same reader as one fact.
+    expect(sealed.signedAt.toISOString()).toBe(content.sealedAt);
+  });
+
+  it('checks a document handed back by the fingerprint printed on it', async () => {
+    const { sealed } = await seal();
+    const signingKey = await keys.signingKey(tenant.tenantId);
+
+    const asPrinted = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      checkEvidence(tx, sealed.evidenceId, { contentHash: sealed.contentHash }, signingKey),
+    );
+    expect(asPrinted).toEqual({ hashMatches: true, signatureValid: true });
+
+    // Somebody else's fingerprint, or a changed one. The seal is still ours; the paper is
+    // not what we sealed.
+    const other = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      checkEvidence(tx, sealed.evidenceId, { contentHash: 'a'.repeat(64) }, signingKey),
+    );
+    expect(other).toEqual({ hashMatches: false, signatureValid: true });
+
+    // A fingerprint missing a character would silently become a short buffer that matches
+    // nothing, and a typing slip would read as a forgery.
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) =>
+        checkEvidence(tx, sealed.evidenceId, { contentHash: 'abc123' }, signingKey),
+      ),
+    ).rejects.toMatchObject({ code: 'NX-4002' });
+  });
+
+  it('finds a seal by its public token and by its id, and not one we never issued', async () => {
+    const { sealed } = await seal();
+
+    const byToken = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      findSeal(tx, sealed.publicToken),
+    );
+    expect(byToken?.evidenceId).toBe(sealed.evidenceId);
+    expect(byToken?.contentHash).toBe(sealed.contentHash);
+    expect(byToken?.keyVersion).toBe(1);
+    expect(byToken?.bundle).toBe(false);
+
+    const byId = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      findSeal(tx, ` ${sealed.evidenceId} `),
+    );
+    expect(byId?.evidenceId).toBe(sealed.evidenceId);
+
+    // A token is not a uuid: asking the id half of the question anyway is an error from
+    // the database rather than an answer.
+    expect(await withTenant(db.appPool, tenant.tenantId, (tx) => findSeal(tx, 'nothing'))).toBeNull();
+    expect(await withTenant(db.appPool, tenant.tenantId, (tx) => findSeal(tx, '  '))).toBeNull();
+  });
+
+  it('seals a composite file as one document that names what nobody checked', async () => {
+    const { defineJourney, openCase, waiveStep } = await import('../src/onboarding/cases.js');
+    const { buildCaseBundleContent, sealCaseBundle } = await import('../src/evidence/evidence.js');
+
+    // The run carries its own sealed document before it is bundled, as a run sealed over
+    // the API does.
+    await seal();
+
+    const caseId = await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      await defineJourney(tx, {
+        code: 'BUNDLE_JOURNEY',
+        nameAr: 'تأهيل منشأة',
+        steps: [
+          { stepKey: 'kyb', productCode: 'KYB_COMPLETE' },
+          { stepKey: 'freelance', productCode: 'FREELANCER_CERTIFICATE', required: false },
+        ],
+      });
+      const opened = await openCase(tx, { journeyCode: 'BUNDLE_JOURNEY' });
+      // The file as it stands after a session on it: one check ran, one was set aside.
+      await tx.query(
+        `UPDATE onboarding_case_steps SET run_id = $3, status = 'DONE'
+         WHERE tenant_id = $1 AND case_id = $2 AND step_key = 'kyb'`,
+        [tx.tenantId, opened.caseId, runId],
+      );
+      await waiveStep(tx, {
+        caseId: opened.caseId,
+        stepKey: 'freelance',
+        reason: 'DOCUMENT_ON_FILE',
+        actorId: randomUUID(),
+      });
+      return opened.caseId;
+    });
+
+    const content = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      buildCaseBundleContent(tx, caseId),
+    );
+
+    expect(content.runCount).toBe(1);
+    expect(content.fieldCount).toBeGreaterThan(0);
+    // A bundle that listed only what was verified would read as a clean file when a check
+    // had been set aside, which is the one reading it must never allow.
+    const waived = content.steps.find((step) => step.stepKey === 'freelance');
+    expect(waived?.status).toBe('WAIVED');
+    expect(waived?.waiveReason).toBe('DOCUMENT_ON_FILE');
+    expect(waived?.run).toBeNull();
+    for (const field of content.steps.flatMap((step) => step.run?.fields ?? [])) {
+      expect(field.observedAt).toBeTruthy();
+    }
+    // Rule 5 and rule 4: neither the provider nor the applicant's number is on a document
+    // that will be forwarded to people we never see.
+    expect(JSON.stringify(content)).not.toContain('provider.stub');
+    expect(JSON.stringify(content)).not.toContain('7001272184');
+
+    const sealed = await withTenant(db.appPool, tenant.tenantId, async (tx) =>
+      sealCaseBundle(tx, { caseId, signingKey: await keys.signingKey(tenant.tenantId) }),
+    );
+    expect(sealed.contentHash).toHaveLength(64);
+    expect(sealed.runCount).toBe(1);
+
+    const seals = await withTenant(db.appPool, tenant.tenantId, (tx) => listCaseSeals(tx, caseId));
+    expect(seals.map((entry) => entry.evidenceId)).toContain(sealed.evidenceId);
+    expect(seals[0]?.bundle).toBe(true);
+
+    // The bundle is sealed against a run that has a document of its own. Without the
+    // marker the document route would answer with the bundle and report a missing file
+    // for a document that exists.
+    const documentKey = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      evidenceStorageKey(tx, runId),
+    );
+    expect(documentKey).toBe(`evidence/${tenant.tenantId}/${runId}.pdf`);
+  });
+
+  it('refuses to seal a file with nothing verified in it', async () => {
+    const { defineJourney, openCase } = await import('../src/onboarding/cases.js');
+    const { sealCaseBundle } = await import('../src/evidence/evidence.js');
+
+    const caseId = await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      await defineJourney(tx, {
+        code: 'EMPTY_JOURNEY',
+        nameAr: 'رحلة بلا تحقق',
+        steps: [{ stepKey: 'kyb', productCode: 'KYB_COMPLETE' }],
+      });
+      return (await openCase(tx, { journeyCode: 'EMPTY_JOURNEY' })).caseId;
+    });
+
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, async (tx) =>
+        sealCaseBundle(tx, { caseId, signingKey: await keys.signingKey(tenant.tenantId) }),
       ),
     ).rejects.toMatchObject({ code: 'NX-4002' });
   });

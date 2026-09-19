@@ -290,7 +290,11 @@ describe('the customer file', () => {
     expect(items.get('articles')?.state).toBe('PASS');
     expect(items.get('national_address')?.state).toBe('PASS');
     expect(items.get('bank_account')?.state).toBe('PASS');
-    expect(file?.assessment.signals.map((signal) => signal.key)).toEqual([]);
+    // Nothing an authority said counts against this company. A section still being filled is
+    // not that, and is the only kind of reason a clean file is allowed to carry.
+    expect(
+      file?.assessment.riskReasons.filter((reason) => reason.key !== 'incomplete_section'),
+    ).toEqual([]);
     expect(file?.assessment.riskLevel).toBe('LOW');
   });
 
@@ -331,7 +335,7 @@ describe('the customer file', () => {
     expect(kinds).toContain('SHARED_MANAGER');
     expect(kinds).toContain('SHARED_ACCOUNT');
     expect(suspended?.assessment.riskLevel).toBe('HIGH');
-    expect(suspended?.assessment.signals.map((signal) => signal.key)).toEqual(
+    expect(suspended?.assessment.riskReasons.map((reason) => reason.key)).toEqual(
       expect.arrayContaining(['registry_inactive', 'shared_account']),
     );
 

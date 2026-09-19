@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { NoAccess } from '../../../../../components/no-access';
-import { listEntitlements, listProducts } from '@nx-verify/core';
+import { errorCatalogue, listEntitlements, listProducts, quoteChecks } from '@nx-verify/core';
 import { Docs, type DocProductView } from '../../../../../components/docs';
 import { actingUser, query } from '../../../../../lib/context';
 import { SectionTabs } from '../../../../../components/section-tabs';
@@ -26,6 +26,14 @@ export default async function DocsPage(): Promise<ReactElement> {
   const view = await query(async (tx) => {
     const [products, entitlements] = await Promise.all([listProducts(tx), listEntitlements(tx)]);
     const standing = new Map(entitlements.map((entry) => [entry.productCode, entry]));
+    // What each one costs. The subtitle promised it and the screen showed the inputs alone,
+    // and a developer choosing which check to call is choosing on the price (ADR-169).
+    const quote = await quoteChecks(
+      tx,
+      products.map((product) => product.code),
+    );
+    const priced = new Map(quote.lines.map((line) => [line.productCode, line]));
+    const fromPlan = quote.capacityRemaining !== null && quote.capacityRemaining > 0;
 
     return {
       apiBaseUrl: process.env['NX_API_URL'] ?? 'https://api.nx.sa',
@@ -40,8 +48,18 @@ export default async function DocsPage(): Promise<ReactElement> {
           inputSchema: product.inputSchema,
           allowed: entry?.allowed ?? false,
           refusalAr: entry?.refusal ? (REFUSAL_LABELS[entry.refusal] ?? null) : null,
+          priceHalalas: priced.get(product.code)?.unitPriceHalalas ?? null,
+          coveredByPlan: fromPlan,
         };
       }),
+      // Straight from the domain's own catalogue, so a code added there appears here without
+      // anybody remembering to write it down twice.
+      errors: errorCatalogue().map((row) => ({
+        code: row.code,
+        status: row.status,
+        retryable: row.retryable,
+        messageAr: row.messageAr,
+      })),
     };
   });
 

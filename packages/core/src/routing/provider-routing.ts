@@ -104,7 +104,18 @@ export interface TenantBinding {
   activatedAt: Date | null;
 }
 
-export async function listTenantBindings(tx: TenantTransaction): Promise<TenantBinding[]> {
+export async function listTenantBindings(
+  tx: { query: TenantTransaction['query']; tenantId?: string },
+  tenantId?: string,
+): Promise<TenantBinding[]> {
+  // The operator connection carries no tenant of its own, so the panel names the subscriber
+  // it is reading. Rule 2 is untouched: the query still filters on one tenant_id, and a call
+  // that names none is refused rather than quietly returning every subscriber's bindings.
+  const scope = tenantId ?? tx.tenantId;
+  if (scope === undefined) {
+    throw new NxError('NX-4001', { detail: 'listTenantBindings needs a subscriber to read' });
+  }
+
   const { rows } = await tx.query<{
     provider: string;
     mode: 'MANAGED' | 'BYOC';
@@ -118,7 +129,7 @@ export async function listTenantBindings(tx: TenantTransaction): Promise<TenantB
      FROM tenant_provider_binding
      WHERE tenant_id = $1
      ORDER BY priority, provider`,
-    [tx.tenantId],
+    [scope],
   );
 
   return rows.map((row) => ({
@@ -148,6 +159,10 @@ export interface SetBindingInput {
  * Runs as the operator role, which is the only role in the system whose policy crosses
  * tenants. That is acceptable here and nowhere else: it covers configuration rather than
  * data, and the role can reach no attestation, no identifier and no run.
+ *
+ * This is the write behind «مصدر بيانات هذا المشترك» in the panel. It is an operator act on
+ * a subscriber's page and never a subscriber's own setting, for the reason written out in
+ * apps/console/src/components/admin-subscribers/source.tsx.
  */
 export async function setTenantBinding(
   tx: { query: TenantTransaction['query'] },
@@ -157,6 +172,22 @@ export async function setTenantBinding(
   if (input.credentialRef && !input.credentialRef.startsWith('kms://')) {
     // The database refuses this too. Saying it here gives a usable message.
     throw new NxError('NX-4001', { detail: 'a credential must be a kms:// reference' });
+  }
+  if (input.mode === 'BYOC' && !input.credentialRef) {
+    /**
+     * BYOC without a reference is a binding that lies about itself, in the direction that
+     * costs money silently.
+     *
+     * resolveCredential falls through a binding with no reference to the platform's own
+     * connection, so the call goes out on our credential and we pay for it. resolveExecutionMode
+     * reads this table and reports BYOC, so the run is recorded as having cost us nothing. The
+     * margin report then overstates itself by exactly the calls we paid for, and nothing in the
+     * run says so. A subscriber on their own account has a reference; a subscriber on ours is
+     * MANAGED.
+     */
+    throw new NxError('NX-4001', {
+      detail: 'a BYOC binding must name the subscriber credential it runs on',
+    });
   }
 
   await tx.query(

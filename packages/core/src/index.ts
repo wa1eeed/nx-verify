@@ -1,4 +1,4 @@
-export { NxError } from './errors.js';
+export { NxError, errorCatalogue } from './errors.js';
 export {
   MAX_SIGNUP_ATTEMPTS,
   SIGNUP_RESEND_AFTER_SECONDS,
@@ -198,7 +198,12 @@ export {
   resumeRun,
   verify,
 } from './verification/verify.js';
-export type { ResumeInput, VerifyInput, VerifyResult } from './verification/verify.js';
+export type {
+  ResumeInput,
+  VerifyActor,
+  VerifyInput,
+  VerifyResult,
+} from './verification/verify.js';
 export {
   IDENTIFIER_TYPES,
   inferIdentifiers,
@@ -263,7 +268,9 @@ export {
 export type { MatchedWait, OpenWait, StoredWait } from './verification/waits.js';
 export {
   claimPendingDeliveries,
+  endpointHealth,
   listAllEndpoints,
+  listDeliveries,
   listEndpoints,
   queueEvent,
   recordDeliveryResult,
@@ -351,12 +358,16 @@ export type { TrustBand, TrustBandView } from './monitoring/trust-band.js';
 export type { EntityScore, ScoreComponent } from './monitoring/scoring.js';
 export {
   buildBundleContent,
+  buildCaseBundleContent,
   buildEvidenceContent,
   checkEvidence,
   evidenceKeyVersion,
   evidenceStorageKey,
+  findSeal,
   hashBundle,
+  listCaseSeals,
   sealBundle,
+  sealCaseBundle,
   hashContent,
   resolvePublicEvidence,
   sealEvidence,
@@ -366,10 +377,17 @@ export {
 export type {
   BundleContent,
   BundleEntry,
+  CaseBundleContent,
+  CaseBundleRun,
+  CaseBundleStep,
+  EvidenceClaim,
   EvidenceContent,
   PublicEvidence,
   SealEvidenceInput,
+  SealRecord,
   SealedBundle,
+  SealedCaseBundle,
+  SealedContent,
   SealedEvidence,
 } from './evidence/evidence.js';
 
@@ -592,11 +610,7 @@ export type {
   TenantRiskModel,
   TenantRiskSignalView,
 } from './customers/risk-admin.js';
-export {
-  DEFAULT_RISK_POLICY,
-  platformRiskPolicy,
-  resolveRiskPolicy,
-} from './customers/risk-policy.js';
+export { DEFAULT_RISK_POLICY, resolveRiskPolicy } from './customers/risk-policy.js';
 export type { RiskPolicy, RiskSignalPolicy } from './customers/risk-policy.js';
 export {
   markStandingStale,
@@ -637,14 +651,17 @@ export type {
 export {
   listModules,
   ownModules,
+  setModuleDefault,
   setOwnModule,
   setTenantModule,
   tenantModules,
 } from './modules/modules.js';
 export type {
+  ModuleDefaultChange,
   ModuleProductView,
   ModuleSource,
   ModuleView,
+  SetModuleDefaultInput,
   SetTenantModuleInput,
   TenantModuleView,
   OwnModuleView,
@@ -762,7 +779,7 @@ export type {
   EntitlementRefusal,
   TermExtras,
 } from './billing/entitlements.js';
-export { findSandboxOf, isSandbox, sandboxLink } from './tenants/sandbox.js';
+export { isSandbox, sandboxLink } from './tenants/sandbox.js';
 export type { SandboxLink } from './tenants/sandbox.js';
 export { listApiKeys } from './auth/api-keys.js';
 export type { ApiKeySummary } from './auth/api-keys.js';
@@ -901,12 +918,7 @@ export type {
   RunChecksInput,
   RunChecksResult,
 } from './customers/checks.js';
-export {
-  INCOMPLETE_SECTION_WEIGHT,
-  SIGNAL_WEIGHTS,
-  assessCustomer,
-  riskLevelFor,
-} from './customers/indicators.js';
+export { assessCustomer, riskLevelFor } from './customers/indicators.js';
 export type {
   Assessment,
   AssessmentInput,
@@ -914,8 +926,6 @@ export type {
   IndicatorState,
   RiskLevel,
   RiskReason,
-  RiskSignal,
-  SignalSeverity,
   Standing,
 } from './customers/indicators.js';
 export {
@@ -1075,15 +1085,19 @@ export type {
   SettableSection,
 } from './settings/platform.js';
 export {
+  DEFAULT_PLAN_TERMS,
+  DEFAULT_PRICE_RATES,
   MINIMUM_MARGIN_PCT,
   addCreditBundle,
   addPlan,
+  clearListPrice,
   listCreditBundles,
   listPlans,
   listProductPricing,
   listSpecialPrices,
   retireCreditBundle,
   setListPrice,
+  setPlanTerms,
   setProductOnSale,
   setSpecialPrice,
   setTenantDiscount,
@@ -1093,7 +1107,10 @@ export type {
   CreditBundle,
   PlanInput,
   PlanSummary,
+  PlanTerms,
+  PlanTermsInput,
   PriceChange,
+  PriceRates,
   ProductPricingRow,
   SpecialPrice,
 } from './billing/pricing-admin.js';

@@ -2,7 +2,6 @@ import { z } from 'zod';
 import {
   NxError,
   assertNoProviderLeak,
-  audit,
   buildEvidenceContent,
   buildEvidenceDocument,
   evidenceStorageKey,
@@ -105,16 +104,20 @@ export function registerVerificationRoutes(app: FastifyInstance, context: AppCon
           // run from its own environment. A sandbox delivery must never complete a real
           // verification.
           environment: caller.environment,
-        });
-
-        await audit(tx, {
-          actorType: 'API_KEY',
-          actorId: caller.apiKeyId,
-          action: outcome.replayed ? 'verification.replayed' : 'verification.created',
-          target: outcome.runId,
-          ip: request.ip,
-          requestId: request.id,
-          metadata: { product: body.product, status: outcome.status },
+          /**
+           * Who to name in the subscriber's trail.
+           *
+           * The entry itself is written by `verify`, because every caller of it spends the
+           * subscriber's money and this route used to be the only one that recorded doing so.
+           * What this layer adds is the part the domain cannot know: which key was presented,
+           * from where, and on which request.
+           */
+          actor: {
+            actorType: 'API_KEY',
+            actorId: caller.apiKeyId,
+            ip: request.ip,
+            requestId: request.id,
+          },
         });
 
         // The evidence file is sealed as part of the run, not on request. A document

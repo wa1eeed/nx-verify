@@ -40,6 +40,7 @@ const moduleView = (over: Partial<ModuleView> = {}): ModuleView => ({
   ],
   switchedOn: 3,
   switchedOff: 0,
+  inheritingDefault: 12,
   ...over,
 });
 

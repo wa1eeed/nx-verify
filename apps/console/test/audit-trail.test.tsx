@@ -80,3 +80,56 @@ describe('the audit trail screen', () => {
     expect(metadataLine({ seq: 1, outcome: 'REVIEW' })).toBe('seq: 1 · outcome: REVIEW');
   });
 });
+
+/**
+ * A trail read years later (ADR-169).
+ *
+ * It asked for the last two hundred rows and printed their count beside the title, so a
+ * truncated list and a complete one looked identical and a question about last quarter had no
+ * answer at all.
+ */
+describe('reading further back', () => {
+  const rows: AuditRowView[] = [
+    {
+      id: '1',
+      actorType: 'USER',
+      actorId: 'u1',
+      actorName: 'وليد',
+      action: 'user.created',
+      target: null,
+      metadata: null,
+      createdAt: new Date('2026-09-18T09:00:00Z'),
+    },
+  ];
+
+  it('offers a window, and keeps the action filter while changing it', () => {
+    const html = renderToStaticMarkup(
+      <AuditTrail rows={rows} actions={['user.created']} action="user.created" />,
+    );
+    expect(html).toContain('data-role="audit-window"');
+    // The filter has to survive the window, or picking a month silently drops it.
+    expect(html).toContain('name="action" value="user.created"');
+  });
+
+  it('says the count is a floor when there is more, and offers the next page', () => {
+    const html = renderToStaticMarkup(
+      <AuditTrail
+        rows={rows}
+        actions={[]}
+        more
+        nextBefore="4210"
+      />,
+    );
+    expect(html).toContain('1+');
+    expect(html).toContain('data-role="audit-older"');
+    // A cursor, not an offset: the trail grows while somebody reads it. And the id, not the
+    // timestamp: rows written in one transaction share one (ADR-169).
+    expect(html).toContain('before=4210');
+  });
+
+  it('offers no next page when this is all there is', () => {
+    const html = renderToStaticMarkup(<AuditTrail rows={rows} actions={[]} />);
+    expect(html).not.toContain('data-role="audit-older"');
+    expect(html).not.toContain('1+');
+  });
+});

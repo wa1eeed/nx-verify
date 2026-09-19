@@ -23,6 +23,7 @@ import {
   addPlanAction,
   retireBundleAction,
   savePricingAction,
+  setPlanTermsAction,
   setSpecialPriceAction,
   setVatAction,
 } from './actions';
@@ -52,6 +53,9 @@ export default async function OperatorPricingPage({
   const data = await operatorQuery(async (db) => ({
     products: await listProductPricing(db),
     bundles: await listCreditBundles(db),
+    // Retired ones too, for the dialog alone: a bundle is named after its number of
+    // operations, so «إضافة» has to know the number is taken before it offers to add it.
+    definedBundles: await listCreditBundles(db, { includeRetired: true }),
     plans: await listPlans(db),
     specialPrices: await listSpecialPrices(db),
     settings: await getPlatformSettings(db),
@@ -84,6 +88,11 @@ export default async function OperatorPricingPage({
           notice: noticeAr(params, (code) => nameOf.get(code) ?? code),
           products: data.products,
           bundles: data.bundles,
+          definedBundles: data.definedBundles.map((bundle) => ({
+            code: bundle.code,
+            operations: bundle.operations,
+            retired: bundle.status === 'retired',
+          })),
           plans: data.plans,
           specialPrices: data.specialPrices,
           settings: data.settings,
@@ -120,6 +129,7 @@ export default async function OperatorPricingPage({
           addBundle: addBundleAction,
           retireBundle: retireBundleAction,
           addPlan: addPlanAction,
+          setPlanTerms: setPlanTermsAction,
           setSpecialPrice: setSpecialPriceAction,
           setVat: setVatAction,
         }}

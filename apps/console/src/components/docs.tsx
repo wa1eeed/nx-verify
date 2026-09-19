@@ -21,11 +21,33 @@ export interface DocProductView {
   inputSchema: unknown;
   allowed: boolean;
   refusalAr: string | null;
+  /**
+   * What one successful run costs, or null when a plan or a bundle covers it (ADR-169).
+   *
+   * The screen's own subtitle promised «مدخلاتها، ومخرجاتها، وسعر كل واحدة» and showed the
+   * inputs alone. A developer deciding which check to call is deciding on what it costs.
+   */
+  priceHalalas: number | null;
+  coveredByPlan: boolean;
+}
+
+export interface ErrorRow {
+  code: string;
+  status: number;
+  retryable: boolean;
+  messageAr: string;
 }
 
 export interface DocsView {
   apiBaseUrl: string;
   products: DocProductView[];
+  /**
+   * Every code the API can return.
+   *
+   * The screen cited NX-4031 as an example and carried no table, and the call log printed
+   * codes raw with nothing to look them up in. A developer met a code and had to ask us.
+   */
+  errors: readonly ErrorRow[];
 }
 
 function requiredFields(schema: unknown): string[] {
@@ -39,6 +61,16 @@ function requiredFields(schema: unknown): string[] {
     return object.oneOf.flatMap((branch) => branch.required ?? []);
   }
   return [];
+}
+
+/** What one run costs, in the words the reader needs: a price, «من باقتك», or «بلا سعر». */
+function priceLabelAr(product: DocProductView): string {
+  if (product.coveredByPlan) {
+    return 'من باقتك';
+  }
+  return product.priceHalalas === null
+    ? 'لا سعر معروض'
+    : `${(product.priceHalalas / 100).toFixed(2)} ر.س للعملية`;
 }
 
 export function Docs({ view }: { view: DocsView }): ReactElement {
@@ -88,7 +120,11 @@ export function Docs({ view }: { view: DocsView }): ReactElement {
         <Panel
           key={product.code}
           title={product.nameAr}
-          aside={product.allowed ? product.code : `${product.code} · غير مشمولة في باقتك`}
+          aside={
+            product.allowed
+              ? `${product.code} · ${priceLabelAr(product)}`
+              : `${product.code} · غير مشمولة في باقتك`
+          }
           role="doc-product"
         >
           <div className="panel-body stack">
@@ -122,6 +158,46 @@ export function Docs({ view }: { view: DocsView }): ReactElement {
           </div>
         </Panel>
       ))}
+
+      {/*
+        The codes, in a table. The screen cited one as an example and had none, and the call
+        log printed them raw with nothing to look them up in (ADR-169).
+      */}
+      <Panel title="رموز الأخطاء" aside={`${view.errors.length}`} role="error-codes">
+        <div className="table-scroll">
+          <table data-role="error-table">
+            <thead>
+              <tr>
+                <th>الرمز</th>
+                <th>HTTP</th>
+                <th>المعنى</th>
+                <th>يُعاد؟</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.errors.map((row) => (
+                <tr key={row.code} data-role="error-row" data-code={row.code}>
+                  <td>
+                    <bdi dir="ltr" className="mono">
+                      {row.code}
+                    </bdi>
+                  </td>
+                  <td>
+                    <bdi dir="ltr" className="mono">
+                      {row.status}
+                    </bdi>
+                  </td>
+                  <td>{row.messageAr}</td>
+                  <td>
+                    {/* The one field a client acts on: retry, or stop and fix the call. */}
+                    {row.retryable ? 'نعم، أعد المحاولة' : 'لا، صحّح النداء'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   );
 }

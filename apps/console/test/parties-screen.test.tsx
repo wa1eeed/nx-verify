@@ -210,7 +210,6 @@ const file: CustomerFile = {
     riskLabelAr: 'غير مكتمل',
     riskScore: null,
     riskReasons: [],
-    signals: [],
   },
   intersections: [],
   lastVerifiedAt: OBSERVED,

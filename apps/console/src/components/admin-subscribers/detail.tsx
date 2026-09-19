@@ -22,6 +22,7 @@ import { bundleLabelOf } from '../topup';
 import { STANDING_TAGS, balanceCellAr, endsAr, planCellAr } from './model';
 import { SubscriberModules } from './modules';
 import { SubscriberRisk } from './risk';
+import { SubscriberSource, type SubscriberSourceView } from './source';
 
 /**
  * One subscriber, managed (the «إدارة» link of handoff screen 06).
@@ -47,6 +48,14 @@ export interface AdminSubscriberView {
   specialPrice: SpecialPrice | null;
   modules: readonly TenantModuleView[];
   risk: TenantRiskModel;
+  /**
+   * Whose account this subscriber's calls go out on.
+   *
+   * Read on the operator connection and on the provider catalogue, which no other caller of
+   * this screen has, so a caller without them draws the rest of the page instead of an empty
+   * card. The panel page always passes it.
+   */
+  source?: SubscriberSourceView | null;
   notice: { tone: 'done' | 'refused'; text: string } | null;
 }
 
@@ -62,6 +71,7 @@ export function AdminSubscriber({
     setRiskSignal: Action;
     setRiskBands: Action;
     setRiskCategory: Action;
+    setSource?: Action;
   };
 }): ReactElement {
   const { detail, row } = view;
@@ -207,6 +217,16 @@ export function AdminSubscriber({
         setBands={actions.setRiskBands}
         setCategory={actions.setRiskCategory}
       />
+
+      {view.source === undefined ||
+      view.source === null ||
+      actions.setSource === undefined ? null : (
+        <SubscriberSource
+          tenantId={detail.tenantId}
+          view={view.source}
+          setSource={actions.setSource}
+        />
+      )}
 
       <Card variant="flush" role="subscriber-bundles" labelledBy="subscriber-bundles-title">
         <div className="admin-card-head">

@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { withTenant } from '../../../packages/db/src/client.js';
+import { countCustomers, pickCustomers } from '../src/customers/list.js';
 import {
   assessCustomer,
   type AssessmentInput,
@@ -24,6 +26,7 @@ import {
 import {
   createTestDatabase,
   seedTenant,
+  testKeys,
   type SeededTenant,
   type TestDatabase,
 } from '../../../test/helpers/db.js';
@@ -99,22 +102,22 @@ describe('the risk model as data', () => {
       company({ riskPolicy: withSignal('shared_address', { enabled: false }) }),
     );
     // Off the list a reader sees and out of the arithmetic together: what somebody is shown
-    // and what the number is made of have to be the same thing.
-    expect(assessment.signals.map((signal) => signal.key)).not.toContain('shared_address');
+    // and what the number is made of are one list, which is why there is only one.
+    expect(assessment.riskReasons.map((reason) => reason.key)).not.toContain('shared_address');
     expect(assessment.riskReasons).toHaveLength(0);
     expect(assessment.riskScore).toBe(0);
   });
 
   it('fires a signal at the threshold the policy sets, and not before it', () => {
     const managers = [{ name: 'مدير', hasPermissions: true, otherCompanies: 4 }];
-    expect(assessCustomer(company({ managers })).signals.map((signal) => signal.key)).toContain(
+    expect(assessCustomer(company({ managers })).riskReasons.map((reason) => reason.key)).toContain(
       'manager_many_companies',
     );
     // A subscriber for whom four other companies is ordinary says so, and the signal is silent.
     expect(
       assessCustomer(
         company({ managers, riskPolicy: withSignal('manager_many_companies', { threshold: 5 }) }),
-      ).signals.map((signal) => signal.key),
+      ).riskReasons.map((reason) => reason.key),
     ).not.toContain('manager_many_companies');
   });
 
@@ -360,5 +363,106 @@ describe('editing the risk model from the panel', () => {
     );
     expect(subscriberTrail.map((row) => row.action)).toContain('risk.signal_set');
     expect(subscriberTrail.map((row) => row.action)).toContain('risk.bands_set');
+  });
+});
+
+/**
+ * The band, where a subscriber actually meets it: the customers list.
+ *
+ * `customer_standing.risk_score` was written on every sweep and read by nothing, while the
+ * migration that added it called it the column the list filters and counts by. It is that
+ * now. What has to hold is that the facet and the word on a row come from the same two
+ * numbers, so moving a band moves who is counted rather than only what they are called.
+ */
+describe('the customers a band leaves', () => {
+  let db: TestDatabase;
+  let tenant: SeededTenant;
+  const keys = testKeys();
+  const staff = 'nx-staff:test';
+
+  /** A customer of this workspace whose last sweep left it at this score. */
+  const standing = async (score: number | null): Promise<string> => {
+    const entityId = randomUUID();
+    await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      await tx.query(
+        `INSERT INTO entities (id, tenant_id, entity_type, display_name)
+         VALUES ($1, $2, 'BUSINESS', $3)`,
+        [entityId, tx.tenantId, `منشأة ${score ?? 'بلا درجة'}`],
+      );
+      await tx.query(
+        `INSERT INTO customer_standing
+           (tenant_id, entity_id, kind, last_verified_at, completeness, open_alerts, risk_score)
+         VALUES ($1, $2, 'COMPANY', now(), 100, 0, $3)`,
+        [tx.tenantId, entityId, score],
+      );
+    });
+    return entityId;
+  };
+
+  const counts = () => withTenant(db.appPool, tenant.tenantId, (tx) => countCustomers(tx));
+  const risky = () =>
+    withTenant(db.appPool, tenant.tenantId, (tx) =>
+      pickCustomers(tx, keys, { highRiskOnly: true }),
+    );
+
+  beforeAll(async () => {
+    db = await createTestDatabase();
+    tenant = await seedTenant(db.appPool, 'Banded Tenant');
+  });
+
+  afterAll(async () => {
+    await db.close();
+  });
+
+  it('counts and picks the customers above the band, under the model the platform ships', async () => {
+    const high = await standing(72);
+    const medium = await standing(45);
+    await standing(3);
+    // Nobody has swept this one yet, so it has no score and belongs to no band. Absent rather
+    // than counted as safe: a customer nobody has rated is not a customer who passed.
+    await standing(null);
+
+    expect((await counts()).all).toBe(4);
+    expect((await counts()).highRisk).toBe(1);
+    const picked = await risky();
+    expect(picked.total).toBe(1);
+    expect(picked.entityIds).toEqual([high]);
+    expect(picked.entityIds).not.toContain(medium);
+  });
+
+  it('moves with the subscriber band rather than with a number compiled into the query', async () => {
+    await setTenantRiskBands(
+      db.operatorPool,
+      { tenantId: tenant.tenantId, highFrom: 40, mediumFrom: 20 },
+      staff,
+    );
+    // The same four customers, the same scores. Two are high now because this subscriber says
+    // forty is high, which is the whole point of the model being rows (ADR-138).
+    expect((await counts()).highRisk).toBe(2);
+    expect((await risky()).total).toBe(2);
+
+    await setTenantRiskBands(
+      db.operatorPool,
+      { tenantId: tenant.tenantId, highFrom: null, mediumFrom: null },
+      staff,
+    );
+    expect((await counts()).highRisk).toBe(1);
+  });
+
+  it('agrees with the count beside it, whatever else is filtered', async () => {
+    const both = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      pickCustomers(tx, keys, { highRiskOnly: true, kind: 'COMPANY' }),
+    );
+    expect(both.total).toBe(1);
+    // And an archived customer is gone from the facet as it is gone from the list.
+    await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      await tx.query(
+        `UPDATE entities SET archived_at = now()
+          WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
+        [tx.tenantId, both.entityIds],
+      );
+    });
+    expect((await counts()).highRisk).toBe(0);
+    expect((await risky()).total).toBe(0);
   });
 });

@@ -125,7 +125,6 @@ function fileWith(sections: FileSection[]): CustomerFile {
         },
         { key: 'shared_address', weight: 16, textAr: 'العنوان الوطني نفسه مسجل باسم منشأة أخرى.' },
       ],
-      signals: [],
     },
     intersections: [],
     lastVerifiedAt: OBSERVED,

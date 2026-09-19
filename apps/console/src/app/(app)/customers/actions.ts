@@ -183,6 +183,9 @@ export async function searchCustomersAction(formData: FormData): Promise<void> {
   if (text(formData, 'alerts') === '1') {
     params.set('alerts', '1');
   }
+  if (text(formData, 'risk') === 'high') {
+    params.set('risk', 'high');
+  }
   if (typed !== '') {
     if (looksLikeIdentifier(typed)) {
       const found = await query((tx) => findCustomersByIdentifier(tx, getKeys(), typed));

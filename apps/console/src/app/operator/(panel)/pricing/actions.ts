@@ -6,6 +6,7 @@ import {
   NxError,
   addCreditBundle,
   addPlan,
+  clearListPrice,
   getPlatformSettings,
   layoutsOf,
   listProductPricing,
@@ -13,6 +14,7 @@ import {
   operatorCan,
   retireCreditBundle,
   setListPrice,
+  setPlanTerms,
   setPlatformSettings,
   setProductOnSale,
   setSectionRequirement,
@@ -21,9 +23,11 @@ import {
   setVatPeriod,
   type CustomerKind,
   type OperatorIdentity,
+  type PriceRates,
 } from '@nx-verify/core';
 import {
   parsePercent,
+  parseRateFraction,
   parseRiyals,
   parseWholeNumber,
 } from '../../../../components/admin-pricing/model';
@@ -82,34 +86,86 @@ export async function savePricingAction(formData: FormData): Promise<void> {
   }
 
   let thin: string[] = [];
+  let cleared: string[] = [];
   try {
-    thin = await operatorTransaction(async (db) => {
+    const outcome = await operatorTransaction(async (db) => {
       const thinMargins: string[] = [];
+      const clearedPrices: string[] = [];
 
       if (pricing) {
         const onSale = new Set(formData.getAll('on_sale').map(String));
         for (const product of await listProductPricing(db)) {
-          const raw = formData.get(`price:${product.productCode}`);
-          if (raw !== null && String(raw).trim() !== '') {
-            const halalas = parseRiyals(String(raw));
-            if (halalas === null || halalas <= 0) {
-              throw new Refusal('price', product.productCode);
+          const code = product.productCode;
+
+          /*
+           * Three states, not two. A field the form did not carry keeps the price; a field
+           * emptied on purpose takes it away; a field with a figure sets it.
+           *
+           * The empty case did nothing at all, so a price could never be removed, and a check
+           * could sit on sale with no price where every run fails at resolvePrice with
+           * NX-4041 and nothing on the screen says why.
+           */
+          const raw = formData.get(`price:${code}`);
+          const typed = raw === null ? null : String(raw).trim();
+          const wanted =
+            product.availability === 'AVAILABLE' ? onSale.has(code) : product.status === 'active';
+
+          const rate = (field: string): number | undefined => {
+            const value = formData.get(`${field}:${code}`);
+            if (value === null || String(value).trim() === '') {
+              return undefined;
             }
-            if (halalas !== product.priceHalalas) {
-              if (halalas < product.costHalalas) {
-                throw new Refusal('under-cost', product.productCode);
+            const fraction = parseRateFraction(String(value));
+            if (fraction === null) {
+              throw new Refusal('rate', code);
+            }
+            return fraction;
+          };
+          const rates: Partial<PriceRates> = {};
+          const negative = rate('negative');
+          const cached = rate('cached');
+          if (negative !== undefined) {
+            rates.negativePct = negative;
+          }
+          if (cached !== undefined) {
+            rates.cachePct = cached;
+          }
+
+          // Off sale first, because a price may not be taken off a check that is on sale, and
+          // both can be asked for in the same save.
+          if (product.availability === 'AVAILABLE' && !wanted && product.status === 'active') {
+            await setProductOnSale(db, actor, code, false);
+          }
+
+          const price = typed === null ? product.priceHalalas : typed === '' ? null : parseRiyals(typed);
+          if (typed !== null && typed !== '' && (price === null || price <= 0)) {
+            throw new Refusal('price', code);
+          }
+          if (price === null) {
+            if (product.priceHalalas !== null) {
+              // A check that is not for sale yet may lose its price freely. Only one that a
+              // subscriber can actually run needs it.
+              if (product.availability === 'AVAILABLE' && wanted) {
+                throw new Refusal('clear-on-sale', code);
               }
-              const change = await setListPrice(db, actor, product.productCode, halalas);
-              if (change?.thinMargin === true) {
-                thinMargins.push(product.productCode);
-              }
+              await clearListPrice(db, actor, code);
+              clearedPrices.push(code);
+            }
+          } else {
+            if (price !== product.priceHalalas && price < product.costHalalas) {
+              throw new Refusal('under-cost', code);
+            }
+            const change = await setListPrice(db, actor, code, price, rates);
+            if (change?.thinMargin === true) {
+              thinMargins.push(code);
             }
           }
-          if (product.availability === 'AVAILABLE') {
-            const wanted = onSale.has(product.productCode);
-            if (wanted !== (product.status === 'active')) {
-              await setProductOnSale(db, actor, product.productCode, wanted);
+
+          if (product.availability === 'AVAILABLE' && wanted && product.status !== 'active') {
+            if (price === null) {
+              throw new Refusal('no-price', code);
             }
+            await setProductOnSale(db, actor, code, true);
           }
         }
       }
@@ -177,8 +233,10 @@ export async function savePricingAction(formData: FormData): Promise<void> {
         }
       }
 
-      return thinMargins;
+      return { thinMargins, clearedPrices };
     });
+    thin = outcome.thinMargins;
+    cleared = outcome.clearedPrices;
   } catch (error) {
     if (error instanceof Refusal) {
       back(path, {
@@ -187,8 +245,18 @@ export async function savePricingAction(formData: FormData): Promise<void> {
       });
     }
     if (error instanceof NxError && error.code === 'NX-4002') {
+      // A check whose cost rose past its price refuses every edit to that row, rates included,
+      // and the reader deserves the actual reason rather than «تحقق من القيم».
+      const underCost = /the price is under the cost of ([A-Z0-9_]+)/.exec(error.message);
+      if (underCost !== null) {
+        back(path, { refused: 'under-cost', product: underCost[1] ?? '' });
+      }
       back(path, {
-        refused: /must be a whole number/.test(error.message) ? 'settings' : 'invalid',
+        refused: /must be a whole number/.test(error.message)
+          ? 'settings'
+          : /on sale/.test(error.message)
+            ? 'clear-on-sale'
+            : 'invalid',
       });
     }
     throw error;
@@ -196,32 +264,56 @@ export async function savePricingAction(formData: FormData): Promise<void> {
 
   revalidatePath('/operator/pricing');
   revalidatePath('/operator/verification');
-  back(path, { saved: '1', ...(thin.length === 0 ? {} : { thin: thin.join(',') }) });
+  back(path, {
+    saved: '1',
+    ...(thin.length === 0 ? {} : { thin: thin.join(',') }),
+    ...(cleared.length === 0 ? {} : { cleared: cleared.join(',') }),
+  });
 }
 
-/** «إضافة حزمة». A bundle with the same number of operations is replaced. */
+/**
+ * «إضافة حزمة», and a replacement only when the dialog said so.
+ *
+ * A bundle carries the code `BUNDLE_<operations>`, so adding one with a count already on the
+ * list used to overwrite it and to put a retired one back on sale, silently. The dialog now
+ * sends the code it means to replace, and the domain refuses any other collision.
+ */
 export async function addBundleAction(formData: FormData): Promise<void> {
   const actor = await actorWith('pricing', '/operator/pricing');
   const operations = parseWholeNumber(String(formData.get('operations') ?? ''));
   const price = parseRiyals(String(formData.get('price') ?? ''));
   const months = parseWholeNumber(String(formData.get('validity_months') ?? '12'));
+  const replaces = String(formData.get('replaces') ?? '').trim();
   if (operations === null || price === null || months === null) {
     back('/operator/pricing', { refused: 'invalid' });
   }
   try {
     await operatorTransaction((db) =>
-      addCreditBundle(db, actor, { operations, priceHalalas: price, validityMonths: months }),
+      addCreditBundle(db, actor, {
+        operations,
+        priceHalalas: price,
+        validityMonths: months,
+        ...(replaces === '' ? {} : { replaces }),
+      }),
     );
   } catch (error) {
-    if (error instanceof NxError && error.code === 'NX-4002') {
-      back('/operator/pricing', {
-        refused: /under cost/.test(error.message) ? 'bundle-cost' : 'invalid',
-      });
+    if (error instanceof NxError) {
+      if (error.code === 'NX-4091') {
+        back('/operator/pricing', { refused: 'bundle-exists' });
+      }
+      if (error.code === 'NX-4041') {
+        back('/operator/pricing', { refused: 'bundle-missing' });
+      }
+      if (error.code === 'NX-4002') {
+        back('/operator/pricing', {
+          refused: /under cost/.test(error.message) ? 'bundle-cost' : 'invalid',
+        });
+      }
     }
     throw error;
   }
   revalidatePath('/operator/pricing');
-  back('/operator/pricing', { saved: 'bundle' });
+  back('/operator/pricing', { saved: replaces === '' ? 'bundle' : 'bundle-replaced' });
 }
 
 /** Takes a bundle off sale. Operations already bought stay with whoever bought them. */
@@ -233,13 +325,62 @@ export async function retireBundleAction(formData: FormData): Promise<void> {
   back('/operator/pricing', { saved: 'bundle-retired' });
 }
 
+/**
+ * The terms a plan carries beside its price, read from the dialog's fields.
+ *
+ * Every one of these was a literal in `addPlan`, and one of them prices work at zero: inside
+ * the free re-verification window a repeat check costs the subscriber nothing.
+ */
+function termsFrom(formData: FormData): {
+  termMonths: number;
+  freeReverifyDays: number;
+  setupFeeHalalas: number;
+  commitmentCreditsHalalas: number;
+  overageAllowed: boolean;
+} | null {
+  const termMonths = parseWholeNumber(String(formData.get('term_months') ?? ''));
+  const freeReverifyDays = parseWholeNumber(String(formData.get('free_reverify_days') ?? '0'));
+  const setupFeeHalalas = parseRiyals(String(formData.get('setup_fee') ?? '0'));
+  const commitmentCreditsHalalas = parseRiyals(String(formData.get('commitment_credits') ?? '0'));
+  if (
+    termMonths === null ||
+    freeReverifyDays === null ||
+    setupFeeHalalas === null ||
+    commitmentCreditsHalalas === null
+  ) {
+    return null;
+  }
+  return {
+    termMonths,
+    freeReverifyDays,
+    setupFeeHalalas,
+    commitmentCreditsHalalas,
+    overageAllowed: String(formData.get('overage_allowed') ?? 'true') === 'true',
+  };
+}
+
+/** Which refusal a plan write ran into, from the message the domain gave it. */
+function planRefusal(error: NxError): string {
+  if (error.code === 'NX-4091') {
+    return 'plan-exists';
+  }
+  if (error.code === 'NX-4041') {
+    return 'plan-missing';
+  }
+  if (/under the cost/.test(error.message)) {
+    return 'plan-cost';
+  }
+  return /commitment runs|re-verification window/.test(error.message) ? 'plan-terms' : 'invalid';
+}
+
 /** «إضافة باقة»: a monthly plan with every check on sale in it. */
 export async function addPlanAction(formData: FormData): Promise<void> {
   const actor = await actorWith('pricing', '/operator/pricing');
   const fee = parseRiyals(String(formData.get('monthly_fee') ?? ''));
   const included = parseWholeNumber(String(formData.get('included') ?? ''));
   const overage = parseRiyals(String(formData.get('overage') ?? ''));
-  if (fee === null || included === null || overage === null) {
+  const terms = termsFrom(formData);
+  if (fee === null || included === null || overage === null || terms === null) {
     back('/operator/pricing', { refused: 'invalid' });
   }
   try {
@@ -251,23 +392,61 @@ export async function addPlanAction(formData: FormData): Promise<void> {
         monthlyFeeHalalas: fee,
         includedTransactions: included,
         overageUnitHalalas: overage,
+        ...terms,
       }),
     );
   } catch (error) {
-    if (error instanceof NxError && (error.code === 'NX-4002' || error.code === 'NX-4091')) {
-      back('/operator/pricing', {
-        refused:
-          error.code === 'NX-4091'
-            ? 'plan-exists'
-            : /under the cost/.test(error.message)
-              ? 'plan-cost'
-              : 'invalid',
-      });
+    if (error instanceof NxError) {
+      back('/operator/pricing', { refused: planRefusal(error) });
     }
     throw error;
   }
   revalidatePath('/operator/pricing');
   back('/operator/pricing', { saved: 'plan' });
+}
+
+/**
+ * «شروط الباقة»: the commercial columns of a plan already on sale.
+ *
+ * The free re-verification window and the stop at the included limit are read live by every
+ * commitment, so a change here reaches subscribers who signed months ago. The overage price is
+ * not: it was stamped at signing (ADR-168). The notice says both.
+ */
+export async function setPlanTermsAction(formData: FormData): Promise<void> {
+  const actor = await actorWith('pricing', '/operator/pricing');
+  const code = String(formData.get('code') ?? '').trim();
+  const fee = parseRiyals(String(formData.get('fee') ?? ''));
+  const rawIncluded = String(formData.get('included') ?? '').trim();
+  const included = rawIncluded === '' ? null : parseWholeNumber(rawIncluded);
+  const rawOverage = String(formData.get('overage') ?? '').trim();
+  const overage = rawOverage === '' ? null : parseRiyals(rawOverage);
+  const terms = termsFrom(formData);
+  if (
+    code === '' ||
+    fee === null ||
+    terms === null ||
+    (rawIncluded !== '' && included === null) ||
+    (rawOverage !== '' && overage === null)
+  ) {
+    back('/operator/pricing', { refused: 'invalid' });
+  }
+  try {
+    await operatorTransaction((db) =>
+      setPlanTerms(db, actor, code, {
+        monthlyFeeHalalas: fee,
+        includedTransactions: included,
+        overageUnitHalalas: overage,
+        ...terms,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof NxError) {
+      back('/operator/pricing', { refused: planRefusal(error) });
+    }
+    throw error;
+  }
+  revalidatePath('/operator/pricing');
+  back('/operator/pricing', { saved: 'plan-terms' });
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
