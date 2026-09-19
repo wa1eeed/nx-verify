@@ -1,9 +1,12 @@
 import type { ReactElement } from 'react';
-import { Card } from './ui/card';
+import { Card, CardEmpty, CardHead } from './ui/card';
+import { Disclosure } from './ui/disclosure';
 import { Input } from './ui/input';
 import { Ltr } from './ui/ltr';
+import { NoValue } from './ui/no-value';
 import { Notice } from './ui/notice';
 import { Select } from './ui/select';
+import { Stat, StatGrid } from './ui/stat';
 import { SubmitButton } from './ui/submit-button';
 import { Table, Th } from './ui/table';
 import { Tag } from './ui/tag';
@@ -21,7 +24,10 @@ export function planNoticeAr(params: {
     case 'price':
       return { tone: 'refused', text: 'لم يُحفظ: السعر غير صالح. اكتبه بالأرقام، مثل 4.50' };
     case 'quota':
-      return { tone: 'refused', text: 'لم تُحفظ: الحصة الشهرية عدد صحيح، أو اتركها فارغة لبلا حد.' };
+      return {
+        tone: 'refused',
+        text: 'لم تُحفظ: الحصة الشهرية عدد صحيح، أو اتركها فارغة لبلا حد.',
+      };
     case 'under-cost':
       return {
         tone: 'refused',
@@ -105,6 +111,13 @@ export function OperatorPackages({
   assignAction: string | ((formData: FormData) => void | Promise<void>);
 }): ReactElement {
   const exceptions = subscribers.reduce((total, row) => total + row.overrides.length, 0);
+  /*
+   * Where a subscriber may actually be moved. `setTenantPackage` writes the commitment from
+   * an active plan only and throws NX-4041 on anything else, and the action behind this form
+   * catches nothing: picking a retired plan replaced the whole panel with the error screen.
+   * Naming the retired plan is not enough on its own, so it is named and cannot be picked.
+   */
+  const onSale = packages.filter((plan) => plan.status === 'active');
 
   return (
     <div className="admin-screen" data-role="operator-packages">
@@ -118,33 +131,23 @@ export function OperatorPackages({
         subtitle="ما تبيعه كل باقة من وحدات التحقق، وما وُعد به عميل بعينه خلافاً لها."
       />
 
-      <section className="grid" data-role="package-tiles">
-        <article className="stat">
-          <span className="stat-label">الباقات</span>
-          <strong className="stat-value">
-            <Ltr>{count(packages.length)}</Ltr>
-          </strong>
-        </article>
-        <article className="stat">
-          <span className="stat-label">المشتركون</span>
-          <strong className="stat-value">
-            <Ltr>{count(subscribers.filter((row) => !row.isSandbox).length)}</Ltr>
-          </strong>
-        </article>
-        <article className="stat" {...(exceptions > 10 ? { 'data-tone': 'changed' } : {})}>
-          <span className="stat-label">استثناءات مكتوبة</span>
-          <strong className="stat-value">
-            <Ltr>{count(exceptions)}</Ltr>
-          </strong>
-          <span className="stat-hint">كثرتها تعني أن الباقات لم تعد تصف السوق</span>
-        </article>
-      </section>
+      <StatGrid role="package-tiles">
+        <Stat label="الباقات" value={<Ltr>{count(packages.length)}</Ltr>} />
+        <Stat
+          label="المشتركون"
+          value={<Ltr>{count(subscribers.filter((row) => !row.isSandbox).length)}</Ltr>}
+        />
+        <Stat
+          label="استثناءات مكتوبة"
+          value={<Ltr>{count(exceptions)}</Ltr>}
+          hint="كثرتها تعني أن الباقات لم تعد تصف السوق"
+          tone={exceptions > 10 ? 'changed' : undefined}
+        />
+      </StatGrid>
 
       {packages.length === 0 ? (
         <Card variant="flush" role="no-packages" label="الباقات">
-          <p className="admin-empty" data-role="empty-state">
-            لا باقة معرّفة بعد. تُضاف الباقات من شاشة «الأسعار والمنتجات».
-          </p>
+          <CardEmpty>لا باقة معرّفة بعد. تُضاف الباقات من شاشة «الأسعار والمنتجات».</CardEmpty>
         </Card>
       ) : (
         packages.map((plan) => (
@@ -156,19 +159,25 @@ export function OperatorPackages({
             item={plan.code}
             labelledBy={`plan-${plan.code}`}
           >
-            <div className="admin-card-head">
-              <h2 className="card-title admin-card-title" id={`plan-${plan.code}`}>
-                {plan.nameAr}
-              </h2>
-              <div className="admin-head-actions">
-                <Tag tone="neutral">
-                  <Ltr>{plan.code}</Ltr>
+            <CardHead title={plan.nameAr} titleId={`plan-${plan.code}`}>
+              <Tag tone="neutral">
+                <Ltr>{plan.code}</Ltr>
+              </Tag>
+              <Tag tone="neutral">
+                {billingLabel(plan.billingModel)} · <Ltr>{plan.termMonths}</Ltr> شهراً
+              </Tag>
+              {/*
+                A retired plan is still on this screen, because subscribers are still on it and
+                its modules still decide what they may run. It used to be drawn exactly like a
+                plan we sell, and the move list below offered it as a destination in the same
+                words, so nothing on the screen said it had been withdrawn.
+              */}
+              {plan.status === 'active' ? null : (
+                <Tag tone="neutral" role="retired-plan">
+                  متقاعدة
                 </Tag>
-                <Tag tone="neutral">
-                  {billingLabel(plan.billingModel)} · <Ltr>{plan.termMonths}</Ltr> شهراً
-                </Tag>
-              </div>
-            </div>
+              )}
+            </CardHead>
 
             <div className="admin-table">
               <Table label={`وحدات ${plan.nameAr}`}>
@@ -198,11 +207,7 @@ export function OperatorPackages({
                       >
                         <td>{product.nameAr}</td>
                         <td>
-                          {enabled ? (
-                            <Tag tone="accent-2">نعم</Tag>
-                          ) : (
-                            <Tag tone="neutral">لا</Tag>
-                          )}
+                          {enabled ? <Tag tone="accent-2">نعم</Tag> : <Tag tone="neutral">لا</Tag>}
                         </td>
                         {/*
                           One form for the quota and the price, because they are one row of the
@@ -277,17 +282,10 @@ export function OperatorPackages({
       )}
 
       <Card variant="flush" role="subscribers" labelledBy="subscribers-title">
-        <div className="admin-card-head">
-          <h2 className="card-title admin-card-title" id="subscribers-title">
-            المشتركون
-          </h2>
-          <p className="admin-card-note">الباقة والاستثناءات</p>
-        </div>
+        <CardHead title="المشتركون" titleId="subscribers-title" note="الباقة والاستثناءات" />
 
         {subscribers.length === 0 ? (
-          <p className="admin-empty" data-role="empty-state">
-            لا مشترك بعد. لا أحد يُنقل بين الباقات ولا يُكتب له استثناء.
-          </p>
+          <CardEmpty>لا مشترك بعد. لا أحد يُنقل بين الباقات ولا يُكتب له استثناء.</CardEmpty>
         ) : (
           <div className="admin-table">
             <Table label="المشتركون وباقاتهم">
@@ -321,14 +319,14 @@ export function OperatorPackages({
                     <td>
                       {/* Arabic words are not an identifier, so they stay out of the LTR run. */}
                       {row.packageCode === null ? (
-                        <span className="muted">بلا باقة</span>
+                        <NoValue>بلا باقة</NoValue>
                       ) : (
                         <Ltr>{row.packageCode}</Ltr>
                       )}
                     </td>
                     <td>
                       {row.includedTransactions === null ? (
-                        <span className="muted">بلا حد</span>
+                        <NoValue>بلا حد</NoValue>
                       ) : (
                         <Ltr>
                           {count(row.transactionsUsed)}/{count(row.includedTransactions)}
@@ -337,7 +335,7 @@ export function OperatorPackages({
                     </td>
                     <td>
                       {row.overrides.length === 0 ? (
-                        <span className="muted">لا استثناءات</span>
+                        <NoValue>لا استثناءات</NoValue>
                       ) : (
                         <ul className="admin-offer-list">
                           {row.overrides.map((override) => (
@@ -401,19 +399,29 @@ export function OperatorPackages({
                         consequence above the button that causes it, the same pattern the API
                         key revoke uses (ADR-167).
                       */}
-                      <details className="revoke" data-role="assign-package">
-                        <summary>انقله إلى باقة أخرى</summary>
-                        <div className="stack" style={{ gap: 'var(--space-2)' }}>
-                          <span className="faint">
-                            تُستبدل باقته الحالية: المدة والرسوم والسعة والوحدات المشمولة تصير
-                            كلها من الباقة الجديدة. الاستثناءات المكتوبة له تبقى كما هي.
+                      <Disclosure
+                        role="assign-package"
+                        summary="انقله إلى باقة أخرى"
+                        consequence="تُستبدل باقته الحالية: المدة والرسوم والسعة والوحدات المشمولة تصير كلها من الباقة الجديدة. الاستثناءات المكتوبة له تبقى كما هي."
+                      >
+                        {onSale.length === 0 ? (
+                          // Nothing to move onto, said instead of a button that can only fail.
+                          <span className="faint" data-role="no-destination">
+                            لا باقة معروضة للبيع الآن، فلا وجهة يُنقل إليها.
                           </span>
+                        ) : (
                           <form action={assignAction} className="row">
                             <input type="hidden" name="tenant_id" value={row.tenantId} />
                             <Select name="package_code" aria-label="باقة">
                               {packages.map((plan) => (
-                                <option key={plan.code} value={plan.code}>
-                                  {plan.nameAr}
+                                <option
+                                  key={plan.code}
+                                  value={plan.code}
+                                  disabled={plan.status !== 'active'}
+                                >
+                                  {plan.status === 'active'
+                                    ? plan.nameAr
+                                    : `${plan.nameAr} · متقاعدة`}
                                 </option>
                               ))}
                             </Select>
@@ -425,8 +433,8 @@ export function OperatorPackages({
                               انقله
                             </SubmitButton>
                           </form>
-                        </div>
-                      </details>
+                        )}
+                      </Disclosure>
                     </td>
                   </tr>
                 ))}

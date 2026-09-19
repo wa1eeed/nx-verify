@@ -2,7 +2,10 @@ import type { ReactElement } from 'react';
 import { NoAccess } from '../../../../components/no-access';
 import {
   KIND_LABELS,
+  NOT_CHARGED_AR,
   SECTION_TITLES,
+  chargedOutcomes,
+  chargedShareAr,
   getPreferences,
   listChecks,
   quoteChecks,
@@ -55,6 +58,13 @@ export default async function PricesPage(): Promise<ReactElement> {
     return {
       checks,
       quote,
+      // What each product charges when the answer is not a plain success, read from the
+      // price row in force rather than stated once in a subtitle: this is the figure that
+      // surprises a subscriber in an invoice, and it is set per product (ADR-170).
+      shares: await chargedOutcomes(
+        tx,
+        checks.map((check) => check.productCode),
+      ),
       preferences: await getPreferences(tx),
       // The rule of today, not a rate assumed at build time: while the platform is not
       // registered nothing is added, and the column says «ما تدفعه» rather than claiming a
@@ -69,10 +79,21 @@ export default async function PricesPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--s-5)' }}>
-      <SectionTabs tabs={visible(BILLING_TABS, actor.capabilities)} current="/billing/prices" label="أقسام الاشتراك والرصيد" />
+      <SectionTabs
+        tabs={visible(BILLING_TABS, actor.capabilities)}
+        current="/billing/prices"
+        label="أقسام الاشتراك والرصيد"
+      />
+      {/*
+        The subtitle used to read «العمليات الفاشلة لا تُحسب», and that is not what happens:
+        an authority that answers «لا يوجد» is an answer, charged at the share on the price
+        row, and a cached answer at its own share. Only the two below earn nothing, so only
+        they are stated here; what each product charges in the other cases is a column,
+        because it differs per product (ADR-170).
+      */}
       <PageHeader
         title="أسعار المنتجات"
-        subtitle="السعر بالريال لكل عملية ناجحة · العمليات الفاشلة لا تُحسب"
+        subtitle={`السعر بالريال لعملية ناجحة كاملة · ${NOT_CHARGED_AR}`}
       />
 
       <Card label="أسعار منتجات التحقق">
@@ -84,6 +105,7 @@ export default async function PricesPage(): Promise<ReactElement> {
               <Th>ينطبق على</Th>
               <Th>السعر</Th>
               <Th>{vat.registered ? 'شامل الضريبة' : 'ما تدفعه'}</Th>
+              <Th>في الحالات الأخرى</Th>
               <Th>الحالة</Th>
             </tr>
           </thead>
@@ -91,6 +113,7 @@ export default async function PricesPage(): Promise<ReactElement> {
             {data.checks.map((check) => {
               const line = lineOf.get(check.productCode);
               const price = line?.unitPriceHalalas ?? null;
+              const shares = data.shares.get(check.productCode);
               return (
                 <tr key={check.productCode} data-check={check.productCode}>
                   <td>{check.nameAr}</td>
@@ -114,6 +137,33 @@ export default async function PricesPage(): Promise<ReactElement> {
                       <>
                         <Ltr>{RIYALS.format(withVat(price, vat).grossHalalas / 100)}</Ltr> ر.س
                       </>
+                    )}
+                  </td>
+                  <td data-role="other-outcomes">
+                    {fromPackage || shares === undefined ? (
+                      /*
+                       * Nothing, for the same reason the two columns before it say nothing.
+                       *
+                       * A share is a share of the riyal price, and while the package pays there
+                       * is no riyal price on this row: the run comes out of the capacity, one
+                       * operation whatever the authority answered. «تُحسب بـ50% من السعر» beside
+                       * «من الباقة» names a fraction of a figure the row does not show and the
+                       * subscriber is not charged, which is the same kind of sentence this
+                       * column was added to remove (ADR-170). And with no price row at all no
+                       * share was ever set, so the default is not printed as if someone chose it.
+                       */
+                      '·'
+                    ) : (
+                      <span className="stack" style={{ gap: 'var(--space-1)' }}>
+                        <span>
+                          <span className="faint">نتيجة «غير موجود» </span>
+                          {chargedShareAr(shares.notFoundPct)}
+                        </span>
+                        <span>
+                          <span className="faint">نتيجة مخزّنة </span>
+                          {chargedShareAr(shares.cachedPct)}
+                        </span>
+                      </span>
                     )}
                   </td>
                   <td>
@@ -140,7 +190,7 @@ export default async function PricesPage(): Promise<ReactElement> {
               إظهار سعر كل منتج وإجمالي الطلب في شاشات التحقق لمستخدمي مساحة العمل
             </Checkbox>
             <p className="faint" style={{ margin: 0 }}>
-              إخفاء الأسعار لا يغيّر ما يُخصم: يُخصم فقط عند نجاح العملية.
+              إخفاء الأسعار لا يغيّر ما يُخصم: الخصم يتبع نتيجة كل عملية كما في الجدول أعلاه.
             </p>
             <div>
               <SubmitButton pendingLabel="جارٍ الحفظ" data-role="save-price-visibility">

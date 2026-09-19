@@ -91,6 +91,8 @@ export default async function OperatorPricingPage({
           definedBundles: data.definedBundles.map((bundle) => ({
             code: bundle.code,
             operations: bundle.operations,
+            priceHalalas: bundle.priceHalalas,
+            validityMonths: bundle.validityMonths,
             retired: bundle.status === 'retired',
           })),
           plans: data.plans,

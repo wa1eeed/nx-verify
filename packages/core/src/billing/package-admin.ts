@@ -366,12 +366,31 @@ export async function setTenantOverride(
   });
 }
 
-/** Moves a subscriber onto a plan, recording what that plan granted at the time. */
+/**
+ * Moves a subscriber onto a plan, recording what that plan granted at the time.
+ *
+ * Hands back the plan they were on, because the upsert is the only thing that knows it and
+ * both trails want it: «moved onto ENTERPRISE» cannot answer the question anybody actually
+ * asks a year later, which is what they were moved off.
+ *
+ * Writes only the subscriber's own trail. The operator trail is written by the two callers in
+ * `subscribers-board.ts`, which know whether this was a plan change or a new account being
+ * opened; recording it here as well would show one click as two entries.
+ */
 export async function setTenantPackage(
   operator: Queryable,
   input: { tenantId: string; packageCode: string },
   operatorId: string,
-): Promise<void> {
+): Promise<{ from: string | null }> {
+  // Read before the upsert, because the upsert overwrites the answer. A trail entry that says
+  // only «moved onto ENTERPRISE» cannot answer the question anybody actually asks a year
+  // later, which is what they were on before somebody moved them.
+  const { rows: was } = await operator.query<{ package_code: string }>(
+    `SELECT package_code FROM tenant_commitments WHERE tenant_id = $1`,
+    [input.tenantId],
+  );
+  const from = was[0]?.package_code ?? null;
+
   const { rowCount } = await operator.query(
     `INSERT INTO tenant_commitments (tenant_id, package_code, term_months,
                                      credits_granted_halalas, setup_fee_halalas,
@@ -405,7 +424,9 @@ export async function setTenantPackage(
 
   await operator.query(
     `INSERT INTO audit_log (tenant_id, actor_type, actor_id, action, target, metadata)
-     VALUES ($1, 'NX_STAFF', $2, 'package.assigned', $3, '{}'::jsonb)`,
-    [input.tenantId, operatorId, input.packageCode],
+     VALUES ($1, 'NX_STAFF', $2, 'package.assigned', $3, $4::jsonb)`,
+    [input.tenantId, operatorId, input.packageCode, JSON.stringify({ from })],
   );
+
+  return { from };
 }

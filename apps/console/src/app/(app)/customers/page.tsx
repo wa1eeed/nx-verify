@@ -5,6 +5,7 @@ import {
   countCustomers,
   pageWindow,
   pickCustomers,
+  riskModelVersion,
   summarizeCustomers,
   writeStanding,
   type CustomerKind,
@@ -101,11 +102,14 @@ export default async function CustomersPage({
       window.offset === 0
         ? first
         : await pickCustomers(tx, keys, { ...filter, limit: window.limit, offset: window.offset });
+    // Which risk model this page is about to be summarised under, read before the summary so
+    // an edit landing mid page is recorded as the older model rather than the newer (ADR-175).
+    const model = await riskModelVersion(tx);
     const rows = await summarizeCustomers(tx, keys, { entityIds: picked.entityIds });
     // The page was summarised live anyway, so its standing is written back rather than thrown
     // away: the list heals whatever anybody actually looks at, and the worker is left with the
     // customers nobody has opened (ADR-140).
-    await writeStanding(tx, rows, picked.entityIds);
+    await writeStanding(tx, rows, picked.entityIds, model);
     // Counted after that write, not before it, so the facets agree with the page they sit
     // above. Customers nobody has opened still wait for the worker.
     const counts = await countCustomers(tx);

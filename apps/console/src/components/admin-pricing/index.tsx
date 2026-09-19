@@ -64,9 +64,17 @@ export interface AdminPricingView {
    *
    * A bundle is named after its number of operations, so the dialog has to know that the
    * number just typed is already taken before it offers to add it: the alternative is the
-   * silent replacement this screen used to do.
+   * silent replacement this screen used to do. It carries the price and the term as they
+   * stand too, because «سيُستبدل» without the figures it replaces is a warning nobody can
+   * weigh (ADR-171).
    */
-  definedBundles: readonly { code: string; operations: number; retired: boolean }[];
+  definedBundles: readonly {
+    code: string;
+    operations: number;
+    priceHalalas: number;
+    validityMonths: number;
+    retired: boolean;
+  }[];
   plans: readonly PlanSummary[];
   specialPrices: readonly SpecialPrice[];
   settings: Pick<

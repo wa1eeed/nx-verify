@@ -535,18 +535,18 @@ export async function listCreditBundles(
     priceHalalas: Number(row.price_halalas),
     validityMonths: row.validity_months,
     status: row.status,
-    perOperationHalalas: Number(row.price_halalas) / row.operations,
+    // Rounded here rather than after the comparison, so the percent below is measured on the
+    // same two figures the screen prints: a discount worked out on the unrounded prices can
+    // claim «أقل 1%» beside a price identical to the one it is measured against.
+    perOperationHalalas: Math.round(Number(row.price_halalas) / row.operations),
   }));
   // Ordered by operations, so the first bundle on sale is the smallest one: the base every
   // «−8%» on the screen is measured against, and the one the screen names beside it.
   const base = bundles.find((bundle) => bundle.status === 'active')?.perOperationHalalas ?? null;
   return bundles.map((bundle) => {
-    const discount = base === null ? 0 : Math.round((1 - bundle.perOperationHalalas / base) * 100);
-    return {
-      ...bundle,
-      perOperationHalalas: Math.round(bundle.perOperationHalalas),
-      discountPct: discount > 0 ? discount : null,
-    };
+    const discount =
+      base === null || base === 0 ? 0 : Math.round((1 - bundle.perOperationHalalas / base) * 100);
+    return { ...bundle, discountPct: discount > 0 ? discount : null };
   });
 }
 
@@ -614,14 +614,24 @@ export async function addCreditBundle(
     throw new NxError('NX-4041', { detail: 'the bundle to replace no longer exists' });
   }
 
-  await db.query(
+  // The refusal above is carried into the write itself rather than trusted from the read a
+  // moment earlier: the update runs only for a replacement that named this code, so two
+  // operators adding the same count at once end with one addition and one refusal, not a
+  // price quietly overwritten between the SELECT and the INSERT.
+  const { rowCount } = await db.query(
     `INSERT INTO credit_bundles (code, operations, price_halalas, validity_months, sort_order, updated_by)
      VALUES ($1, $2, $3, $4, $2, $5)
      ON CONFLICT (code) DO UPDATE SET
        price_halalas = EXCLUDED.price_halalas, validity_months = EXCLUDED.validity_months,
-       status = 'active', updated_at = now(), updated_by = EXCLUDED.updated_by`,
-    [code, input.operations, input.priceHalalas, validity, actor.id],
+       status = 'active', updated_at = now(), updated_by = EXCLUDED.updated_by
+     WHERE $6::boolean`,
+    [code, input.operations, input.priceHalalas, validity, actor.id, input.replaces === code],
   );
+  if ((rowCount ?? 0) === 0) {
+    throw new NxError('NX-4091', {
+      detail: `a bundle of ${input.operations} operations is already defined`,
+    });
+  }
   await recordOperatorAudit(db, {
     operatorId: actor.id,
     action: current === undefined ? 'pricing.bundle_added' : 'pricing.bundle_replaced',
@@ -910,8 +920,7 @@ export async function setPlanTerms(
     termMonths: input.termMonths ?? before.termMonths,
     freeReverifyDays: input.freeReverifyDays ?? before.freeReverifyDays,
     setupFeeHalalas: input.setupFeeHalalas ?? before.setupFeeHalalas,
-    commitmentCreditsHalalas:
-      input.commitmentCreditsHalalas ?? before.commitmentCreditsHalalas,
+    commitmentCreditsHalalas: input.commitmentCreditsHalalas ?? before.commitmentCreditsHalalas,
     overageAllowed: input.overageAllowed ?? before.overageAllowed,
   };
   assertTerms(terms);
@@ -923,7 +932,9 @@ export async function setPlanTerms(
     throw new NxError('NX-4002', { detail: 'the plan fee is malformed' });
   }
   const included =
-    input.includedTransactions === undefined ? before.includedTransactions : input.includedTransactions;
+    input.includedTransactions === undefined
+      ? before.includedTransactions
+      : input.includedTransactions;
   if (included !== null && (!Number.isInteger(included) || included < 1)) {
     throw new NxError('NX-4002', { detail: 'the plan operations are malformed' });
   }

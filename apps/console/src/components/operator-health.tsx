@@ -1,7 +1,9 @@
 import type { ReactElement } from 'react';
 import { PageHeader } from './page-header';
-import { Card } from './ui/card';
+import { Card, CardEmpty, CardHead } from './ui/card';
 import { Ltr } from './ui/ltr';
+import { NoValue } from './ui/no-value';
+import { Stat, StatGrid } from './ui/stat';
 import { Table, Th } from './ui/table';
 import { StateTag, Tag } from './ui/tag';
 import { count, riyals } from './format';
@@ -53,41 +55,31 @@ export function OperatorHealth({
         subtitle={`آخر ${windowHours} ساعة. ما فعلته خدمتنا حين نُوديت، ورصيد كل مشترك. لا شيء هنا عمّن تحقّق منه أحد.`}
       />
 
-      <section className="grid" data-role="health-tiles">
-        <article className="stat" {...(failing.length > 0 ? { 'data-tone': 'critical' } : {})}>
-          <span className="stat-label">مشتركون يرون فشلاً</span>
-          <strong className="stat-value">
-            <Ltr>{count(failing.length)}</Ltr>
-          </strong>
-        </article>
-        <article className="stat" {...(lowBalance.length > 0 ? { 'data-tone': 'changed' } : {})}>
-          <span className="stat-label">أرصدة منخفضة</span>
-          <strong className="stat-value">
-            <Ltr>{count(lowBalance.length)}</Ltr>
-          </strong>
-          <span className="stat-hint">توشك أن توقف العمل</span>
-        </article>
-        <article className="stat" {...(degraded.length > 0 ? { 'data-tone': 'changed' } : {})}>
-          <span className="stat-label">مزودون غير أصحاء</span>
-          <strong className="stat-value">
-            <Ltr>{count(degraded.length)}</Ltr>
-          </strong>
-          <span className="stat-hint">عند مشتركين مرتبطين بهم</span>
-        </article>
-      </section>
+      <StatGrid role="health-tiles">
+        <Stat
+          label="مشتركون يرون فشلاً"
+          value={<Ltr>{count(failing.length)}</Ltr>}
+          tone={failing.length > 0 ? 'critical' : undefined}
+        />
+        <Stat
+          label="أرصدة منخفضة"
+          value={<Ltr>{count(lowBalance.length)}</Ltr>}
+          hint="توشك أن توقف العمل"
+          tone={lowBalance.length > 0 ? 'changed' : undefined}
+        />
+        <Stat
+          label="مزودون غير أصحاء"
+          value={<Ltr>{count(degraded.length)}</Ltr>}
+          hint="عند مشتركين مرتبطين بهم"
+          tone={degraded.length > 0 ? 'changed' : undefined}
+        />
+      </StatGrid>
 
       <Card variant="flush" role="health-subscribers" labelledBy="health-subscribers-title">
-        <div className="admin-card-head">
-          <h2 className="card-title admin-card-title" id="health-subscribers-title">
-            المشتركون
-          </h2>
-          <p className="admin-card-note">الأسوأ أولاً</p>
-        </div>
+        <CardHead title="المشتركون" titleId="health-subscribers-title" note="الأسوأ أولاً" />
 
         {rows.length === 0 ? (
-          <p className="admin-empty" data-role="empty-state">
-            لا مشترك مفعّل بعد، فلا صحة خدمة تُقاس.
-          </p>
+          <CardEmpty>لا مشترك مفعّل بعد، فلا صحة خدمة تُقاس.</CardEmpty>
         ) : (
           <div className="admin-table">
             <Table label="صحة خدمة المشتركين">
@@ -96,10 +88,18 @@ export function OperatorHealth({
                   <Th>المشترك</Th>
                   <Th>نداءات</Th>
                   <Th>فشل</Th>
-                  {/* The unit beside the column name, as «الرصيد (ر.س)» does: the figure is
-                      milliseconds, and a bare 900 in this column read as seconds. */}
+                  {/* The unit beside the column name, as «الرصيد المتاح (ر.س)» does: the figure
+                      is milliseconds, and a bare 900 in this column read as seconds. */}
                   <Th>أبطأ نداء (مللي ثانية)</Th>
-                  <Th>الرصيد (ر.س)</Th>
+                  {/*
+                    Available, not the gross balance. Part of a balance is held against
+                    verifications already running, and the subscriber's own screen has always
+                    shown what is left after that. This column showed the figure before the
+                    hold, so support read one number off this screen while the customer read a
+                    smaller one off theirs, and a row could carry «منخفض» beside a balance that
+                    looked perfectly healthy.
+                  */}
+                  <Th>الرصيد المتاح (ر.س)</Th>
                   <Th>المزودون</Th>
                 </tr>
               </thead>
@@ -111,8 +111,7 @@ export function OperatorHealth({
                     data-failing={row.failures > 0 ? 'true' : 'false'}
                   >
                     <td>
-                      {row.legalName}{' '}
-                      {row.isSandbox ? <Tag tone="neutral">بيئة اختبار</Tag> : null}
+                      {row.legalName} {row.isSandbox ? <Tag tone="neutral">بيئة اختبار</Tag> : null}
                       <div className="faint">
                         <Ltr>{row.slug}</Ltr>
                       </div>
@@ -133,22 +132,27 @@ export function OperatorHealth({
                       {/* Nothing was called, so the slowest call is not zero milliseconds: it
                           does not exist. Printing 0 here reads as an instant answer. */}
                       {row.calls === 0 ? (
-                        <span className="muted">لا نداءات</span>
+                        <NoValue>لا نداءات</NoValue>
                       ) : (
                         <Ltr>{count(row.slowestMs)}</Ltr>
                       )}
                     </td>
                     <td>
-                      <Ltr>{riyals(row.balanceHalalas)}</Ltr>{' '}
+                      <Ltr>{riyals(row.balanceHalalas - row.heldHalalas)}</Ltr>{' '}
                       {row.balanceLow ? (
                         <StateTag state="LOW_BALANCE" role="low-balance">
                           منخفض
                         </StateTag>
                       ) : null}
+                      {row.heldHalalas > 0 ? (
+                        <div className="faint" data-role="held">
+                          محجوز لعمليات جارية: <Ltr>{riyals(row.heldHalalas)}</Ltr>
+                        </div>
+                      ) : null}
                     </td>
                     <td>
                       {row.unhealthyProviders.length === 0 ? (
-                        <span className="muted">أصحّاء</span>
+                        <NoValue>أصحّاء</NoValue>
                       ) : (
                         // The provider name is internal, and this is the operator screen:
                         // the one place in the console where naming one is allowed.

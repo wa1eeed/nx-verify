@@ -372,11 +372,13 @@ export async function assignSubscriberPlan(
   packageCode: string,
 ): Promise<void> {
   assertSubscribers(actor);
-  await setTenantPackage(operator, { tenantId, packageCode }, actor.id);
+  const { from } = await setTenantPackage(operator, { tenantId, packageCode }, actor.id);
   await recordOperatorAudit(operator, {
     operatorId: actor.id,
     action: 'subscribers.plan',
     target: `subscriber:${tenantId}`,
-    metadata: { package: packageCode },
+    // What they were moved off, not only what onto. A move between two plans is the largest
+    // change a member of staff can make to an account, and half of it was not being recorded.
+    metadata: { package: packageCode, from },
   });
 }

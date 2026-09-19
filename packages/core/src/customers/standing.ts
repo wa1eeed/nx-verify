@@ -1,6 +1,7 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import type { TenantKeyProvider } from '../crypto/tenant-keys.js';
 import { summarizeCustomers, type CustomerSummary } from './summaries.js';
+import { riskModelVersion } from './risk-policy.js';
 export { markStandingStale, markStandingStaleFromRun } from './standing-stale.js';
 
 /**
@@ -18,8 +19,16 @@ export { markStandingStale, markStandingStaleFromRun } from './standing-stale.js
  * The first two stamp the row as they happen, from the path that caused them. The third is
  * not stamped at all, deliberately: the model is edited on a staff connection, and a staff
  * connection has no business writing a table keyed on a subscriber's customers (guard 02).
- * Instead the worker sweeps the oldest rows continuously, so a model change reaches every
- * facet within a sweep without anybody reaching across the boundary to make it happen.
+ *
+ * Instead the row records which risk model computed it, and that is compared when the row is
+ * read (ADR-175, migration 0067): a row whose recorded model is not the one in force now was
+ * computed under a superseded one, and it says so the instant the model moves rather than when
+ * a sweep happens past it. Nothing is written to say a model changed, so nothing crosses the
+ * boundary. The value is `app.risk_model_version()`, read on the subscriber's own connection,
+ * so their own overrides are in it and nobody else's are.
+ *
+ * The age sweep stays beside it, because the facts under a row age for their own reasons and a
+ * model that has not moved says nothing about a customer who has.
  *
  * What is never stale is what a reader sees. The rows a screen draws are summarised live from
  * the model, and this table decides only which rows and in what order. A facet that lags a
@@ -46,11 +55,18 @@ export interface StandingRefresh {
  * `asked` is every customer the caller set out to read: any of them missing from the summaries
  * is archived or no longer a customer, and its row goes rather than lingering as a count of
  * somebody who is not there.
+ *
+ * `modelVersion` is the risk model these summaries were computed under, read before they were
+ * computed (ADR-175). A caller that does not pass it has the model read here instead, which is
+ * right only when nothing could have moved in between: a model edited while a page was being
+ * summarised would then be recorded as the one that made it, and the row would read as current
+ * while being one edit behind.
  */
 export async function writeStanding(
   tx: TenantTransaction,
   summaries: readonly StandingSummary[],
   asked: readonly string[] = summaries.map((summary) => summary.entityId),
+  modelVersion: string | null = null,
 ): Promise<StandingRefresh> {
   const answered = new Set(summaries.map((summary) => summary.entityId));
   const gone = asked.filter((id) => !answered.has(id));
@@ -64,11 +80,13 @@ export async function writeStanding(
     return { refreshed: 0 };
   }
   await tx.query(
+    // The model the caller gave, and otherwise read here in a subquery rather than called per
+    // row, so it is one InitPlan for the statement and not one aggregate per customer written.
     `INSERT INTO customer_standing
        (tenant_id, entity_id, kind, last_verified_at, completeness, open_alerts, risk_score,
-        stale_at, computed_at)
+        risk_model_version, stale_at, computed_at)
      SELECT $1, row.entity_id, row.kind, row.last_verified_at, row.completeness, row.open_alerts,
-            row.risk_score, NULL, now()
+            row.risk_score, COALESCE($3::text, (SELECT app.risk_model_version())), NULL, now()
        FROM jsonb_to_recordset($2::jsonb) AS row (
          entity_id uuid, kind text, last_verified_at timestamptz,
          completeness int, open_alerts int, risk_score int
@@ -79,6 +97,7 @@ export async function writeStanding(
        completeness = EXCLUDED.completeness,
        open_alerts = EXCLUDED.open_alerts,
        risk_score = EXCLUDED.risk_score,
+       risk_model_version = EXCLUDED.risk_model_version,
        stale_at = NULL,
        computed_at = now()`,
     [
@@ -93,6 +112,7 @@ export async function writeStanding(
           risk_score: summary.riskScore,
         })),
       ),
+      modelVersion,
     ],
   );
   return { refreshed: summaries.length };
@@ -119,28 +139,37 @@ export async function refreshStanding(
   if (entityIds.length === 0) {
     return { refreshed: 0 };
   }
+  // Read before the summary, not after it: a model edited while these were being computed is
+  // then recorded as the older one, and the row reads as old until it is computed again.
+  const modelVersion = await riskModelVersion(tx);
   const summaries = await summarizeCustomers(
     tx,
     keys,
     { entityIds },
     options.now === undefined ? {} : { now: options.now },
   );
-  return writeStanding(tx, summaries, entityIds);
+  return writeStanding(tx, summaries, entityIds, modelVersion);
 }
 
 export interface SweepOptions {
   /** How many customers one sweep recomputes. Small, because it runs often. */
   batch?: number;
   /**
-   * A row untouched for longer than this is swept even without being stamped, which is how a
-   * change to the model reaches every facet without staff writing to a subscriber's table.
+   * A row untouched for longer than this is swept even without being stamped. It is about the
+   * facts under the row rather than the model over it: a customer's answers age whether or not
+   * anybody edited a weight, and nothing stamps a row for simply having got old.
    */
   maxAgeMinutes?: number;
   now?: Date;
 }
 
 /**
- * One sweep: the customers stamped as moved, then the ones nobody has looked at in a while.
+ * One sweep: the customers stamped as moved, the ones computed under a model that has since
+ * changed, and then the ones nobody has looked at in a while.
+ *
+ * The middle group is claimed the moment the model moves rather than when the row ages past
+ * `maxAgeMinutes`, because the row says which model made it (ADR-175) and the comparison is
+ * one value read on this subscriber's own connection.
  *
  * Bounded by design. A workspace of fifty thousand is swept over hours rather than in one
  * transaction that holds a connection for minutes, because the point of the table is that no
@@ -154,9 +183,12 @@ export async function sweepStanding(
   const batch = Math.min(Math.max(options.batch ?? 200, 1), 2_000);
   const maxAge = Math.max(options.maxAgeMinutes ?? 60, 1);
   const { rows } = await tx.query<{ entity_id: string }>(
+    // The model is read once for the statement, as an uncorrelated subquery, not per row.
     `SELECT entity_id FROM customer_standing
       WHERE tenant_id = $1
-        AND (stale_at IS NOT NULL OR computed_at < now() - make_interval(mins => $2))
+        AND (stale_at IS NOT NULL
+             OR risk_model_version IS DISTINCT FROM (SELECT app.risk_model_version())
+             OR computed_at < now() - make_interval(mins => $2))
       ORDER BY stale_at IS NULL, computed_at
       LIMIT $3`,
     [tx.tenantId, maxAge, batch],

@@ -2,7 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { NxError, listCatalog, listTenantBindings, setTenantBinding } from '@nx-verify/core';
+import {
+  BINDING_CREDENTIAL_UNSEALED,
+  NxError,
+  listCatalog,
+  listTenantBindings,
+  setTenantBinding,
+} from '@nx-verify/core';
+import { secretStoreFromEnv } from '@nx-verify/providers';
 import {
   operatorQuery,
   operatorTransaction,
@@ -103,6 +110,23 @@ export async function setSourceAction(formData: FormData): Promise<void> {
   // Started where it was started: saving a change to a stopped binding must not switch it on,
   // and a binding that did not exist is written ready to serve.
   const activate = toggling ? rawActivate === '1' : (current.binding?.activatedAt ?? null) !== null;
+  const willServe = current.binding === null ? true : activate;
+
+  /**
+   * Whether the store holds anything under the reference, asked before the row is written.
+   *
+   * Asked only about a row that will serve after this save. A binding being switched off sends
+   * nothing, so a reference with nothing behind it is harmless there, and asking anyway would
+   * refuse the one act that makes it harmless: the row whose secret was removed from the store
+   * is exactly the row somebody needs to stop, and it carries its reference into this save
+   * because the row's own button sends the mode and the reference untouched.
+   *
+   * A deployment whose store cannot be asked passes no check rather than a check that always
+   * answers no: refusing every reference because this process cannot look one up would make
+   * the screen unusable wherever secrets live somewhere it cannot describe.
+   */
+  const store = secretStoreFromEnv();
+  const describe = willServe ? store.describe?.bind(store) : undefined;
 
   try {
     await operatorTransaction((db) =>
@@ -117,16 +141,24 @@ export async function setSourceAction(formData: FormData): Promise<void> {
           // Which endpoints this binding narrows to is not a decision this screen offers, so it
           // carries the row's own value rather than resetting it to «every endpoint».
           endpoints: current.binding?.endpoints ?? null,
-          activate: current.binding === null ? true : activate,
+          activate: willServe,
         },
         actor.id,
+        describe === undefined
+          ? {}
+          : { credentialExists: async (ref) => (await describe(ref).catch(() => null)) !== null },
       ),
     );
   } catch (error) {
     if (!(error instanceof NxError)) {
       throw error;
     }
-    back(tenantId, 'refused=source');
+    back(
+      tenantId,
+      error.message.includes(BINDING_CREDENTIAL_UNSEALED)
+        ? 'refused=source_unsealed'
+        : 'refused=source',
+    );
   }
 
   back(

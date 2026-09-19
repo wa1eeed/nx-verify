@@ -163,9 +163,27 @@ function view(overrides: Partial<AdminPricingView> = {}): AdminPricingView {
       },
     ],
     definedBundles: [
-      { code: 'BUNDLE_500', operations: 500, retired: false },
-      { code: 'BUNDLE_2000', operations: 2000, retired: false },
-      { code: 'BUNDLE_10000', operations: 10_000, retired: true },
+      {
+        code: 'BUNDLE_500',
+        operations: 500,
+        priceHalalas: 125_000,
+        validityMonths: 12,
+        retired: false,
+      },
+      {
+        code: 'BUNDLE_2000',
+        operations: 2000,
+        priceHalalas: 460_000,
+        validityMonths: 24,
+        retired: false,
+      },
+      {
+        code: 'BUNDLE_10000',
+        operations: 10_000,
+        priceHalalas: 2_100_000,
+        validityMonths: 12,
+        retired: true,
+      },
     ],
     plans: [
       {
@@ -536,6 +554,10 @@ describe('the words and figures of screen 05', () => {
     expect(noticeAr({ refused: 'bundle-exists' }, nameOf)?.text).toContain(
       'توجد حزمة بعدد العمليات نفسه',
     );
+    // The way out it names has to exist. Beside a bundle there is one control and it takes
+    // the bundle off sale; replacing a price is the add dialog with the count already taken.
+    expect(noticeAr({ refused: 'bundle-exists' }, nameOf)?.text).toContain('واكتب العدد نفسه');
+    expect(noticeAr({ refused: 'bundle-exists' }, nameOf)?.text).not.toContain('زر التعديل');
     expect(noticeAr({ saved: 'plan-terms' }, nameOf)?.text).toContain(
       'يسريان على المشتركين الحاليين',
     );

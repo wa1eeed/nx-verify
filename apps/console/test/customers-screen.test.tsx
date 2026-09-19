@@ -80,6 +80,7 @@ function view(overrides: Partial<CustomersView> = {}): CustomersView {
       incomplete: 27,
       alerts: 4,
       highRisk: 9,
+      underOlderModel: 0,
     },
     filter: 'all',
     alertsOnly: false,
@@ -189,6 +190,20 @@ describe('the customers of screen 04', () => {
     expect(first).toContain('data-href="/customers/11111111-1111-4111-8111-111111111111"');
     const link = /<a [^>]*data-row-link="true"[^>]*>/.exec(first)?.[0] ?? '';
     expect(link).toContain('href="/customers/11111111-1111-4111-8111-111111111111"');
+  });
+
+  it('says when the risk facet was counted under a model that has since changed', () => {
+    // The facet above it is counted from stored scores. When some of those predate the model
+    // in force now, the screen says so rather than presenting the number as current (ADR-175).
+    expect(html).not.toContain('data-role="model-behind"');
+    const behind = render({
+      counts: { ...view().counts, underOlderModel: 12 },
+    });
+    expect(behind).toContain('data-role="model-behind"');
+    expect(behind).toContain('نموذج المخاطر تغيّر بعد حساب درجة 12 عميلاً، ويُعاد حسابها تباعاً.');
+    expect(render({ counts: { ...view().counts, underOlderModel: 1 } })).toContain(
+      'نموذج المخاطر تغيّر بعد حساب درجة عميل واحد، ويُعاد حسابها تباعاً.',
+    );
   });
 
   it('pages a long list and keeps the filters in every page link', () => {

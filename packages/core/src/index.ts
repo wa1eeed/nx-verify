@@ -178,6 +178,13 @@ export type {
 export { computeBilling, maximumCharge } from './billing/compute.js';
 export type { BillingBreakdown, StepCharge } from './billing/compute.js';
 export {
+  NOT_CHARGED_AR,
+  chargedOutcomes,
+  chargedOutcomesSentenceAr,
+  chargedShareAr,
+} from './billing/charged-outcomes.js';
+export type { ChargedOutcomes, ChargedOutcomesOptions } from './billing/charged-outcomes.js';
+export {
   ensureWallet,
   getLedger,
   getWallet,
@@ -198,12 +205,7 @@ export {
   resumeRun,
   verify,
 } from './verification/verify.js';
-export type {
-  ResumeInput,
-  VerifyActor,
-  VerifyInput,
-  VerifyResult,
-} from './verification/verify.js';
+export type { ResumeInput, VerifyActor, VerifyInput, VerifyResult } from './verification/verify.js';
 export {
   IDENTIFIER_TYPES,
   inferIdentifiers,
@@ -533,12 +535,7 @@ export {
   vatResolver,
   withVat,
 } from './billing/vat.js';
-export type {
-  SetVatPeriodInput,
-  TaxedAmount,
-  VatPeriod,
-  VatRule,
-} from './billing/vat.js';
+export type { SetVatPeriodInput, TaxedAmount, VatPeriod, VatRule } from './billing/vat.js';
 
 export {
   CAPABILITIES,
@@ -581,6 +578,7 @@ export type {
 } from './auth/passwords.js';
 
 export {
+  BINDING_CREDENTIAL_UNSEALED,
   listCatalog,
   listTenantBindings,
   resolveProviders,
@@ -610,7 +608,11 @@ export type {
   TenantRiskModel,
   TenantRiskSignalView,
 } from './customers/risk-admin.js';
-export { DEFAULT_RISK_POLICY, resolveRiskPolicy } from './customers/risk-policy.js';
+export {
+  DEFAULT_RISK_POLICY,
+  resolveRiskPolicy,
+  riskModelVersion,
+} from './customers/risk-policy.js';
 export type { RiskPolicy, RiskSignalPolicy } from './customers/risk-policy.js';
 export {
   markStandingStale,
@@ -687,6 +689,7 @@ export type {
   ProviderCandidate,
   ResolveProvidersInput,
   SetBindingInput,
+  SetBindingOptions,
   TenantBinding,
 } from './routing/provider-routing.js';
 
@@ -779,8 +782,24 @@ export type {
   EntitlementRefusal,
   TermExtras,
 } from './billing/entitlements.js';
-export { isSandbox, sandboxLink } from './tenants/sandbox.js';
-export type { SandboxLink } from './tenants/sandbox.js';
+export {
+  createSandboxForRequest,
+  isSandbox,
+  latestSandboxRequest,
+  listPendingSandboxRequests,
+  refuseSandboxRequest,
+  requestSandbox,
+  sandboxLink,
+} from './tenants/sandbox.js';
+export type {
+  CreatedSandbox,
+  PendingSandboxRequest,
+  SandboxLink,
+  SandboxProvisioner,
+  SandboxRefusalCode,
+  SandboxRequest,
+  SandboxRequestStatus,
+} from './tenants/sandbox.js';
 export { listApiKeys } from './auth/api-keys.js';
 export type { ApiKeySummary } from './auth/api-keys.js';
 export { buildStatement } from './billing/statement.js';

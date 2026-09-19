@@ -64,17 +64,92 @@ export function Card({
 
 export function CardTitle({
   as: Heading = 'h3',
+  size,
   id,
   children,
 }: {
   as?: 'h1' | 'h2' | 'h3' | 'h4' | undefined;
+  /**
+   * `section` is the larger title a card carries when it is a whole section of a screen
+   * rather than one of several cards in a row. Left unset the title is the sheet's own.
+   */
+  size?: 'section' | undefined;
   id?: string | undefined;
   children: ReactNode;
 }): ReactElement {
   return (
-    <Heading className="card-title" id={id}>
+    <Heading className={classes('card-title', size === 'section' && 'admin-card-title')} id={id}>
       {children}
     </Heading>
+  );
+}
+
+/** A rule or a count that qualifies what is in the card, under or beside its name. */
+export function CardNote({
+  role,
+  children,
+}: {
+  role?: string | undefined;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <p className="admin-card-note" data-role={role}>
+      {children}
+    </p>
+  );
+}
+
+/**
+ * The head of a card that is a whole section: its name, what is in it, and the labels that
+ * qualify it.
+ *
+ * The heading is an `h2` because the screen's own title is the `h1` above it, and a section
+ * whose name is not a heading is a section no screen reader can jump to.
+ */
+export function CardHead({
+  title,
+  titleId,
+  note,
+  children,
+}: {
+  title: ReactNode;
+  /** The id the card points at with `labelledBy`, so the card is named by its own heading. */
+  titleId?: string | undefined;
+  note?: ReactNode;
+  /** The labels facing the name across the row, such as a plan's code and its term. */
+  children?: ReactNode;
+}): ReactElement {
+  return (
+    <div className="admin-card-head">
+      <CardTitle as="h2" size="section" id={titleId}>
+        {title}
+      </CardTitle>
+      {note === undefined || note === null ? null : <CardNote>{note}</CardNote>}
+      {children === undefined || children === null ? null : (
+        <div className="admin-head-actions">{children}</div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Nothing in this card, said in the card's own padding.
+ *
+ * A card that renders an empty table instead leaves the reader deciding whether the screen
+ * is broken or the answer is genuinely none, and the words are the only thing that settles
+ * it: an empty queue is good news and an empty registry is not.
+ */
+export function CardEmpty({
+  role = 'empty-state',
+  children,
+}: {
+  role?: string | undefined;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <p className="admin-empty" data-role={role}>
+      {children}
+    </p>
   );
 }
 

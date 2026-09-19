@@ -131,7 +131,7 @@ export function OperatorKeys({
                         </form>
                       ) : (
                         <span className="faint">
-                          {row.status === 'active' ? 'لا تتقاعد الفعّالة' : '—'}
+                          {row.status === 'active' ? 'لا تتقاعد الفعّالة' : 'متقاعد بالفعل'}
                         </span>
                       )}
                     </td>

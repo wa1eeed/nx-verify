@@ -206,10 +206,13 @@ async function main(): Promise<void> {
       /**
        * Keeping the customers list honest (ADR-140).
        *
-       * Two kinds of row are swept: the ones stamped because a customer was verified again or
-       * a change on them was read, and then simply the oldest, so a risk weight or a module
-       * changed in the panel reaches every facet within an hour without a staff connection
-       * ever writing to a table keyed on somebody's customers.
+       * Three kinds of row are swept: the ones stamped because a customer was verified again
+       * or a change on them was read; the ones whose recorded risk model is not the one in
+       * force now, which is read rather than stamped so a weight changed in the panel is
+       * claimed on the next tick without a staff connection ever writing to a table keyed on
+       * somebody's customers (ADR-175); and then simply the oldest, because the facts under a
+       * row age for their own reasons and a module switched in the panel still reaches every
+       * facet that way within an hour.
        *
        * Bounded on purpose. A workspace of fifty thousand is swept over hours rather than in
        * one transaction holding a connection for minutes: the whole point of the table is that

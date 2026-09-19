@@ -8,7 +8,7 @@ import { Input } from '../ui/input';
 import { Segmented } from '../ui/segmented';
 import { Select } from '../ui/select';
 import { SubmitButton } from '../ui/submit-button';
-import { parseWholeNumber, priceField } from './model';
+import { bundleReplaceWarningAr, parseWholeNumber, priceField } from './model';
 
 /**
  * The «إضافة» buttons of handoff screen 05 and the edits beside them, each opening a dialog
@@ -90,7 +90,13 @@ export function BundleDialog({
   defined,
 }: {
   action: Action;
-  defined: readonly { code: string; operations: number; retired: boolean }[];
+  defined: readonly {
+    code: string;
+    operations: number;
+    priceHalalas: number;
+    validityMonths: number;
+    retired: boolean;
+  }[];
 }): ReactElement {
   const [operations, setOperations] = useState('');
   const typed = parseWholeNumber(operations);
@@ -119,14 +125,10 @@ export function BundleDialog({
       </Field>
       {match === undefined ? null : (
         <p className="field-hint" data-role="bundle-replace-warning" role="status">
-          {match.retired
-            ? 'توجد حزمة موقوفة بهذا العدد. الحفظ يعيدها للبيع بالسعر والمدة أدناه.'
-            : 'توجد حزمة بهذا العدد. الحفظ يستبدل سعرها ومدتها، وما اشتراه المشتركون يبقى كما اشتروه.'}
+          {bundleReplaceWarningAr(match)}
         </p>
       )}
-      {match === undefined ? null : (
-        <input type="hidden" name="replaces" value={match.code} />
-      )}
+      {match === undefined ? null : <input type="hidden" name="replaces" value={match.code} />}
       <Field
         id="bundle-price"
         label="السعر بالريال"

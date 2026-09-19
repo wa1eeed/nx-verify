@@ -132,6 +132,28 @@ export function discountAr(pct: number | null): string | null {
 }
 
 /**
+ * What «حفظ» is about to do to a bundle that already holds this many operations (ADR-171).
+ *
+ * The dialog warned that a bundle of this count exists and that saving replaces its price and
+ * term, and showed neither of them: a warning whose figures are missing is a warning nobody
+ * can weigh. The price now on sale, the price of one operation in it, and how long it lasts
+ * are named before the button.
+ */
+export function bundleReplaceWarningAr(current: {
+  operations: number;
+  priceHalalas: number;
+  validityMonths: number;
+  retired: boolean;
+}): string {
+  const now = `${sar(current.priceHalalas)} · سعر العملية ${riyals(
+    Math.round(current.priceHalalas / current.operations),
+  )} ر.س · ${monthsAr(current.validityMonths)}`;
+  return current.retired
+    ? `توجد حزمة موقوفة بهذا العدد، كانت بـ${now}. الحفظ يعيدها للبيع بالسعر والمدة أدناه.`
+    : `توجد حزمة بهذا العدد، وهي الآن بـ${now}. الحفظ يستبدل سعرها ومدتها بما تكتبه هنا، وما اشتراه المشتركون يبقى كما اشتروه.`;
+}
+
+/**
  * A plan's price, what it includes, and the terms that decide money nobody could see.
  *
  * The third line is the point: the free re-verification window prices a repeat check at zero
@@ -260,7 +282,10 @@ export function noticeAr(
     case 'bundle-exists':
       return {
         tone: 'refused',
-        text: 'لم تُضف الحزمة: توجد حزمة بعدد العمليات نفسه. اختر عدداً آخر، أو استبدلها من زر التعديل بجانبها.',
+        // There is no edit control beside a bundle: the only button there takes it off sale.
+        // Replacing one is «إضافة حزمة» with the count already taken, which is what the dialog
+        // turns into, so the refusal names the way that exists rather than one that does not.
+        text: 'لم تُضف الحزمة: توجد حزمة بعدد العمليات نفسه. اختر عدداً آخر، أو افتح «إضافة حزمة» واكتب العدد نفسه، فيصير النموذج استبدالاً يعرض سعرها ومدتها قبل الحفظ.',
       };
     case 'bundle-missing':
       return {

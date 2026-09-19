@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react';
 import { Button } from './ui/button';
-import { Card } from './ui/card';
+import { Card, CardEmpty, CardNote, CardTitle } from './ui/card';
+import { Disclosure } from './ui/disclosure';
 import { Field } from './ui/field';
 import { Input } from './ui/input';
 import { Ltr } from './ui/ltr';
+import { StatHint, StatLabel, StatValue } from './ui/stat';
 import { SubmitButton } from './ui/submit-button';
 import { Table, Th } from './ui/table';
 import { Tag, type TagTone } from './ui/tag';
@@ -79,19 +81,17 @@ export function TopUpPanel({
 
   return (
     <Card role="topup" labelledBy="topup-title">
-      <h2 className="card-title admin-card-title" id="topup-title">
+      <CardTitle as="h2" size="section" id="topup-title">
         شحن الرصيد
-      </h2>
-      <p className="admin-card-note">
-        اختر المبلغ، ثم تُراجع التفاصيل وبيانات التحويل قبل إرسال الطلب.
-      </p>
+      </CardTitle>
+      <CardNote>اختر المبلغ، ثم تُراجع التفاصيل وبيانات التحويل قبل إرسال الطلب.</CardNote>
 
       {issued ? (
         <Card as="div" variant="plain" tone="accent-2" role="issued-topup">
-          <span className="stat-label">الرقم المرجعي للحوالة</span>
-          <strong className="stat-value" data-role="topup-reference">
+          <StatLabel>الرقم المرجعي للحوالة</StatLabel>
+          <StatValue role="topup-reference">
             <Ltr>{issued.reference}</Ltr>
-          </strong>
+          </StatValue>
           <span>
             المبلغ المطلوب تحويله <Ltr>{riyals(issued.totalWithVatHalalas)}</Ltr> ر.س.
           </span>
@@ -106,9 +106,9 @@ export function TopUpPanel({
               </Ltr>
             </div>
           ) : (
-            <span className="stat-hint" data-role="bank-unknown">
+            <StatHint role="bank-unknown">
               بيانات الحساب البنكي غير مضبوطة في هذا النشر. تواصل معنا وسنرسلها.
-            </span>
+            </StatHint>
           )}
         </Card>
       ) : null}
@@ -117,12 +117,7 @@ export function TopUpPanel({
         A GET to the checkout, so «how much» is answered here and everything that follows from
         it is answered on the screen that commits. Nothing is ordered by pressing this.
       */}
-      <form
-        action="/billing/checkout"
-        method="get"
-        className="row"
-        style={{ gap: 'var(--space-3)' }}
-      >
+      <form action="/billing/checkout" method="get" className="row amount-row">
         <Field id="topup-amount" label="المبلغ بالريال">
           {(control) => (
             <Input
@@ -174,6 +169,17 @@ export function TopUpPanel({
                       {request.bundleLabel}
                     </span>
                   ) : null}
+                  {/*
+                    Why it was not accepted, in the words staff wrote when they closed it. The
+                    reason was read from the database, carried into this row and then dropped,
+                    so a subscriber read «لم يُقبل» with nothing to act on and no way to tell a
+                    transfer that never arrived from one we refused.
+                  */}
+                  {request.status === 'REJECTED' && request.note !== null ? (
+                    <div className="faint" data-role="topup-reason">
+                      {request.note}
+                    </div>
+                  ) : null}
                 </td>
                 <td>
                   {request.vatInvoiceId ? (
@@ -218,9 +224,7 @@ export function PendingTopUps({
   if (pending.length === 0) {
     return (
       <Card variant="flush" label="الحوالات">
-        <p className="admin-empty" data-role="no-pending-topups">
-          لا حوالات بانتظار التأكيد.
-        </p>
+        <CardEmpty role="no-pending-topups">لا حوالات بانتظار التأكيد.</CardEmpty>
       </Card>
     );
   }
@@ -283,26 +287,23 @@ export function PendingTopUps({
                     this screen can undo it. Two steps, and the consequence above the button
                     that causes it, the same pattern the API key revoke uses (ADR-167).
                   */}
-                  <details className="revoke" data-role="reject-topup">
-                    <summary>لم تصل الحوالة</summary>
-                    <div className="stack" style={{ gap: 'var(--space-2)' }}>
-                      <span className="faint">
-                        يُغلق الطلب ولا يُضاف للرصيد شيء، ولا يعود إلى هذه القائمة. إن وصلت
-                        الحوالة بعد ذلك فالمشترك يطلب شحناً جديداً.
-                      </span>
-                      <form action={rejectAction} className="inline">
-                        <input type="hidden" name="request_id" value={request.id} />
-                        <input type="hidden" name="tenant_id" value={request.tenantId} />
-                        <SubmitButton
-                          variant="ghost"
-                          data-role="reject-confirm"
-                          pendingLabel="جارٍ الإغلاق"
-                        >
-                          أكّد أنها لم تصل
-                        </SubmitButton>
-                      </form>
-                    </div>
-                  </details>
+                  <Disclosure
+                    role="reject-topup"
+                    summary="لم تصل الحوالة"
+                    consequence="يُغلق الطلب ولا يُضاف للرصيد شيء، ولا يعود إلى هذه القائمة. إن وصلت الحوالة بعد ذلك فالمشترك يطلب شحناً جديداً."
+                  >
+                    <form action={rejectAction} className="inline">
+                      <input type="hidden" name="request_id" value={request.id} />
+                      <input type="hidden" name="tenant_id" value={request.tenantId} />
+                      <SubmitButton
+                        variant="ghost"
+                        data-role="reject-confirm"
+                        pendingLabel="جارٍ الإغلاق"
+                      >
+                        أكّد أنها لم تصل
+                      </SubmitButton>
+                    </form>
+                  </Disclosure>
                 </td>
               </tr>
             ))}

@@ -1,8 +1,10 @@
 import type { ReactElement } from 'react';
 import type { MarginTotals, Page } from '@nx-verify/core';
 import { PageHeader } from './page-header';
-import { Card } from './ui/card';
+import { Card, CardEmpty, CardHead } from './ui/card';
 import { Ltr } from './ui/ltr';
+import { NoValue } from './ui/no-value';
+import { Stat, StatGrid } from './ui/stat';
 import { Table, Th } from './ui/table';
 import { count, isoMonth, riyals } from './format';
 import { ListPagination } from './ui/pagination';
@@ -59,56 +61,59 @@ export function OperatorMargin({
         subtitle="ما حصّلناه وما دفعناه للمزودين، لكل مشترك ولكل خدمة. من عدّادات مجمّعة لا من التشغيلات."
       />
 
-      <section className="grid" data-role="margin-tiles">
-        <article className="stat">
-          <span className="stat-label">المحصّل</span>
-          <strong className="stat-value">
-            <Ltr>{riyals(billed)}</Ltr> ر.س
-          </strong>
-          <span className="stat-hint">بلا ضريبة</span>
-        </article>
-        <article className="stat">
-          <span className="stat-label">تكلفة المزودين</span>
-          <strong className="stat-value">
-            <Ltr>{riyals(cost)}</Ltr> ر.س
-          </strong>
-        </article>
-        <article className="stat">
-          <span className="stat-label">الهامش</span>
-          <strong className="stat-value">
-            {billed === 0 ? (
-              'لا إيراد'
-            ) : (
-              <Ltr>{Math.round(((billed - cost) / billed) * 100)}%</Ltr>
-            )}
-          </strong>
-          <span className="stat-hint">
-            <Ltr>{riyals(billed - cost)}</Ltr> ر.س
-          </span>
-        </article>
-        <article className="stat">
-          <span className="stat-label">غطّتها الباقات</span>
-          <strong className="stat-value">
-            <Ltr>{count(covered)}</Ltr> عملية
-          </strong>
-          <span className="stat-hint">عمليات لا تُحصَّل هذا الشهر</span>
-        </article>
-      </section>
+      <StatGrid role="margin-tiles">
+        <Stat
+          label="المحصّل"
+          value={
+            <>
+              <Ltr>{riyals(billed)}</Ltr> ر.س
+            </>
+          }
+          hint="بلا ضريبة"
+        />
+        <Stat
+          label="تكلفة المزودين"
+          value={
+            <>
+              <Ltr>{riyals(cost)}</Ltr> ر.س
+            </>
+          }
+        />
+        <Stat
+          label="الهامش"
+          value={
+            billed === 0 ? 'لا إيراد' : <Ltr>{Math.round(((billed - cost) / billed) * 100)}%</Ltr>
+          }
+          hint={
+            <>
+              <Ltr>{riyals(billed - cost)}</Ltr> ر.س
+            </>
+          }
+        />
+        <Stat
+          label="غطّتها الباقات"
+          value={
+            <>
+              <Ltr>{count(covered)}</Ltr> عملية
+            </>
+          }
+          hint="عمليات لا تُحصَّل هذا الشهر"
+        />
+      </StatGrid>
 
       <Card variant="flush" role="margin-detail" labelledBy="margin-detail-title">
-        <div className="admin-card-head">
-          <h2 className="card-title admin-card-title" id="margin-detail-title">
-            التفصيل
-          </h2>
-          <p className="admin-card-note">
-            <Ltr>{count(page.total)}</Ltr> سطراً
-          </p>
-        </div>
+        <CardHead
+          title="التفصيل"
+          titleId="margin-detail-title"
+          note={
+            <>
+              <Ltr>{count(page.total)}</Ltr> سطراً
+            </>
+          }
+        />
 
         {page.total === 0 ? (
-          <p className="admin-empty" data-role="empty-state">
-            لا استهلاك مسجّل في هذه الفترة.
-          </p>
+          <CardEmpty>لا استهلاك مسجّل في هذه الفترة.</CardEmpty>
         ) : (
           <div className="admin-table">
             <Table label="تفصيل الهامش">
@@ -151,7 +156,7 @@ export function OperatorMargin({
                       {row.marginPct === null ? (
                         // Undefined, not zero. A report that prints zero here invites
                         // somebody to average it.
-                        <span className="muted">لا إيراد</span>
+                        <NoValue>لا إيراد</NoValue>
                       ) : (
                         <Ltr>{row.marginPct}%</Ltr>
                       )}

@@ -3,8 +3,10 @@
 import { redirect } from 'next/navigation';
 import { randomUUID } from 'node:crypto';
 import {
+  NxError,
   assertCan,
   isSandbox,
+  requestSandbox,
   resolveProviders,
   verify,
   DerivedTenantKeyProvider,
@@ -17,7 +19,38 @@ import {
   resolveCredential,
   secretStoreFromEnv,
 } from '@nx-verify/providers';
+import { revalidatePath } from 'next/cache';
 import { actingUser, query } from '../../../../../lib/context';
+
+/**
+ * Asking for a sandbox (ADR-173).
+ *
+ * All this does is record the ask, and that is the honest shape of it: making a sandbox means
+ * linking one workspace to another, which 0027 grants to the operator role alone so that a
+ * workspace can never declare itself, or its past year of verifications, to have been a test.
+ * A button here that pretended to make one would have to be a button that cannot work.
+ *
+ * Behind `developers.manage`, because whoever gets a second workspace with its own keys is
+ * making a decision about integration rather than using the product.
+ */
+export async function requestSandboxAction(): Promise<void> {
+  const actor = await actingUser();
+  assertCan(actor.capabilities, 'developers.manage');
+
+  try {
+    await query((tx) => requestSandbox(tx, { requestedBy: actor.userId }));
+  } catch (error) {
+    if (error instanceof NxError && error.code === 'NX-4091') {
+      // Pressed twice, or pressed from inside a sandbox. Said on the screen rather than
+      // swallowed: the person pressed a button.
+      redirect('/settings/developers/sandbox?error=asked');
+    }
+    throw error;
+  }
+
+  revalidatePath('/settings/developers/sandbox');
+  redirect('/settings/developers/sandbox');
+}
 
 /**
  * Running a call from the screen.

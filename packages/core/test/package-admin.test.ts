@@ -1,9 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { withoutTenant } from '../../../packages/db/src/client.js';
+import { withTenant, withoutTenant } from '../../../packages/db/src/client.js';
 import { applyProductSeed } from '../../../packages/db/src/seed/products.js';
 import { applyPackageSeed } from '../../../packages/db/src/seed/packages.js';
 import { applyCostSeed } from '../../../packages/db/src/seed/costs.js';
-import { setPackageProduct, setTenantOverride } from '../src/billing/package-admin.js';
+import {
+  setPackageProduct,
+  setTenantOverride,
+  setTenantPackage,
+} from '../src/billing/package-admin.js';
+import { assignSubscriberPlan } from '../src/billing/subscribers-board.js';
 import { listOperatorAudit } from '../src/operators/audit.js';
 import { createTestDatabase, seedTenant, type TestDatabase } from '../../../test/helpers/db.js';
 
@@ -182,5 +187,70 @@ describe("a subscriber's exception", () => {
       'op-1',
     );
     expect(await override()).toBeUndefined();
+  });
+});
+
+/**
+ * Moving a subscriber between plans (this session).
+ *
+ * The write recorded where they landed and not where they came from. A year later «moved onto
+ * ENTERPRISE» answers a question nobody asks; what a dispute needs is what they were billed on
+ * before somebody moved them, and the upsert is the only thing that ever knows it.
+ */
+describe('moving a subscriber between plans', () => {
+  let db: TestDatabase;
+  let tenantId: string;
+  const actor = { id: 'op-plan', displayName: 'موظف', role: 'OWNER' as const };
+
+  beforeAll(async () => {
+    db = await createTestDatabase();
+    await withoutTenant(db.appPool, (tx) => applyProductSeed(tx, undefined, {}));
+    await applyPackageSeed(db.operatorPool);
+    await withoutTenant(db.appPool, (tx) => applyCostSeed(tx));
+    ({ tenantId } = await seedTenant(db.appPool, 'شركة الانتقال بين الباقات'));
+  });
+
+  afterAll(async () => {
+    await db.close();
+  });
+
+  it('says nothing came before, the first time', async () => {
+    const first = await setTenantPackage(db.operatorPool, { tenantId, packageCode: 'GROWTH' }, actor.id);
+    expect(first.from).toBeNull();
+  });
+
+  it('hands back the plan they were moved off', async () => {
+    const moved = await setTenantPackage(db.operatorPool, { tenantId, packageCode: 'ESSENTIAL' }, actor.id);
+    expect(moved.from).toBe('GROWTH');
+  });
+
+  it("puts the move in the subscriber's own trail, both halves of it", async () => {
+    // Read as the subscriber reads it. Staff write into this trail and cannot select from it:
+    // the operator role has INSERT on `audit_log` and nothing more, so a member of staff
+    // cannot read back what a workspace has been doing. That refusal is the point.
+    const rows = await withTenant(
+      db.appPool,
+      tenantId,
+      async (tx) =>
+        (
+          await tx.query<{ target: string; metadata: { from: string | null } }>(
+            `SELECT target, metadata FROM audit_log
+              WHERE tenant_id = $1 AND action = 'package.assigned'
+              ORDER BY created_at DESC, id DESC LIMIT 1`,
+            [tx.tenantId],
+          )
+        ).rows,
+    );
+    expect(rows[0]?.target).toBe('ESSENTIAL');
+    expect(rows[0]?.metadata.from).toBe('GROWTH');
+  });
+
+  it('carries it into the panel trail the audit screen reads', async () => {
+    await assignSubscriberPlan(db.operatorPool, actor, tenantId, 'GROWTH');
+    const trail = await listOperatorAudit(db.operatorPool, {
+      targetPrefixes: [`subscriber:${tenantId}`],
+    });
+    expect(trail[0]).toMatchObject({ action: 'subscribers.plan' });
+    expect(trail[0]?.metadata).toEqual({ package: 'GROWTH', from: 'ESSENTIAL' });
   });
 });

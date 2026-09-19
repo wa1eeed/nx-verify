@@ -141,7 +141,9 @@ export function ReviewCase({
         <Panel title="القرار" role="case-decision">
           <div className="panel-body stack" style={{ gap: 'var(--s-2)' }}>
             <p style={{ margin: 0 }}>
-              <strong>{item.outcome === null ? '—' : OUTCOME_LABELS[item.outcome]}</strong>
+              <strong>
+                {item.outcome === null ? 'بلا نتيجة مسجّلة' : OUTCOME_LABELS[item.outcome]}
+              </strong>
               {' · '}
               {item.decidedByName ?? item.decidedBy}
               {decidedByViewer ? ' (أنت)' : null}

@@ -1,6 +1,6 @@
 import type { TenantTransaction } from '@nx-verify/db';
-import { audit } from '../auth/audit.js';
 import { NxError } from '../errors.js';
+import { recordOperatorAudit } from '../operators/audit.js';
 
 /**
  * Which provider serves this subscriber.
@@ -154,6 +154,29 @@ export interface SetBindingInput {
 }
 
 /**
+ * The refusal a caller can tell apart from the other refusals of this function.
+ *
+ * NxError carries a code and a detail, and every refusal here is NX-4001 because the input
+ * was malformed in one way or another. The panel has to say which way, so the one detail a
+ * screen has its own sentence for is a constant both sides import rather than a string one
+ * side spells and the other matches by eye.
+ */
+export const BINDING_CREDENTIAL_UNSEALED =
+  'the credential reference this binding names has nothing stored behind it';
+
+export interface SetBindingOptions {
+  /**
+   * Whether the secret store of this deployment holds anything under a reference.
+   *
+   * Injected rather than imported: the store lives in packages/providers, which imports this
+   * package, and a domain that reached back into it would close a cycle. A caller that can
+   * ask passes this; the provisioning script, which runs beside a store it has not opened,
+   * passes nothing and gets the checks that need no store.
+   */
+  credentialExists?: (ref: string) => Promise<boolean>;
+}
+
+/**
  * Binds a subscriber to a provider, or changes the binding.
  *
  * Runs as the operator role, which is the only role in the system whose policy crosses
@@ -162,12 +185,23 @@ export interface SetBindingInput {
  *
  * This is the write behind «مصدر بيانات هذا المشترك» in the panel. It is an operator act on
  * a subscriber's page and never a subscriber's own setting, for the reason written out in
- * apps/console/src/components/admin-subscribers/source.tsx.
+ * apps/console/src/components/operator-binding.tsx.
+ *
+ * Every call lands in two trails, and both are needed, for the reason set out at the head of
+ * billing/package-admin.ts:
+ *
+ *   audit_log       against the subscriber, because whose account their calls went out on in
+ *                   March is a question about their own account.
+ *   operator_audit  against the member of staff, because the panel's own screen says «كل
+ *                   تغيير أجراه الفريق» and this change was missing from it entirely. Moving
+ *                   a subscriber from their own account onto ours is the change on that page
+ *                   that costs the platform money, and it appeared in no panel trail.
  */
 export async function setTenantBinding(
   tx: { query: TenantTransaction['query'] },
   input: SetBindingInput,
   operatorId: string,
+  options: SetBindingOptions = {},
 ): Promise<void> {
   if (input.credentialRef && !input.credentialRef.startsWith('kms://')) {
     // The database refuses this too. Saying it here gives a usable message.
@@ -188,6 +222,18 @@ export async function setTenantBinding(
     throw new NxError('NX-4001', {
       detail: 'a BYOC binding must name the subscriber credential it runs on',
     });
+  }
+  if (input.credentialRef && options.credentialExists) {
+    /**
+     * A pointer at nothing is a binding that is saved, shown as set, and fails at the first
+     * call: resolveCredential fetches the reference and the store raises NX-5001, so every
+     * verification this subscriber asks for breaks, and nothing between the save and that
+     * first call says so. The reference is checked while somebody is still looking at the
+     * screen, which is the only moment the mistake is cheap.
+     */
+    if (!(await options.credentialExists(input.credentialRef))) {
+      throw new NxError('NX-4001', { detail: BINDING_CREDENTIAL_UNSEALED });
+    }
   }
 
   await tx.query(
@@ -227,7 +273,28 @@ export async function setTenantBinding(
       }),
     ],
   );
-  void audit;
+
+  /**
+   * The same change against the member of staff who made it.
+   *
+   * The target is the subscriber, because that is what a reader of the panel trail is looking
+   * for and what the trail's own screen turns into a name. The provider is in the metadata and
+   * not in the target, following the choice made for service routing: rule 5 governs what a
+   * subscriber may see, and the panel trail is read by staff, but a target is the one field
+   * that travels into every listing and it costs nothing to keep the source out of it.
+   */
+  await recordOperatorAudit(tx, {
+    operatorId,
+    action: 'routing.binding_set',
+    target: `subscriber:${input.tenantId}`,
+    metadata: {
+      provider: input.provider,
+      mode: input.mode,
+      priority: input.priority ?? 100,
+      credential_ref: input.credentialRef ?? null,
+      activated: input.activate ?? true,
+    },
+  });
 }
 
 export interface CatalogEntry {

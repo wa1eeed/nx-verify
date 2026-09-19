@@ -275,6 +275,11 @@ describe('guard 02: tenant isolation', () => {
               // The default price list, and only it: the panel's policy reaches rows with no
               // tenant, so a price negotiated for one subscriber stays behind t_isolation.
               'price_book',
+              // A subscriber asking for a test workspace, and the answer. Who asked, when, and
+              // the name of the workspace that was made: it says what the subscriber was given,
+              // and can say nothing about whom they verified. Staff must reach it because the
+              // link between a workspace and its sandbox is theirs alone to write (ADR-173).
+              'sandbox_requests',
             ],
             `${table}: nx_operator must not reach subscriber data`,
           ).toContain(table);

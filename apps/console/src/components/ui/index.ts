@@ -24,8 +24,21 @@ export { Radio } from './radio';
 export type { RadioProps } from './radio';
 export { Segmented } from './segmented';
 export type { SegmentOption } from './segmented';
-export { Card, CardBody, CardKicker, CardMeta, CardTitle } from './card';
+export {
+  Card,
+  CardBody,
+  CardEmpty,
+  CardHead,
+  CardKicker,
+  CardMeta,
+  CardNote,
+  CardTitle,
+} from './card';
 export type { CardTone, CardVariant } from './card';
+export { Stat, StatGrid, StatHint, StatLabel, StatValue } from './stat';
+export type { StatTone } from './stat';
+export { Disclosure } from './disclosure';
+export { NoValue } from './no-value';
 export { Table, Th } from './table';
 export { Dialog } from './dialog';
 export { Icon, ICONS, ICON_STROKE } from './icon';

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { ReactElement } from 'react';
 import { NoAccess } from '../../../../components/no-access';
 import {
+  chargedOutcomes,
   fieldGroup,
   getCustomerFile,
   getFieldHistory,
@@ -92,12 +93,18 @@ export default async function CustomerPage({
     // The roles this entity holds in the subscriber's companies: the heart of a related party's
     // file, and a card of its own on a customer who is also somebody's manager or partner.
     const roles = await getPartyRoles(tx, getKeys(), id);
-    const quote = await quoteChecks(tx, [
+    const quoted = [
       ...new Set([
         ...file.checks.map((check) => check.productCode),
         ...(roles.roles.some((role) => role.role === 'MANAGER') ? ['MANAGER_AUTHORITY'] : []),
       ]),
-    ]);
+    ];
+    const quote = await quoteChecks(tx, quoted);
+    // What the verify dialog may say about a run that does not come back a plain success.
+    // Without this the dialog can only repeat the half that holds for every price row and
+    // send the reader to «أسعار المنتجات»; with it, it names the shares of these very
+    // checks, read from the price rows in force for this subscriber (ADR-170).
+    const outcomeShares = await chargedOutcomes(tx, quoted);
     const companyRunning: Record<string, string[]> = {};
     for (const company of roles.companies) {
       companyRunning[company.entityId] = await openChecksFor(tx, company.entityId);
@@ -119,6 +126,7 @@ export default async function CustomerPage({
       mentions,
       histories,
       quote,
+      outcomeShares,
       verifications,
       runs,
       products,
@@ -299,6 +307,7 @@ export default async function CustomerPage({
         prices: Object.fromEntries(
           data.quote.lines.map((line) => [line.productCode, line.unitPriceHalalas]),
         ),
+        shares: Object.fromEntries(data.outcomeShares),
         refusals,
         fromPackage: data.quote.capacityRemaining !== null && data.quote.capacityRemaining > 0,
         showPrices: data.preferences.showPrices,

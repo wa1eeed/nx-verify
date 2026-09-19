@@ -119,6 +119,11 @@ const ACTION_LABELS: Record<string, string> = {
   'provider.binding_set': 'ضُبط توجيه مصدر بيانات',
   'provider.health_changed': 'تغيّرت حالة مصدر بيانات',
   'onboarding.in_review': 'ملف تأهيل يحتاج مراجعة',
+  // The ask is the subscriber's own; the two answers are written into their trail by the
+  // platform, because a test workspace appearing beside theirs is their business (ADR-173).
+  'sandbox.requested': 'طلب مساحة اختبار',
+  'sandbox.created': 'أُنشئت مساحة اختبار',
+  'sandbox.refused': 'لم تُنشأ مساحة الاختبار',
 };
 
 export function actionLabel(action: string): string {

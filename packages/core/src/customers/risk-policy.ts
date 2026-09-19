@@ -118,6 +118,24 @@ export async function resolveRiskBands(
 }
 
 /**
+ * The model in force for this subscriber, as one value (ADR-175, migration 0067).
+ *
+ * What a standing row records so that «this was computed under an older model» can be read
+ * rather than stamped. Read on the subscriber's own connection, so the overrides in it are
+ * theirs and no other workspace's model can reach the answer.
+ *
+ * Read before the summary that will be written under it, never after: if an edit lands while
+ * a page is being summarised, the row is stamped with the older model and reads as old, which
+ * is the safe direction to be wrong in.
+ */
+export async function riskModelVersion(tx: TenantTransaction): Promise<string | null> {
+  const { rows } = await tx.query<{ version: string }>(
+    `SELECT app.risk_model_version() AS version`,
+  );
+  return rows[0]?.version ?? null;
+}
+
+/**
  * The policy in force for this subscriber: the platform's model, with their disagreements.
  *
  * One query for the signals and one for the bands, both read on the subscriber's own

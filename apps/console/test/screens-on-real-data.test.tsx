@@ -92,6 +92,11 @@ describe('the console renders real data', () => {
     expect(html).toContain('data-role="verification-history"');
     // Triggered from the console, and the timeline says so.
     expect(html).toContain('يدوي من الكونسول');
+    // The verify dialog names the shares of these very checks, read from the price rows in
+    // force for this subscriber, rather than the promise it used to make that anything short
+    // of a success is free (ADR-170).
+    expect(html).not.toContain('العمليات الفاشلة لا تُحسب');
+    expect(html).toContain('نتيجة «غير موجود» تُحسب بـ50% من السعر');
   });
 
   it('shows a business registry number and the identity number of a person in full', async () => {

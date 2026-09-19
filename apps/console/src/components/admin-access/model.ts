@@ -55,6 +55,7 @@ const ACTIONS: Readonly<Record<string, string>> = {
   'callback.rotated': 'تجديد سر توقيع الإشعارات',
   'routing.set': 'توجيه خدمة إلى مصدر',
   'routing.removed': 'رفع مصدر عن خدمة',
+  'routing.binding_set': 'ضبط اعتماد مشترك مع مصدر',
   'mail.settings_set': 'ضبط البريد الصادر',
   'staff.first_owner': 'إنشاء أول مالك',
   'staff.created': 'إضافة عضو إلى الفريق',
@@ -91,6 +92,8 @@ const ACTIONS: Readonly<Record<string, string>> = {
   'subscribers.plan': 'تغيير باقة مشترك',
   'subscribers.suspended': 'إيقاف مشترك',
   'subscribers.resumed': 'إعادة تفعيل مشترك',
+  'subscribers.sandbox_created': 'إنشاء مساحة اختبار لمشترك',
+  'subscribers.sandbox_refused': 'إغلاق طلب مساحة اختبار',
 };
 
 export function auditActionAr(action: string): string {
@@ -298,6 +301,17 @@ export function auditChangeAr(row: Pick<OperatorAuditRow, 'action' | 'metadata'>
       const moved =
         typeof meta['affected'] === 'number' ? ` · مسّت ${meta['affected']} من المشتركين` : '';
       return `${meta['default_on'] === true ? 'تُمنح افتراضياً' : 'لا تُمنح إلا بقرار'}${moved}`;
+    }
+    case 'subscribers.created':
+    case 'subscribers.plan': {
+      // A move between two plans, said as a move. The destination alone reads as a fact about
+      // today and answers nothing about what changed, which is the only reason the row exists.
+      const to = typeof meta['package'] === 'string' ? meta['package'] : null;
+      const from = typeof meta['from'] === 'string' ? meta['from'] : null;
+      if (to === null) {
+        return '·';
+      }
+      return from === null || from === to ? to : `من ${from} إلى ${to}`;
     }
     case 'settings.updated':
       return Object.entries(meta)

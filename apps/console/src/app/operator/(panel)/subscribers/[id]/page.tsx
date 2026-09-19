@@ -13,7 +13,10 @@ import {
 } from '@nx-verify/core';
 import { secretStoreFromEnv } from '@nx-verify/providers';
 import { AdminSubscriber } from '../../../../../components/admin-subscribers/detail';
-import type { SubscriberSourceView } from '../../../../../components/admin-subscribers/source';
+import {
+  OperatorBinding,
+  type OperatorBindingView,
+} from '../../../../../components/operator-binding';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { SUBSCRIBER_TABS } from '../../../../../components/operator-shell';
 import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
@@ -85,6 +88,10 @@ const NOTICES: Readonly<Record<string, { tone: 'done' | 'refused'; text: string 
     tone: 'refused',
     text: 'لم يُحفظ: «على اعتماد المشترك» يلزمه مرجع اعتماد. بلا مرجع يخرج النداء على اعتماد المنصة ويُسجَّل بلا تكلفة علينا.',
   },
+  'refused:source_unsealed': {
+    tone: 'refused',
+    text: 'لم يُحفظ: لا شيء محفوظ في خزنة الأسرار تحت هذا المرجع. ضع السر في الخزنة أولاً ثم وجّه الربط إليه، وإلا فشل أول نداء لهذا المشترك ولم يقل شيءٌ قبله.',
+  },
 };
 
 export default async function OperatorSubscriberPage({
@@ -119,7 +126,7 @@ export default async function OperatorSubscriberPage({
   }
 
   const store = secretStoreFromEnv();
-  const source: SubscriberSourceView = {
+  const bindingView: OperatorBindingView = {
     bindings: await Promise.all(
       data.bindings.map(async (binding) => ({
         provider: binding.provider,
@@ -167,7 +174,11 @@ export default async function OperatorSubscriberPage({
           specialPrice: data.special,
           modules: data.modules,
           risk: data.risk,
-          source,
+          // The binding surface is rendered below rather than inside the detail component
+          // (ADR-172): it is the one section of this page whose write crosses into the panel's
+          // own trail and into the platform's cost of serving this subscriber, and it says so
+          // in its own words.
+          source: null,
           notice: key === null ? null : (NOTICES[key] ?? null),
         }}
         actions={{
@@ -177,9 +188,9 @@ export default async function OperatorSubscriberPage({
           setRiskSignal: setRiskSignalAction,
           setRiskBands: setRiskBandsAction,
           setRiskCategory: setRiskCategoryAction,
-          setSource: setSourceAction,
         }}
       />
+      <OperatorBinding tenantId={id} view={bindingView} setBinding={setSourceAction} />
     </div>
   );
 }

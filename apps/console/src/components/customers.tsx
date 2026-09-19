@@ -42,6 +42,13 @@ export interface CustomersView {
     incomplete: number;
     alerts: number;
     highRisk: number;
+    /**
+     * Customers whose score was computed under a risk model that has since been edited.
+     *
+     * Said on the screen rather than kept quiet, because «مخاطر عالية» is counted from those
+     * scores and would otherwise answer under weights nobody uses any more (ADR-175).
+     */
+    underOlderModel: number;
   };
   filter: CustomersFilter;
   alertsOnly: boolean;
@@ -64,6 +71,17 @@ export function filesCountAr(n: number): string {
     return 'ملفان';
   }
   return n >= 3 && n <= 10 ? `${count(n)} ملفات` : `${count(n)} ملفاً`;
+}
+
+/** «درجة ثلاثة عملاء»: the count and the noun in the form Arabic gives that number. */
+function customersCountAr(n: number): string {
+  if (n === 1) {
+    return 'عميل واحد';
+  }
+  if (n === 2) {
+    return 'عميلين';
+  }
+  return n >= 3 && n <= 10 ? `${count(n)} عملاء` : `${count(n)} عميلاً`;
 }
 
 function standingTone(summary: CustomerSummary): TagTone {
@@ -182,6 +200,16 @@ export function Customers({ view }: { view: CustomersView }): ReactElement {
           </TagLink>
         </nav>
       </div>
+
+      {counts.underOlderModel > 0 ? (
+        // Said plainly rather than left for the reader to discover: «مخاطر عالية» above is
+        // counted from scores, and some of those scores predate the model in force now. The
+        // sweep recomputes them, and until it has, the number is one edit behind (ADR-175).
+        <p className="customers-searched" data-role="model-behind">
+          نموذج المخاطر تغيّر بعد حساب درجة {customersCountAr(counts.underOlderModel)}، ويُعاد
+          حسابها تباعاً.
+        </p>
+      ) : null}
 
       {view.searchedByNumber ? (
         <p className="customers-searched" data-role="searched-by-number">

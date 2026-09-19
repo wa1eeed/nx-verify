@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
+import { NOT_CHARGED_AR, chargedOutcomesSentenceAr, type ChargedOutcomes } from '@nx-verify/core';
 import type { CustomerFile, PartyRoles } from '@nx-verify/core';
 import { CheckResults, type CheckResultView } from '../check-results';
 import type { FieldHistoryView } from '../field-card';
@@ -40,6 +41,12 @@ export interface CustomerFileView {
     managers: Readonly<Record<string, string>>;
   };
   prices: Readonly<Record<string, number | null>>;
+  /**
+   * What each check charges when the answer is not a plain success, from the price row in
+   * force (ADR-170). Absent while the page has not read it, and the dialog then says only
+   * the part that holds for every price row instead of a share it has not seen.
+   */
+  shares?: Readonly<Record<string, ChargedOutcomes | undefined>> | undefined;
   refusals: Readonly<Record<string, string | null>>;
   fromPackage: boolean;
   /** The subscriber shows prices on the verification screens (README, screen 02). */
@@ -57,6 +64,36 @@ export interface CustomerFileView {
   companyRunning?: Readonly<Record<string, readonly string[]>> | undefined;
   /** Per company of those roles, the key a manager check from this file is made under. */
   companyBundles?: Readonly<Record<string, string>> | undefined;
+}
+
+/**
+ * What this dialog may say about a run that does not come back a plain success.
+ *
+ * Read from the shares on each check's price row, never written out as a sentence: the
+ * dialog used to promise «العمليات الفاشلة لا تُحسب» while an authority answering «لا يوجد»
+ * was charged half the price and a cached answer all of it (ADR-170). When the shares have
+ * not been read, or the checks in this dialog do not share one pair of them, it says the
+ * half that is true of every price row and sends the reader to the screen that lists the
+ * rest, rather than name a share for checks that do not have it in common.
+ */
+function chargedOutcomesNote(
+  checks: readonly { productCode: string }[],
+  shares: Readonly<Record<string, ChargedOutcomes | undefined>> | undefined,
+): string {
+  const known = checks
+    .map((check) => shares?.[check.productCode])
+    .filter((share): share is ChargedOutcomes => share !== undefined);
+  const first = known[0];
+  const uniform =
+    first !== undefined &&
+    known.length === checks.length &&
+    known.every(
+      (share) => share.notFoundPct === first.notFoundPct && share.cachedPct === first.cachedPct,
+    );
+
+  return uniform
+    ? `${chargedOutcomesSentenceAr(first)}.`
+    : `${NOT_CHARGED_AR}، وما تُحسب به الحالات الأخرى في «أسعار المنتجات».`;
 }
 
 const ERRORS: Readonly<Record<string, string>> = {
@@ -88,6 +125,8 @@ export function CustomerFileScreen({
     const price = view.prices[check.productCode] ?? 0;
     return sum + (check.productCode === 'MANAGER_AUTHORITY' ? price * managerRuns : price);
   }, 0);
+
+  const outcomesNote = chargedOutcomesNote(runnable, view.shares);
 
   const running = new Set(view.running);
   const context = (section: string): SectionContext => ({
@@ -152,10 +191,10 @@ export function CustomerFileScreen({
                   </p>
                   <p className="faint" style={{ margin: 0 }}>
                     {view.fromPackage
-                      ? 'تُحتسب العمليات من باقتك، والعمليات الفاشلة لا تُحسب.'
+                      ? 'تُحتسب هذه العمليات من باقتك لا من رصيدك.'
                       : view.showPrices
-                        ? `التكلفة التقديرية ${riyals(estimate)} ريال قبل الضريبة، والعمليات الفاشلة لا تُحسب.`
-                        : 'يُخصم من الرصيد عند نجاح كل عملية، والعمليات الفاشلة لا تُحسب.'}
+                        ? `التكلفة التقديرية ${riyals(estimate)} ريال قبل الضريبة، وهي سعر نجاح كل عملية كاملةً. ${outcomesNote}`
+                        : `يُخصم من الرصيد عن كل عملية بحسب نتيجتها. ${outcomesNote}`}
                   </p>
                   <div className="dialog-actions">
                     <SubmitButton

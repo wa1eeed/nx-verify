@@ -20,6 +20,10 @@ export const OPERATOR_SECTIONS: readonly PlaceLink[] = [
 export const SUBSCRIBER_TABS: readonly SectionTab[] = [
   { href: '/operator/subscribers', label: 'المشتركون والأرصدة' },
   { href: '/operator/subscribers/topups', label: 'الحوالات' },
+  // A subscriber can ask for a test workspace now, and the ask has to land somewhere a member
+  // of staff will see it. A screen reachable only by typing its address is the same as the
+  // support link it replaces (ADR-173).
+  { href: '/operator/subscribers/sandboxes', label: 'مساحات الاختبار' },
 ];
 
 /** What the platform sells: its prices, and the modules those prices are grouped into. */

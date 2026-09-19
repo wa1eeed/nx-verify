@@ -423,6 +423,21 @@ export interface CustomerCounts {
   alerts: number;
   /** In this subscriber's high band at their last sweep, which is what `risk_score` is for. */
   highRisk: number;
+  /**
+   * Customers whose score was computed under a risk model that has since changed (ADR-175).
+   *
+   * Read rather than stamped: the row records the model that made it, and this compares that
+   * with the one in force now. It is the one number that says how far «مخاطر عالية» can be
+   * from the model in the panel right now, and the screen says it rather than letting the
+   * facet quietly answer under last week's weights.
+   *
+   * Only rows that recorded a model. A row that recorded none was stamped when a customer was
+   * verified and has not been computed since, or predates the column: we cannot say a model
+   * changed after it was computed when we never wrote down which model computed it. The sweep
+   * claims those rows anyway, which is the right asymmetry: the sweep is free to be suspicious,
+   * and the screen may only say what is known.
+   */
+  underOlderModel: number;
 }
 
 /**
@@ -436,6 +451,10 @@ export interface CustomerCounts {
  *
  * The band comes with them rather than from a literal, because where «عالية» starts is a
  * subscriber's decision (ADR-138) and this count must agree with the word each row shows.
+ *
+ * `underOlderModel` comes from the same scan and is the honesty of the risk facet: how many of
+ * these scores were computed under a model that has since been edited (ADR-175). The screen
+ * says it rather than presenting a count that quietly answers under older weights.
  */
 export async function countCustomers(tx: TenantTransaction): Promise<CustomerCounts> {
   const { highFrom } = await resolveRiskBands(tx);
@@ -447,14 +466,21 @@ export async function countCustomers(tx: TenantTransaction): Promise<CustomerCou
     complete: string;
     alerts: string;
     high_risk: string;
+    under_older_model: string;
   }>(
+    // The model is read once for the statement, as an uncorrelated subquery, so the comparison
+    // costs one value however many customers are counted.
     `SELECT count(*)::text AS all,
             count(*) FILTER (WHERE s.kind = 'COMPANY')::text AS companies,
             count(*) FILTER (WHERE s.kind = 'ESTABLISHMENT')::text AS establishments,
             count(*) FILTER (WHERE s.kind = 'FREELANCER')::text AS freelancers,
             count(*) FILTER (WHERE s.completeness = 100)::text AS complete,
             count(*) FILTER (WHERE s.open_alerts > 0)::text AS alerts,
-            count(*) FILTER (WHERE s.risk_score >= $2)::text AS high_risk
+            count(*) FILTER (WHERE s.risk_score >= $2)::text AS high_risk,
+            count(*) FILTER (
+              WHERE s.risk_model_version IS NOT NULL
+                AND s.risk_model_version <> (SELECT app.risk_model_version())
+            )::text AS under_older_model
        FROM customer_standing s
        JOIN entities e ON e.tenant_id = s.tenant_id AND e.id = s.entity_id
       WHERE s.tenant_id = $1 AND e.archived_at IS NULL`,
@@ -472,5 +498,6 @@ export async function countCustomers(tx: TenantTransaction): Promise<CustomerCou
     incomplete: all - complete,
     alerts: Number(row?.alerts ?? 0),
     highRisk: Number(row?.high_risk ?? 0),
+    underOlderModel: Number(row?.under_older_model ?? 0),
   };
 }

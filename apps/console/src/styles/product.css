@@ -3989,3 +3989,20 @@ a.frame-brand:active {
   border-radius: var(--radius-inset);
   background: var(--color-red-50);
 }
+/*
+ * The consequence and the control under it, a step apart. The screens used to set this gap
+ * inline on a `.stack`, which put a spacing decision in three screens instead of here.
+ */
+.revoke-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/*
+ * The amount box and the button that carries it to the checkout, a step further apart than
+ * an ordinary row: the button leaves this screen rather than acting on it.
+ */
+.amount-row {
+  gap: var(--space-3);
+}
