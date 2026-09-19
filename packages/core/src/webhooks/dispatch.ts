@@ -25,68 +25,12 @@ export type WebhookEventType =
   | 'onboarding.rejected'
   | 'onboarding.review';
 
-/**
- * Every event, in Arabic, in one place (ADR-163).
- *
- * Two screens carried their own map and both were short: the subscriber's notification
- * settings knew four of the nine and the webhooks screen knew four different ones, so the rest
- * rendered as their raw code. A label list beside a type union drifts the moment somebody adds
- * a case to the union, which is exactly what happened.
+/*
+ * The Arabic names of these events live in apps/console/src/components/events.ts, not here.
+ * The forms that show them run in the browser, and a client component importing this module
+ * drags the whole server side in behind it, `pg` included. What stays here is the union, and
+ * a test holds the console's map against it.
  */
-export const WEBHOOK_EVENT_LABELS_AR: Readonly<Record<WebhookEventType, string>> = {
-  'verification.completed': 'اكتمال تحقق',
-  'verification.awaiting': 'تحقق بانتظار رد الجهة',
-  'entity.changed': 'تغيّر مرصود',
-  'attestation.expired': 'انتهاء صلاحية معرفة',
-  'wallet.low': 'انخفاض رصيد الخدمات',
-  'monitor.budget_exhausted': 'توقف مراقبة لانتهاء ميزانيتها',
-  'onboarding.approved': 'اعتماد ملف تأهيل',
-  'onboarding.rejected': 'رفض ملف تأهيل',
-  'onboarding.review': 'ملف تأهيل يحتاج مراجعة بشرية',
-};
-
-/**
- * The severity each event always carries.
- *
- * Fixed per event, which is why the subscriber's screen no longer asks for a minimum: a floor
- * above an event's own severity silenced it completely, and a floor below it did nothing. Two
- * of the three choices were a no-op or a total mute, and the screen listed the rule as active
- * either way (ADR-165).
- */
-export const WEBHOOK_EVENT_SEVERITY: Readonly<Record<WebhookEventType, 'INFO' | 'WARNING' | 'CRITICAL'>> = {
-  'verification.completed': 'INFO',
-  'verification.awaiting': 'INFO',
-  'entity.changed': 'WARNING',
-  'attestation.expired': 'WARNING',
-  'wallet.low': 'CRITICAL',
-  'monitor.budget_exhausted': 'WARNING',
-  'onboarding.approved': 'INFO',
-  'onboarding.rejected': 'WARNING',
-  'onboarding.review': 'WARNING',
-};
-
-export const SEVERITY_LABELS_AR: Readonly<Record<'INFO' | 'WARNING' | 'CRITICAL', string>> = {
-  INFO: 'للعلم',
-  WARNING: 'يستحق النظر',
-  CRITICAL: 'حرج',
-};
-
-/** The list a screen offers, in the order somebody reads it: the common ones first. */
-export const WEBHOOK_EVENT_TYPES: readonly WebhookEventType[] = [
-  'verification.completed',
-  'verification.awaiting',
-  'entity.changed',
-  'attestation.expired',
-  'onboarding.review',
-  'onboarding.approved',
-  'onboarding.rejected',
-  'wallet.low',
-  'monitor.budget_exhausted',
-];
-
-export function webhookEventLabelAr(eventType: string): string {
-  return (WEBHOOK_EVENT_LABELS_AR as Record<string, string>)[eventType] ?? eventType;
-}
 
 export interface WebhookEndpoint {
   id: string;

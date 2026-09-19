@@ -9,7 +9,8 @@ import { OperatorCosts, type CostsView } from '../../../../../components/operato
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { PRICING_TABS } from '../../../../../components/operator-shell';
 import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
-import { costNoticeAr, saveCostAction } from './actions';
+import { saveCostAction } from './actions';
+import { costNoticeAr } from './notice';
 
 export const dynamic = 'force-dynamic';
 

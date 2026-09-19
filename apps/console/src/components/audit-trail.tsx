@@ -50,6 +50,30 @@ const ACTOR_LABELS: Record<AuditRowView['actorType'], string> = {
  * exactly where something unusual happened.
  */
 const ACTION_LABELS: Record<string, string> = {
+  /*
+   * Every action the domain writes needs a word here, or an Arabic reader gets the English
+   * code. The list had labels for two events nothing wrote and no label for eighteen it did
+   * (ADR-167), which is what happens when a screen's vocabulary is maintained by hand beside
+   * a set of call sites nothing holds it against. A test now holds the two equal.
+   */
+  'user.role_changed': 'غيّر دور مستخدم',
+  'user.enabled': 'أعاد تفعيل مستخدم',
+  'user.capability.set': 'غيّر صلاحية لمستخدم',
+  'user.capability.reset': 'أعاد صلاحيات مستخدم إلى دوره',
+  'monitor.paused': 'أوقف مراقبة',
+  'monitor.resumed': 'استأنف مراقبة',
+  'monitor.budget_changed': 'غيّر سقف إنفاق مراقبة',
+  'sso.domain_claimed': 'سجّل نطاقاً للدخول الموحّد',
+  'sso.domain_verified': 'أثبت نطاق الدخول الموحّد',
+  'sso.domain_removed': 'أزال نطاقاً من الدخول الموحّد',
+  'portfolio.member_added': 'أضاف عميلاً إلى مجموعة',
+  'portfolio.member_removed': 'أزال عميلاً من مجموعة',
+  'onboarding.step_waived': 'تنازل عن خطوة تأهيل',
+  'settings.updated': 'غيّر إعدادات مساحة العمل',
+  'preferences.updated': 'غيّر التفضيلات',
+  'batch.confirmed': 'أكّد دفعة تحقق',
+  'batch.cancelled': 'ألغى دفعة تحقق',
+  'tenant.registered': 'أنشأ مساحة العمل',
   'verification.created': 'طلب تحقق',
   'verification.replayed': 'أُعيد نفس الطلب',
   'profile.shared': 'شارك ملف عميل',

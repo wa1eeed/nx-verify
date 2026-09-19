@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { SubmitButton } from './ui/submit-button';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { IssueApiKey, type IssuedKeyState } from './issued-once';
 
@@ -108,14 +109,33 @@ export function ApiKeys({
                     </td>
                     <td>
                       {key.revokedAt ? (
-                        <span className="muted">ملغى</span>
+                        <span className="muted">مُبطَل</span>
                       ) : (
-                        <form action={revokeAction} className="inline">
-                          <input type="hidden" name="key_id" value={key.id} />
-                          <button type="submit" className="link" data-role="revoke">
-                            إلغاء
-                          </button>
-                        </form>
+                        /*
+                          «إلغاء» read as Cancel in an Arabic interface, on a control that
+                          irreversibly kills a production credential with no confirmation
+                          (ADR-167). It says what it does now, and the act is two steps: the
+                          consequence is spelled out before the button that does it exists.
+                        */
+                        <details className="revoke" data-role="revoke-key">
+                          <summary>أبطِل المفتاح</summary>
+                          <div className="stack" style={{ gap: 'var(--s-2)' }}>
+                            <span className="faint">
+                              يتوقف كل ما يستعمل هذا المفتاح فوراً، ولا يُستعاد. أصدر بديلاً
+                              وبدّله أولاً إن كان في الإنتاج.
+                            </span>
+                            <form action={revokeAction} className="inline">
+                              <input type="hidden" name="key_id" value={key.id} />
+                              <SubmitButton
+                                variant="ghost"
+                                data-role="revoke"
+                                pendingLabel="جارٍ الإبطال"
+                              >
+                                أبطِله نهائياً
+                              </SubmitButton>
+                            </form>
+                          </div>
+                        </details>
                       )}
                     </td>
                   </tr>

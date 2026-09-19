@@ -497,14 +497,6 @@ export type {
 } from './billing/costs-admin.js';
 
 export {
-  SEVERITY_LABELS_AR,
-  WEBHOOK_EVENT_LABELS_AR,
-  WEBHOOK_EVENT_SEVERITY,
-  WEBHOOK_EVENT_TYPES,
-  webhookEventLabelAr,
-} from './webhooks/dispatch.js';
-
-export {
   LOW_OPERATIONS_SHARE,
   canSpend,
   isLowOnCredit,

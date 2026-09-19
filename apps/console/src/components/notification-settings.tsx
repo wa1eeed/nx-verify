@@ -1,10 +1,10 @@
 import type { ReactElement } from 'react';
 import {
+  EVENT_SEVERITY,
+  EVENT_TYPES,
   SEVERITY_LABELS_AR,
-  WEBHOOK_EVENT_SEVERITY,
-  WEBHOOK_EVENT_TYPES,
-  webhookEventLabelAr,
-} from '@nx-verify/core';
+  eventLabelAr as labelOf,
+} from './events';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { SubmitButton } from './ui/submit-button';
 
@@ -55,7 +55,7 @@ const OUTCOMES: Record<string, { tone: 'done' | 'refused'; text: string }> = {
 };
 
 export function eventLabel(eventType: string): string {
-  return webhookEventLabelAr(eventType);
+  return labelOf(eventType);
 }
 
 export function outcomeNotice(
@@ -183,7 +183,7 @@ function ChannelCard({
   unsubscribeAction: Action;
 }): ReactElement {
   const subscribed = new Set(channel.events.map((rule) => rule.eventType));
-  const remaining = WEBHOOK_EVENT_TYPES.filter((event) => !subscribed.has(event));
+  const remaining = EVENT_TYPES.filter((event) => !subscribed.has(event));
 
   return (
     <article
@@ -263,7 +263,7 @@ function ChannelCard({
                   <span className="muted">
                     ·{' '}
                     {SEVERITY_LABELS_AR[
-                      WEBHOOK_EVENT_SEVERITY[rule.eventType as keyof typeof WEBHOOK_EVENT_SEVERITY]
+                      EVENT_SEVERITY[rule.eventType as keyof typeof EVENT_SEVERITY]
                     ] ?? ''}
                   </span>
                   <form action={unsubscribeAction}>
@@ -294,7 +294,7 @@ function ChannelCard({
                 <select name="event_type" style={{ width: 'auto' }}>
                   {remaining.map((event) => (
                     <option key={event} value={event}>
-                      {webhookEventLabelAr(event)} · {SEVERITY_LABELS_AR[WEBHOOK_EVENT_SEVERITY[event]]}
+                      {labelOf(event)} · {SEVERITY_LABELS_AR[EVENT_SEVERITY[event]]}
                     </option>
                   ))}
                 </select>

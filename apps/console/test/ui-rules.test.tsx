@@ -1685,7 +1685,7 @@ describe('the operator margin screen', () => {
         ],
         { page: 1, size: 25 },
       )}
-      totals={{ billedHalalas: 8000, providerCostHalalas: 5400, packageRuns: 4 }}
+      totals={{ runs: 120, billedHalalas: 8000, providerCostHalalas: 5400, packageRuns: 4 }}
       params={{}}
     />,
   );

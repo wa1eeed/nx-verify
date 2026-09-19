@@ -96,6 +96,18 @@ const BOARD: SubscribersBoard = {
   active: 41,
   expiringSoon: 3,
   revenue: {
+    thisMonth: {
+      walletHalalas: 40_000_00,
+      bundleHalalas: 12_000_00,
+      planFeeHalalas: 8_000_00,
+      totalHalalas: 60_000_00,
+    },
+    lastMonth: {
+      walletHalalas: 30_000_00,
+      bundleHalalas: 10_000_00,
+      planFeeHalalas: 8_000_00,
+      totalHalalas: 48_000_00,
+    },
     thisMonthHalalas: 218_400_00,
     lastMonthHalalas: 196_756_76,
     changePct: 11,

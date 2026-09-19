@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, type ReactElement } from 'react';
-import { WEBHOOK_EVENT_TYPES, webhookEventLabelAr } from '@nx-verify/core';
+import { EVENT_TYPES, eventLabelAr as labelOf } from './events';
 import { EmptyState, PageHeader, Panel } from './page-header';
 import { SubmitButton } from './ui/submit-button';
 
@@ -53,7 +53,7 @@ const REFUSALS: Record<NonNullable<IssuedSecretState['refused']>, string> = {
 };
 
 export function eventLabelAr(eventType: string): string {
-  return webhookEventLabelAr(eventType);
+  return labelOf(eventType);
 }
 
 /** The signing secret, in the one place it exists in plain text. */
@@ -122,11 +122,11 @@ export function Webhooks({
           >
             <legend className="stat-label">الأحداث</legend>
             <div className="row" style={{ gap: 'var(--s-4)', flexWrap: 'wrap' }}>
-              {WEBHOOK_EVENT_TYPES.map((value) => (
+              {EVENT_TYPES.map((value) => (
                 <label key={value} className="row" style={{ gap: 'var(--s-2)' }}>
                   {/* Nothing ticked by default: what leaves this platform is a decision. */}
                   <input type="checkbox" name="events" value={value} />
-                  <span>{webhookEventLabelAr(value)}</span>
+                  <span>{labelOf(value)}</span>
                 </label>
               ))}
             </div>

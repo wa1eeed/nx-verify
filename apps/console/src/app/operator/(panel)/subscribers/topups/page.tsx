@@ -7,7 +7,8 @@ import {
   type PendingTopUpView,
 } from '../../../../../components/topup';
 import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
-import { confirmTopUpAction, rejectTopUpAction, topUpNoticeAr } from './actions';
+import { confirmTopUpAction, rejectTopUpAction } from './actions';
+import { topUpNoticeAr } from './notice';
 import { Notice } from '../../../../../components/ui/notice';
 import { SectionTabs } from '../../../../../components/section-tabs';
 import { SUBSCRIBER_TABS } from '../../../../../components/operator-shell';
