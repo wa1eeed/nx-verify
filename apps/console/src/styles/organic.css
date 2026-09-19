@@ -509,13 +509,10 @@ textarea.input { min-height: 90px; resize: vertical; }
   --text-graph: 10px;
   --text-stat-lg: 34px;
 
-  /* The administration panel's dark ground (README, screens 05 and 06). */
-  --dark-sidebar: #0b111b;
-  --dark-card: #151c28;
-  --dark-field: #0f1520;
-  --dark-field-border: #344054;
-  --dark-divider: #232d3b;
-  --dark-attention: #3b2a0c;
-  --dark-critical: #45201c;
-  --dark-critical-text: #fecdca;
+  /* The eight dark grounds that stood here for the administration panel (README, screens 05
+     and 06) are gone: the panel is light and names itself in words instead (ADR-159). They
+     were part of this appended block, never of the delivered sheet, so nothing copied from
+     the design system is touched. Left in place they would not have been inert, they would
+     have been the second set of values the next tinted tag or card had to be fitted to, which
+     is the cost that decision was taken to stop paying. */
 }

@@ -105,4 +105,58 @@ describe('guard 10: a shipped price covers its shipped cost', () => {
       );
     expect(thin).toEqual([]);
   });
+
+  it("covers the dearest run a plan allows with that plan's overage rate", async () => {
+    /*
+     * The rate charged once a plan's included transactions are spent.
+     *
+     * It was collected, validated and displayed for months and never charged (ADR-167), so a
+     * figure below cost cost nothing and two seeded plans carry one. The moment it became
+     * real it became a rule 10 breach in live money: a subscriber past their capacity running
+     * the dearest check in their plan is sold it under what we pay for it.
+     *
+     * Measured against the dearest product the plan actually enables, not against the
+     * catalogue: a plan that sells only the address check may price its overage at the
+     * address check.
+     */
+    const { rows: overage } = await db.operatorPool.query<{
+      package_code: string;
+      overage: string;
+      dearest: string;
+      product_code: string;
+    }>(
+      `WITH run_cost AS (
+         SELECT s.product_code, sum(c.unit_cost) AS cost
+           FROM product_steps s
+           LEFT JOIN LATERAL (
+             SELECT unit_cost FROM cost_book
+              WHERE provider = s.provider AND endpoint = s.endpoint AND valid_to IS NULL
+              ORDER BY valid_from DESC LIMIT 1
+           ) c ON true
+          GROUP BY s.product_code
+       ),
+       dearest AS (
+         SELECT DISTINCT ON (pp.package_code)
+                pp.package_code, run_cost.product_code, run_cost.cost
+           FROM package_products pp
+           JOIN run_cost ON run_cost.product_code = pp.product_code
+          WHERE pp.enabled
+          ORDER BY pp.package_code, run_cost.cost DESC
+       )
+       SELECT p.code AS package_code, p.overage_unit_halalas::text AS overage,
+              (dearest.cost * 100)::bigint::text AS dearest, dearest.product_code
+         FROM packages p
+         JOIN dearest ON dearest.package_code = p.code
+        WHERE p.overage_unit_halalas IS NOT NULL
+        ORDER BY p.code`,
+    );
+
+    const underwater = overage
+      .filter((row) => Number(row.overage) < Number(row.dearest))
+      .map(
+        (row) =>
+          `${row.package_code}: overage ${row.overage} under ${row.product_code} at ${row.dearest}`,
+      );
+    expect(underwater).toEqual([]);
+  });
 });

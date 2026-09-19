@@ -72,12 +72,20 @@ export function Developer({
         subtitle={
           view.isSandbox
             ? 'أنت في بيئة الاختبار. النداءات هنا تجيبها بيانات وهمية، ولا تُحاسَب عليها.'
-            : 'أنت في بيئة الإنتاج. للتجربة استخدم مفتاح الاختبار والبيانات الجاهزة أدناه.'
+            : 'أنت في بيئة الإنتاج. بيئة الاختبار مساحة عمل منفصلة، ولها مفاتيحها ورصيدها.'
         }
         action={
-          <Link className="btn btn-primary" href="/settings/developers">
-            إصدار مفتاح
-          </Link>
+          view.isSandbox ? (
+            <Link className="btn btn-primary" href="/settings/developers">
+              إصدار مفتاح
+            </Link>
+          ) : (
+            // One primary per screen, and on a live workspace the useful one is not «issue a
+            // key»: that issues a live key from a screen headed «بيئة الاختبار».
+            <Link className="btn btn-primary" href="/settings/support">
+              اطلب مساحة اختبار
+            </Link>
+          )
         }
       />
 
@@ -91,14 +99,22 @@ export function Developer({
               </bdi>
             </div>
           </div>
-          <div>
-            <span className="muted">المفتاح</span>
+          {/*
+            Only in the sandbox. On a live workspace this printed the prefix of the first
+            LIVE key, on a screen headed «بيئة الاختبار», next to a sentence telling the
+            reader to use the test key below. There is no test key below: keys follow the
+            workspace, and a live workspace can only ever issue live ones (ADR-166).
+          */}
+          {view.isSandbox ? (
             <div>
-              <bdi dir="ltr" className="mono" data-role="key-prefix">
-                {view.keyPrefix ? `${view.keyPrefix}…` : 'لم يُصدَر مفتاح بعد'}
-              </bdi>
+              <span className="muted">المفتاح</span>
+              <div>
+                <bdi dir="ltr" className="mono" data-role="key-prefix">
+                  {view.keyPrefix ? `${view.keyPrefix}…` : 'لم يُصدَر مفتاح بعد'}
+                </bdi>
+              </div>
             </div>
-          </div>
+          ) : null}
           {/*
             The same response shape in both worlds, and one field that differs. An
             integration that cannot tell which world answered is one that will eventually
@@ -135,13 +151,28 @@ export function Developer({
         </Panel>
       ) : null}
 
-      {runAction ? (
+      {runAction && !view.isSandbox ? (
         <Panel title="جرّب الآن" aside="في بيئة الاختبار وحدها" role="playground">
           <div className="panel-body stack">
-            {view.error === 'live' ? (
+            {/*
+              Not a form. On a live workspace its only possible outcome was a refusal, so it
+              read as a broken button rather than as a thing that belongs elsewhere.
+            */}
+            <p className="muted" data-role="playground-elsewhere">
+              التشغيل من هذه الصفحة متاح في بيئة الاختبار وحدها. زر يستطيع إنفاق مال العميل بنقرة
+              فضول ليس ميزة. اطلب مساحة اختبار من الدعم وستصلك مساحة منفصلة بمفاتيحها ورصيدها،
+              وتدخلها بنفس بريدك.
+            </p>
+          </div>
+        </Panel>
+      ) : null}
+
+      {runAction && view.isSandbox ? (
+        <Panel title="جرّب الآن" aside="في بيئة الاختبار وحدها" role="playground">
+          <div className="panel-body stack">
+            {view.error === 'input' ? (
               <p className="sign-in-error" data-role="playground-refusal" role="alert">
-                التشغيل من هذه الصفحة متاح في بيئة الاختبار وحدها. زر يستطيع إنفاق مال العميل بنقرة
-                فضول ليس ميزة.
+                اختر وحدة واكتب مُدخلاً قبل التشغيل.
               </p>
             ) : null}
 

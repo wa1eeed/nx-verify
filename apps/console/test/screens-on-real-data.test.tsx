@@ -244,7 +244,9 @@ describe('the console renders real data', () => {
     expect(dashboard).toContain('data-role="tiles"');
     expect(dashboard).toContain('data-role="recent-runs"');
     expect(queue).toContain('المراجعات');
-    expect(portfolios).toContain('المحافظ');
+    // One word for one object: the screen said «المجموعة» in its nav and header and
+    // «المحفظة» in its table (ADR-167).
+    expect(portfolios).toContain('المجموعات');
     // A group can be made from here now (ADR-147); the button used to be a dead submit.
     expect(portfolios).toContain('data-role="create-portfolio"');
 

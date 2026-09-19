@@ -11,6 +11,9 @@ import { count } from './format';
 /**
  * The modules the platform sells (ADR-137).
  *
+ * Called «وحدات التحقق» on screen. «موديول» was a transliteration sitting in an Arabic
+ * interface, and the subscriber's own screens have always called the same thing a unit.
+ *
  * A module is the unit a subscriber is given or refused: a named group of verification
  * products that fills one section of a customer file. This screen is the catalogue of them,
  * and it exists so the owner can answer three questions without opening a database: what does
@@ -35,13 +38,13 @@ export function OperatorModules({ view }: { view: ModulesView }): ReactElement {
   return (
     <div className="admin-screen" data-role="operator-modules">
       <PageHeader
-        title="الموديولات"
-        subtitle="ما تبيعه المنصة كوحدات: ما يضيفه كل موديول لملف العميل، وما يحتويه من خدمات، وكم مشتركاً خرج عن باقته فيه."
+        title="وحدات التحقق"
+        subtitle="ما تبيعه المنصة كوحدات: ما تضيفه كل وحدة لملف العميل، وما تحتويه من خدمات، وكم مشتركاً خرج عن باقته فيها."
       />
 
       <section className="grid" data-role="module-tiles">
         <article className="stat">
-          <span className="stat-label">موديولات</span>
+          <span className="stat-label">وحدات</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
               {view.modules.length}
@@ -56,7 +59,7 @@ export function OperatorModules({ view }: { view: ModulesView }): ReactElement {
               {services}
             </bdi>
           </strong>
-          <span className="stat-hint">كل خدمة تتبع موديولاً واحداً يُمنح أو يُمنع</span>
+          <span className="stat-hint">كل خدمة تتبع وحدة واحدة تُمنح أو تُمنع</span>
         </article>
         <article className="stat" {...(drifted.length > 2 ? { 'data-tone': 'changed' } : {})}>
           <span className="stat-label">خرجت عن الباقات</span>
@@ -138,7 +141,7 @@ export function OperatorModules({ view }: { view: ModulesView }): ReactElement {
 
           <p className="admin-card-note" data-role="module-decisions">
             {module.switchedOn + module.switchedOff === 0
-              ? 'لم يخرج أحد عن باقته في هذا الموديول.'
+              ? 'لم يخرج أحد عن باقته في هذه الوحدة.'
               : `فُعّل بقرار خاص لـ ${count(module.switchedOn)}، وعُطّل بقرار خاص لـ ${count(module.switchedOff)}.`}
           </p>
         </Card>

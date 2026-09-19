@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { ReactElement } from 'react';
 import type { Page } from '@nx-verify/core';
 import { EmptyState, PageHeader, Panel } from './page-header';
-import { count, riyals } from './format';
+import { count, dateTime, riyals } from './format';
 import { LinkedRows } from './ui/linked-rows';
 import { ListPagination } from './ui/pagination';
 import type { SearchParams } from '../lib/pagination';
@@ -192,7 +192,7 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
                   <th>القرار</th>
                   <th>المصدر</th>
                   <th>الوقت</th>
-                  <th>الرسم (ريال)</th>
+                  <th>الرسم (ر.س)</th>
                 </tr>
               </thead>
               <LinkedRows>
@@ -225,9 +225,14 @@ export function VerificationsLog({ view }: { view: VerificationsLogView }): Reac
                       <DecisionBadge decision={row.decision} />
                     </td>
                     <td className="muted">{TRIGGER_LABELS[row.triggeredBy] ?? row.triggeredBy}</td>
+                    {/*
+                      Riyadh. This column and the timestamp on the same run in the audit trail
+                      are quoted against each other on the telephone, and they used to differ
+                      by three hours.
+                    */}
                     <td>
                       <bdi dir="ltr" className="mono">
-                        {row.createdAt.toISOString().slice(0, 16).replace('T', ' ')}
+                        {dateTime(row.createdAt)}
                       </bdi>
                     </td>
                     <td>

@@ -6,7 +6,7 @@ import { createUser } from '../auth/users.js';
 import { setPassword } from '../auth/passwords.js';
 import { recordOperatorAudit } from '../operators/audit.js';
 import { operatorCan, type OperatorIdentity } from '../operators/accounts.js';
-import { riyalsToHalalas } from './money.js';
+import { platformRevenue, type RevenueBreakdown } from './margin.js';
 import { setTenantPackage } from './package-admin.js';
 import { listSubscriberSummaries, type SubscriberSummary } from './subscribers.js';
 
@@ -57,6 +57,15 @@ export interface SubscribersBoard {
     /** Whole percent against last month; null when last month earned nothing. */
     changePct: number | null;
     lastMonthStart: Date;
+    /**
+     * The same two figures, by the mechanism that produced them.
+     *
+     * The totals above are one number each, and one number cannot be argued with. A month
+     * where the wallets were quiet and two plans renewed is a different month from one where
+     * the wallets carried it, and the screen can only say so if it is handed the parts.
+     */
+    thisMonth: RevenueBreakdown;
+    lastMonth: RevenueBreakdown;
   };
   runsThisMonth: number;
   unconsumedOperations: number;
@@ -104,40 +113,11 @@ function isoDay(at: Date): string {
  * What subscribers paid for in a month, before VAT: runs the wallet was charged for, bundles
  * whose transfer was confirmed, and the month's share of each plan's fee. A run a package or a
  * bundle covered earned nothing that month; its money was counted when it was paid.
+ *
+ * The three sums live in `platformRevenue` (margin.ts) rather than here, because this board and
+ * the panel's own revenue tile were answering the same question with different arithmetic, and
+ * the figure an owner is asked to trust cannot depend on which screen they opened.
  */
-async function revenueOf(operator: Queryable, from: Date, to: Date): Promise<number> {
-  const { rows: runs } = await operator.query<{ billed: string }>(
-    `SELECT coalesce(sum(m.billed_halalas), 0)::text AS billed
-     FROM margin_counters m
-     JOIN tenants t ON t.id = m.tenant_id AND t.sandbox_of IS NULL
-     WHERE m.period_start = $1::date`,
-    [isoDay(from)],
-  );
-  const { rows: bundles } = await operator.query<{ amount: string }>(
-    `SELECT coalesce(sum(r.amount), 0)::text AS amount
-     FROM topup_requests r
-     JOIN tenants t ON t.id = r.tenant_id AND t.sandbox_of IS NULL
-     WHERE r.status = 'CONFIRMED' AND r.bundle_code IS NOT NULL
-       AND r.settled_at >= $1 AND r.settled_at < $2`,
-    [from, to],
-  );
-  const { rows: fees } = await operator.query<{ fees: string }>(
-    `SELECT coalesce(round(sum(
-              CASE WHEN p.billing_model = 'ANNUAL' THEN c.platform_fee_halalas / 12.0
-                   ELSE c.platform_fee_halalas END)), 0)::text AS fees
-     FROM tenant_commitments c
-     JOIN packages p ON p.code = c.package_code
-     JOIN tenants t ON t.id = c.tenant_id AND t.sandbox_of IS NULL AND t.status = 'active'
-     WHERE c.status IN ('active', 'trial')
-       AND coalesce(c.term_start, c.started_at) < $2 AND c.term_end > $1`,
-    [from, to],
-  );
-  return (
-    Number(runs[0]?.billed ?? 0) +
-    riyalsToHalalas(bundles[0]?.amount ?? '0') +
-    Number(fees[0]?.fees ?? 0)
-  );
-}
 
 export async function subscribersBoard(
   operator: Queryable,
@@ -225,10 +205,12 @@ export async function subscribersBoard(
     return { ...facts, standing: standingOf(facts) };
   });
 
-  const [thisMonthHalalas, lastMonthHalalas] = [
-    await revenueOf(operator, thisMonth, monthStart(now, 1)),
-    await revenueOf(operator, lastMonth, thisMonth),
+  const [thisRevenue, lastRevenue] = [
+    await platformRevenue(operator, thisMonth, monthStart(now, 1)),
+    await platformRevenue(operator, lastMonth, thisMonth),
   ];
+  const thisMonthHalalas = thisRevenue.totalHalalas;
+  const lastMonthHalalas = lastRevenue.totalHalalas;
 
   return {
     rows,
@@ -242,6 +224,8 @@ export async function subscribersBoard(
           ? null
           : Math.round(((thisMonthHalalas - lastMonthHalalas) / lastMonthHalalas) * 100),
       lastMonthStart: lastMonth,
+      thisMonth: thisRevenue,
+      lastMonth: lastRevenue,
     },
     runsThisMonth,
     unconsumedOperations: rows

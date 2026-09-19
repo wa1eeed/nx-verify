@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { count, ibanGroups, isoDate, riyals } from './format';
 
 /**
  * The transfers a workspace has asked for, and a way to ask for another.
@@ -45,12 +46,8 @@ export function bundleLabelOf(bundleCode: string | null): string | null {
   }
   const operations = Number(bundleCode.replace(/^BUNDLE_/, ''));
   return Number.isInteger(operations) && operations > 0
-    ? `حزمة ${new Intl.NumberFormat('en-US').format(operations)} عملية`
+    ? `حزمة ${count(operations)} عملية`
     : 'حزمة رصيد';
-}
-
-function riyals(halalas: number): string {
-  return (halalas / 100).toFixed(2);
 }
 
 export function TopUpPanel({
@@ -100,14 +97,16 @@ export function TopUpPanel({
             <bdi dir="ltr" className="mono">
               {riyals(issued.totalWithVatHalalas)}
             </bdi>{' '}
-            ريال.
+            ر.س.
           </span>
           {bankKnown ? (
             <div className="stack" style={{ gap: 0 }} data-role="bank-details">
               <span className="faint">{bank.accountName}</span>
               <span className="faint">{bank.bankName}</span>
-              <bdi dir="ltr" className="mono">
-                {bank.iban}
+              {/* In fours: a run of twenty four characters is where the eye loses its place
+                  copying an account number into a banking app. */}
+              <bdi dir="ltr" className="mono" data-role="bank-iban">
+                {ibanGroups(bank.iban ?? '')}
               </bdi>
             </div>
           ) : (
@@ -194,7 +193,7 @@ export function TopUpPanel({
                   </td>
                   <td>
                     <bdi dir="ltr" className="mono">
-                      {request.requestedAt.toISOString().slice(0, 10)}
+                      {isoDate(request.requestedAt)}
                     </bdi>
                   </td>
                 </tr>

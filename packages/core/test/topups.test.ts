@@ -51,6 +51,20 @@ describe('topping up by transfer', () => {
     expect(request.status).toBe('REQUESTED');
   });
 
+  it('confirms without a tax invoice while the platform is unregistered', async () => {
+    // Demanding one made staff invent a number for an invoice that does not exist: an
+    // unregistered seller issues none (ADR-166).
+    const request = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      requestTopUp(tx, { amountHalalas: 300_00 }),
+    );
+    const settled = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      confirmTopUp(tx, { requestId: request.id, settledBy: 'op-1' }),
+    );
+    expect(settled.status).toBe('CONFIRMED');
+    // Null, not an empty string: the column should not claim an invoice exists.
+    expect(settled.vatInvoiceId).toBeNull();
+  });
+
   it('adds the tax once the platform is registered, and never to what came before', async () => {
     const { setVatPeriod } = await import('../src/billing/vat.js');
 
@@ -198,5 +212,46 @@ describe('topping up by transfer', () => {
     const other = await seedTenant(db.appPool, 'Third Paying Tenant');
     const seen = await withTenant(db.appPool, other.tenantId, (tx) => listTopUpRequests(tx));
     expect(seen).toHaveLength(0);
+  });
+
+  it('demands the tax invoice once the platform is registered', async () => {
+    const { setVatPeriod } = await import('../src/billing/vat.js');
+    await setVatPeriod(
+      db.operatorPool,
+      { id: 'op-vat', displayName: 'مالك', role: 'OWNER' },
+      {
+        effectiveFrom: new Date().toISOString().slice(0, 10),
+        registered: true,
+        rateBps: 1500,
+        registrationNumber: '300000000000003',
+      },
+    );
+
+    const request = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      requestTopUp(tx, { amountHalalas: 300_00 }),
+    );
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) =>
+        confirmTopUp(tx, { requestId: request.id, settledBy: 'op-1' }),
+      ),
+    ).rejects.toMatchObject({ code: 'NX-4001' });
+  });
+
+  it('refuses a taxed confirmation with no invoice at the database too', async () => {
+    // The rule that matters is enforced below the service, as the four eyes rule is: a rule
+    // that lives only in application code is a rule a hotfix removes (ADR-166).
+    const request = await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      requestTopUp(tx, { amountHalalas: 120_00 }),
+    );
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) =>
+        tx.query(
+          `UPDATE topup_requests
+              SET status = 'CONFIRMED', settled_at = now(), settled_by = 'bypass'
+            WHERE tenant_id = $1 AND id = $2`,
+          [tx.tenantId, request.id],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: 'NX006' });
   });
 });

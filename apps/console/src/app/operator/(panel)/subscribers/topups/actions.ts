@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { withTenant } from '@nx-verify/db';
-import { confirmTopUp, rejectTopUp } from '@nx-verify/core';
+import { NxError, confirmTopUp, rejectTopUp } from '@nx-verify/core';
+import { redirect } from 'next/navigation';
 import { getPool } from '../../../../../lib/context';
 import { requireOperatorPermission } from '../../../../../lib/operator';
 
@@ -24,15 +25,35 @@ export async function confirmTopUpAction(formData: FormData): Promise<void> {
   const requestId = String(formData.get('request_id') ?? '');
   const tenantId = String(formData.get('tenant_id') ?? '');
   const vatInvoiceId = String(formData.get('vat_invoice_id') ?? '').trim();
-  if (requestId === '' || tenantId === '' || vatInvoiceId === '') {
-    return;
+  if (requestId === '' || tenantId === '') {
+    back({ refused: 'invalid' });
   }
 
-  await withTenant(getPool(), tenantId, (tx) =>
-    confirmTopUp(tx, { requestId, vatInvoiceId, settledBy: operatorId }),
-  );
+  /*
+   * It used to return silently on an empty invoice number, so the row simply sat there and
+   * nothing on the screen said why. And the invoice is only required while the platform is
+   * registered for VAT: demanding one on an unregistered platform made staff invent a number
+   * for an invoice that does not exist (ADR-166). The core decides which applies; this just
+   * reports the refusal instead of swallowing it.
+   */
+  try {
+    await withTenant(getPool(), tenantId, (tx) =>
+      confirmTopUp(tx, { requestId, vatInvoiceId, settledBy: operatorId }),
+    );
+  } catch (error) {
+    if (error instanceof NxError) {
+      if (error.code === 'NX-4001') {
+        back({ refused: 'invoice' });
+      }
+      if (error.code === 'NX-4091') {
+        back({ refused: 'settled' });
+      }
+    }
+    throw error;
+  }
 
   revalidatePath('/operator/subscribers/topups');
+  back({ saved: 'confirmed' });
 }
 
 export async function rejectTopUpAction(formData: FormData): Promise<void> {
@@ -41,7 +62,7 @@ export async function rejectTopUpAction(formData: FormData): Promise<void> {
   const requestId = String(formData.get('request_id') ?? '');
   const tenantId = String(formData.get('tenant_id') ?? '');
   if (requestId === '' || tenantId === '') {
-    return;
+    back({ refused: 'invalid' });
   }
 
   await withTenant(getPool(), tenantId, (tx) =>
@@ -49,4 +70,38 @@ export async function rejectTopUpAction(formData: FormData): Promise<void> {
   );
 
   revalidatePath('/operator/subscribers/topups');
+  back({ saved: 'rejected' });
+}
+
+function back(params: Record<string, string>): never {
+  redirect(`/operator/subscribers/topups?${new URLSearchParams(params).toString()}`);
+}
+
+/** What the last settlement did, or why it was refused. */
+export function topUpNoticeAr(params: {
+  refused?: string | undefined;
+  saved?: string | undefined;
+}): { tone: 'done' | 'refused'; text: string } | null {
+  switch (params.refused) {
+    case undefined:
+      break;
+    case 'invoice':
+      return {
+        tone: 'refused',
+        text: 'لم يُؤكَّد: المنصة مسجّلة في الضريبة، والتأكيد يحتاج رقم الفاتورة الضريبية.',
+      };
+    case 'settled':
+      return { tone: 'refused', text: 'هذا الطلب لم يعد بانتظار التأكيد. حدّث الصفحة.' };
+    default:
+      return { tone: 'refused', text: 'لم يُنفَّذ الإجراء. حدّث الصفحة وحاول مرة أخرى.' };
+  }
+
+  switch (params.saved) {
+    case 'confirmed':
+      return { tone: 'done', text: 'أُكّد التحويل وأُضيف الرصيد إلى محفظة المشترك.' };
+    case 'rejected':
+      return { tone: 'done', text: 'سُجّل أن التحويل لم يصل. لم يتغير رصيد المشترك.' };
+    default:
+      return null;
+  }
 }

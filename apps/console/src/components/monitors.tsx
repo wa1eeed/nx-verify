@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { EmptyState, PageHeader, Panel } from './page-header';
+import { Input } from './ui/input';
 import { SubmitButton } from './ui/submit-button';
 import { fieldLabel } from './field-card';
 import { isoDate, riyals } from './format';
@@ -51,6 +52,12 @@ const OUTCOMES: Record<string, { tone: 'done' | 'refused'; text: string }> = {
     tone: 'refused',
     text: 'هذه توقفت لنفاد سقفها لا بإيقاف. ارفع السقف وتعود وحدها.',
   },
+  raised: { tone: 'done', text: 'رُفع السقف وعادت المراقبة وحدها، وتفحص أول مرة الآن.' },
+  cap_too_low: {
+    tone: 'refused',
+    text: 'السقف الجديد لا يتجاوز ما أُنفق في هذا الشهر، فبقيت المراقبة متوقفة. اكتب رقماً أعلى.',
+  },
+  cap_changed: { tone: 'done', text: 'حُفظ السقف الجديد.' },
   failed: { tone: 'refused', text: 'لم يُنفَّذ الإجراء. حاول مرة أخرى.' },
 };
 
@@ -71,11 +78,13 @@ export function Monitors({
   outcome,
   pauseAction,
   resumeAction,
+  raiseBudgetAction,
 }: {
   rows: MonitorRowView[];
   outcome?: string | undefined;
   pauseAction?: Action | undefined;
   resumeAction?: Action | undefined;
+  raiseBudgetAction?: Action | undefined;
 }): ReactElement {
   const notice = monitorNotice(outcome);
   const spending = rows
@@ -100,9 +109,18 @@ export function Monitors({
         </p>
       )}
 
+      {/*
+        The period had no name on this screen, and «الفترة» is not one: the sweep measures
+        spending against the calendar month and zeroes it on the first of the next one, and
+        it does that only for monitors that are still running, so a stopped one does not
+        come back with the new month. A subscriber waiting for the first of the month to get
+        their monitoring back waits forever.
+      */}
       <p className="card muted" data-role="budget-notice">
-        كل مراقبة تُجري تحققاً حقيقياً وتُحاسَب بسعره. السقف لكل فترة: حين ينفد تتوقف المراقبة من
-        نفسها ولا تتجاوزه، وتظهر هنا موقوفةً بسببه.
+        كل مراقبة تُجري تحققاً حقيقياً وتُحاسَب بسعره. السقف لشهر ميلادي واحد: ما أُنفق يعود إلى
+        الصفر مع أول الشهر التالي ما دامت المراقبة تعمل. وقبل كل فحص تتأكد المنصة أن المتبقي يغطي
+        سعر التحقق كاملاً، وإلا توقفت ولم تتجاوز السقف. والتي توقفت لنفاد سقفها لا تعود مع الشهر
+        الجديد وحدها: ارفع سقفها هنا لتعود.
         {spending === 0 ? null : (
           <>
             {' '}
@@ -110,7 +128,7 @@ export function Monitors({
             <bdi dir="ltr" className="mono">
               {riyals(spending)}
             </bdi>{' '}
-            ريال في الفترة.
+            ريال في الشهر.
           </>
         )}
       </p>
@@ -126,7 +144,7 @@ export function Monitors({
                   <th>العميل</th>
                   <th>ما يُتابَع</th>
                   <th>الوتيرة</th>
-                  <th>الإنفاق من السقف</th>
+                  <th>الإنفاق من سقف الشهر</th>
                   <th>الحالة</th>
                   <th />
                 </tr>
@@ -191,9 +209,39 @@ export function Monitors({
                             شغّل
                           </SubmitButton>
                         </form>
+                      ) : row.status === 'budget_exhausted' && raiseBudgetAction !== undefined ? (
+                        // The cap is the control, and until now it was a sentence: this cell
+                        // said «ارفع السقف» and no screen in the platform could raise one, so
+                        // a monitor that reached its ceiling was watched by nobody for good.
+                        <form
+                          action={raiseBudgetAction}
+                          className="row"
+                          style={{ gap: 'var(--s-2)', flexWrap: 'wrap' }}
+                        >
+                          <input type="hidden" name="monitor_id" value={row.id} />
+                          <Input
+                            name="budget_cap"
+                            id={`budget-cap-${row.id}`}
+                            aria-label="سقف الشهر بالريال"
+                            // Plain digits and a dot: the grouped form a person reads carries
+                            // a comma, and a comma is not a number when it is posted back.
+                            defaultValue={(row.budgetCap / 100).toFixed(2)}
+                            inputMode="decimal"
+                            size={7}
+                            required
+                            ltr
+                          />
+                          <SubmitButton
+                            variant="ghost"
+                            data-role="raise-monitor-budget"
+                            pendingLabel="جارٍ الرفع"
+                          >
+                            ارفع السقف
+                          </SubmitButton>
+                        </form>
                       ) : (
-                        // Nothing to press on an exhausted one: pressing would restart it
-                        // and it would stop again on the next sweep. The cap is the control.
+                        // Read only: a caller that passes no action, such as a rendering of
+                        // this table for somebody who may not manage monitoring.
                         <span className="faint">ارفع السقف</span>
                       )}
                     </td>

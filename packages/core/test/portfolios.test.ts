@@ -232,6 +232,64 @@ describe('portfolios carry the policy', () => {
     expect(rows[0]?.consent_ref).toBe(`portfolio:${portfolioId}`);
   });
 
+  it('reports the product and the ruleset a portfolio carries', async () => {
+    const rulesetId = await withTenant(db.appPool, tenant.tenantId, async (tx) => {
+      const { rows } = await tx.query<{ id: string }>(
+        `INSERT INTO decision_rulesets (tenant_id, code, name_ar, name_en)
+         VALUES ($1, 'ONBOARDING_FORK', 'قواعد التأهيل', 'Onboarding rules')
+         RETURNING id`,
+        [tenant.tenantId],
+      );
+      return rows[0]?.id ?? '';
+    });
+
+    await withTenant(db.appPool, tenant.tenantId, (tx) =>
+      createPortfolio(tx, {
+        code: 'ONBOARDING',
+        nameAr: 'مجموعة التأهيل',
+        nameEn: 'Onboarding',
+        defaultProductCode: 'KYB_COMPLETE',
+        decisionRuleset: rulesetId,
+      }),
+    );
+
+    const portfolios = await withTenant(db.appPool, tenant.tenantId, (tx) => listPortfolios(tx));
+    const created = portfolios.find((entry) => entry.code === 'ONBOARDING');
+
+    // The groups screen printed «قواعد المنتج» for every row because nothing could give a
+    // group a ruleset. Both halves of that column come from here.
+    expect(created?.decisionRuleset).toBe(rulesetId);
+    expect(created?.defaultProductCode).toBe('KYB_COMPLETE');
+  });
+
+  it('refuses a watching portfolio with no product to watch with', async () => {
+    // The screen offered «watch the members», a cadence and a ceiling, and a portfolio
+    // saved without a product then created no monitor for anyone who joined it. It was
+    // accepted, it looked set, and it watched nothing.
+    await expect(
+      withTenant(db.appPool, tenant.tenantId, (tx) =>
+        createPortfolio(tx, {
+          code: 'NO_PRODUCT',
+          nameAr: 'بلا منتج',
+          nameEn: 'No product',
+          monitorByDefault: true,
+          monitorCadence: 'WEEKLY',
+          monitorBudget: 300_00,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(NxError);
+
+    const portfolios = await withTenant(db.appPool, tenant.tenantId, (tx) => listPortfolios(tx));
+    expect(portfolios.some((entry) => entry.code === 'NO_PRODUCT')).toBe(false);
+  });
+
+  it('carries no alert on enter, because nothing ever read it', async () => {
+    const portfolios = await withTenant(db.appPool, tenant.tenantId, (tx) => listPortfolios(tx));
+    // The column is written by nobody now. It was set from a checkbox, read by no query,
+    // and the subscriber who ticked it was never told anything.
+    expect(portfolios.every((entry) => !('alertOnEnter' in entry))).toBe(true);
+  });
+
   it('refuses a watching portfolio with no budget', async () => {
     await expect(
       withTenant(db.appPool, tenant.tenantId, (tx) =>

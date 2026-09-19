@@ -10,9 +10,9 @@
  * Layers. The utilities live in a cascade layer and the existing sheets do not, so where a
  * class of ours and a utility meet, ours wins, as it did before Tailwind was here.
  *
- * No colour of its own. Every shadcn variable points at an Organic token, under the portal's
- * light ground and again under the panel's dark one, so a component takes the ground it sits
- * on and the palette stays the one in organic.css.
+ * No colour of its own. Every shadcn variable points at an Organic token, declared once,
+ * because there is one ground: the panel is light too and says which surface it is in words
+ * (ADR-159). The palette stays the one in organic.css.
  */
 
 @layer theme, base, components, utilities;
@@ -22,7 +22,14 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-/* The panel's dark ground is an attribute, not a class. */
+/*
+ * Kept although no surface is dark any more (ADR-159), because deleting it does not disable
+ * the `dark:` variant, it hands it back to Tailwind: the built-in `dark` is
+ * `prefers-color-scheme`, and the shadcn components we vendored carry `dark:` utilities we
+ * did not write (button.tsx alone has seven). Unbound, every visitor whose system is in dark
+ * mode would get those fills on the light panel. Bound to an attribute nothing sets, they
+ * never match, and a dark surface stays something a screen would have to ask for by name.
+ */
 @custom-variant dark (&:is([data-theme='dark'] *));
 
 @theme inline {
@@ -71,13 +78,7 @@
   --radius-4xl: var(--radius-frame);
 }
 
-/*
- * Declared on the dark ground as well as the root: a custom property that reads another is
- * resolved where it is declared, so a variable set once at the root would keep the light
- * values inside the panel.
- */
-:root,
-[data-theme='dark'] {
+:root {
   --background: var(--color-bg);
   --foreground: var(--color-text);
   --card: var(--color-surface);
@@ -109,26 +110,6 @@
   --sidebar-accent-foreground: var(--color-accent-800);
   --sidebar-border: var(--color-divider);
   --sidebar-ring: var(--color-accent);
-}
-
-[data-theme='dark'] {
-  --popover: var(--dark-card);
-  --primary-foreground: var(--dark-sidebar);
-  --secondary: var(--dark-divider);
-  --secondary-foreground: var(--color-neutral-100);
-  --muted: var(--dark-divider);
-  --muted-foreground: var(--color-neutral-400);
-  --accent: var(--color-accent-900);
-  --accent-foreground: var(--color-accent-200);
-  --destructive: var(--color-red-300);
-  --border: var(--dark-divider);
-  --input: var(--dark-field-border);
-  --sidebar: var(--dark-sidebar);
-  --sidebar-foreground: var(--color-neutral-100);
-  --sidebar-primary-foreground: var(--dark-sidebar);
-  --sidebar-accent: var(--dark-card);
-  --sidebar-accent-foreground: var(--color-neutral-100);
-  --sidebar-border: var(--dark-divider);
 }
 
 /* What the shadcn components need from a reset, given to them and to nothing else. */

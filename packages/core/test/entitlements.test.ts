@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../../../packages/db/src/client.js';
 import { verify } from '../src/verification/verify.js';
 import {
+  chargedUnitPrice,
   computeTermExtras,
   getCommitment,
   listEntitlements,
@@ -343,5 +344,154 @@ describe('packages and entitlement', () => {
     );
     // RLS, as everywhere: a subscriber sees one commitment row, their own.
     expect(theirs.rows[0]?.count).toBe('1');
+  });
+
+  /**
+   * The plan overage price, which was collected, validated against cost, shown on the plan
+   * card, and never charged: an excess run was billed at the included rate, so the figure
+   * the owner typed into the panel did not exist commercially.
+   *
+   * Declared last and on a tenant of its own, because these cases move the capacity and the
+   * catalogue, and the tests above read both.
+   */
+  describe('the price of a run past the committed capacity', () => {
+    let spender: SeededTenant;
+    // The list price of the address check for this tenant, and the plan's overage rate.
+    const LIST = 8_00;
+    const OVERAGE = 20_00;
+
+    const priceOf = async (productCode: string): Promise<number> => {
+      const entitlement = await withTenant(db.appPool, spender.tenantId, (tx) =>
+        resolveEntitlement(tx, productCode),
+      );
+      return chargedUnitPrice(entitlement, LIST);
+    };
+
+    const setCapacity = (included: number, used: number) =>
+      db.operatorPool.query(
+        `UPDATE tenant_commitments SET included_transactions = $2, transactions_used = $3
+         WHERE tenant_id = $1`,
+        [spender.tenantId, included, used],
+      );
+
+    beforeAll(async () => {
+      spender = await seedTenant(db.appPool, 'Overage Tenant');
+      // Essential prices no product of its own, so the list price applies inside the
+      // capacity and the plan overage rate is the only other figure in play.
+      await preparePricedTenant(db, spender.tenantId, { packageCode: 'ESSENTIAL' });
+      await db.operatorPool.query(
+        `UPDATE packages SET overage_allowed = true, overage_unit_halalas = $1
+         WHERE code = 'ESSENTIAL'`,
+        [OVERAGE],
+      );
+    });
+
+    it('charges the ordinary price while the capacity still has room', async () => {
+      await setCapacity(3_000, 10);
+
+      const entitlement = await withTenant(db.appPool, spender.tenantId, (tx) =>
+        resolveEntitlement(tx, 'ADDRESS_ONLY'),
+      );
+      expect(entitlement.allowed).toBe(true);
+      // Inside the capacity the overage rate is not a price at all, and saying so with a
+      // null is what keeps it out of the charge.
+      expect(entitlement.overageUnitPriceHalalas).toBeNull();
+      expect(chargedUnitPrice(entitlement, LIST)).toBe(LIST);
+
+      const result = await run(spender.tenantId, 'ADDRESS_ONLY', 'ovr-within', '7001291001');
+      expect(result.billing.amount).toBe(LIST);
+    });
+
+    it('charges the plan overage rate once the capacity is spent', async () => {
+      await setCapacity(3_000, 3_000);
+
+      const entitlement = await withTenant(db.appPool, spender.tenantId, (tx) =>
+        resolveEntitlement(tx, 'ADDRESS_ONLY'),
+      );
+      expect(entitlement.allowed).toBe(true);
+      expect(entitlement.capacityRemaining).toBe(0);
+      expect(entitlement.overageUnitPriceHalalas).toBe(OVERAGE);
+      expect(chargedUnitPrice(entitlement, LIST)).toBe(OVERAGE);
+
+      // And the money moves, which is the whole point: the wallet pays past the capacity,
+      // so the figure on the plan card is the figure that leaves the balance.
+      const before = await withTenant(db.appPool, spender.tenantId, (tx) => getWallet(tx));
+      const result = await run(spender.tenantId, 'ADDRESS_ONLY', 'ovr-past', '7001291002');
+      expect(result.billing.amount).toBe(OVERAGE);
+      const after = await withTenant(db.appPool, spender.tenantId, (tx) => getWallet(tx));
+      expect(before.balance - after.balance).toBe(OVERAGE);
+    });
+
+    it('lets the plan overage rate outrank the plan per product price', async () => {
+      // A plan that prices this product for everyone on the plan. That price is what an
+      // included transaction costs, and the commitment that bought it is spent.
+      await db.operatorPool.query(
+        `UPDATE package_products SET unit_price_halalas = $1
+         WHERE package_code = 'ESSENTIAL' AND product_code = 'ADDRESS_ONLY'`,
+        [4_00],
+      );
+
+      await setCapacity(3_000, 20);
+      expect(await priceOf('ADDRESS_ONLY')).toBe(4_00);
+
+      await setCapacity(3_000, 3_000);
+      expect(await priceOf('ADDRESS_ONLY')).toBe(OVERAGE);
+
+      const result = await run(spender.tenantId, 'ADDRESS_ONLY', 'ovr-plan-price', '7001291003');
+      expect(result.billing.amount).toBe(OVERAGE);
+
+      await db.operatorPool.query(
+        `UPDATE package_products SET unit_price_halalas = NULL
+         WHERE package_code = 'ESSENTIAL' AND product_code = 'ADDRESS_ONLY'`,
+      );
+    });
+
+    it('lets a price written for this subscriber outrank the plan overage rate', async () => {
+      await db.operatorPool.query(
+        `INSERT INTO tenant_product_overrides (tenant_id, product_code, enabled, unit_price_halalas)
+         VALUES ($1, 'ADDRESS_ONLY', true, 250)
+         ON CONFLICT (tenant_id, product_code) DO UPDATE SET enabled = true,
+                                                             unit_price_halalas = 250`,
+        [spender.tenantId],
+      );
+
+      await setCapacity(3_000, 3_000);
+      const entitlement = await withTenant(db.appPool, spender.tenantId, (tx) =>
+        resolveEntitlement(tx, 'ADDRESS_ONLY'),
+      );
+      // The negotiated line was agreed with this plan in view, so it is not overtaken by a
+      // plan figure. It is dropped here rather than compared later, so there is one place
+      // the order is decided.
+      expect(entitlement.overageUnitPriceHalalas).toBeNull();
+      expect(entitlement.unitPriceHalalas).toBe(250);
+      expect(chargedUnitPrice(entitlement, LIST)).toBe(250);
+
+      const result = await run(spender.tenantId, 'ADDRESS_ONLY', 'ovr-negotiated', '7001291004');
+      expect(result.billing.amount).toBe(250);
+
+      await db.operatorPool.query(
+        `DELETE FROM tenant_product_overrides WHERE tenant_id = $1 AND product_code = 'ADDRESS_ONLY'`,
+        [spender.tenantId],
+      );
+    });
+
+    it('names no overage price on a plan that refuses to go past its capacity', async () => {
+      await db.operatorPool.query(
+        `UPDATE packages SET overage_allowed = false WHERE code = 'ESSENTIAL'`,
+      );
+      await setCapacity(3_000, 3_000);
+
+      const entitlement = await withTenant(db.appPool, spender.tenantId, (tx) =>
+        resolveEntitlement(tx, 'ADDRESS_ONLY'),
+      );
+      // Refused, so there is nothing to price. A screen that showed the overage rate here
+      // would be quoting for a run this plan will not run.
+      expect(entitlement.refusal).toBe('CAPACITY_EXHAUSTED');
+      expect(entitlement.overageUnitPriceHalalas).toBeNull();
+
+      await db.operatorPool.query(
+        `UPDATE packages SET overage_allowed = true WHERE code = 'ESSENTIAL'`,
+      );
+    });
   });
 });

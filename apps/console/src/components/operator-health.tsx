@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { PageHeader, Panel } from './page-header';
+import { count, riyals } from './format';
 
 /**
  * The screen support opens while the customer is still on the telephone.
@@ -26,10 +27,6 @@ export interface HealthRowView {
   unhealthyProviders: string[];
 }
 
-function riyals(halalas: number): string {
-  return (halalas / 100).toFixed(2);
-}
-
 export function OperatorHealth({
   rows,
   windowHours,
@@ -53,7 +50,7 @@ export function OperatorHealth({
           <span className="stat-label">مشتركون يرون فشلاً</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {failing.length}
+              {count(failing.length)}
             </bdi>
           </strong>
         </article>
@@ -61,7 +58,7 @@ export function OperatorHealth({
           <span className="stat-label">أرصدة منخفضة</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {lowBalance.length}
+              {count(lowBalance.length)}
             </bdi>
           </strong>
           <span className="stat-hint">توشك أن توقف العمل</span>
@@ -70,7 +67,7 @@ export function OperatorHealth({
           <span className="stat-label">مزودون غير أصحاء</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {degraded.length}
+              {count(degraded.length)}
             </bdi>
           </strong>
           <span className="stat-hint">عند مشتركين مرتبطين بهم</span>
@@ -86,7 +83,7 @@ export function OperatorHealth({
                 <th>نداءات</th>
                 <th>فشل</th>
                 <th>أبطأ نداء</th>
-                <th>الرصيد</th>
+                <th>الرصيد (ر.س)</th>
                 <th>المزودون</th>
               </tr>
             </thead>
@@ -108,7 +105,7 @@ export function OperatorHealth({
                   </td>
                   <td>
                     <bdi dir="ltr" className="mono">
-                      {row.calls}
+                      {count(row.calls)}
                     </bdi>
                   </td>
                   <td>
@@ -117,12 +114,12 @@ export function OperatorHealth({
                       className="mono"
                       style={row.failures > 0 ? { color: 'var(--critical-fg)' } : undefined}
                     >
-                      {row.failures}
+                      {count(row.failures)}
                     </bdi>
                   </td>
                   <td>
                     <bdi dir="ltr" className="mono">
-                      {row.slowestMs}
+                      {count(row.slowestMs)}
                     </bdi>
                   </td>
                   <td>

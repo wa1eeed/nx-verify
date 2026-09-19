@@ -42,7 +42,7 @@ export function SubscriberModules({
     <Card variant="flush" role="subscriber-modules" labelledBy="subscriber-modules-title">
       <div className="admin-card-head">
         <h2 className="card-title admin-card-title" id="subscriber-modules-title">
-          موديولات التحقق
+          وحدات التحقق
         </h2>
         <div className="admin-head-actions">
           <Tag tone="accent-2">
@@ -52,15 +52,15 @@ export function SubscriberModules({
       </div>
 
       <p className="admin-card-note">
-        الموديول المطفأ يختفي قسمه من ملفات عملاء هذا المشترك، ولا يُحسب ناقصاً عليه، وتُرفض منتجاته
+        الوحدة المطفأة يختفي قسمها من ملفات عملاء هذا المشترك، ولا يُحسب ناقصاً عليه، وتُرفض منتجاته
         على الواجهة البرمجية كذلك. وما لم يُقرَّر له شيء يرثه من باقته ومن الافتراضي.
       </p>
 
       <div className="admin-table">
-        <Table label="موديولات هذا المشترك">
+        <Table label="وحدات هذا المشترك">
           <thead>
             <tr>
-              <Th>الموديول</Th>
+              <Th>الوحدة</Th>
               <Th>الحالة</Th>
               <Th>مصدر القرار</Th>
               <Th>

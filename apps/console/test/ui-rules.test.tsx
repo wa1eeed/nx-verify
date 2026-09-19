@@ -416,7 +416,9 @@ describe('the phase two screens keep the same rules', () => {
     // A portfolio that does not show its policy is a folder.
     expect(html).toContain('data-role="monitoring"');
     expect(html).toContain('300.00');
-    expect(html).toContain('خاصة بالمحفظة');
+    // Named by its ruleset now, not by a word that could only ever say «قواعد المنتج»: the
+    // column had no way to be anything else until a portfolio could be given one (ADR-167).
+    expect(html).toContain('قواعد خاصة بالمجموعة');
     expect(html).toContain('تفوز المدة الأقصر');
   });
 
@@ -1092,11 +1094,14 @@ describe('putting money in', () => {
         bank={{ accountName: 'شركة', bankName: 'بنك', iban: 'SA0000000000000000000000' }}
       />,
     );
-    // Showing the figure without VAT beside bank details produces transfers that are
-    // fifteen percent short, every time.
-    expect(html).toContain('1150.00');
+    // Showing an amount short of what is actually due, beside bank details, produces
+    // transfers that are short by exactly that much, every time. Grouped, because the panel
+    // stopped carrying its own ungrouped copy of the formatter (ADR-167).
+    expect(html).toContain('1,150.00');
     expect(html).toContain('TOP-2026-000004');
-    expect(html).toContain('SA0000000000000000000000');
+    // In fours, as the design rules require and as it is read off a screen into a banking
+    // app. It used to print as one unbroken run of twenty four characters (ADR-167).
+    expect(html).toContain('SA00 0000 0000 0000 0000 0000');
   });
 
   it('says so when the bank details are not configured', () => {
@@ -1774,8 +1779,11 @@ describe('the developer screen', () => {
         runAction="/run"
       />,
     );
-    expect(refused).toContain('data-role="playground-refusal"');
+    // On a live workspace the form is not rendered at all: its only possible outcome was a
+    // refusal, so it read as a broken button rather than as a thing that lives elsewhere.
+    expect(refused).toContain('data-role="playground-elsewhere"');
     expect(refused).toContain('ليس ميزة');
+    expect(refused).not.toContain('data-role="run-playground"');
   });
 
   it('shows the envelope an integration will receive, not an illustration of it', () => {

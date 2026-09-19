@@ -15,6 +15,12 @@ import { halalasToDecimalString, riyalsToHalalas } from '../billing/money.js';
  * Adding an entity to a portfolio that monitors its members creates the monitor then and
  * there, recording who added it. Monitoring is never silent: the act of adding is the
  * consent, and it has a name attached to it.
+ *
+ * `alert_on_enter` is not in this file any more. The column exists and nothing in the
+ * platform has ever read it, so a portfolio created with it set alerted nobody: the
+ * subscriber ticked «tell me when a customer enters» and was told nothing, for ever. A
+ * promise kept by no code is worse than an absent feature, so it is written no longer.
+ * When there is something that reads it, it comes back with the reader.
  */
 
 export interface PortfolioPolicy {
@@ -24,7 +30,6 @@ export interface PortfolioPolicy {
   monitorCadence?: Cadence | null;
   /** In halalas. */
   monitorBudget?: number | null;
-  alertOnEnter?: boolean;
 }
 
 export interface CreatePortfolioInput extends PortfolioPolicy {
@@ -43,7 +48,6 @@ export interface Portfolio {
   monitorByDefault: boolean;
   monitorCadence: Cadence | null;
   monitorBudget: number | null;
-  alertOnEnter: boolean;
   memberCount: number;
 }
 
@@ -59,12 +63,23 @@ export async function createPortfolio(
     });
   }
 
+  if (input.monitorByDefault && !input.defaultProductCode) {
+    // A monitor is a repeat of one product, so `addToPortfolio` below could not create one
+    // without knowing which. It used to return quietly instead, and the portfolio that was
+    // accepted as watching watched nothing: a cadence, a ceiling, and no monitor, for as
+    // long as nobody thought to check. Refusing here is the only place that can still say
+    // why.
+    throw new NxError('NX-4001', {
+      detail: 'a portfolio that monitors its members needs a product to re-run',
+    });
+  }
+
   const { rows } = await tx
     .query<{ id: string }>(
       `INSERT INTO portfolios (tenant_id, code, name_ar, name_en, default_product_code,
                              decision_ruleset, monitor_by_default, monitor_cadence,
-                             monitor_budget_sar, alert_on_enter)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10)
+                             monitor_budget_sar)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric)
      RETURNING id`,
       [
         tx.tenantId,
@@ -78,7 +93,6 @@ export async function createPortfolio(
         input.monitorBudget === null || input.monitorBudget === undefined
           ? null
           : halalasToDecimalString(input.monitorBudget),
-        input.alertOnEnter ?? false,
       ],
     )
     .catch((error: unknown) => {
@@ -111,11 +125,10 @@ export async function listPortfolios(tx: TenantTransaction): Promise<Portfolio[]
     monitor_by_default: boolean;
     monitor_cadence: Cadence | null;
     monitor_budget_sar: string | null;
-    alert_on_enter: boolean;
     member_count: string;
   }>(
     `SELECT p.id, p.code, p.name_ar, p.name_en, p.default_product_code, p.decision_ruleset,
-            p.monitor_by_default, p.monitor_cadence, p.monitor_budget_sar, p.alert_on_enter,
+            p.monitor_by_default, p.monitor_cadence, p.monitor_budget_sar,
             count(m.entity_id)::text AS member_count
      FROM portfolios p
      LEFT JOIN portfolio_members m ON m.tenant_id = p.tenant_id AND m.portfolio_id = p.id
@@ -135,7 +148,6 @@ export async function listPortfolios(tx: TenantTransaction): Promise<Portfolio[]
     monitorByDefault: row.monitor_by_default,
     monitorCadence: row.monitor_cadence,
     monitorBudget: row.monitor_budget_sar === null ? null : riyalsToHalalas(row.monitor_budget_sar),
-    alertOnEnter: row.alert_on_enter,
     memberCount: Number(row.member_count),
   }));
 }

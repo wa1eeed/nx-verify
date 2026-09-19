@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { MINIMUM_MARGIN_PCT } from '@nx-verify/core';
 import { Card } from './ui/card';
 import { Ltr } from './ui/ltr';
 import { Notice } from './ui/notice';
@@ -19,6 +20,12 @@ import { dateAr, riyals, timeOfDay } from './format';
  *
  * The third is the one that cannot be answered by a settings page. It is read from a counter
  * written as each call is placed, so it is what happened rather than what was configured.
+ *
+ * Every percentage here is the margin of a price against a provider's bill, and the screen says
+ * so in words. It had its own private idea of a healthy margin (green at 40, amber at 15) while
+ * the platform's rule is MINIMUM_MARGIN_PCT, so a margin the pricing screen accepted was drawn
+ * as a warning here and a margin it called thin was drawn the same as one that is fine. One
+ * rule, named, imported.
  */
 
 export interface RoutingOfferView {
@@ -63,11 +70,26 @@ const HEALTH_LABELS: Record<string, string> = {
   unknown: 'لم يُختبر',
 };
 
+/**
+ * Green at the platform's minimum, amber under it, red under cost.
+ *
+ * The two boundaries that exist elsewhere rather than two invented here: MINIMUM_MARGIN_PCT is
+ * what the pricing screen calls thin, and zero is where `setListPrice` refuses the price
+ * outright.
+ */
 function marginTone(margin: number | null): 'accent-2' | 'accent' | 'critical' | 'neutral' {
   if (margin === null) {
     return 'neutral';
   }
-  return margin >= 40 ? 'accent-2' : margin >= 15 ? 'accent' : 'critical';
+  return margin >= MINIMUM_MARGIN_PCT ? 'accent-2' : margin >= 0 ? 'accent' : 'critical';
+}
+
+/** Said beside the number, because a colour is not a sentence and does not print. */
+function marginWordsAr(margin: number | null): string {
+  if (margin === null) {
+    return '';
+  }
+  return margin >= MINIMUM_MARGIN_PCT ? '' : margin >= 0 ? ' · رقيق' : ' · تحت التكلفة';
 }
 
 export function OperatorRouting({
@@ -91,6 +113,30 @@ export function OperatorRouting({
           {view.notice.text}
         </Notice>
       )}
+
+      {/*
+        Before the tables, not in a tooltip. The same word «الهامش» names four different
+        calculations across this panel, and a reader who has to guess which one is in front of
+        them cannot act on any of them.
+      */}
+      <Card role="margin-basis" labelledBy="margin-basis-title">
+        <h2 className="card-title admin-card-title" id="margin-basis-title">
+          ما تعنيه نسبة الهامش هنا
+        </h2>
+        <p className="admin-card-note" data-role="margin-formula">
+          لكل مزوّد: سعر بيعنا للعملية ناقص ما يفوتره هو للنداء الواحد شاملاً ضريبته، مقسوماً على
+          سعر بيعنا. هذه تكلفة النداء كما ندفعها نقداً، وهي نفسها التي يُرفض السعر تحتها في
+          «الأسعار والمنتجات».
+        </p>
+        <p className="admin-card-note" data-role="margin-thresholds">
+          أخضر عند <Ltr>{MINIMUM_MARGIN_PCT}%</Ltr> فأعلى، وهو أدنى هامش تعتمده المنصة. وكهرماني
+          تحته: مسموح ويُقال. وأحمر تحت الصفر: سعرنا أقل مما يأخذه هذا المزوّد.
+        </p>
+        <p className="admin-card-note" data-role="margin-scope">
+          نسبة على السعر لا على ما حُصّل: العمليات التي غطّتها باقة أو حزمة ليست فيها، ورسوم
+          الباقات وبيع الحزم ليست فيها. الإيراد الفعلي في «الهامش» و«المشتركون والأرصدة».
+        </p>
+      </Card>
 
       {view.services.map((service) => (
         <Card
@@ -116,8 +162,10 @@ export function OperatorRouting({
                     service.servedBy}
                 </Tag>
               )}
-              <Tag tone={marginTone(service.marginPct)}>
-                {service.marginPct === null ? 'الهامش غير معروف' : `الهامش ${service.marginPct}%`}
+              <Tag tone={marginTone(service.marginPct)} role="service-margin">
+                {service.marginPct === null
+                  ? 'الهامش غير معروف'
+                  : `الهامش على تكلفة المزوّد ${service.marginPct}%${marginWordsAr(service.marginPct)}`}
               </Tag>
             </div>
           </div>
@@ -132,6 +180,8 @@ export function OperatorRouting({
             {' · '}
             تكلفتها عند المزوّد الذي يخدمها{' '}
             {service.costHalalas === null ? 'غير معروفة' : <Ltr>{riyals(service.costHalalas)}</Ltr>}
+            {' · '}
+            الفرق بينهما هو الهامش أعلاه، قبل أي ضريبة على سعرنا
           </p>
 
           <div className="admin-table">
@@ -140,7 +190,7 @@ export function OperatorRouting({
                 <tr>
                   <Th>المزوّد</Th>
                   <Th>تكلفة العملية</Th>
-                  <Th>الهامش عنده</Th>
+                  <Th>الهامش على سعرنا</Th>
                   <Th>حالته</Th>
                   <Th>الترتيب</Th>
                   <Th>
@@ -177,7 +227,9 @@ export function OperatorRouting({
                         {margin === null ? (
                           <span className="muted">·</span>
                         ) : (
-                          <Tag tone={marginTone(margin)}>{margin}%</Tag>
+                          <Tag tone={marginTone(margin)} role="offer-margin">
+                            {margin}%{marginWordsAr(margin)}
+                          </Tag>
                         )}
                       </td>
                       <td>{HEALTH_LABELS[offer.health] ?? offer.health}</td>

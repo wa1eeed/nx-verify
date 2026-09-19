@@ -17,11 +17,20 @@ import { SECTION_TAGS, monthsAr } from '../admin-pricing/model';
  * environment, never by the name of the source (rule 5).
  */
 
+/**
+ * A tax period is a pricing decision and a route is part of the connection, so each belongs
+ * under the tab a reader would look in. Left out, they were reachable only from «الكل», which
+ * made «show me every price change» quietly incomplete.
+ */
 export const AUDIT_SCOPES = [
   { key: 'all', label: 'الكل', actions: [] },
-  { key: 'pricing', label: 'الأسعار', actions: ['pricing.'] },
-  { key: 'settings', label: 'إعدادات التحقق', actions: ['settings.'] },
-  { key: 'integration', label: 'الربط', actions: ['connection.', 'credentials.'] },
+  { key: 'pricing', label: 'الأسعار', actions: ['pricing.', 'vat.'] },
+  { key: 'settings', label: 'إعدادات التحقق', actions: ['settings.', 'risk.'] },
+  {
+    key: 'integration',
+    label: 'الربط',
+    actions: ['connection.', 'credentials.', 'routing.', 'callback.'],
+  },
   { key: 'staff', label: 'الفريق', actions: ['staff.'] },
 ] as const satisfies readonly { key: string; label: string; actions: readonly string[] }[];
 
@@ -31,10 +40,22 @@ export function auditScopeOf(raw: string | undefined): AuditScope {
   return AUDIT_SCOPES.some((scope) => scope.key === raw) ? (raw as AuditScope) : 'all';
 }
 
+/**
+ * Every action written into `operator_audit`, said in Arabic.
+ *
+ * An action missing from here is not hidden, it is printed as its own English code at a reader
+ * of an Arabic screen: «vat.period_set» in the column that is supposed to say what happened.
+ * Anything that writes a row belongs in this map on the same commit.
+ */
 const ACTIONS: Readonly<Record<string, string>> = {
   'connection.set': 'ضبط الربط مع مصدر البيانات',
   'connection.tested': 'اختبار الاتصال',
   'credentials.saved': 'حفظ بيانات الربط',
+  'callback.updated': 'تعديل عنوان استقبال الإشعارات',
+  'callback.rotated': 'تجديد سر توقيع الإشعارات',
+  'routing.set': 'توجيه خدمة إلى مصدر',
+  'routing.removed': 'رفع مصدر عن خدمة',
+  'mail.settings_set': 'ضبط البريد الصادر',
   'staff.first_owner': 'إنشاء أول مالك',
   'staff.created': 'إضافة عضو إلى الفريق',
   'staff.updated': 'تعديل دور أو حالة',
@@ -50,8 +71,18 @@ const ACTIONS: Readonly<Record<string, string>> = {
   'pricing.plan_added': 'إضافة باقة',
   'pricing.special_price': 'سعر خاص لمشترك',
   'pricing.discount': 'خصم لمشترك',
+  'pricing.provider_cost': 'تعديل تكلفة نداء',
+  'vat.period_set': 'ضبط فترة ضريبة القيمة المضافة',
   'settings.updated': 'تعديل إعدادات التحقق',
   'settings.section': 'تعديل الأقسام المطلوبة',
+  'risk.signal_set': 'تعديل مؤشر خطر',
+  'risk.product_set': 'تشغيل أو إيقاف الخطر لخدمة',
+  'risk.category_set': 'تشغيل أو إيقاف نوع من الخطر',
+  'risk.bands_set': 'تعديل حدود الخطر',
+  'subscribers.created': 'إضافة مشترك',
+  'subscribers.plan': 'تغيير باقة مشترك',
+  'subscribers.suspended': 'إيقاف مشترك',
+  'subscribers.resumed': 'إعادة تفعيل مشترك',
 };
 
 export function auditActionAr(action: string): string {
@@ -95,6 +126,31 @@ export function auditTargetAr(target: string, names: AuditNames): string {
   const [scope, kind, id = ''] = target.split(':');
   if (scope === 'pricing' && kind === 'product') {
     return names.products.get(id) ?? id;
+  }
+  // A route is written `routing:<service>`, and the source it was routed to is deliberately
+  // not in the target: the panel names the service, never the source (rule 5).
+  if (scope === 'routing') {
+    return names.products.get(kind ?? '') ?? kind ?? '·';
+  }
+  if (scope === 'vat') {
+    return kind === undefined ? 'ضريبة القيمة المضافة' : `ضريبة القيمة المضافة من ${kind}`;
+  }
+  // `cost:<source>:<endpoint>` carries the source's own name, which is why only the fact that
+  // a call has a cost is said here.
+  if (scope === 'cost') {
+    return 'تكلفة نداء';
+  }
+  if (scope === 'risk') {
+    if (kind === 'bands') {
+      return 'حدود الخطر';
+    }
+    return kind === 'product' ? (names.products.get(id) ?? id) : 'مؤشرات الخطر';
+  }
+  if (scope === 'subscriber') {
+    return names.tenants.get(kind ?? '') ?? 'مشترك';
+  }
+  if (scope === 'mail') {
+    return 'البريد الصادر';
   }
   if (scope === 'pricing' && kind === 'bundle') {
     const operations = Number(id.replace(/^BUNDLE_/, ''));

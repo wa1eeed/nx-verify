@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Queryable, TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
+import { audit } from './audit.js';
 
 /**
  * API key issuance and authentication.
@@ -44,7 +45,11 @@ export function hashApiKey(secret: string): Buffer {
  * prevent. The database enforces the same rule with a trigger, because the application is
  * the thing that got it wrong.
  */
-export async function issueApiKey(tx: TenantTransaction, input: IssueKeyInput): Promise<IssuedKey> {
+export async function issueApiKey(
+  tx: TenantTransaction,
+  input: IssueKeyInput,
+  actorId?: string,
+): Promise<IssuedKey> {
   const { rows: workspace } = await tx.query<{ sandbox_of: string | null }>(
     `SELECT sandbox_of FROM tenants WHERE id = $1`,
     [tx.tenantId],
@@ -57,25 +62,35 @@ export async function issueApiKey(tx: TenantTransaction, input: IssueKeyInput): 
   // hold without either of us handling the whole value.
   const secret = `nx_${environment === 'live' ? 'live' : 'test'}_${randomBytes(KEY_BYTES).toString('base64url')}`;
   const prefix = secret.slice(0, PREFIX_LENGTH);
+  const scopes = input.scopes ?? ['verifications:write'];
 
   const { rows } = await tx.query<{ id: string }>(
     `INSERT INTO api_keys (tenant_id, name, key_prefix, key_hash, scopes, environment)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id`,
-    [
-      tx.tenantId,
-      input.name,
-      prefix,
-      hashApiKey(secret),
-      input.scopes ?? ['verifications:write'],
-      environment,
-    ],
+    [tx.tenantId, input.name, prefix, hashApiKey(secret), scopes, environment],
   );
 
   const id = rows[0]?.id;
   if (!id) {
     throw new NxError('NX-5001', { detail: 'api key insert returned no id' });
   }
+
+  // Handing out a credential that can spend the workspace's balance used to leave nothing
+  // behind: the trail carried a label for this event and no code path ever wrote one, so an
+  // investigation into «who issued this key» had no row to find (ADR-150).
+  //
+  // The secret and its hash are not here and must never be. The prefix is, because it is
+  // what ties this entry to the row a reader sees in the console, and it is the most a
+  // leaked line may carry: it cannot authenticate anything.
+  await audit(tx, {
+    actorType: 'USER',
+    actorId: actorId ?? 'system',
+    action: 'apikey.issued',
+    target: id,
+    metadata: { name: input.name, environment, scopes, key_prefix: prefix },
+  });
+
   return { id, secret, prefix, environment };
 }
 
@@ -130,11 +145,42 @@ export function assertScope(caller: AuthenticatedCaller, scope: string): void {
   }
 }
 
-export async function revokeApiKey(tx: TenantTransaction, keyId: string): Promise<void> {
-  await tx.query(
-    `UPDATE api_keys SET revoked_at = now() WHERE tenant_id = $1 AND id = $2 AND revoked_at IS NULL`,
+/**
+ * Ends a key, and says so in the trail.
+ *
+ * Revoking is the one irreversible thing this screen does: every integration holding the key
+ * stops working the moment it lands. It wrote no audit row at all, which meant a workspace
+ * whose calls had suddenly started failing had no way to find out that somebody here had
+ * ended the key, or when, or who.
+ *
+ * The entry is written only when a row actually changed. A second press on an already revoked
+ * key, or a key id belonging to another workspace, must not leave an entry saying a
+ * revocation happened.
+ */
+export async function revokeApiKey(
+  tx: TenantTransaction,
+  keyId: string,
+  actorId?: string,
+): Promise<void> {
+  const { rows } = await tx.query<{ key_prefix: string; environment: string }>(
+    `UPDATE api_keys SET revoked_at = now()
+      WHERE tenant_id = $1 AND id = $2 AND revoked_at IS NULL
+      RETURNING key_prefix, environment`,
     [tx.tenantId, keyId],
   );
+
+  const revoked = rows[0];
+  if (revoked === undefined) {
+    return;
+  }
+
+  await audit(tx, {
+    actorType: 'USER',
+    actorId: actorId ?? 'system',
+    action: 'apikey.revoked',
+    target: keyId,
+    metadata: { key_prefix: revoked.key_prefix, environment: revoked.environment },
+  });
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import type { MarginTotals, Page } from '@nx-verify/core';
 import { EmptyState, PageHeader, Panel } from './page-header';
+import { count, isoMonth, riyals } from './format';
 import { ListPagination } from './ui/pagination';
 import type { SearchParams } from '../lib/pagination';
 
@@ -28,10 +29,6 @@ export interface MarginRowView {
   providerCostHalalas: number;
   grossHalalas: number;
   marginPct: number | null;
-}
-
-function riyals(halalas: number): string {
-  return (halalas / 100).toFixed(2);
 }
 
 export function OperatorMargin({
@@ -85,21 +82,21 @@ export function OperatorMargin({
             <bdi dir="ltr" className="mono">
               {riyals(billed - cost)}
             </bdi>{' '}
-            ريال
+            ر.س
           </span>
         </article>
         <article className="stat">
           <span className="stat-label">غطّتها الباقات</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {covered}
+              {count(covered)}
             </bdi>
           </strong>
           <span className="stat-hint">عمليات لا تُحصَّل هذا الشهر</span>
         </article>
       </section>
 
-      <Panel title="التفصيل" aside={`${page.total} سطراً`}>
+      <Panel title="التفصيل" aside={`${count(page.total)} سطراً`}>
         {page.total === 0 ? (
           <div className="panel-body">
             <EmptyState>لا استهلاك مسجّل في هذه الفترة.</EmptyState>
@@ -122,24 +119,24 @@ export function OperatorMargin({
               <tbody>
                 {rows.map((row) => (
                   <tr
-                    key={`${row.periodStart.toISOString()}-${row.tenantName}-${row.productNameAr}`}
+                    key={`${row.periodStart.getTime()}-${row.tenantName}-${row.productNameAr}`}
                     data-role="margin-row"
                   >
                     <td>
                       <bdi dir="ltr" className="mono">
-                        {row.periodStart.toISOString().slice(0, 7)}
+                        {isoMonth(row.periodStart)}
                       </bdi>
                     </td>
                     <td>{row.tenantName}</td>
                     <td>{row.productNameAr}</td>
                     <td>
                       <bdi dir="ltr" className="mono">
-                        {row.runs}
+                        {count(row.runs)}
                       </bdi>
                     </td>
                     <td>
                       <bdi dir="ltr" className="mono">
-                        {row.packageRuns}
+                        {count(row.packageRuns)}
                       </bdi>
                     </td>
                     <td>

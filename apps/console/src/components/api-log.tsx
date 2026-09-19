@@ -4,6 +4,7 @@ import type { ApiLogTallies, Page } from '@nx-verify/core';
 import { ListPagination } from './ui/pagination';
 import type { SearchParams } from '../lib/pagination';
 import { EmptyState, PageHeader, Panel } from './page-header';
+import { count, dateTimeSeconds } from './format';
 
 /**
  * The calls, as the customer's own engineer needs to see them.
@@ -51,7 +52,7 @@ export function ApiLog({
           <span className="stat-label">نداءات مسجّلة</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {tallies.total}
+              {count(tallies.total)}
             </bdi>
           </strong>
         </article>
@@ -59,7 +60,7 @@ export function ApiLog({
           <span className="stat-label">فشل</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {failures}
+              {count(failures)}
             </bdi>
           </strong>
         </article>
@@ -67,7 +68,7 @@ export function ApiLog({
           <span className="stat-label">أبطأ نداء</span>
           <strong className="stat-value">
             <bdi dir="ltr" className="mono">
-              {slowest}
+              {count(slowest)}
             </bdi>
           </strong>
           <span className="stat-hint">بالمللي ثانية</span>
@@ -156,7 +157,7 @@ export function ApiLog({
                     </td>
                     <td>
                       <bdi dir="ltr" className="mono">
-                        {row.latencyMs}
+                        {count(row.latencyMs)}
                       </bdi>
                     </td>
                     <td>
@@ -164,9 +165,14 @@ export function ApiLog({
                         {row.environment === 'live' ? 'إنتاج' : 'اختبار'}
                       </span>
                     </td>
+                    {/*
+                      Riyadh, like every other time in the console. An engineer matching a
+                      call in this log against the same run in the audit trail was reading two
+                      clocks three hours apart.
+                    */}
                     <td>
                       <bdi dir="ltr" className="mono">
-                        {row.at.toISOString().slice(0, 19).replace('T', ' ')}
+                        {dateTimeSeconds(row.at)}
                       </bdi>
                     </td>
                   </tr>

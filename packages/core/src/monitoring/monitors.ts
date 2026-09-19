@@ -1,5 +1,6 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
+import { audit } from '../auth/audit.js';
 import { halalasToDecimalString, riyalsToHalalas } from '../billing/money.js';
 
 /**
@@ -316,4 +317,113 @@ export async function resumeMonitor(tx: TenantTransaction, monitorId: string): P
       WHERE tenant_id = $1 AND id = $2 AND status = 'paused'`,
     [tx.tenantId, monitorId],
   );
+}
+
+export interface SetMonitorBudgetInput {
+  monitorId: string;
+  /** In halalas, for one period, which is one calendar month. */
+  budgetCapPerPeriod: number;
+  changedBy: string;
+}
+
+export interface MonitorBudgetChange {
+  /** In halalas, as it now stands. */
+  budgetCap: number;
+  spentThisPeriod: number;
+  status: MonitorRow['status'];
+  /** The new ceiling was above what this period had already spent, so it runs again. */
+  resumed: boolean;
+}
+
+/**
+ * Moves the ceiling, which is the only control an exhausted monitor answers to.
+ *
+ * There was no way to change a cap anywhere in the platform, so a monitor that reached the
+ * ceiling its own subscriber had set stopped for good: `resumeMonitor` refuses an exhausted
+ * one by design, and every screen told the subscriber to raise a cap nothing could raise.
+ * Paid monitoring on a customer therefore ended silently the first time it did its job.
+ *
+ * Raising it revives the monitor by itself, and only then: with a new ceiling at or below
+ * what the period has already spent there is nothing left to spend, the next sweep would
+ * book it exhausted again, and the subscriber would watch a monitor turn green and die
+ * within the hour. It stays stopped and says so instead.
+ *
+ * A cut works the same way in the other direction. A monitor left 'active' under a ceiling
+ * it has already passed claims on screen to be watching a customer it can no longer afford
+ * to check, so the status follows the money here rather than waiting for a sweep.
+ *
+ * A pause is a person's decision, not an arithmetic one, and no amount of money undoes it.
+ */
+export async function setMonitorBudget(
+  tx: TenantTransaction,
+  input: SetMonitorBudgetInput,
+  now = new Date(),
+): Promise<MonitorBudgetChange> {
+  if (!Number.isFinite(input.budgetCapPerPeriod) || input.budgetCapPerPeriod <= 0) {
+    throw new NxError('NX-4001', { detail: 'a monitor needs a budget cap above zero' });
+  }
+
+  // The sweep rolls a monitor's period over when it claims it, and it claims active ones
+  // only. An exhausted monitor is never claimed, so its spend stays frozen at the month it
+  // died in and a new ceiling would be weighed against a month that is over.
+  await budgetRemaining(tx, input.monitorId, now);
+
+  const { rows } = await tx.query<{
+    budget_cap_sar: string;
+    spent_this_period: string;
+    status: MonitorRow['status'];
+    status_before: MonitorRow['status'];
+  }>(
+    // The status it held before the change comes back with it, because "it is running now"
+    // and "it started running because of you" are different sentences and the screen says
+    // the second one.
+    `WITH before AS (
+       SELECT id, status FROM monitors WHERE tenant_id = $1 AND id = $2 FOR UPDATE
+     )
+     UPDATE monitors m
+        SET budget_cap_sar = $3::numeric,
+            status = CASE
+              WHEN m.status = 'paused' THEN m.status
+              WHEN $3::numeric > m.spent_this_period THEN 'active'
+              ELSE 'budget_exhausted'
+            END,
+            next_run_at = CASE
+              WHEN m.status = 'budget_exhausted' AND $3::numeric > m.spent_this_period THEN $4
+              ELSE m.next_run_at
+            END
+       FROM before b
+      WHERE m.tenant_id = $1 AND m.id = b.id
+      RETURNING m.budget_cap_sar, m.spent_this_period, m.status, b.status AS status_before`,
+    [tx.tenantId, input.monitorId, halalasToDecimalString(input.budgetCapPerPeriod), now],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new NxError('NX-4041', { detail: 'no such monitor in this workspace' });
+  }
+
+  const budgetCap = riyalsToHalalas(row.budget_cap_sar);
+  const spentThisPeriod = riyalsToHalalas(row.spent_this_period);
+
+  // Recorded here rather than left to each caller: a ceiling on spending is the first thing
+  // an audit asks about, and a trail every screen and script must remember to write is a
+  // trail with holes in it.
+  await audit(tx, {
+    actorType: 'USER',
+    actorId: input.changedBy,
+    action: 'monitor.budget_changed',
+    target: input.monitorId,
+    metadata: {
+      budget_cap_halalas: budgetCap,
+      spent_this_period_halalas: spentThisPeriod,
+      status: row.status,
+    },
+  });
+
+  return {
+    budgetCap,
+    spentThisPeriod,
+    status: row.status,
+    resumed: row.status_before === 'budget_exhausted' && row.status === 'active',
+  };
 }

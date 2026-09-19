@@ -201,7 +201,21 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     billingModel: 'MONTHLY',
     // A monthly minimum of two hundred and fifty, expressed as the year it adds up to.
     includedTransactions: 3_000,
-    overageUnitHalalas: 20_00,
+    /*
+     * The rate charged once the included transactions are spent.
+     *
+     * Sixty riyals because the dearest check either plan enables is KYB_COMPLETE, which costs
+     * forty two riyals to deliver, and the platform's own floor keeps thirty percent of what
+     * it sells. It was twenty and eighteen, which was under cost.
+     *
+     * That was harmless for as long as the figure was never charged, which it was not until
+     * ADR-167: it was collected, validated against cost, displayed on the plan card, and read
+     * by nothing. The moment it became real it became a rule 10 breach in live money, and
+     * guard 10 now holds every plan's overage against the dearest run it allows.
+     *
+     * A floor, not a negotiated price. The owner sets the real figures with the real costs.
+     */
+    overageUnitHalalas: 60_00,
     platformFeeHalalas: 0,
     descriptionAr: 'التحقق من المنشأة والعنوان الوطني، بالتزام سنوي يعود كاملاً رصيد خدمات.',
     termMonths: 12,
@@ -241,7 +255,21 @@ export const SEED_PACKAGES: readonly SeedPackage[] = [
     nameEn: 'Growth',
     billingModel: 'ANNUAL',
     includedTransactions: 3_000,
-    overageUnitHalalas: 18_00,
+    /*
+     * The rate charged once the included transactions are spent.
+     *
+     * Sixty riyals because the dearest check either plan enables is KYB_COMPLETE, which costs
+     * forty two riyals to deliver, and the platform's own floor keeps thirty percent of what
+     * it sells. It was twenty and eighteen, which was under cost.
+     *
+     * That was harmless for as long as the figure was never charged, which it was not until
+     * ADR-167: it was collected, validated against cost, displayed on the plan card, and read
+     * by nothing. The moment it became real it became a rule 10 breach in live money, and
+     * guard 10 now holds every plan's overage against the dearest run it allows.
+     *
+     * A floor, not a negotiated price. The owner sets the real figures with the real costs.
+     */
+    overageUnitHalalas: 60_00,
     // Named rather than folded into the unit price, so the buyer can see what the
     // platform costs and what a verification costs and argue with each separately.
     platformFeeHalalas: 12_000_00,

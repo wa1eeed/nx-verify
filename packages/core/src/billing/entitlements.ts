@@ -34,6 +34,13 @@ export interface Entitlement {
   remaining: number | null;
   /** Where the price comes from when the package or an override sets one. */
   unitPriceHalalas: number | null;
+  /**
+   * The plan's flat rate for a transaction past the committed capacity, when this run is
+   * past it and the plan allows overage. Null when it does not apply: inside the capacity,
+   * no overage rate on the plan, overage not allowed, or a price written for this
+   * subscriber outranks it.
+   */
+  overageUnitPriceHalalas: number | null;
   /** True when this product is on because somebody wrote a line for this subscriber. */
   negotiated: boolean;
   /** Transactions left in the term's capacity. Null when the plan sells no capacity. */
@@ -68,6 +75,8 @@ interface EntitlementRow {
   included_transactions: number | null;
   transactions_used: number | null;
   overage_allowed: boolean | null;
+  /** The plan's flat price for a transaction past the capacity. Null when it names none. */
+  overage_price: number | null;
   discount_pct: string | null;
 }
 
@@ -91,6 +100,7 @@ const ENTITLEMENT_SQL = `
          s.included_transactions,
          s.transactions_used,
          pk.overage_allowed,
+         pk.overage_unit_halalas AS overage_price,
          d.discount_pct::text AS discount_pct,
          p.module_code,
          m.core AS module_core,
@@ -127,6 +137,16 @@ function decide(row: EntitlementRow): Entitlement {
   const capacityUsed = row.transactions_used ?? 0;
   const capacityRemaining = capacity === null ? null : Math.max(0, capacity - capacityUsed);
 
+  /**
+   * Past what the term bought, with the plan willing to carry on.
+   *
+   * The same comparison verify.ts makes when it decides the package no longer pays for a
+   * run, and made from the same two numbers, so the price and the payer cannot disagree
+   * about which side of the capacity a run falls on.
+   */
+  const pastCapacity =
+    capacity !== null && capacityUsed >= capacity && row.overage_allowed === true;
+
   const base: Omit<Entitlement, 'allowed' | 'refusal' | 'remaining'> = {
     capacityRemaining,
     discountPct:
@@ -136,6 +156,30 @@ function decide(row: EntitlementRow): Entitlement {
     quota: row.override_quota ?? row.package_quota,
     used,
     unitPriceHalalas: row.override_price ?? row.package_price,
+    /*
+     * Which of the plan's two prices an excess run gets.
+     *
+     * A plan states two figures: what an included transaction costs, and what one past the
+     * capacity costs. The second was collected in the operator panel, validated there
+     * against the cost of the dearest run in the catalogue, and printed on the plan card,
+     * and then no charging path ever read it. Every excess run was billed at the included
+     * rate, so the number the owner typed existed on a screen and nowhere else.
+     *
+     * Past the capacity the plan's overage rate outranks the plan's own per product price.
+     * Both are plan wide, so neither is nearer this subscriber; what separates them is that
+     * the per product price is the rate a commitment bought, and the commitment is spent.
+     * The overage rate is the plan's answer to the one question that only arises here,
+     * which makes it the narrower rule for this run. Decided the other way, a plan that
+     * prices its products individually could never charge overage at all and its capacity
+     * would be a number with no consequence.
+     *
+     * A price written for this subscriber and this product still outranks it, which is why
+     * it is dropped when there is one: that line was negotiated with this plan in view. No
+     * such exception exists for the tenant wide discount, which keeps applying, because the
+     * overage rate is a plan figure and the discount is what this subscriber pays off any
+     * figure that was not written for them.
+     */
+    overageUnitPriceHalalas: pastCapacity && row.override_price === null ? row.overage_price : null,
     negotiated,
     periodStart: row.period_start,
     periodEnd: row.period_end,
@@ -204,9 +248,14 @@ function decide(row: EntitlementRow): Entitlement {
 /**
  * The price a run is charged at, before VAT: a price written for this subscriber or plan, or
  * the list price, less any discount agreed on every product.
+ *
+ * Once the committed capacity is spent the plan's overage rate stands in front of the plan's
+ * per product price. Which layer wins is settled in decide(), beside every other layering of
+ * these tables, so there is one place to read the order rather than two that can drift.
  */
 export function chargedUnitPrice(entitlement: Entitlement, listPriceHalalas: number): number {
-  const price = entitlement.unitPriceHalalas ?? listPriceHalalas;
+  const price =
+    entitlement.overageUnitPriceHalalas ?? entitlement.unitPriceHalalas ?? listPriceHalalas;
   return entitlement.discountPct === null
     ? price
     : Math.round((price * (100 - entitlement.discountPct)) / 100);

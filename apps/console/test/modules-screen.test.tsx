@@ -123,7 +123,7 @@ describe('the modules catalogue', () => {
 
   it('counts how far the plans have drifted, which is the figure worth reading', () => {
     expect(html).toContain('خرجت عن الباقات');
-    expect(html).toContain('لم يخرج أحد عن باقته في هذا الموديول');
+    expect(html).toContain('لم يخرج أحد عن باقته في هذه الوحدة');
     expect(html).toContain('فُعّل بقرار خاص لـ');
   });
 });
@@ -136,7 +136,7 @@ describe('the modules of one subscriber', () => {
 
   it('warns what leaves with a module before anybody switches one off', () => {
     const html = render([tenantModule()]);
-    expect(html).toContain('يختفي قسمه من ملفات عملاء هذا المشترك');
+    expect(html).toContain('يختفي قسمها من ملفات عملاء هذا المشترك');
     expect(html).toContain('ولا يُحسب ناقصاً عليه');
     expect(html).toContain('وتُرفض منتجاته');
   });

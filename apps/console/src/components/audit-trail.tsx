@@ -177,6 +177,13 @@ export function AuditTrail({
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} data-role="audit-row" data-action={row.action}>
+                    {/*
+                      Both halves come from the shared formatters, which are one clock. This
+                      cell used to stack a UTC date over a Riyadh time, so anything recorded
+                      between 21:00 and midnight UTC showed yesterday's date above today's
+                      hour: a compliance answer that was wrong by a day for three hours of
+                      every day.
+                    */}
                     <td>
                       <bdi dir="ltr" className="mono">
                         {isoDate(row.createdAt)}

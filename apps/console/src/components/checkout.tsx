@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import Link from 'next/link';
 import { Card } from './ui/card';
 import { SubmitButton } from './ui/submit-button';
+import { ibanGroups, riyals } from './format';
 
 /**
  * Buying credit: what you are buying, what it costs, how you pay, and where you send it
@@ -37,15 +38,6 @@ export interface CheckoutBank {
   bankName: string | null;
   iban: string | null;
   note: string | null;
-}
-
-function riyals(halalas: number): string {
-  return (halalas / 100).toFixed(2);
-}
-
-/** The IBAN in fours, which is how it is read off a screen and typed into a bank app. */
-function ibanGroups(iban: string): string {
-  return (iban.match(/.{1,4}/g) ?? [iban]).join(' ');
 }
 
 export function Checkout({

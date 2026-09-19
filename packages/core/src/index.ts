@@ -301,13 +301,16 @@ export {
   resumeMonitor,
   recordMonitorSpend,
   scheduleNextRun,
+  setMonitorBudget,
 } from './monitoring/monitors.js';
 export type {
   Cadence,
   CreateMonitorInput,
   DueMonitor,
   ExpiryAlert,
+  MonitorBudgetChange,
   MonitorRow,
+  SetMonitorBudgetInput,
 } from './monitoring/monitors.js';
 export { computeScore, storeScore } from './monitoring/scoring.js';
 export { trustBandFor, trustBands } from './monitoring/trust-band.js';
@@ -479,6 +482,19 @@ export type {
   User,
   UserRole,
 } from './auth/users.js';
+
+export {
+  costVatRule,
+  listProviderCosts,
+  listUnpricedCalls,
+  setProviderCost,
+} from './billing/costs-admin.js';
+export type {
+  CostChange,
+  ProviderCostRow,
+  SetProviderCostInput,
+  UnpricedCall,
+} from './billing/costs-admin.js';
 
 export {
   SEVERITY_LABELS_AR,

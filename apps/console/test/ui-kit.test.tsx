@@ -26,6 +26,17 @@ import {
   Table,
   Th,
 } from '../src/components/ui';
+import {
+  count,
+  dateTime,
+  dateTimeSeconds,
+  ibanGroups,
+  isoDate,
+  isoMonth,
+  riyals,
+  riyalsFigure,
+  timeOfDay,
+} from '../src/components/format';
 
 /**
  * Handoff phase 1: the component layer.
@@ -316,6 +327,64 @@ describe('Dialog', () => {
     expect(markup).toContain(`<h2 class="dialog-title" id="${id}">شراء رصيد</h2>`);
     expect(markup).not.toContain(' open=');
     expect(markup).toContain('<div class="dialog-actions">');
+  });
+});
+
+/**
+ * One clock, one IBAN, one money formatter.
+ *
+ * Each of these three was two things at once. Two timezones: `isoDate` and `dateTime` cut
+ * their string out of `toISOString()` while `dateAr` and `timeOfDay` asked for Asia/Riyadh,
+ * and the audit trail stacked one on the other inside a single table cell. No IBAN grouping
+ * at all, though the interface rules require it. And four money formatters, two of which did
+ * not group thousands, so the same balance read «1,250.00» on one screen and «1250.00» on
+ * the next.
+ */
+describe('The shared formatters', () => {
+  // Late enough in the UTC day that UTC and Riyadh disagree about which day it is: the three
+  // hours every evening in which the old formatters printed yesterday.
+  const lateInTheUtcDay = new Date('2026-09-17T21:30:00Z');
+
+  it('reads a late evening instant as the Riyadh day, not the UTC one', () => {
+    expect(lateInTheUtcDay.toISOString().slice(0, 10)).toBe('2026-09-17');
+    expect(isoDate(lateInTheUtcDay)).toBe('2026-09-18');
+    expect(isoMonth(new Date('2026-08-31T21:30:00Z'))).toBe('2026-09');
+  });
+
+  it('gives a date and the time on it from the same clock', () => {
+    // The audit trail draws these two one above the other. A UTC date over a Riyadh time is
+    // yesterday's date over today's hour.
+    expect(timeOfDay(lateInTheUtcDay)).toBe('00:30');
+    expect(dateTime(lateInTheUtcDay)).toBe('2026-09-18 00:30');
+    expect(dateTimeSeconds(lateInTheUtcDay)).toBe('2026-09-18 00:30:00');
+    expect(dateTime(lateInTheUtcDay).startsWith(isoDate(lateInTheUtcDay))).toBe(true);
+    expect(dateTime(lateInTheUtcDay).endsWith(timeOfDay(lateInTheUtcDay))).toBe(true);
+  });
+
+  it('keeps midnight at 00:00 rather than rolling it to 24:00', () => {
+    expect(timeOfDay(new Date('2026-09-17T21:00:00Z'))).toBe('00:00');
+  });
+
+  it('exports nothing that produces UTC, so no screen can reach for one', () => {
+    const source = readFileSync(join(consoleRoot, 'src', 'components', 'format.ts'), 'utf8');
+    // Comments stripped: the file's own history names the call it no longer makes.
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    expect(code).not.toContain('toISOString');
+    expect(code).toContain("'Asia/Riyadh'");
+  });
+
+  it('groups an IBAN in fours, as the interface rules require', () => {
+    expect(ibanGroups('SA4420000001234567891234')).toBe('SA44 2000 0001 2345 6789 1234');
+    // Grouping an already grouped value does not double the gaps.
+    expect(ibanGroups('SA44 2000 0001 2345 6789 1234')).toBe('SA44 2000 0001 2345 6789 1234');
+    expect(ibanGroups('')).toBe('');
+  });
+
+  it('groups thousands in money, which is what the copies of it did not do', () => {
+    expect(riyals(125_000)).toBe('1,250.00');
+    expect(riyals(0)).toBe('0.00');
+    expect(riyalsFigure(1250)).toBe('1,250.00');
+    expect(count(218_400)).toBe('218,400');
   });
 });
 

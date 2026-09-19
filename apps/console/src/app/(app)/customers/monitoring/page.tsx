@@ -5,7 +5,7 @@ import { Monitors, type MonitorRowView } from '../../../../components/monitors';
 import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { CUSTOMER_TABS, visible } from '../../../../components/nav';
-import { pauseMonitorAction, resumeMonitorAction } from './actions';
+import { pauseMonitorAction, raiseMonitorBudgetAction, resumeMonitorAction } from './actions';
 
 /** Never prerendered: one workspace's live monitors. */
 export const dynamic = 'force-dynamic';
@@ -59,6 +59,7 @@ export default async function MonitoringPage({
         outcome={outcome}
         pauseAction={pauseMonitorAction}
         resumeAction={resumeMonitorAction}
+        raiseBudgetAction={raiseMonitorBudgetAction}
       />
     </div>
   );

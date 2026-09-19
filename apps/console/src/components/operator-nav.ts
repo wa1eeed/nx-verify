@@ -25,7 +25,16 @@ export const SUBSCRIBER_TABS: readonly SectionTab[] = [
 /** What the platform sells: its prices, and the modules those prices are grouped into. */
 export const PRICING_TABS: readonly SectionTab[] = [
   { href: '/operator/pricing', label: 'الأسعار والمنتجات' },
-  { href: '/operator/pricing/modules', label: 'الموديولات' },
+  // The number every other number here is arithmetic on, and the panel had no tab for it at
+  // all: the rates came from a seed file, so the margin was right only while that file
+  // matched the contract (ADR-166).
+  { href: '/operator/pricing/costs', label: 'تكاليف المزودين' },
+  // Reachable only by a link from the pricing screen until now, so the navigation showed
+  // nothing selected once you arrived and there was no way back but the browser.
+  { href: '/operator/pricing/plans', label: 'الباقات والاشتراكات' },
+  // «الموديولات» was a transliteration in an Arabic interface, and the subscriber's own
+  // screens call the same thing «وحدات التحقق».
+  { href: '/operator/pricing/modules', label: 'وحدات التحقق' },
 ];
 
 /** Verification settings, and the connection to the data source behind them. */

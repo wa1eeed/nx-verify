@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { riyalsFigure } from './format';
 
 /**
  * Numbers, identifiers and IBANs.
@@ -20,12 +21,17 @@ export function Identifier({ value, label }: { value: string; label?: string }):
   );
 }
 
-/** Currency, always in riyals and always left to right. */
+/**
+ * Currency, always in riyals and always left to right.
+ *
+ * Grouped through the shared formatter rather than `toFixed`, which is how the same figure
+ * came to read «1,250.00» on one screen and «1250.00» on the next.
+ */
 export function Money({ amount }: { amount: number }): ReactElement {
   return (
     <span className="row">
       <bdi dir="ltr" className="mono">
-        {amount.toFixed(2)}
+        {riyalsFigure(amount)}
       </bdi>
       <span>ريال</span>
     </span>

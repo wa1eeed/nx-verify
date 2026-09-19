@@ -175,7 +175,14 @@ export async function listPendingTopUps(operator: Queryable): Promise<PendingTop
 
 export interface SettleTopUpInput {
   requestId: string;
-  /** Required on a confirmation: VAT falls due when credit is bought. */
+  /**
+   * The tax invoice, required only while the platform is registered for VAT (ADR-166).
+   *
+   * It used to be required always, which meant staff confirming a transfer on an
+   * unregistered platform had to type a tax invoice number for a transaction that carries no
+   * tax and for which no such invoice exists. What people actually did was invent one, so the
+   * field recorded a fiction and the check that demanded it protected nothing.
+   */
   vatInvoiceId?: string | null;
   settledBy: string;
   note?: string | null;
@@ -196,8 +203,11 @@ export async function confirmTopUp(
   tx: TenantTransaction,
   input: SettleTopUpInput,
 ): Promise<TopUpRequest> {
-  const vatInvoiceId = input.vatInvoiceId?.trim();
-  if (!vatInvoiceId) {
+  const vatInvoiceId = input.vatInvoiceId?.trim() ?? '';
+  // Demanded only when there is an invoice to demand. The rule of today, because that is when
+  // the confirmation happens and when the tax, if any, falls due.
+  const rule = await vatInForce(tx);
+  if (rule.registered && vatInvoiceId === '') {
     throw new NxError('NX-4001', {
       detail: 'a confirmed top up needs its tax invoice, because VAT falls due on it',
     });
@@ -220,7 +230,7 @@ export async function confirmTopUp(
      WHERE tenant_id = $1 AND id = $2 AND status = 'REQUESTED'
      RETURNING id, reference, amount, status, requested_at, settled_at, vat_invoice_id, note,
                bundle_code`,
-    [tx.tenantId, input.requestId, input.settledBy, vatInvoiceId, input.note ?? null],
+    [tx.tenantId, input.requestId, input.settledBy, vatInvoiceId === '' ? null : vatInvoiceId, input.note ?? null],
   );
 
   const row = rows[0];
@@ -238,7 +248,10 @@ export async function confirmTopUp(
       grantedBy: input.settledBy,
     });
   } else {
-    await topUp(tx, { amount: riyalsToHalalas(row.amount), vatInvoiceId });
+    await topUp(tx, {
+      amount: riyalsToHalalas(row.amount),
+      vatInvoiceId: vatInvoiceId === '' ? null : vatInvoiceId,
+    });
   }
   return toRequest(await vatResolver(tx), row);
 }

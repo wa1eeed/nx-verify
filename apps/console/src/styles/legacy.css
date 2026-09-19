@@ -4,8 +4,8 @@
  * Transitional (ADR-113). Each screen the handoff draws is rebuilt on the component layer
  * in its own phase; this sheet keeps every other screen working in the new palette until
  * it moves across, and it shrinks as they do. It carries no raw colour, radius, shadow or
- * font: the old custom properties below point at Organic's tokens, and they are declared on
- * the dark ground as well, so the administration panel's screens follow it.
+ * font: the old custom properties below point at Organic's tokens, and there is one set of
+ * them, because there is one ground (ADR-159).
  *
  * Where a class name is shared with the component layer (.card, and tables), the old rule
  * is scoped away from the new component, so a component never inherits an old border.
@@ -13,8 +13,7 @@
  * Load order: before organic.css, so the system's base type, links and focus ring win.
  */
 
-:root,
-[data-theme='dark'] {
+:root {
   --navy: var(--color-text);
   --teal: var(--color-accent);
   --teal-d: var(--color-accent);
@@ -62,22 +61,6 @@
 
   --ease: ease-out;
   --fast: var(--duration-color);
-}
-
-[data-theme='dark'] {
-  --ink-soft: var(--color-neutral-300);
-  --ink-faint: var(--color-neutral-400);
-  --paper-sunken: var(--dark-divider);
-  --line-strong: var(--color-neutral-600);
-
-  --expired-fg: var(--color-neutral-200);
-  --expired-bg: var(--dark-divider);
-  --changed-fg: var(--color-amber-200);
-  --changed-bg: var(--dark-attention);
-  --fresh-fg: var(--color-accent-2-200);
-  --fresh-bg: var(--color-accent-2-900);
-  --critical-fg: var(--dark-critical-text);
-  --critical-bg: var(--dark-critical);
 }
 
 /*
@@ -268,14 +251,6 @@ textarea:not(.input) {
   border-color: var(--color-accent);
   outline-offset: 0;
 }
-[data-theme='dark']
-  :where(input:not([type='checkbox'], [type='radio'], [type='hidden']), select, textarea):not(
-    .input
-  ) {
-  background: var(--dark-field);
-  border-color: var(--dark-field-border);
-}
-
 label:where(:not(.check, .radio, .seg-opt)) {
   font-size: var(--text-label);
   color: var(--ink-soft);

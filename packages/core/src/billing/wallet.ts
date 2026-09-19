@@ -64,7 +64,13 @@ export async function ensureWallet(tx: TenantTransaction): Promise<void> {
 export interface TopUpInput {
   /** In halalas, excluding VAT. */
   amount: number;
-  vatInvoiceId: string;
+  /**
+   * The tax invoice this top up was billed on, or null while the platform is unregistered.
+   *
+   * Null rather than an empty string, because there genuinely is no invoice: an unregistered
+   * seller issues none, and a column holding '' claims one exists (ADR-166).
+   */
+  vatInvoiceId: string | null;
 }
 
 /**
