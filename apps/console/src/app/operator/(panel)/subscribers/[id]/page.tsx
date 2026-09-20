@@ -14,6 +14,7 @@ import {
 import { secretStoreFromEnv } from '@nx-verify/providers';
 import { AdminSubscriber } from '../../../../../components/admin-subscribers/detail';
 import {
+  BINDING_NOTICES,
   OperatorBinding,
   type OperatorBindingView,
 } from '../../../../../components/operator-binding';
@@ -29,12 +30,21 @@ import {
   setSuspendedAction,
 } from '../actions';
 import { setSourceAction } from './actions';
+import { credentialState } from './credential';
 
 /** Never prerendered, and refuses to render without a sign in. */
 export const dynamic = 'force-dynamic';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * What happened to the subscriber, said at the top of the screen where the subscriber is.
+ *
+ * Everything the binding card writes says so in the binding card instead (BINDING_NOTICES),
+ * because that card is the last section of a long page and its form is at the bottom of it
+ * (ADR-179). The two maps share no key: one query names one outcome, and it is found in the
+ * map of the section that produced it and in no other.
+ */
 const NOTICES: Readonly<Record<string, { tone: 'done' | 'refused'; text: string }>> = {
   'saved:suspended': {
     tone: 'done',
@@ -66,31 +76,6 @@ const NOTICES: Readonly<Record<string, { tone: 'done' | 'refused'; text: string 
   'refused:risk': {
     tone: 'refused',
     text: 'لم يُحفظ: الوزن من صفر إلى مئة، والعتبة رقم موجب، وحد «المتوسطة» أقل من حد «العالية».',
-  },
-  'saved:source': {
-    tone: 'done',
-    text: 'حُفظ الربط. نداء هذا المشترك التالي يخرج على الاعتماد المحدَّد، ولا يتغير شيء في كونسوله ولا في استجاباته.',
-  },
-  'saved:source_started': { tone: 'done', text: 'فُعِّل الربط. صار هذا المزوّد في صف من يخدمه.' },
-  'saved:source_stopped': {
-    tone: 'done',
-    text: 'أُوقف الربط. يعود هذا المشترك إلى توجيه المنصة وإلى اعتمادها لبيئة مساحته.',
-  },
-  'refused:source': {
-    tone: 'refused',
-    text: 'لم يُحفظ: تحقق من المزوّد ومن الترتيب، والترتيب رقم صحيح أكبر من صفر.',
-  },
-  'refused:source_ref': {
-    tone: 'refused',
-    text: 'لم يُحفظ: مرجع الاعتماد يبدأ بـ kms:// ويشير إلى خزنة الأسرار. لا تُلصق هنا قيمة سر.',
-  },
-  'refused:source_byoc': {
-    tone: 'refused',
-    text: 'لم يُحفظ: «على اعتماد المشترك» يلزمه مرجع اعتماد. بلا مرجع يخرج النداء على اعتماد المنصة ويُسجَّل بلا تكلفة علينا.',
-  },
-  'refused:source_unsealed': {
-    tone: 'refused',
-    text: 'لم يُحفظ: لا شيء محفوظ في خزنة الأسرار تحت هذا المرجع. ضع السر في الخزنة أولاً ثم وجّه الربط إليه، وإلا فشل أول نداء لهذا المشترك ولم يقل شيءٌ قبله.',
   },
 };
 
@@ -125,6 +110,13 @@ export default async function OperatorSubscriberPage({
     notFound();
   }
 
+  const key =
+    typeof query['refused'] === 'string'
+      ? `refused:${query['refused']}`
+      : typeof query['saved'] === 'string'
+        ? `saved:${query['saved']}`
+        : null;
+
   const store = secretStoreFromEnv();
   const bindingView: OperatorBindingView = {
     bindings: await Promise.all(
@@ -134,13 +126,11 @@ export default async function OperatorSubscriberPage({
           data.catalogue.find((entry) => entry.code === binding.provider)?.nameAr ??
           binding.provider,
         mode: binding.mode,
-        credentialRef: binding.credentialRef,
         // Described, never fetched for display: the screen learns which fields are set behind
         // the reference and a fingerprint of each, and no value reaches the page (rule 10).
-        credential:
-          binding.credentialRef === null || store.describe === undefined
-            ? null
-            : await store.describe(binding.credentialRef).catch(() => null),
+        // A store that does not answer is carried as its own state rather than as an absence,
+        // because those are different things to say (ADR-179).
+        credential: await credentialState(store, binding.credentialRef),
         priority: binding.priority,
         healthStatus: binding.healthStatus,
         activatedAt: binding.activatedAt,
@@ -149,18 +139,11 @@ export default async function OperatorSubscriberPage({
     catalogue: data.catalogue
       .filter((entry) => entry.status === 'active')
       .map((entry) => ({ code: entry.code, nameAr: entry.nameAr })),
-    storeDescribes: store.describe !== undefined,
+    notice: key === null ? null : (BINDING_NOTICES[key] ?? null),
     // Whose account a subscriber runs on is the permission that guards every other provider
     // credential, not the one that moves plans and stops accounts.
     canManage: operatorCan(operator.role, 'integration'),
   };
-
-  const key =
-    typeof query['refused'] === 'string'
-      ? `refused:${query['refused']}`
-      : typeof query['saved'] === 'string'
-        ? `saved:${query['saved']}`
-        : null;
 
   return (
     <div className="admin-screen">
@@ -177,8 +160,7 @@ export default async function OperatorSubscriberPage({
           // The binding surface is rendered below rather than inside the detail component
           // (ADR-172): it is the one section of this page whose write crosses into the panel's
           // own trail and into the platform's cost of serving this subscriber, and it says so
-          // in its own words.
-          source: null,
+          // in its own words, including what it says after a save (ADR-179).
           notice: key === null ? null : (NOTICES[key] ?? null),
         }}
         actions={{

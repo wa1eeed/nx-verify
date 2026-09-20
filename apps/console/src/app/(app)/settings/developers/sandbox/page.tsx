@@ -92,7 +92,6 @@ export default async function DeveloperPage({
               decidedAt: asked?.decidedAt ?? null,
               sandboxSlug: asked?.sandboxSlug ?? null,
               refusalCode: asked?.refusalCode ?? null,
-              canAsk: actor.can('developers.manage'),
               refusalAr:
                 error === 'asked'
                   ? 'لم يُسجَّل طلب جديد: هناك طلب قائم بالفعل، أو لمساحة عملك مساحة اختبار.'

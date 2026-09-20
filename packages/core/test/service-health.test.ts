@@ -82,6 +82,28 @@ describe('service health across subscribers', () => {
     }
   });
 
+  it('carries the available balance already worked out, rather than leaving the screen to subtract', async () => {
+    // «الرصيد المتاح» was defined twice: here, where `balanceLow` is decided, and again in
+    // the markup of the operator screen. Held money is the whole difference between them, so
+    // a later change to what a hold means would have reached the tag and not the figure it
+    // sits beside (ADR-181).
+    const held = 12_345;
+    // On the subscriber's own connection: the operator role holds no write on wallets, which
+    // is itself why the two definitions could drift without either screen noticing.
+    const hold = (amount: number): Promise<unknown> =>
+      withTenant(db.appPool, struggling.tenantId, (tx) =>
+        tx.query(`UPDATE wallets SET held = $2 WHERE tenant_id = $1`, [tx.tenantId, amount]),
+      );
+
+    await hold(held);
+    const row = (await subscriberHealth(db.operatorPool)).find(
+      (candidate) => candidate.tenantId === struggling.tenantId,
+    );
+    expect(row?.heldHalalas).toBe(held);
+    expect(row?.walletAvailableHalalas).toBe((row?.balanceHalalas ?? 0) - held);
+    await hold(0);
+  });
+
   it('says nothing about whom anybody verified', async () => {
     const rows = await subscriberHealth(db.operatorPool);
     const serialised = JSON.stringify(rows);

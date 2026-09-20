@@ -176,3 +176,51 @@ describe('guard 06: no provider name in a public response', () => {
     expect(JSON.stringify(result)).not.toContain(SECRET);
   });
 });
+
+/**
+ * And the envelopes that leave through a route, not only the function that builds them.
+ *
+ * Everything above calls a response builder directly. `POST /v1/onboarding/cases/:id/waive`
+ * went out for months with no `assertNoProviderLeak` at all while this file stayed green,
+ * because three of the four calls to `caseResponse` were guarded and the fourth was not, and
+ * a guard that measures the builder cannot see which callers used it.
+ *
+ * So this measures the callers: every place a route sends a response envelope asserts on it.
+ * Structural rather than behavioural on purpose, because the behavioural half is already
+ * above and the thing that actually failed here was somebody forgetting a line.
+ */
+describe('guard 06: and every route asserts on what it sends', () => {
+  it('leaves no response envelope unchecked in apps/api', async () => {
+    const { readFile, readdir } = await import('node:fs/promises');
+    const { join } = await import('node:path');
+    const dir = new URL('../../apps/api/src/routes/', import.meta.url).pathname;
+
+    const unchecked: string[] = [];
+    for (const file of await readdir(dir)) {
+      if (!file.endsWith('.ts')) {
+        continue;
+      }
+      const source = await readFile(join(dir, file), 'utf8');
+      const lines = source.split('\n');
+      lines.forEach((line, index) => {
+        // A response built by one of our envelope functions, which are the shapes that carry
+        // a step result and therefore the shapes that can carry an authority's supplier.
+        if (!/\b(caseResponse|verificationResponse)\s*\(/.test(line)) {
+          return;
+        }
+        // The declaration itself, which is the builder rather than a caller of it.
+        if (/^\s*(export\s+)?(async\s+)?function\b/.test(line)) {
+          return;
+        }
+        // Either it is asserted on in the next few lines, or the envelope is named here and
+        // asserted where it is sent.
+        const window = lines.slice(index, index + 4).join('\n');
+        if (!window.includes('assertNoProviderLeak')) {
+          unchecked.push(`${file}:${index + 1}`);
+        }
+      });
+    }
+
+    expect(unchecked).toEqual([]);
+  });
+});

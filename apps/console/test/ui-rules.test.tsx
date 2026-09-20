@@ -1817,7 +1817,11 @@ describe('the developer screen', () => {
     const live = render(false);
     expect(live).toContain('أنت في بيئة الإنتاج');
     expect(live).toContain('data-role="test-cases"');
-    expect(live.match(/btn-primary/g)?.length).toBe(1);
+    // None, on a live workspace. The primary here used to be «اطلب مساحة اختبار» pointing at
+    // the support page, which registers nothing, next to the card that registers the ask for
+    // real (ADR-173, ADR-178). The sandbox keeps its one primary, «إصدار مفتاح».
+    expect(live.match(/btn-primary/g)).toBeNull();
+    expect(render(true).match(/btn-primary/g)?.length).toBe(1);
   });
 });
 
@@ -2010,6 +2014,7 @@ describe('the operator health screen', () => {
           slowestMs: 900,
           balanceHalalas: 500,
           heldHalalas: 0,
+          walletAvailableHalalas: 500,
           balanceLow: true,
           unhealthyProviders: ['wathq-example-connector'],
         },
@@ -2023,6 +2028,7 @@ describe('the operator health screen', () => {
           slowestMs: 30,
           balanceHalalas: 900000,
           heldHalalas: 0,
+          walletAvailableHalalas: 900000,
           balanceLow: false,
           unhealthyProviders: [],
         },

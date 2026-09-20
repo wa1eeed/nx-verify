@@ -19,6 +19,21 @@ export type { Page, PageRequest, PageSize } from './pagination.js';
 export type { NxErrorCode, NxErrorOptions } from './errors.js';
 export { canonicalJson } from './canonical-json.js';
 export {
+  IDEMPOTENCY_LEASE,
+  IDEMPOTENCY_REPLAY_WINDOW,
+  claimIdempotentRequest,
+  idempotentRequestFingerprint,
+  recordIdempotentResponse,
+  releaseIdempotentRequest,
+} from './idempotency.js';
+export type {
+  IdempotentClaim,
+  IdempotentClaimInput,
+  IdempotentRequestParts,
+  RecordIdempotentResponseInput,
+  RecordedResponse,
+} from './idempotency.js';
+export {
   REDACTED,
   describeProviderInput,
   redactForLog,
@@ -179,6 +194,7 @@ export { computeBilling, maximumCharge } from './billing/compute.js';
 export type { BillingBreakdown, StepCharge } from './billing/compute.js';
 export {
   NOT_CHARGED_AR,
+  OTHER_SHARES_AR,
   chargedOutcomes,
   chargedOutcomesSentenceAr,
   chargedShareAr,
@@ -766,11 +782,17 @@ export type {
 export { HttpKmsClient, KmsMasterKeySource, masterKeySourceFromEnv } from './crypto/kms.js';
 export type { Fetcher, HttpKmsOptions, KmsClient, KmsDecryptRequest } from './crypto/kms.js';
 export {
+  DEFAULT_RATE_LIMIT_RPM,
   assertEntitled,
+  assertUnderPlanLimit,
   computeTermExtras,
   getCommitment,
   isFreeReverification,
   listEntitlements,
+  planLimitFor,
+  planLimitRefusal,
+  planLimits,
+  rateLimitRpmFor,
   recordUsage,
   renewTerm,
   resolveEntitlement,
@@ -780,9 +802,13 @@ export type {
   Commitment,
   Entitlement,
   EntitlementRefusal,
+  PlanLimit,
+  PlanLimitKind,
+  PlanLimits,
   TermExtras,
 } from './billing/entitlements.js';
 export {
+  countPendingSandboxRequests,
   createSandboxForRequest,
   isSandbox,
   latestSandboxRequest,

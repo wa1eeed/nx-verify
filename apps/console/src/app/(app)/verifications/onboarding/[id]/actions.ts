@@ -7,7 +7,6 @@ import {
   NxError,
   advanceCase,
   audit,
-  getCase,
   inferIdentifiers,
   sealCaseBundle,
   waiveStep,
@@ -166,13 +165,12 @@ export async function sealCaseBundleAction(formData: FormData): Promise<void> {
   back(caseId, 'sealed');
 }
 
-/** Whether the file still has a check nobody has run. */
-export async function caseIsOpen(caseId: string): Promise<boolean> {
-  const actor = await actingUser();
-  assertCan(actor.capabilities, 'customers.read');
-  const onboarding = await query((tx) => getCase(tx, caseId));
-  return onboarding !== null && onboarding.closedAt === null;
-}
+/*
+ * `caseIsOpen` stood here: a read, exported from a 'use server' module, which makes it an RPC
+ * endpoint anybody signed in can call. No screen ever called it, so it was an endpoint with
+ * no caller, and the screen that wants the answer already has it in the case it renders. A
+ * read does not belong in this file even when something does want it.
+ */
 
 /** A redirect inside a try is a thrown value, not a failure: it has to travel. */
 function isRedirect(error: unknown): boolean {

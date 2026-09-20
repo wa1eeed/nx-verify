@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Queryable, TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
+import { assertUnderPlanLimit } from '../billing/entitlements.js';
 import { audit } from './audit.js';
 
 /**
@@ -58,6 +59,11 @@ export async function issueApiKey(
     throw new NxError('NX-4041', { detail: 'no such workspace' });
   }
   const environment: 'sandbox' | 'live' = workspace[0]?.sandbox_of === null ? 'live' : 'sandbox';
+  // How many keys the plan sells, applied where a key is actually made (ADR-184). The figure
+  // was on every plan and read by nobody, so a plan selling two keys handed out as many as
+  // somebody pressed the button. The refusal carries the number, and a workspace already above
+  // a ceiling it acquired later keeps every key it holds: this stops the next one only.
+  await assertUnderPlanLimit(tx, 'API_KEYS');
   // The prefix is part of the key, so a customer can match a console row to a key they
   // hold without either of us handling the whole value.
   const secret = `nx_${environment === 'live' ? 'live' : 'test'}_${randomBytes(KEY_BYTES).toString('base64url')}`;

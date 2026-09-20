@@ -108,7 +108,8 @@ export function OnboardingList({
               {tallies.late}
             </bdi>
           </strong>
-          <span className="stat-hint">المهلة من رحلة التأهيل</span>
+          {/* One name for one thing: «مسار», as the empty state and the open screen say it. */}
+          <span className="stat-hint">المهلة من مسار التأهيل</span>
         </article>
         <article className="stat">
           <span className="stat-label">مقبولة</span>
@@ -123,7 +124,19 @@ export function OnboardingList({
       <Panel title="الملفات" aside={`${page.total} ملفاً`}>
         {page.total === 0 ? (
           <div className="panel-body">
-            <EmptyState>لا ملفات تأهيل بعد. أول ملف يبدأ برحلة معرّفة في الإعدادات.</EmptyState>
+            {/*
+              Where a journey comes from, said as it is.
+
+              This used to read «أول ملف يبدأ برحلة معرّفة في الإعدادات», and there is no
+              journeys tab in SETTINGS_TABS and no route under /settings: `defineJourney` is
+              called from scripts/provision.ts and nowhere else. So the reader went looking
+              through their own settings for a screen that does not exist. «فتح ملف» says the
+              same thing truthfully already, and this now matches it.
+            */}
+            <EmptyState>
+              لا ملفات تأهيل بعد. أول ملف يبدأ بمسار تأهيل مفعّل، ومسارات التأهيل يعرّفها مشغّل
+              المنصة.
+            </EmptyState>
           </div>
         ) : (
           <div className="table-scroll">
@@ -131,7 +144,7 @@ export function OnboardingList({
               <thead>
                 <tr>
                   <th>المرجع</th>
-                  <th>الرحلة</th>
+                  <th>المسار</th>
                   <th>المتقدّم</th>
                   <th>الحالة</th>
                   <th>التقدّم</th>

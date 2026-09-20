@@ -5,7 +5,8 @@ import {
   NxError,
   type AuthenticatedCaller,
 } from '@nx-verify/core';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { claimIdempotency } from './idempotency.js';
 import type { AppContext } from './context.js';
 
 declare module 'fastify' {
@@ -23,7 +24,7 @@ declare module 'fastify' {
  * habit.
  */
 export function requireAuth(context: AppContext, scope: string) {
-  return async function authHook(request: FastifyRequest): Promise<void> {
+  return async function authHook(request: FastifyRequest, reply: FastifyReply): Promise<unknown> {
     const header = request.headers.authorization;
     if (!header?.startsWith('Bearer ')) {
       throw new NxError('NX-4011', { requestId: request.id });
@@ -43,6 +44,20 @@ export function requireAuth(context: AppContext, scope: string) {
     await context
       .withTenant(caller.tenantId, (tx) => touchApiKey(tx, caller.apiKeyId))
       .catch(() => undefined);
+
+    /**
+     * Rule 7, here rather than in each handler (ADR-183).
+     *
+     * This is the one function every authenticated route already passes through, and it is
+     * also the first moment a workspace exists, which is what the claim is keyed by. A POST
+     * added tomorrow is covered because it authenticates, not because its author remembered.
+     *
+     * A replay has already been sent by the time this returns true, so nothing further runs.
+     */
+    if (await claimIdempotency(context, request, reply)) {
+      return reply;
+    }
+    return undefined;
   };
 }
 

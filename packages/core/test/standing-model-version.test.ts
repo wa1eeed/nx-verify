@@ -75,6 +75,11 @@ describe('standing rows know the risk model that computed them', () => {
     beta = await seedTenant(db.appPool, 'Beta');
     await insertAttestation(db.appPool, alpha, { fieldPath: 'cr.status' });
     await insertAttestation(db.appPool, beta, { fieldPath: 'cr.status' });
+    // The anchor fact, so these two files are rated at all: with no `cr.status_code` there is
+    // nothing to score and the row is stored with `risk_score` NULL (indicators.ts). Every
+    // count below is about scores, so the rows under it have to hold one.
+    await insertAttestation(db.appPool, alpha, { fieldPath: 'cr.status_code', value: 1 });
+    await insertAttestation(db.appPool, beta, { fieldPath: 'cr.status_code', value: 1 });
     await inTenant(alpha, (tx) => refreshStanding(tx, keys, [alpha.entityId]));
     await inTenant(beta, (tx) => refreshStanding(tx, keys, [beta.entityId]));
   });
@@ -142,6 +147,51 @@ describe('standing rows know the risk model that computed them', () => {
     expect(await modelOf(alpha)).not.toBe(wasAlpha);
     expect(await behind(alpha)).toBe(1);
     expect(await behind(beta)).toBe(1);
+  });
+
+  it('counts rows that hold a score, because that is what the sentence on the screen says', async () => {
+    // The screen reads «نموذج المخاطر تغيّر بعد حساب درجة N عميلاً», and it qualifies the
+    // «مخاطر عالية» facet, which is counted from `risk_score`. A file too incomplete to rate
+    // is stored with no score at all, and was counted here anyway: in a workspace of mostly
+    // half filled files the number ran far past the number of scores that exist (ADR-181).
+    const alphaModel = await modelOf(alpha);
+    const unscored = await inTenant(alpha, async (tx) => {
+      const { rows } = await tx.query<{ id: string }>(
+        `INSERT INTO entities (tenant_id, entity_type, display_name)
+         VALUES ($1, 'BUSINESS', 'Unscored') RETURNING id`,
+        [tx.tenantId],
+      );
+      const id = rows[0]?.id ?? '';
+      await tx.query(
+        `INSERT INTO customer_standing (tenant_id, entity_id, risk_score, risk_model_version)
+         VALUES ($1, $2, NULL, $3)`,
+        [tx.tenantId, id, 'a-model-that-is-no-longer-in-force'],
+      );
+      return id;
+    });
+
+    // It records a model, and that model is not the one in force. Both halves of the old
+    // condition hold, and it is still not a score computed under an older model.
+    expect(alphaModel).not.toBe('a-model-that-is-no-longer-in-force');
+    expect(await behind(alpha)).toBe(1);
+
+    // Give the very same row a score and it counts, which is what says the exclusion is about
+    // the score and not about the row.
+    await inTenant(alpha, (tx) =>
+      tx.query(
+        `UPDATE customer_standing SET risk_score = 42 WHERE tenant_id = $1 AND entity_id = $2`,
+        [tx.tenantId, unscored],
+      ),
+    );
+    expect(await behind(alpha)).toBe(2);
+
+    await inTenant(alpha, (tx) =>
+      tx.query(`DELETE FROM customer_standing WHERE tenant_id = $1 AND entity_id = $2`, [
+        tx.tenantId,
+        unscored,
+      ]),
+    );
+    expect(await behind(alpha)).toBe(1);
   });
 
   it('reads the model as whoever called it, so no subscriber can be told about another', async () => {

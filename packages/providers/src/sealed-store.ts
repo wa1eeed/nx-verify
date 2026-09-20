@@ -66,7 +66,13 @@ export class SealedFileSecretStore implements SecretStore {
       // The reference is safe to name. Material never appears in an error.
       throw new NxError('NX-5001', { detail: `no secret stored for reference ${ref}` });
     }
-    return this.#open(ref, entry);
+    const material = await this.#open(ref, entry);
+    if (!isStored(material)) {
+      // An entry with no fields serves nothing, and describe calls it nothing, so fetch says
+      // the same rather than handing a caller an empty object to fail on later (ADR-185).
+      throw new NxError('NX-5001', { detail: `no secret stored for reference ${ref}` });
+    }
+    return material;
   }
 
   async describe(ref: string): Promise<SecretDescription | null> {
@@ -75,7 +81,7 @@ export class SealedFileSecretStore implements SecretStore {
     if (!entry) {
       return null;
     }
-    return describeMaterial(await this.#open(ref, entry), new Date(entry.updatedAt));
+    return describeStored(await this.#open(ref, entry), new Date(entry.updatedAt));
   }
 
   put(ref: string, material: Record<string, string>): Promise<void> {
@@ -209,6 +215,29 @@ export function describeMaterial(
   return { updatedAt, fields };
 }
 
+/**
+ * Material with no fields at all, which is not something stored (ADR-185).
+ *
+ * An empty object is truthy and is an object, so it passed every guard written as `material ?`
+ * or `typeof material === 'object'` and travelled the whole way to the panel as a credential:
+ * the screen said «محفوظ», printed the reference beside an empty line, and the first call failed
+ * on a field that had never been there. Nothing can be served from it, so every store here calls
+ * it nothing rather than calling it a secret with no parts.
+ */
+export function isStored(
+  material: Readonly<Record<string, string>> | null | undefined,
+): material is Readonly<Record<string, string>> {
+  return material !== null && material !== undefined && Object.keys(material).length > 0;
+}
+
+/** What is stored, or null when nothing is. The one place the rule above is applied. */
+export function describeStored(
+  material: Readonly<Record<string, string>> | null | undefined,
+  updatedAt: Date | null,
+): SecretDescription | null {
+  return isStored(material) ? describeMaterial(material, updatedAt) : null;
+}
+
 function maskValue(value: string): string {
   if (value.length <= 10) {
     return '…';
@@ -247,12 +276,40 @@ export class LayeredSecretStore implements SecretStore {
     throw lastError ?? new NxError('NX-5001', { detail: `no secret stored for reference ${ref}` });
   }
 
+  /**
+   * The first layer that holds the reference, and a layer that could not be asked kept apart
+   * from a layer that answered «nothing» (ADR-185).
+   *
+   * This wrote `.catch(() => null)` around every layer, which is the sentence ADR-179 took out
+   * of EnvSecretStore and HttpSecretStore, put back one level above them: a sealed file that
+   * would not open answered «there is nothing stored under this reference» for every reference
+   * in it, and the panel sent a member of staff to store a secret that was sealed in that file
+   * all along. The interface's own words say no implementation does this, and this is an
+   * implementation.
+   *
+   * A layer that holds the reference still answers even if an earlier layer failed, because
+   * fetch resolves these same layers that way and a screen must not contradict the call it
+   * describes. But «nothing anywhere» is said only when every layer said it: a layer that could
+   * not be asked is exactly the layer that might hold the thing the answer is about.
+   *
+   * The first failure is the one raised. The layers are in precedence order, so the earliest to
+   * fail is the one whose answer would have won, and a later layer's failure (an environment
+   * variable left unset in a deployment that has moved on to a sealed file) would bury it.
+   */
   async describe(ref: string): Promise<SecretDescription | null> {
+    let failure: { error: unknown } | null = null;
     for (const store of this.#stores) {
-      const description = store.describe ? await store.describe(ref).catch(() => null) : null;
-      if (description) {
-        return description;
+      try {
+        const description = await store.describe(ref);
+        if (description) {
+          return description;
+        }
+      } catch (error) {
+        failure ??= { error };
       }
+    }
+    if (failure !== null) {
+      throw failure.error;
     }
     return null;
   }

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import type { OperatorIdentity } from '../src/operators/accounts.js';
-import type { Queryable } from '../../db/src/client.js';
+import type { Queryable, TenantTransaction } from '../../db/src/client.js';
 import { serialisedQuery, withTenant } from '../../db/src/client.js';
 import { NxError } from '../src/errors.js';
 import { createUser } from '../src/auth/users.js';
@@ -48,11 +48,12 @@ const READ_ONLY: OperatorIdentity = {
  *
  * The operator transaction takes one client out of the pool and holds it, because a pool
  * satisfies `Queryable` while handing out a different connection per statement, which would
- * turn the BEGIN into a statement about nothing.
+ * turn the BEGIN into a statement about nothing. There is no pooled operator reader beside it
+ * any more: the read that chooses which ask is being answered belongs inside the transaction
+ * that answers it, holding the row (ADR-180).
  */
 function provisioner(db: TestDatabase): SandboxProvisioner {
   return {
-    operator: db.operatorPool,
     inOperatorTransaction: async <T>(run: (tx: Queryable) => Promise<T>): Promise<T> => {
       const client: pg.PoolClient = await db.operatorPool.connect();
       try {
@@ -345,5 +346,114 @@ describe('asking for a sandbox, and being given one', () => {
     const other = await seedTenant(db.appPool, 'Somebody Else Co');
     const seen = await withTenant(db.appPool, other.tenantId, (tx) => latestSandboxRequest(tx));
     expect(seen).toBeNull();
+  });
+
+  /**
+   * ADR-180: two members of staff, one ask, and the workspace that used to be left behind.
+   *
+   * The order of the steps was said to protect this and did not. The ask was read on a pooled
+   * connection, the workspace and its person and its wallet were committed on the subscriber's
+   * connection, and only then did the operator transaction try to write the answer. A refusal
+   * landing in that gap turned the answer into zero rows and rolled the operator transaction
+   * back with the workspace already committed: linked to nobody, on no screen, holding the slug
+   * every later attempt for that subscriber needs.
+   *
+   * The refusal here is fired at the exact moment the old code was defenceless, which is after
+   * the workspace has committed. With the ask locked for the length of the answer it waits
+   * there instead of passing, and finds the ask closed when it is let through.
+   */
+  it('makes a refusal wait for an answer in progress, and leaves no workspace behind', async () => {
+    const racing = await seedTenant(db.appPool, 'Racing Co');
+    const asker = await withTenant(db.appPool, racing.tenantId, (tx) =>
+      createUser(tx, {
+        email: 'dev@racing.example',
+        displayName: 'مهندس التكامل',
+        role: 'ADMIN',
+      }),
+    );
+    const asked = await withTenant(db.appPool, racing.tenantId, (tx) =>
+      requestSandbox(tx, { requestedBy: asker }),
+    );
+
+    const base = provisioner(db);
+    /** The second answer, once it has been started. Empty until the moment it is fired. */
+    const refusals: Promise<unknown>[] = [];
+    const answeredTwiceAtOnce: SandboxProvisioner = {
+      inOperatorTransaction: base.inOperatorTransaction,
+      inTenant: async <T>(
+        tenantId: string,
+        run: (tx: TenantTransaction) => Promise<T>,
+      ): Promise<T> => {
+        const result = await base.inTenant(tenantId, run);
+        if (refusals.length === 0 && tenantId !== racing.tenantId) {
+          // The new workspace has just committed. The second member of staff presses «أكّد
+          // أنها لا تُنشأ» on the same row now.
+          refusals.push(
+            refuseSandboxRequest(db.operatorPool, STAFF, {
+              requestId: asked.id,
+              code: 'NOT_ELIGIBLE',
+            }).then(
+              () => 'refused',
+              (error: unknown) => error,
+            ),
+          );
+          // Long enough to reach the row and wait on it, rather than to be still on its way
+          // when the answer commits, which would prove nothing either way.
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+        return result;
+      },
+    };
+
+    let made: Awaited<ReturnType<typeof createSandboxForRequest>> | null = null;
+    let failed: unknown = null;
+    try {
+      made = await createSandboxForRequest(answeredTwiceAtOnce, STAFF, { requestId: asked.id });
+    } catch (error) {
+      failed = error;
+    }
+
+    // The press that was already making a workspace finishes it.
+    expect(failed).toBeNull();
+    expect(made?.slug.endsWith('-sandbox')).toBe(true);
+
+    // The one that arrived in the middle is told the ask is no longer open, which is what it
+    // is: it never reached the row while the row was still open.
+    expect(refusals).toHaveLength(1);
+    const outcome: unknown = await refusals[0];
+    expect(outcome).toBeInstanceOf(NxError);
+    expect((outcome as NxError).code).toBe('NX-4041');
+
+    // Nothing was left over. A workspace whose name ends in -sandbox and which is the sandbox
+    // of nobody is the exact row the old order committed and could not take back.
+    const { rows: orphans } = await db.operatorPool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM tenants
+       WHERE slug LIKE '%-sandbox' AND sandbox_of IS NULL`,
+    );
+    expect(orphans[0]?.count).toBe('0');
+
+    // And the ask reads as answered once, by the answer that actually happened.
+    const { rows: answered } = await db.operatorPool.query<{
+      status: string;
+      refusal_code: string | null;
+      sandbox_tenant_id: string | null;
+    }>(`SELECT status, refusal_code, sandbox_tenant_id FROM sandbox_requests WHERE id = $1`, [
+      asked.id,
+    ]);
+    expect(answered[0]?.status).toBe('CREATED');
+    expect(answered[0]?.refusal_code).toBeNull();
+    expect(answered[0]?.sandbox_tenant_id).toBe(made?.tenantId);
+
+    // The workspace is open, and the refusal that lost wrote nothing in either trail.
+    const { rows: workspace } = await db.operatorPool.query<{ status: string; refusals: string }>(
+      `SELECT t.status,
+              (SELECT count(*)::text FROM operator_audit a
+                WHERE a.action = 'subscribers.sandbox_refused'
+                  AND a.target = $2) AS refusals
+       FROM tenants t WHERE t.id = $1`,
+      [made?.tenantId ?? '', `subscriber:${racing.tenantId}`],
+    );
+    expect(workspace[0]?.status).toBe('active');
+    expect(workspace[0]?.refusals).toBe('0');
   });
 });

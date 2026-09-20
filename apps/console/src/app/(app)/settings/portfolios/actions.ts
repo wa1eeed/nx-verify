@@ -2,7 +2,15 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { assertCan, audit, createPortfolio, setPortfolioTtl, type Cadence } from '@nx-verify/core';
+import {
+  addToPortfolio,
+  assertCan,
+  audit,
+  createPortfolio,
+  removeFromPortfolio,
+  setPortfolioTtl,
+  type Cadence,
+} from '@nx-verify/core';
 import { actingUser, query } from '../../../../lib/context';
 
 /**
@@ -158,6 +166,142 @@ export async function setPortfolioTtlAction(formData: FormData): Promise<void> {
 
   revalidatePath(HERE);
   back('ttl');
+}
+
+/**
+ * Putting a customer in a group, and taking them out again (ADR-176).
+ *
+ * `addToPortfolio` is the only writer of `portfolio_members`, and until now its only caller
+ * in the product was `POST /v1/portfolios/:id/members` in the API. So a subscriber who wrote
+ * code against the API could fill a group, and a subscriber who used the console could not:
+ * every promise this screen makes was made about a table it had no way to write to, the
+ * count column read zero, the ruleset a group carries decided nobody, and the monitoring
+ * ADR-167 built inside `addToPortfolio` started only for whoever called the endpoint.
+ * `removeFromPortfolio` had no caller at all, so nothing could undo an add either.
+ *
+ * The capability is not this screen's. Making a group and giving it a policy is
+ * `settings.manage`, which is why the page asks for it; naming a customer and putting them
+ * under a policy is an act on a customer, so it asks for `customers.read`, and when the
+ * group watches its members it asks for `monitoring.manage` as well, because that add starts
+ * a monitor that spends the workspace's balance on a schedule. Both are enforced here rather
+ * than left to the page: hiding a form is a courtesy, the form still posts.
+ */
+
+/** The ids of one membership, or null when the form arrived without them. */
+function membershipFrom(formData: FormData): { portfolioId: string; entityId: string } | null {
+  const portfolioId = String(formData.get('portfolio_id') ?? '').trim();
+  const entityId = String(formData.get('entity_id') ?? '').trim();
+  return portfolioId === '' || entityId === '' ? null : { portfolioId, entityId };
+}
+
+export async function addMemberAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  // Said as a refusal on the screen rather than thrown. A capability error escaping a server
+  // action replaces the whole console with an error page, and «you may not do this» is a
+  // sentence this screen already knows how to print.
+  if (!actor.can('customers.read')) {
+    back('member_denied');
+  }
+  const membership = membershipFrom(formData);
+  if (membership === null) {
+    back('member_invalid');
+  }
+
+  let outcome: string;
+  try {
+    outcome = await query(async (tx) => {
+      const { rows } = await tx.query<{ monitor_by_default: boolean }>(
+        `SELECT monitor_by_default FROM portfolios WHERE tenant_id = $1 AND id = $2`,
+        [tx.tenantId, membership.portfolioId],
+      );
+      const portfolio = rows[0];
+      if (!portfolio) {
+        return 'member_missing';
+      }
+      // The group decides whether this add spends money, so the group decides which
+      // capability the add needs.
+      if (portfolio.monitor_by_default) {
+        assertCan(actor.capabilities, 'monitoring.manage');
+      }
+
+      const result = await addToPortfolio(
+        tx,
+        membership.portfolioId,
+        membership.entityId,
+        actor.userId,
+      );
+      if (!result.added) {
+        return 'member_exists';
+      }
+      // Three different things happened, and the screen says which. «Watching started» over
+      // a monitor whose ceiling is spent is the same lie this whole change is about.
+      if (result.monitoring === 'running') {
+        return 'member_watched';
+      }
+      return result.monitoring === 'stopped' ? 'member_watch_stopped' : 'member_added';
+    });
+  } catch (error) {
+    if (isRedirect(error)) {
+      throw error;
+    }
+    outcome = refusal(error);
+  }
+
+  revalidatePath(HERE);
+  back(outcome);
+}
+
+export async function removeMemberAction(formData: FormData): Promise<void> {
+  const actor = await actingUser();
+  // Stopping the spending is not gated on the capability to start it. Somebody who may see
+  // this customer may take them out of a group, and a person able to see that a customer is
+  // being watched by mistake must be able to end it.
+  if (!actor.can('customers.read')) {
+    back('member_denied');
+  }
+  const membership = membershipFrom(formData);
+  if (membership === null) {
+    back('member_invalid');
+  }
+
+  let outcome: string;
+  try {
+    outcome = await query(async (tx) => {
+      const result = await removeFromPortfolio(
+        tx,
+        membership.portfolioId,
+        membership.entityId,
+        actor.userId,
+      );
+      if (!result.removed) {
+        return 'member_gone';
+      }
+      return result.monitorsStopped > 0 ? 'member_removed_stopped' : 'member_removed';
+    });
+  } catch (error) {
+    if (isRedirect(error)) {
+      throw error;
+    }
+    outcome = refusal(error);
+  }
+
+  revalidatePath(HERE);
+  back(outcome);
+}
+
+/**
+ * Why a membership change did not happen, told apart rather than flattened to «failed».
+ *
+ * A refused capability and a customer that is not there are different mistakes with
+ * different fixes, and one message for both sends somebody looking in the wrong place.
+ */
+function refusal(error: unknown): string {
+  const code = (error as { code?: string }).code;
+  if (code === 'NX-4031') {
+    return 'member_denied';
+  }
+  // 23503 is a foreign key: the customer named on the form is not in this workspace.
+  return code === 'NX-4041' || code === '23503' ? 'member_missing' : 'failed';
 }
 
 /** A redirect inside a try is a thrown value, not a failure: it has to travel. */

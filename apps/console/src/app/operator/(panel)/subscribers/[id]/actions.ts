@@ -15,6 +15,7 @@ import {
   operatorTransaction,
   requireOperatorPermission,
 } from '../../../../../lib/operator';
+import { credentialState } from './credential';
 
 /**
  * Whose account one subscriber's calls go out on (ADR-005).
@@ -121,12 +122,24 @@ export async function setSourceAction(formData: FormData): Promise<void> {
    * is exactly the row somebody needs to stop, and it carries its reference into this save
    * because the row's own button sends the mode and the reference untouched.
    *
-   * A deployment whose store cannot be asked passes no check rather than a check that always
-   * answers no: refusing every reference because this process cannot look one up would make
-   * the screen unusable wherever secrets live somewhere it cannot describe.
+   * Asked once, here, rather than inside the write. setTenantBinding takes a predicate that
+   * answers yes or no, and a store that did not answer has no place in a yes or no: a failure
+   * turned into «no» refuses the save with «there is nothing stored under that reference»,
+   * which is a sentence about the operator's input and this is not the operator's doing
+   * (ADR-179). So the three answers are separated before the domain sees any of them.
+   *
+   * A store that did not answer refuses the save rather than skipping the check. The screen
+   * promises that the reference is checked before the row is written, and saving without it
+   * would make that promise false; and a secret store that cannot be reached is a store no
+   * verification can read either, so nothing this binding would serve is working anyway.
    */
-  const store = secretStoreFromEnv();
-  const describe = willServe ? store.describe?.bind(store) : undefined;
+  const held =
+    willServe && credentialRef !== null
+      ? await credentialState(secretStoreFromEnv(), credentialRef)
+      : null;
+  if (held?.state === 'unanswered') {
+    back(tenantId, 'refused=source_store');
+  }
 
   try {
     await operatorTransaction((db) =>
@@ -144,9 +157,10 @@ export async function setSourceAction(formData: FormData): Promise<void> {
           activate: willServe,
         },
         actor.id,
-        describe === undefined
+        held === null
           ? {}
-          : { credentialExists: async (ref) => (await describe(ref).catch(() => null)) !== null },
+          : // The answer above, about this same reference, handed over rather than asked again.
+            { credentialExists: () => Promise.resolve(held.state === 'held') },
       ),
     );
   } catch (error) {

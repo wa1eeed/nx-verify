@@ -10,7 +10,7 @@ import {
 import { operatorOrSignIn, operatorQuery } from '../../../../../lib/operator';
 import { answerSandboxAction } from './actions';
 import { SectionTabs } from '../../../../../components/section-tabs';
-import { SUBSCRIBER_TABS } from '../../../../../components/operator-shell';
+import { SUBSCRIBER_TABS, subscriberTabCounts } from '../../../../../components/operator-shell';
 
 /** Never prerendered, and refuses to render without an operator token. */
 export const dynamic = 'force-dynamic';
@@ -47,10 +47,17 @@ export default async function OperatorSandboxesPage(): Promise<ReactElement> {
 
   return (
     <div className="stack" style={{ gap: 'var(--space-6)' }}>
+      {/*
+        The number the sidebar and the other tabs of this section carry, on the tab that
+        answers it. Measured from the list this screen already read rather than counted again:
+        what rule 2 refuses is a figure drawn from rows nobody was going to show, and these
+        rows are the screen (ADR-186).
+      */}
       <SectionTabs
         tabs={SUBSCRIBER_TABS}
         current="/operator/subscribers/sandboxes"
         label="أقسام المشتركين"
+        counts={subscriberTabCounts(pending.length)}
       />
       <PageHeader
         title="مساحات الاختبار"

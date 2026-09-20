@@ -33,7 +33,6 @@ function card(view: Partial<SandboxAccessView> = {}): string {
     decidedAt: null,
     sandboxSlug: null,
     refusalCode: null,
-    canAsk: true,
     ...view,
   };
   return renderToStaticMarkup(<SandboxAccess view={full} requestAction={noop} />);
@@ -49,10 +48,16 @@ describe('the subscriber card for a sandbox', () => {
     expect(html).not.toContain(EM_DASH);
   });
 
-  it('says what the ask needs when the person cannot make it', () => {
-    const html = card({ canAsk: false });
-    expect(html).toContain('data-role="sandbox-needs-capability"');
-    expect(html).not.toContain('data-role="request-sandbox"');
+  it('carries no rule of its own about who may ask', () => {
+    // There was a line here saying the ask needed the keys and webhooks permission, and no
+    // reader could reach it: the screen answers NoAccess to anybody without that permission
+    // before this card is rendered, and the navigation never offers them the tab. The test
+    // that covered it set a state the screen does not produce, so it measured nothing but
+    // itself (ADR-180).
+    expect(card()).not.toContain('data-role="sandbox-needs-capability"');
+    expect(card({ status: 'REFUSED', refusalCode: 'NOT_ELIGIBLE' })).toContain(
+      'data-role="request-sandbox"',
+    );
   });
 
   it('says it is waiting, and why it waits on a person', () => {

@@ -23,6 +23,17 @@ export interface SubscriberHealthRow {
   balanceHalalas: number;
   heldHalalas: number;
   /**
+   * What the balance can actually pay for: what is in the wallet, less what is held against
+   * work already running.
+   *
+   * Here rather than left to the screen, which subtracted the two columns itself. Two
+   * definitions of «الرصيد المتاح», one in the domain and one in the markup, and the whole
+   * point of a hold is that it is not available: a later change to what a hold means would
+   * have moved `balanceLow` beside a figure that stayed as it was, and the screen would have
+   * shown an amount and a tag that disagreed about the same wallet.
+   */
+  walletAvailableHalalas: number;
+  /**
    * Operations left on a plan or a bundle, or null for a workspace running on riyals alone.
    *
    * Here because the riyal balance beside it does not answer «is this subscriber about to
@@ -127,6 +138,9 @@ export async function subscriberHealth(
       slowestMs: Number(row.slowest_ms ?? '0'),
       balanceHalalas: balance,
       heldHalalas: held,
+      // The same value `walletIsLow` was decided from, so the amount on the screen and the
+      // tag beside it can never be read from two different subtractions.
+      walletAvailableHalalas: capacity.walletAvailableHalalas,
       operationsLeft: operationsLeft(capacity),
       balanceLow: isLowOnCredit(capacity),
       unhealthyProviders: row.unhealthy ?? [],

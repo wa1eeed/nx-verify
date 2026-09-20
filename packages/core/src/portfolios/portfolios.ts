@@ -1,7 +1,7 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { audit } from '../auth/audit.js';
-import { createMonitor, type Cadence } from '../monitoring/monitors.js';
+import { createMonitor, resumeMonitor, type Cadence } from '../monitoring/monitors.js';
 import { halalasToDecimalString, riyalsToHalalas } from '../billing/money.js';
 
 /**
@@ -155,6 +155,15 @@ export async function listPortfolios(tx: TenantTransaction): Promise<Portfolio[]
 export interface AddMemberResult {
   added: boolean;
   monitorId: string | null;
+  /**
+   * Where this member's monitoring stands once the add is done, said as a state rather than
+   * as a transition, because that is the sentence a screen has to print. `null` is a group
+   * that watches nobody; `running` is a monitor working now, whether it was made here or
+   * restarted here; `stopped` is one that exists and is not working, which today means its
+   * ceiling is spent. A screen that printed «watching started» over a stopped monitor would
+   * be the same failure this whole file is about.
+   */
+  monitoring: 'running' | 'stopped' | null;
 }
 
 export async function addToPortfolio(
@@ -171,7 +180,7 @@ export async function addToPortfolio(
   );
 
   if (rowCount === 0) {
-    return { added: false, monitorId: null };
+    return { added: false, monitorId: null, monitoring: null };
   }
 
   await audit(tx, {
@@ -199,7 +208,25 @@ export async function addToPortfolio(
     !portfolio.monitor_budget_sar ||
     !portfolio.default_product_code
   ) {
-    return { added: true, monitorId: null };
+    return { added: true, monitorId: null, monitoring: null };
+  }
+
+  // A membership that ended and began again is one monitor, not two. `removeFromPortfolio`
+  // pauses what this membership started rather than deleting it, so that the spend and the
+  // name on it survive; joining again restarts that same monitor. Making a second one would
+  // leave a stopped row on the monitoring screen for every time somebody changed their mind,
+  // and two rows watching one customer is two bills waiting to happen.
+  const previous = await monitorFor(tx, portfolioId, entityId);
+  if (previous) {
+    if (previous.status === 'paused') {
+      await resumeMonitor(tx, previous.id);
+      return { added: true, monitorId: previous.id, monitoring: 'running' };
+    }
+    return {
+      added: true,
+      monitorId: previous.id,
+      monitoring: previous.status === 'active' ? 'running' : 'stopped',
+    };
   }
 
   // Monitoring still records a person and a budget. The portfolio decided the policy;
@@ -211,30 +238,97 @@ export async function addToPortfolio(
     cadence: portfolio.monitor_cadence,
     budgetCapPerPeriod: riyalsToHalalas(portfolio.monitor_budget_sar),
     activatedBy: addedBy,
-    consentRef: `portfolio:${portfolioId}`,
+    consentRef: consentRefFor(portfolioId),
   });
 
-  return { added: true, monitorId };
+  return { added: true, monitorId, monitoring: 'running' };
 }
 
+/** What a membership consents to, written on the monitor it starts and read back by id. */
+function consentRefFor(portfolioId: string): string {
+  return `portfolio:${portfolioId}`;
+}
+
+type MonitorStatus = 'active' | 'paused' | 'budget_exhausted';
+
+/**
+ * The monitor one membership started, if it started one.
+ *
+ * Found by the consent it carries, never by entity alone: the same customer may be watched
+ * from their own file for a reason that has nothing to do with this group, and that monitor
+ * is none of this group's business to start, stop or count.
+ */
+async function monitorFor(
+  tx: TenantTransaction,
+  portfolioId: string,
+  entityId: string,
+): Promise<{ id: string; status: MonitorStatus } | null> {
+  const { rows } = await tx.query<{ id: string; status: MonitorStatus }>(
+    `SELECT id, status FROM monitors
+     WHERE tenant_id = $1 AND entity_id = $2 AND consent_ref = $3
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [tx.tenantId, entityId, consentRefFor(portfolioId)],
+  );
+  return rows[0] ?? null;
+}
+
+export interface RemoveMemberResult {
+  removed: boolean;
+  /** Monitors that existed because of this membership and are now stopped. */
+  monitorsStopped: number;
+}
+
+/**
+ * Takes a member out, and stops what the membership started.
+ *
+ * Adding to a watching group starts a monitor and spends this workspace's balance on it
+ * every cadence. The consent for that spending was the membership and nothing else, so when
+ * the membership ends the monitor stops: a customer somebody deliberately took out of a
+ * group must not go on being re-verified at their expense, quietly, for ever.
+ *
+ * Paused rather than deleted. Who switched it on, what it cost and what it found are the
+ * questions an audit asks, and none of them survive a delete. It is paused rather than left
+ * to its ceiling too, because a pause is a person's decision and no later change of budget
+ * undoes it, which is exactly what is wanted here.
+ *
+ * Only the monitor carrying this group's consent, never every monitor on the customer. A
+ * customer watched from their own file for another reason keeps being watched.
+ */
 export async function removeFromPortfolio(
   tx: TenantTransaction,
   portfolioId: string,
   entityId: string,
   removedBy: string,
-): Promise<void> {
-  await tx.query(
+): Promise<RemoveMemberResult> {
+  const { rowCount } = await tx.query(
     `DELETE FROM portfolio_members
      WHERE tenant_id = $1 AND portfolio_id = $2 AND entity_id = $3`,
     [tx.tenantId, portfolioId, entityId],
   );
+
+  // Nothing was a member, so nothing was removed. An audit line for a removal that did not
+  // happen is a record of an event, and there was no event.
+  if (rowCount === 0) {
+    return { removed: false, monitorsStopped: 0 };
+  }
+
+  const stopped = await tx.query(
+    `UPDATE monitors SET status = 'paused'
+     WHERE tenant_id = $1 AND entity_id = $2 AND consent_ref = $3 AND status <> 'paused'`,
+    [tx.tenantId, entityId, consentRefFor(portfolioId)],
+  );
+  const monitorsStopped = stopped.rowCount ?? 0;
 
   await audit(tx, {
     actorType: 'USER',
     actorId: removedBy,
     action: 'portfolio.member_removed',
     target: `${portfolioId}:${entityId}`,
+    metadata: { monitors_stopped: monitorsStopped },
   });
+
+  return { removed: true, monitorsStopped };
 }
 
 /**

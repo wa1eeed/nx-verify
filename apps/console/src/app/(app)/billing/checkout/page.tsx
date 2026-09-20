@@ -1,17 +1,12 @@
 import type { ReactElement } from 'react';
-import {
-  getPlatformSettings,
-  listAvailableBundles,
-  vatInForce,
-  withVat,
-} from '@nx-verify/core';
+import { getPlatformSettings, listAvailableBundles, vatInForce, withVat } from '@nx-verify/core';
 import { Checkout, CheckoutDone, type CheckoutBank } from '../../../../components/checkout';
 import { NoAccess } from '../../../../components/no-access';
 import { PageHeader } from '../../../../components/page-header';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { BILLING_TABS, visible } from '../../../../components/nav';
 import { actingUser, query } from '../../../../lib/context';
-import { bundleLabelOf } from '../../../../components/topup';
+import { checkoutLineAr } from './line';
 import { placeOrderAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -113,14 +108,16 @@ export default async function CheckoutPage({
       />
       <Checkout
         line={{
-          titleAr:
-            bundle === null || bundle === undefined
-              ? 'رصيد بالريال'
-              : (bundleLabelOf(bundle.code) ?? 'حزمة رصيد'),
-          detailAr:
-            bundle === null || bundle === undefined
-              ? 'يُضاف إلى محفظتك ويُصرف على عمليات التحقق بأسعارها المعروضة.'
-              : `${bundle.operations} عملية، صالحة ${bundle.validityMonths} شهراً.`,
+          /*
+           * The same two lines the offer card carries, through the same function, not a
+           * second description written here (ADR-171, ADR-181).
+           *
+           * This line used to be assembled from the raw figures: «2000 عملية» with no grouping,
+           * «1 شهراً» for a bundle that lasts a month, and no price of an operation at all,
+           * which is the one figure that says whether this bundle is worth buying. All three
+           * were already solved one screen back, and this is the screen the buyer commits on.
+           */
+          ...checkoutLineAr(bundle ?? null),
           netHalalas: taxed.netHalalas,
           vatHalalas: taxed.vatHalalas,
           grossHalalas: taxed.grossHalalas,

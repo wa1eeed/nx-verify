@@ -1,5 +1,6 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import {
+  ceilingUnitPrice,
   chargedUnitPrice,
   resolveEntitlement,
   type EntitlementRefusal,
@@ -36,6 +37,17 @@ export interface CheckQuote {
   refusalAr: string | null;
   /** Excluding VAT. Null when no price is in force, which the run itself would refuse. */
   unitPriceHalalas: number | null;
+  /**
+   * The most one operation can be charged before the term's capacity is refilled, excluding
+   * VAT. The same figure as above wherever the plan cannot reprice an excess run, and the
+   * dearer of the two rates where it can.
+   *
+   * A screen that adds up several operations must add up this one. The subscriber's first few
+   * operations come out of the capacity and the rest are charged past it at the plan's overage
+   * rate, so a total built from the included rate is a number smaller than the hold the run
+   * places (ADR-188).
+   */
+  ceilingUnitPriceHalalas: number | null;
 }
 
 export interface ChecksQuote {
@@ -58,7 +70,13 @@ export async function quoteChecks(
   for (const productCode of productCodes) {
     const entitlement = await resolveEntitlement(tx, productCode).catch(() => null);
     if (entitlement === null) {
-      lines.push({ productCode, allowed: false, refusalAr: 'غير متاحة', unitPriceHalalas: null });
+      lines.push({
+        productCode,
+        allowed: false,
+        refusalAr: 'غير متاحة',
+        unitPriceHalalas: null,
+        ceilingUnitPriceHalalas: null,
+      });
       continue;
     }
     // The least of them, not the last of them: it was plain assignment inside the loop, so a
@@ -85,11 +103,20 @@ export async function quoteChecks(
      */
     const basis = listPrice ?? entitlement.overageUnitPriceHalalas;
     const unitPriceHalalas = basis === null ? null : chargedUnitPrice(entitlement, basis);
+    /*
+     * The ceiling stands on the same basis, with one difference: the overage rate counts here
+     * even while the capacity still has room, because the operations a screen is quoting for
+     * can cross it. Which is also why it can be known when the price above is not, on a plan
+     * whose only figure for this product is what an excess run costs.
+     */
+    const ceilingBasis = listPrice ?? entitlement.overageRateHalalas;
     lines.push({
       productCode,
       allowed: entitlement.allowed,
       refusalAr: entitlement.refusal ? REFUSALS[entitlement.refusal] : null,
       unitPriceHalalas,
+      ceilingUnitPriceHalalas:
+        ceilingBasis === null ? null : ceilingUnitPrice(entitlement, ceilingBasis),
     });
   }
 

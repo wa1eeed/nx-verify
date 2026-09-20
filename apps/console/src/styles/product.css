@@ -859,6 +859,21 @@ a.frame-brand:active {
   box-shadow: var(--shadow-sm);
 }
 
+/* How many things are waiting behind this tab (ADR-186): the sidebar's pill, in the tab that
+   answers the number. Inverted on the open tab, which is itself filled with the accent. */
+.tab-count {
+  padding: var(--size-hairline) var(--space-2);
+  border-radius: 999px;
+  font-size: var(--text-micro);
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.tab[aria-current='page'] .tab-count,
+.tab[aria-current='true'] .tab-count {
+  background: var(--color-bg);
+  color: var(--color-accent-700);
+}
+
 /* ── progress ─────────────────────────────────────────────────────────── */
 
 .progress {

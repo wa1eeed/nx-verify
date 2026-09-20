@@ -172,7 +172,40 @@ export interface PendingSandboxRequest extends SandboxRequest {
 }
 
 /**
+ * How many asks are open, and nothing else about them (ADR-186).
+ *
+ * The second sentence of rule 2: a number on a screen comes from a counter, not from a list
+ * somebody measured. The panel's frame draws this beside the place the queue lives under, on
+ * every render of every panel screen, and it used to get it by calling
+ * `listPendingSandboxRequests` and taking `.length`: every open ask, each carrying a
+ * subscriber's legal name and workspace name, read across every subscriber on the platform, so
+ * that one digit could be drawn. What the screen needed was the digit.
+ *
+ * So this is `count(*)` over one predicate, with no join at all. 0068 indexes
+ * `sandbox_requests (requested_at) WHERE status = 'REQUESTED'` for exactly this shape, so the
+ * number costs the same whether two subscribers are waiting or two thousand, and no name
+ * crosses a boundary to produce a badge. It is named for what it returns, so the next person
+ * reading the frame can see that it counts rather than reads.
+ *
+ * Crossing subscribers, which rule 2 allows for configuration and for nothing else: what is
+ * counted is asks for a test workspace, and nothing counted here says anything about a company
+ * anybody verified.
+ */
+export async function countPendingSandboxRequests(operator: Queryable): Promise<number> {
+  const { rows } = await operator.query<{ count: string }>(
+    // As text, because count(*) is a bigint and `pg` hands those back as strings rather than
+    // silently rounding them into a double.
+    `SELECT count(*)::text AS count FROM sandbox_requests WHERE status = 'REQUESTED'`,
+  );
+  return Number(rows[0]?.count ?? '0');
+}
+
+/**
  * Every open ask, for the staff who answer them. Read on the operator connection.
+ *
+ * For the screen that lists them and answers them, which needs every column of every row. A
+ * screen that needs only how many is served by `countPendingSandboxRequests` above, and must
+ * not measure this list to get there.
  *
  * Crossing subscribers, which rule 2 allows for configuration and for nothing else: no column
  * read here says anything about a company anybody verified.
@@ -216,12 +249,15 @@ export async function listPendingSandboxRequests(
  * The same split `confirmTopUpAction` makes, for the same reason.
  */
 export interface SandboxProvisioner {
-  /** The operator connection, for reading. */
-  operator: Queryable;
   /**
-   * The same connection with a transaction around it, which the caller supplies rather than
-   * this file opening one: a pool satisfies `Queryable` and hands out a different connection
-   * per statement, so a BEGIN written here would silently not be a transaction at all.
+   * The operator connection with a transaction around it, which the caller supplies rather
+   * than this file opening one: a pool satisfies `Queryable` and hands out a different
+   * connection per statement, so a BEGIN written here would silently not be a transaction at
+   * all.
+   *
+   * Every operator side statement of an answer runs inside it, the first read included. It
+   * used to read the ask on a pooled connection and write the answer in a transaction opened
+   * afterwards, and the gap between the two is where a second member of staff fits.
    */
   inOperatorTransaction: <T>(run: (db: Queryable) => Promise<T>) => Promise<T>;
   inTenant: <T>(tenantId: string, run: (tx: TenantTransaction) => Promise<T>) => Promise<T>;
@@ -254,11 +290,27 @@ const SANDBOX_CREDIT_HALALAS = 1_000_000_00;
  * everything after the decision, in one go, so the answer costs a member of staff one press
  * rather than a shell and a provisioning script.
  *
- * The steps run in this order on purpose. The workspace is inserted suspended, so a failure
- * before it is linked leaves a row that appears on no screen: `listSubscriberSummaries` reads
- * active workspaces only. The link, the plan, the trail and the answer to the request are one
- * operator transaction, so a request never reads CREATED without a workspace behind it. The
- * workspace is opened last.
+ * **The ask is locked before anything is made.** The order alone does not protect this, and
+ * the comment that said it did was wrong. Reading the ask on a pooled connection and opening
+ * the operator transaction afterwards leaves a gap: one member of staff presses «أنشئ» while
+ * another presses «أكّد أنها لا تُنشأ» on the same row, the workspace, its person and its
+ * wallet all commit, and then `UPDATE ... AND status = 'REQUESTED'` matches nothing and rolls
+ * the operator transaction back. What is left is a workspace linked to nobody, on no screen,
+ * holding the slug this subscriber's sandbox will want. The next attempt fails on that slug
+ * for as long as the row exists, so the gap does not cost one press, it costs the feature.
+ *
+ * So the first statement takes the row with `FOR UPDATE`, inside the transaction that will
+ * answer it, and holds it until the answer commits. A second answer on the same row waits
+ * there and then finds the ask closed, which is exactly what it should find.
+ *
+ * The rest of the order still matters. The plan is read before anything is created, because
+ * it is the one precondition that lives outside this workspace and discovering it missing
+ * afterwards would mean a committed workspace and nothing to undo it with. The workspace is
+ * inserted suspended and opened last, so what the operator transaction commits is a workspace
+ * that is whole. What remains, and is said rather than hidden: the workspace commits on the
+ * subscriber's connection while the operator transaction is still open, so a crash between
+ * the two commits still leaves that suspended row behind. Two connections cannot be one
+ * transaction, and the answer to that is a sweep, not a comment claiming it cannot happen.
  */
 export async function createSandboxForRequest(
   provision: SandboxProvisioner,
@@ -266,96 +318,107 @@ export async function createSandboxForRequest(
   input: { requestId: string },
 ): Promise<CreatedSandbox> {
   assertSubscribers(actor);
-  const { operator, inTenant } = provision;
+  const { inTenant } = provision;
 
-  const { rows: asked } = await operator.query<{
-    tenant_id: string;
-    legal_name: string;
-    slug: string;
-    requested_by: string | null;
-    parent_is_sandbox: boolean;
-    already_has_sandbox: boolean;
-  }>(
-    `SELECT r.tenant_id, t.legal_name, t.slug, r.requested_by,
-            (t.sandbox_of IS NOT NULL) AS parent_is_sandbox,
-            EXISTS (SELECT 1 FROM tenants s WHERE s.sandbox_of = t.id) AS already_has_sandbox
-     FROM sandbox_requests r
-     JOIN tenants t ON t.id = r.tenant_id
-     WHERE r.id = $1 AND r.status = 'REQUESTED'`,
-    [input.requestId],
-  );
+  const made = await provision.inOperatorTransaction(async (db): Promise<CreatedSandbox> => {
+    const { rows: asked } = await db.query<{
+      tenant_id: string;
+      legal_name: string;
+      slug: string;
+      requested_by: string | null;
+      parent_is_sandbox: boolean;
+      already_has_sandbox: boolean;
+    }>(
+      `SELECT r.tenant_id, t.legal_name, t.slug, r.requested_by,
+              (t.sandbox_of IS NOT NULL) AS parent_is_sandbox,
+              EXISTS (SELECT 1 FROM tenants s WHERE s.sandbox_of = t.id) AS already_has_sandbox
+       FROM sandbox_requests r
+       JOIN tenants t ON t.id = r.tenant_id
+       WHERE r.id = $1 AND r.status = 'REQUESTED'
+       FOR UPDATE OF r`,
+      [input.requestId],
+    );
 
-  const request = asked[0];
-  if (!request) {
-    throw new NxError('NX-4041', { detail: 'no open request with that id' });
-  }
-  if (request.parent_is_sandbox) {
-    throw new NxError('NX-4091', { detail: 'a sandbox workspace cannot own another sandbox' });
-  }
-  if (request.already_has_sandbox) {
-    throw new NxError('NX-4091', { detail: 'this workspace already has a sandbox' });
-  }
-
-  const sandboxId = randomUUID();
-  const legalName = `${request.legal_name} (Sandbox)`;
-  const slug = sandboxSlug(request.slug);
-  const password = randomBytes(18).toString('base64url');
-
-  // Whoever asked is who gets in. Read on the subscriber's own connection, because the
-  // operator role holds nothing on `users` and must not: that table is people, not commerce.
-  const requester =
-    request.requested_by === null
-      ? null
-      : await inTenant(request.tenant_id, async (tx) => {
-          const { rows } = await tx.query<{ email: string; display_name: string }>(
-            `SELECT email, display_name FROM users
-             WHERE tenant_id = $1 AND id = $2 AND status = 'active'`,
-            [tx.tenantId, request.requested_by],
-          );
-          return rows[0] ?? null;
-        });
-
-  // One transaction: the workspace, the person in it, and its play money together, or none.
-  await inTenant(sandboxId, async (tx) => {
-    await tx
-      .query(
-        `INSERT INTO tenants (id, legal_name, slug, status) VALUES ($1, $2, $3, 'suspended')`,
-        [sandboxId, legalName, slug],
-      )
-      .catch((error: unknown) => {
-        if (isUniqueViolation(error)) {
-          // Not a 4091 alongside the two above it. Both of those were already checked, so a
-          // taken name here means the slug belongs to something that is not this subscriber's
-          // sandbox: two workspaces whose names agree for the first 55 characters, or the
-          // remains of an earlier attempt that committed this workspace and then failed
-          // before it was linked. Neither is anything the person pressing the button can
-          // resolve, and neither is «they already have one».
-          throw new NxError('NX-5001', {
-            detail: 'the sandbox workspace name is already taken',
-            cause: error,
-          });
-        }
-        throw error;
-      });
-
-    if (requester) {
-      const userId = await createUser(
-        tx,
-        { email: requester.email, displayName: requester.display_name, role: 'ADMIN' },
-        actor.id,
-      );
-      // Temporary by construction, as every account this platform creates is: the person
-      // changes it on first sign in, so nobody who handed it over knows it afterwards.
-      await setPassword(tx, { userId, password, mustChange: true, actorId: actor.id });
+    const request = asked[0];
+    if (!request) {
+      throw new NxError('NX-4041', { detail: 'no open request with that id' });
+    }
+    if (request.parent_is_sandbox) {
+      throw new NxError('NX-4091', { detail: 'a sandbox workspace cannot own another sandbox' });
+    }
+    if (request.already_has_sandbox) {
+      throw new NxError('NX-4091', { detail: 'this workspace already has a sandbox' });
     }
 
-    // No invoice id, because there is no invoice: nobody was billed for play money. The
-    // column's own rule (ADR-166) is that a value there claims a tax invoice exists, and a
-    // sandbox statement printing «SANDBOX» in the invoice column claims one that does not.
-    await topUp(tx, { amount: SANDBOX_CREDIT_HALALAS, vatInvoiceId: null });
-  });
+    // Read now rather than at the end. A sandbox is placed on the SANDBOX plan, and a
+    // deployment without that plan can make no sandbox at all: finding out after the
+    // workspace has committed would leave the row this function exists to avoid leaving.
+    const { rows: plan } = await db.query<{ code: string }>(
+      `SELECT code FROM packages WHERE code = 'SANDBOX'`,
+    );
+    if (!plan[0]) {
+      throw new NxError('NX-5001', { detail: 'the SANDBOX plan is not defined in this database' });
+    }
 
-  await provision.inOperatorTransaction(async (db) => {
+    const sandboxId = randomUUID();
+    const legalName = `${request.legal_name} (Sandbox)`;
+    const slug = sandboxSlug(request.slug);
+    const password = randomBytes(18).toString('base64url');
+
+    // Whoever asked is who gets in. Read on the subscriber's own connection, because the
+    // operator role holds nothing on `users` and must not: that table is people, not commerce.
+    const requester =
+      request.requested_by === null
+        ? null
+        : await inTenant(request.tenant_id, async (tx) => {
+            const { rows } = await tx.query<{ email: string; display_name: string }>(
+              `SELECT email, display_name FROM users
+               WHERE tenant_id = $1 AND id = $2 AND status = 'active'`,
+              [tx.tenantId, request.requested_by],
+            );
+            return rows[0] ?? null;
+          });
+
+    // One transaction: the workspace, the person in it, and its play money together, or none.
+    await inTenant(sandboxId, async (tx) => {
+      await tx
+        .query(
+          `INSERT INTO tenants (id, legal_name, slug, status) VALUES ($1, $2, $3, 'suspended')`,
+          [sandboxId, legalName, slug],
+        )
+        .catch((error: unknown) => {
+          if (isUniqueViolation(error)) {
+            // Not a 4091 alongside the two above it. Both of those were already checked, so a
+            // taken name here means the slug belongs to something that is not this
+            // subscriber's sandbox: two workspaces whose names agree for the first 55
+            // characters, or the remains of an attempt that committed this workspace and then
+            // lost its connection before it was linked. Neither is anything the person
+            // pressing the button can resolve, and neither is «they already have one».
+            throw new NxError('NX-5001', {
+              detail: 'the sandbox workspace name is already taken',
+              cause: error,
+            });
+          }
+          throw error;
+        });
+
+      if (requester) {
+        const userId = await createUser(
+          tx,
+          { email: requester.email, displayName: requester.display_name, role: 'ADMIN' },
+          actor.id,
+        );
+        // Temporary by construction, as every account this platform creates is: the person
+        // changes it on first sign in, so nobody who handed it over knows it afterwards.
+        await setPassword(tx, { userId, password, mustChange: true, actorId: actor.id });
+      }
+
+      // No invoice id, because there is no invoice: nobody was billed for play money. The
+      // column's own rule (ADR-166) is that a value there claims a tax invoice exists, and a
+      // sandbox statement printing «SANDBOX» in the invoice column claims one that does not.
+      await topUp(tx, { amount: SANDBOX_CREDIT_HALALAS, vatInvoiceId: null });
+    });
+
     await db.query(`UPDATE tenants SET sandbox_of = $2 WHERE id = $1`, [
       sandboxId,
       request.tenant_id,
@@ -386,8 +449,8 @@ export async function createSandboxForRequest(
       [input.requestId, actor.id, sandboxId, slug],
     );
     if (rowCount !== 1) {
-      // Somebody answered it a moment ago. Rolling back is the whole point of the
-      // transaction: one press makes one sandbox.
+      // Unreachable while the lock above is held, and kept for the day somebody moves that
+      // lock: the guard is cheap and the thing it guards is a subscriber's workspace.
       throw new NxError('NX-4091', { detail: 'that request was already answered' });
     }
 
@@ -410,20 +473,22 @@ export async function createSandboxForRequest(
         JSON.stringify({ sandbox_tenant_id: sandboxId, slug }),
       ],
     );
+
+    return {
+      requestId: input.requestId,
+      tenantId: sandboxId,
+      slug,
+      legalName,
+      account: requester ? { email: requester.email, temporaryPassword: password } : null,
+    };
   });
 
   // Opened only now, so nothing above can leave a workspace that is reachable but half made.
-  await inTenant(sandboxId, (tx) =>
-    tx.query(`UPDATE tenants SET status = 'active' WHERE id = $1`, [sandboxId]),
+  await inTenant(made.tenantId, (tx) =>
+    tx.query(`UPDATE tenants SET status = 'active' WHERE id = $1`, [made.tenantId]),
   );
 
-  return {
-    requestId: input.requestId,
-    tenantId: sandboxId,
-    slug,
-    legalName,
-    account: requester ? { email: requester.email, temporaryPassword: password } : null,
-  };
+  return made;
 }
 
 /**

@@ -1,7 +1,7 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
-import { queueEventTo, type WebhookEventType } from '../webhooks/dispatch.js';
-import { queueNotificationTo } from '../notifications/notifications.js';
+import { listEndpoints, queueEventTo, type WebhookEventType } from '../webhooks/dispatch.js';
+import { queueNotifications, queueNotificationTo } from '../notifications/notifications.js';
 import type { CaseStatus, OnboardingCase } from './cases.js';
 
 /**
@@ -17,7 +17,15 @@ import type { CaseStatus, OnboardingCase } from './cases.js';
  * here is the routing: an action is chosen per journey and per outcome, so "on approval
  * call our activation endpoint, on rejection tell compliance and nobody else" is rows.
  *
- * See ADR-078.
+ * Those rows narrow a route. They are not the route (ADR-182). A subscriber already says
+ * where events go, once, on two screens they have: an endpoint subscribes to
+ * `onboarding.approved` and a proved address subscribes to the same event. Until this
+ * module read those subscriptions, ticking either box delivered nothing: the only producer
+ * of an onboarding event was a `case_actions` row, and no surface writes one. So the
+ * default route is the subscription, and a journey with actions of its own uses them
+ * instead, which is what "and nobody else" asks for.
+ *
+ * See ADR-078, ADR-079 and ADR-182.
  */
 
 export type ActionOutcome = 'APPROVED' | 'REJECTED' | 'IN_REVIEW' | 'ANY';
@@ -80,7 +88,36 @@ const EVENT_FOR: Record<string, WebhookEventType> = {
 };
 
 /**
- * Fires whatever this journey says to fire for this outcome.
+ * What a firing carries when it went where a subscription said to send it rather than to
+ * an action named for this journey. The console turns it into words; nothing branches on
+ * it but that.
+ */
+export const SUBSCRIPTION_ACTION_KEY = 'subscription';
+
+/** One firing, written down before it is returned. Every firing is written down (ADR-079). */
+async function recordFiring(
+  tx: TenantTransaction,
+  onboarding: OnboardingCase,
+  outcome: CaseStatus,
+  action: DispatchedAction,
+): Promise<DispatchedAction> {
+  await tx.query(
+    `INSERT INTO case_action_log (tenant_id, case_id, action_key, action_type, outcome,
+                                  delivery_id)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [tx.tenantId, onboarding.caseId, action.actionKey, action.type, outcome, action.deliveryId],
+  );
+  return action;
+}
+
+/**
+ * Fires whatever this decision goes to.
+ *
+ * Two routes, and the narrower one wins. A journey with actions of its own is routed by
+ * them, and an outcome those actions do not name fires nothing, because "on rejection tell
+ * compliance and nobody else" has to be able to mean nobody else. A journey with no
+ * actions falls back to the subscriptions the customer already set up: the endpoints that
+ * asked for this event type and the proved addresses that asked for it (ADR-182).
  *
  * The payload is ours and carries the file rather than the applicant: a reference, a
  * journey, an outcome, our entity id and the customer's own reference. No identifier
@@ -100,16 +137,21 @@ export async function dispatchCaseActions(
     return [];
   }
 
+  // Every active action of this journey, not only the ones this outcome fires: a journey
+  // that routes itself does so for all of its outcomes, and the difference between "this
+  // outcome goes nowhere" and "this journey says nothing" is the difference between the
+  // two routes below.
   const { rows } = await tx.query<{
     action_key: string;
     action_type: ActionType;
     endpoint_id: string | null;
     channel_id: string | null;
+    fires: boolean;
   }>(
-    `SELECT action_key, action_type, endpoint_id, channel_id
+    `SELECT action_key, action_type, endpoint_id, channel_id,
+            on_outcome IN ($3, 'ANY') AS fires
      FROM case_actions
      WHERE tenant_id = $1 AND journey_code = $2 AND status = 'active'
-       AND on_outcome IN ($3, 'ANY')
      ORDER BY seq, action_key`,
     [tx.tenantId, onboarding.journeyCode, status],
   );
@@ -127,34 +169,61 @@ export async function dispatchCaseActions(
 
   const dispatched: DispatchedAction[] = [];
 
-  for (const action of rows) {
-    const deliveryId =
-      action.action_type === 'WEBHOOK' && action.endpoint_id
-        ? await queueEventTo(tx, {
-            endpointId: action.endpoint_id,
-            eventType,
-            payload,
-          })
-        : action.channel_id
-          ? await queueNotificationTo(tx, {
-              channelId: action.channel_id,
+  if (rows.length > 0) {
+    for (const action of rows.filter((row) => row.fires)) {
+      const deliveryId =
+        action.action_type === 'WEBHOOK' && action.endpoint_id
+          ? await queueEventTo(tx, {
+              endpointId: action.endpoint_id,
               eventType,
-              ...(options.consoleUrl === undefined ? {} : { consoleUrl: options.consoleUrl }),
+              payload,
             })
-          : null;
+          : action.channel_id
+            ? await queueNotificationTo(tx, {
+                channelId: action.channel_id,
+                eventType,
+                ...(options.consoleUrl === undefined ? {} : { consoleUrl: options.consoleUrl }),
+              })
+            : null;
 
-    await tx.query(
-      `INSERT INTO case_action_log (tenant_id, case_id, action_key, action_type, outcome,
-                                    delivery_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [tx.tenantId, onboarding.caseId, action.action_key, action.action_type, status, deliveryId],
+      dispatched.push(
+        await recordFiring(tx, onboarding, status, {
+          actionKey: action.action_key,
+          type: action.action_type,
+          deliveryId,
+        }),
+      );
+    }
+
+    return dispatched;
+  }
+
+  // Nobody narrowed this journey, so the decision goes where this customer already said
+  // this kind of event goes. Both fan outs, because a decision reaches a system and a
+  // person by two different paths and the subscriber set each one up separately.
+  for (const endpoint of await listEndpoints(tx, eventType)) {
+    const deliveryId = await queueEventTo(tx, { endpointId: endpoint.id, eventType, payload });
+    dispatched.push(
+      await recordFiring(tx, onboarding, status, {
+        actionKey: SUBSCRIPTION_ACTION_KEY,
+        type: 'WEBHOOK',
+        deliveryId,
+      }),
     );
+  }
 
-    dispatched.push({
-      actionKey: action.action_key,
-      type: action.action_type,
-      deliveryId,
-    });
+  const messages = await queueNotifications(tx, {
+    eventType,
+    ...(options.consoleUrl === undefined ? {} : { consoleUrl: options.consoleUrl }),
+  });
+  for (const messageId of messages) {
+    dispatched.push(
+      await recordFiring(tx, onboarding, status, {
+        actionKey: SUBSCRIPTION_ACTION_KEY,
+        type: 'NOTIFY',
+        deliveryId: messageId,
+      }),
+    );
   }
 
   return dispatched;

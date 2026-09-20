@@ -1,13 +1,16 @@
 import type { ReactElement } from 'react';
 import { NoAccess } from '../../../components/no-access';
 import {
+  DEFAULT_RATE_LIMIT_RPM,
   bundleBalance,
   getCommitment,
   getWallet,
   listAvailableBundles,
   listEntitlements,
   listProducts,
+  planLimits,
 } from '@nx-verify/core';
+import { PlanLimits, type PlanLimitsView } from '../../../components/plan-limits';
 import { BundleOffer } from '../../../components/bundle-offer';
 import { Usage, type EntitlementView, type UsageView } from '../../../components/usage';
 import { actingUser, query } from '../../../lib/context';
@@ -26,6 +29,21 @@ export default async function UsagePage(): Promise<ReactElement> {
     balance: await bundleBalance(tx),
     onSale: await listAvailableBundles(tx),
   }));
+
+  /*
+   * What the plan grants by the count, read in the same pass as the rest of it (ADR-184).
+   *
+   * The applied per minute ceiling is named beside the one the plan sells, because the API
+   * still applies a single figure to every caller and a screen quoting only the plan's would be
+   * telling a subscriber on the top plan that they have six hundred calls a minute while the
+   * gateway refuses them at a hundred and twenty.
+   */
+  const limits = await query(
+    async (tx): Promise<PlanLimitsView> => ({
+      ...(await planLimits(tx)),
+      appliedRateLimitRpm: DEFAULT_RATE_LIMIT_RPM,
+    }),
+  );
 
   const view = await query(async (tx): Promise<UsageView> => {
     const [commitment, wallet, entitlements, products] = await Promise.all([
@@ -84,6 +102,9 @@ export default async function UsagePage(): Promise<ReactElement> {
         />
       ) : null}
       <Usage view={view} />
+
+      {/* Beside what the plan includes, not on a screen of its own: one plan, one page. */}
+      <PlanLimits view={limits} />
 
       <BundleOffer
         balance={bundles.balance}

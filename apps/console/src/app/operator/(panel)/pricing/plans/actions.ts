@@ -100,6 +100,14 @@ export async function setOverrideAction(formData: FormData): Promise<void> {
     ),
   );
   revalidatePath('/operator/pricing/plans');
+  /*
+   * Back to the screen without the word the last attempt left in the address.
+   *
+   * `revalidatePath` alone redraws the same URL, so a `?refused=` from a refused price stayed
+   * in it and the refusal was still on the screen above a change that had just been saved. A
+   * notice that outlives what it describes is a notice that lies.
+   */
+  back('/operator/pricing/plans', { saved: 'override' });
 }
 
 /**
@@ -112,13 +120,35 @@ export async function setOverrideAction(formData: FormData): Promise<void> {
  */
 export async function assignPackageAction(formData: FormData): Promise<void> {
   const actor = await requireOperatorPermission('subscribers');
-  await operatorQuery((db) =>
-    assignSubscriberPlan(
-      db,
-      actor,
-      String(formData.get('tenant_id') ?? ''),
-      String(formData.get('package_code') ?? ''),
-    ),
-  );
+  try {
+    await operatorQuery((db) =>
+      assignSubscriberPlan(
+        db,
+        actor,
+        String(formData.get('tenant_id') ?? ''),
+        String(formData.get('package_code') ?? ''),
+      ),
+    );
+  } catch (error) {
+    /*
+     * A plan that is no longer on sale is refused by `setTenantPackage`, and this action
+     * caught nothing: the refusal reached the error boundary and the whole panel was replaced
+     * by the error screen, over a choice the operator is allowed to make and simply cannot
+     * have.
+     *
+     * The screen disables a retired option, which is the right first line and not the last
+     * one: the option is disabled as the page was drawn, and the plan can be retired on
+     * another screen a minute later, or the form can arrive without the page at all. A server
+     * action is an endpoint. So the refusal comes back as a word in the notice channel this
+     * screen already has, and the panel stays where the operator left it.
+     */
+    if (error instanceof NxError && error.code === 'NX-4041') {
+      back('/operator/pricing/plans', { refused: 'retired' });
+    }
+    throw error;
+  }
   revalidatePath('/operator/pricing/plans');
+  // And on the way back the address is cleared, so a refusal from the previous attempt is not
+  // still on the screen above the move that succeeded.
+  back('/operator/pricing/plans', { saved: 'plan' });
 }

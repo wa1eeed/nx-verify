@@ -72,6 +72,33 @@ export function waiveReasonLabel(reason: string): string {
   return WAIVE_LABELS[reason] ?? reason;
 }
 
+/**
+ * What a firing is called on the screen.
+ *
+ * A file goes where its journey names, and a journey that names nobody goes where the
+ * subscriber's own subscriptions say (ADR-182). The second kind carries one key for every
+ * recipient, and printing it raw would read as somebody's action code.
+ */
+export function actionKeyLabel(actionKey: string): string {
+  return actionKey === 'subscription' ? 'اشتراككم في هذا الحدث' : actionKey;
+}
+
+/**
+ * Whether a decision has been reached on this file.
+ *
+ * The status, not the verdict. Three of the four ways a file reaches review leave
+ * `outcome` null: a required check that failed, a file where every required check was
+ * waived, and a ruleset that returned nothing all set the status and no verdict. Reading
+ * the verdict here told the owner of such a file «no decision has been taken yet» while
+ * their reviewer already had it in a queue and `onboarding.review` had already gone out.
+ *
+ * This is the same set the dispatcher acts on, which is the point: the sentence about what
+ * was fired has to be keyed on the same thing that fires.
+ */
+export function caseWasDecided(status: string): boolean {
+  return status === 'APPROVED' || status === 'REJECTED' || status === 'IN_REVIEW';
+}
+
 const OUTCOMES: Record<string, { tone: 'done' | 'refused'; text: string }> = {
   advanced: { tone: 'done', text: 'شُغّلت الفحوص الباقية.' },
   waived: { tone: 'done', text: 'سُجّل تجاوز الفحص بسببه.' },
@@ -288,10 +315,33 @@ export function OnboardingCaseView({
 
       <Panel title="ما أطلقه القرار" aside="إلى أنظمتكم وإلى فريقكم" role="case-actions">
         {view.actions.length === 0 ? (
+          /*
+            Where a destination comes from, said as it is.
+
+            This used to read «لا إجراءات معرّفة لهذه الرحلة», which reads like a setting
+            somebody left empty, and there was no screen anywhere that set it: the table it
+            spoke of is written by nothing but provisioning. What a subscriber actually
+            controls is the subscription, on the two screens named here, and a decision now
+            goes there (ADR-182). So the sentence points at the door that exists.
+
+            Which of the three sentences is right is read off the status. The verdict is
+            null on a file a failed check sent to a person, and keying on it said «no
+            decision yet» about a file that had been decided, announced, and put in front
+            of a reviewer.
+          */
           <p className="panel-body muted" data-role="no-actions">
-            {view.outcome === null
-              ? 'لم يُتخذ قرار بعد، فلم يُطلق شيء.'
-              : 'لا إجراءات معرّفة لهذه الرحلة، فلم يُطلق شيء. هذا ليس عطلاً.'}
+            {view.status === 'WITHDRAWN' ? (
+              'سُحب هذا الملف قبل أن يُقرَّر، فلم يُطلق شيء.'
+            ) : !caseWasDecided(view.status) ? (
+              'لم يُتخذ قرار بعد، فلم يُطلق شيء.'
+            ) : (
+              <>
+                صدر القرار ولم يُطلق هذا الملف شيئاً: لم تكن لهذا الحدث وجهة لحظة القرار. هذا ليس
+                عطلاً. الوجهات عندكم: أنظمتكم من{' '}
+                <Link href="/settings/developers/webhooks">إعدادات Webhooks</Link>، وفريقكم من{' '}
+                <Link href="/settings/notifications">إعدادات التنبيهات</Link>.
+              </>
+            )}
           </p>
         ) : (
           <div className="table-scroll">
@@ -306,12 +356,12 @@ export function OnboardingCaseView({
                 </tr>
               </thead>
               <tbody>
-                {view.actions.map((action) => (
-                  <tr
-                    key={`${action.actionKey}-${action.at.toISOString()}`}
-                    data-role="case-action"
-                  >
-                    <td>{action.actionKey}</td>
+                {view.actions.map((action, index) => (
+                  // A decision fires everything it fires in one transaction, so the rows
+                  // share a timestamp and several can share a key. The position is what
+                  // separates them.
+                  <tr key={`${action.actionKey}-${index}`} data-role="case-action">
+                    <td>{actionKeyLabel(action.actionKey)}</td>
                     <td>{action.actionType === 'WEBHOOK' ? 'نداء نظامكم' : 'تنبيه'}</td>
                     <td>{caseStatusLabel(action.outcome)}</td>
                     <td>

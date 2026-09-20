@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { NOT_CHARGED_AR, chargedOutcomesSentenceAr, type ChargedOutcomes } from '@nx-verify/core';
+import { OTHER_SHARES_AR, chargedOutcomesSentenceAr, type ChargedOutcomes } from '@nx-verify/core';
 import type { CustomerFile, PartyRoles } from '@nx-verify/core';
 import { CheckResults, type CheckResultView } from '../check-results';
 import type { FieldHistoryView } from '../field-card';
@@ -93,7 +93,7 @@ function chargedOutcomesNote(
 
   return uniform
     ? `${chargedOutcomesSentenceAr(first)}.`
-    : `${NOT_CHARGED_AR}، وما تُحسب به الحالات الأخرى في «أسعار المنتجات».`;
+    : `${OTHER_SHARES_AR}.`;
 }
 
 const ERRORS: Readonly<Record<string, string>> = {

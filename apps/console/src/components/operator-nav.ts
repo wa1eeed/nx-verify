@@ -26,6 +26,21 @@ export const SUBSCRIBER_TABS: readonly SectionTab[] = [
   { href: '/operator/subscribers/sandboxes', label: 'مساحات الاختبار' },
 ];
 
+/**
+ * The number beside the tab that answers it (ADR-186).
+ *
+ * The sidebar counts the sandbox asks that are waiting beside «المشتركون», which is the place
+ * they live under and not the screen that lists them: pressing it opens the subscribers and
+ * their balances, where no ask appears. So the same number is drawn on the tab that does list
+ * them, and the address it hangs on is written here, once, rather than in each of the three
+ * screens of this section, which could then disagree about where the queue is.
+ *
+ * Zero is absence, not a zero: a badge that is sometimes zero is a badge people stop reading.
+ */
+export function subscriberTabCounts(waiting: number): Readonly<Record<string, number>> {
+  return waiting > 0 ? { '/operator/subscribers/sandboxes': waiting } : {};
+}
+
 /** What the platform sells: its prices, and the modules those prices are grouped into. */
 export const PRICING_TABS: readonly SectionTab[] = [
   { href: '/operator/pricing', label: 'الأسعار والمنتجات' },

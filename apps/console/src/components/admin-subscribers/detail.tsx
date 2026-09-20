@@ -22,7 +22,6 @@ import { bundleLabelOf } from '../topup';
 import { STANDING_TAGS, balanceCellAr, endsAr, planCellAr } from './model';
 import { SubscriberModules } from './modules';
 import { SubscriberRisk } from './risk';
-import { SubscriberSource, type SubscriberSourceView } from './source';
 
 /**
  * One subscriber, managed (the «إدارة» link of handoff screen 06).
@@ -49,13 +48,12 @@ export interface AdminSubscriberView {
   modules: readonly TenantModuleView[];
   risk: TenantRiskModel;
   /**
-   * Whose account this subscriber's calls go out on.
+   * What happened to the subscriber, and to the subscriber only.
    *
-   * Read on the operator connection and on the provider catalogue, which no other caller of
-   * this screen has, so a caller without them draws the rest of the page instead of an empty
-   * card. The panel page always passes it.
+   * Whose account this subscriber's calls go out on is a section of its own, rendered beside
+   * this screen rather than inside it (ADR-172), and it carries its own notices (ADR-179): a
+   * save made in the card at the bottom of the page is answered in that card.
    */
-  source?: SubscriberSourceView | null;
   notice: { tone: 'done' | 'refused'; text: string } | null;
 }
 
@@ -71,7 +69,6 @@ export function AdminSubscriber({
     setRiskSignal: Action;
     setRiskBands: Action;
     setRiskCategory: Action;
-    setSource?: Action;
   };
 }): ReactElement {
   const { detail, row } = view;
@@ -217,16 +214,6 @@ export function AdminSubscriber({
         setBands={actions.setRiskBands}
         setCategory={actions.setRiskCategory}
       />
-
-      {view.source === undefined ||
-      view.source === null ||
-      actions.setSource === undefined ? null : (
-        <SubscriberSource
-          tenantId={detail.tenantId}
-          view={view.source}
-          setSource={actions.setSource}
-        />
-      )}
 
       <Card variant="flush" role="subscriber-bundles" labelledBy="subscriber-bundles-title">
         <div className="admin-card-head">

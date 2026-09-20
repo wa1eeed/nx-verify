@@ -184,12 +184,16 @@ describe('a company registering itself', () => {
     expect(slugFrom('Ufuq Trading')).toMatch(/^ufuq-trading-[0-9a-f]{6}$/);
   });
 
-  it('clears what was abandoned or spent', async () => {
+  it('clears what was abandoned, by its own rule', async () => {
     await db.appPool.query(
       `UPDATE signup_intents SET expires_at = now() - interval '2 days'
         WHERE consumed_at IS NULL`,
     );
-    // The sweep runs as the one role that may delete.
-    expect(await pruneSignupIntents(db.retentionPool)).toBeGreaterThan(0);
+    // The sweep runs as the one role that may delete. The registrations this file completed
+    // were spent moments ago, so they are counted separately and kept: see ADR-177 and
+    // apps/worker/test/signup-retention.test.ts for the two clocks.
+    const swept = await pruneSignupIntents(db.retentionPool);
+    expect(swept.abandoned).toBeGreaterThan(0);
+    expect(swept.consumed).toBe(0);
   });
 });

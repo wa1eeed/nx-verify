@@ -12,6 +12,12 @@ import { Icon, type IconName } from './ui/icon';
  * aria-current so it is announced and not merely tinted. Hover fills from the accent ramp
  * and keyboard focus is the system's :focus-visible ring. A place can carry a count, such as
  * the new alerts waiting under the customers.
+ *
+ * What the count is counting is said out loud for a screen reader, and the word is the
+ * caller's (ADR-186): the portal counts alerts that arrived, which are «جديد», and the panel
+ * counts subscribers waiting for an answer, which are not new, they are waiting. One word for
+ * both told a member of staff that two things had just happened when two things had been
+ * sitting there since last week.
  */
 
 export interface SectionLink {
@@ -40,11 +46,17 @@ export function SectionNav({
   sections,
   label,
   counts = {},
+  countLabel = 'جديد',
 }: {
   sections: readonly PlaceLink[];
   label: string;
   /** A number to show beside a place, keyed by its href. */
   counts?: Readonly<Record<string, number>>;
+  /**
+   * What the number counts, read aloud after it and shown to nobody. The portal's word is the
+   * default, because what the portal counts is alerts that arrived.
+   */
+  countLabel?: string;
 }): ReactElement {
   const pathname = usePathname() ?? '';
 
@@ -66,7 +78,7 @@ export function SectionNav({
                 <bdi dir="ltr" className="ltr">
                   {count}
                 </bdi>
-                <span className="visually-hidden"> جديد</span>
+                <span className="visually-hidden">{` ${countLabel}`}</span>
               </span>
             ) : null}
           </Link>

@@ -40,6 +40,12 @@ export interface ProductData {
   availability: 'AVAILABLE' | 'COMING_SOON';
   /** Per operation, before VAT. Null when no price is in force. */
   unitPriceHalalas: number | null;
+  /**
+   * The most one operation can be charged, before VAT, from the same quote. Equal to the price
+   * above unless the plan reprices a run past its capacity, and the figure any sum of several
+   * operations is built from (ADR-188).
+   */
+  ceilingUnitPriceHalalas: number | null;
   /** The subscriber's package includes it. */
   allowed: boolean;
   refusalAr: string | null;
@@ -115,6 +121,23 @@ export interface BalanceData {
   walletAvailableHalalas: number;
 }
 
+/**
+ * What a run that is not a plain success is charged, in the words the price row gives it.
+ *
+ * Written by the page from `chargedOutcomesSentenceAr`, never composed here: this screen is a
+ * client component, so it cannot read a price row itself, and a second wording of the same
+ * rule would be a second thing to keep true (ADR-170).
+ */
+export interface OutcomesData {
+  /**
+   * One sentence per product whose price row was read. A product with no price in force is
+   * absent rather than carried at a default: a share nobody set is a share no screen prints.
+   */
+  perProductAr: Readonly<Record<string, string>>;
+  /** What holds whatever the shares say, for when the ticked products do not agree on one. */
+  anyAr: string;
+}
+
 export interface NewRequestView {
   kind: CustomerKind;
   products: ProductData[];
@@ -127,6 +150,8 @@ export interface NewRequestView {
   drafts: DraftSummaryData[];
   /** Numbers a sandbox workspace can try. Empty in production. */
   samples: { number: string; titleAr: string; kind: CustomerKind }[];
+  /** The shares in force, in words. Absent while the page has not read them. */
+  outcomes?: OutcomesData | null | undefined;
   /** The sentences for a number, a certificate or an IBAN of the wrong shape. */
   problemsAr: Readonly<Record<'NUMBER' | 'REGISTRATION_UNKNOWN' | 'CERTIFICATE' | 'IBAN', string>>;
 }
@@ -241,16 +266,28 @@ export function selectedCountAr(n: number): string {
   })}`;
 }
 
-function operationsLeftAr(n: number): string {
-  if (n <= 0) {
-    return 'ولا تبقى عمليات في الباقة';
-  }
-  return `ويبقى ${counted(n, {
+/** «5 عمليات». */
+function operationsCountAr(n: number): string {
+  return counted(n, {
     one: 'عملية واحدة',
     two: 'عمليتان',
     few: (value) => `${value} عمليات`,
     many: (value) => `${value} عملية`,
-  })}`;
+  });
+}
+
+/**
+ * What is left of the package and the bundles afterwards, as a floor rather than a figure.
+ *
+ * Every finished run counts one against the package's capacity whatever it answered, but a
+ * bundle's operation is taken before the run and given back when the run costs nothing, so
+ * what remains can only be this or more.
+ */
+function operationsLeftAr(n: number): string {
+  if (n <= 0) {
+    return 'لا تبقى عمليات في الباقة والحزم';
+  }
+  return `لا يقل ما يبقى عن ${operationsCountAr(n)}`;
 }
 
 /** «3.00 ر.س». */
@@ -266,40 +303,130 @@ export function operationsOf(product: ProductData, lookup: LookupData | null): n
 export interface Totals {
   products: number;
   operations: number;
+  /**
+   * What these operations are priced at in halalas, every one of them a full success and
+   * whoever ends up paying for it. Not what the wallet can be charged: the figure below is.
+   */
   totalHalalas: number;
+  /** The most of that the wallet can be charged, once the package and the bundles have paid. */
+  walletHalalas: number;
   /** The balance covers it: the package's operations first, then the wallet. */
   affordable: boolean;
-  /** «الإجمالي 16.00 ر.س · سيُخصم من الرصيد ويبقى 1,835 عملية». */
+  /** «الحدّ الأعلى 21.50 ر.س من رصيدك · لا يقل الرصيد بعدها عن 4,978.50 ر.س». */
   lineAr: string;
+  /** What each result is charged, when the ticked products agree on it. */
+  outcomesAr: string | null;
 }
 
+/**
+ * The sentence for these products, or the half that holds for every price row.
+ *
+ * The same shape the customer file's verify dialog uses: one wording when the ticked products
+ * share it, and otherwise what is true whatever the share is, with the screen that lists the
+ * rest named. A share belonging to one product is never printed over a selection that does not
+ * have it in common (ADR-170).
+ */
+function outcomesLineAr(selected: readonly ProductData[], outcomes: OutcomesData): string {
+  const known = selected
+    .map((product) => outcomes.perProductAr[product.productCode])
+    .filter((sentence): sentence is string => sentence !== undefined);
+  const first = known[0];
+  const uniform =
+    first !== undefined &&
+    known.length === selected.length &&
+    known.every((sentence) => sentence === first);
+  return uniform ? first : outcomes.anyAr;
+}
+
+/**
+ * What pressing «تحقق من الكل» can cost, as a ceiling and never as a promise.
+ *
+ * This line used to read «الإجمالي 21.50 ر.س · سيُخصم من الرصيد ويبقى 4,978.50 ر.س», and
+ * both halves of that were wrong in the same direction. What is charged follows the result of
+ * each step: an authority answering «لا يوجد» is charged the negative share, an answer served
+ * from cache the cache share, and a technical failure and a skipped step nothing at all
+ * (ADR-170). And while the package or a bundle pays, no riyals leave the wallet at all, so
+ * naming a riyal total there named money that was never going to move.
+ *
+ * So the figure is the sum of the unit prices, which is exactly `maximumCharge` per run, the
+ * amount held before a wallet run starts. It is said as the ceiling it is, the balance after
+ * it as a floor, and the reason it is a ceiling is the sentence beside it.
+ *
+ * Which unit price, though, is the plan's to say and not this screen's. `quoteChecks` hands
+ * each product both the price of one operation and the most that operation can be charged,
+ * and a sum of several operations is built from the second: a plan reprices what it runs past
+ * its committed capacity, and a selection that outruns the capacity is charged on both sides
+ * of it (ADR-188).
+ */
 export function totalsOf(
   selected: readonly ProductData[],
   lookup: LookupData | null,
   balance: BalanceData,
+  outcomes: OutcomesData | null = null,
 ): Totals {
-  // Each operation at its price, in the order they run, so the package pays for the first.
+  // Each operation twice over: what it is priced at, and the most it can be charged once the
+  // package has stopped paying for it. The two differ by the plan's rate for an excess run.
   const operations = selected.flatMap((product) =>
-    Array.from({ length: operationsOf(product, lookup) }, () => product.unitPriceHalalas ?? 0),
+    Array.from({ length: operationsOf(product, lookup) }, () => ({
+      priceHalalas: product.unitPriceHalalas ?? 0,
+      ceilingHalalas: product.ceilingUnitPriceHalalas ?? 0,
+    })),
   );
-  const totalHalalas = operations.reduce((sum, price) => sum + price, 0);
+  const totalHalalas = operations.reduce((sum, operation) => sum + operation.priceHalalas, 0);
   const capacity = balance.capacityRemaining ?? 0;
   const fromPackage = Math.min(capacity, operations.length);
-  const fromWallet = operations.slice(fromPackage).reduce((sum, price) => sum + price, 0);
-  const affordable = operations.length > 0 && fromWallet <= balance.walletAvailableHalalas;
+  const walletOperations = operations.length - fromPackage;
+  /**
+   * What the wallet can be charged: the dearest of them, at the dearest they can go for.
+   *
+   * Two things were wrong with adding up the tail of the list at the listed price. The tail is
+   * whichever operations happened to be drawn last, and which of the ticked ones the package
+   * pays for is not this screen's to decide; and past the capacity the plan may charge its
+   * overage rate rather than the included one, so operations that reach the wallet at all are
+   * the ones whose price can rise. Both errors ran the same way, and it is the one direction a
+   * figure printed beside a button may never run: the subscriber read a smaller number than
+   * the run was about to hold (ADR-188).
+   */
+  const walletHalalas = operations
+    .map((operation) => operation.ceilingHalalas)
+    .sort((left, right) => right - left)
+    .slice(0, walletOperations)
+    .reduce((sum, price) => sum + price, 0);
+  const affordable = operations.length > 0 && walletHalalas <= balance.walletAvailableHalalas;
+  // A product whose price row was not found is carried at zero above, which is fine for a sum
+  // that is only compared with the balance and a lie the moment it is printed as a ceiling.
+  const priced = selected.every((product) => product.ceilingUnitPriceHalalas !== null);
 
-  const total = `الإجمالي ${priceAr(totalHalalas)}`;
-  const lineAr =
-    capacity > 0 && fromWallet === 0
-      ? `${total} · سيُخصم من الرصيد ${operationsLeftAr(capacity - fromPackage)}`
-      : `${total} · سيُخصم من الرصيد ويبقى ${priceAr(Math.max(0, balance.walletAvailableHalalas - fromWallet))}`;
+  const parts: string[] = [];
+  if (walletOperations === 0 && operations.length > 0) {
+    parts.push('تُحتسب من الباقة والحزم لا من رصيدك', operationsLeftAr(capacity - fromPackage));
+  } else if (operations.length > 0) {
+    if (fromPackage > 0) {
+      parts.push(`${operationsCountAr(fromPackage)} من الباقة والحزم`);
+    }
+    if (priced) {
+      parts.push(
+        `الحدّ الأعلى ${priceAr(walletHalalas)} من رصيدك`,
+        `لا يقل الرصيد بعدها عن ${priceAr(Math.max(0, balance.walletAvailableHalalas - walletHalalas))}`,
+      );
+    } else {
+      parts.push('لا سعر نافذ لبعض العمليات المختارة، فلا حدّ أعلى يُذكر');
+    }
+  }
 
   return {
     products: selected.length,
     operations: operations.length,
     totalHalalas,
+    walletHalalas,
     affordable,
-    lineAr,
+    lineAr: parts.length === 0 ? 'لا عمليات مختارة' : parts.join(' · '),
+    // Nothing to say while the package pays: a share is a share of a riyal price, and this
+    // run has none. The prices screen leaves the same column empty for the same reason.
+    outcomesAr:
+      outcomes === null || walletOperations === 0 || !priced
+        ? null
+        : outcomesLineAr(selected, outcomes),
   };
 }
 

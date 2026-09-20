@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { OpenCase, type JourneyView } from '../src/components/onboarding-open';
 import {
   OnboardingCaseView,
+  actionKeyLabel,
   type CaseDetailView,
   type CaseStepView,
 } from '../src/components/onboarding-case';
@@ -131,5 +132,105 @@ describe('working a file', () => {
   it('says what the last action did', () => {
     expect(renderCase({ outcome: 'waived' })).toContain('data-tone="done"');
     expect(renderCase({ outcome: 'closed' })).toContain('data-tone="refused"');
+  });
+});
+
+/**
+ * What the decision set off, and where a destination comes from (ADR-182).
+ *
+ * The panel used to explain an empty list with «لا إجراءات معرّفة لهذه الرحلة», which reads
+ * as a setting left empty and was nothing of the kind: the table it named is written by
+ * provisioning and by no screen in this console. What a subscriber controls is the
+ * subscription, and a decision now goes there, so the sentence has to point at that door
+ * and at no other.
+ */
+describe('what a decision set off', () => {
+  const decided = (actions: CaseDetailView['actions'] = []): string =>
+    renderCase({
+      view: caseView({
+        status: 'APPROVED',
+        outcome: 'PASS',
+        closedAt: new Date('2026-09-16T09:00:00Z'),
+        steps: [step({ status: 'DONE', runId: 'r1', runReference: 'VR-1' })],
+        actions,
+      }),
+    });
+
+  it('sends nobody looking for a screen that does not exist', () => {
+    const html = decided();
+    expect(html).toContain('data-role="no-actions"');
+    expect(html).not.toContain('لا إجراءات معرّفة');
+  });
+
+  it('names the two places a destination is actually set, and links to them', () => {
+    const html = decided();
+    expect(html).toContain('href="/settings/developers/webhooks"');
+    expect(html).toContain('href="/settings/notifications"');
+    // Nothing fired is still not a fault, and the file says which of the two it was.
+    expect(html).toContain('هذا ليس عطلاً');
+  });
+
+  it('promises nothing about a file nobody has decided yet', () => {
+    const html = renderCase();
+    expect(html).toContain('لم يُتخذ قرار بعد');
+    expect(html).not.toContain('href="/settings/developers/webhooks"');
+  });
+
+  it('does not call a file in review undecided because it carries no verdict', () => {
+    // A required check that failed sends the file to a person and leaves `outcome` null,
+    // which is three of the four ways a file reaches review. `onboarding.review` went out
+    // at that moment, so «لم يُتخذ قرار بعد» is the wrong half of the panel: the reason
+    // nothing is listed is that nobody was subscribed.
+    const html = renderCase({
+      view: caseView({
+        status: 'IN_REVIEW',
+        outcome: null,
+        steps: [step({ status: 'FAILED', runId: 'r1', runReference: 'VR-1' })],
+      }),
+    });
+
+    expect(html).not.toContain('لم يُتخذ قرار بعد');
+    expect(html).toContain('href="/settings/developers/webhooks"');
+    expect(html).toContain('href="/settings/notifications"');
+  });
+
+  it('does not tell the owner of a withdrawn file to go and set a destination', () => {
+    // Nothing fired because nobody decided anything, and pointing at the webhooks screen
+    // would promise that subscribing changes it.
+    const html = renderCase({
+      view: caseView({
+        status: 'WITHDRAWN',
+        outcome: null,
+        closedAt: new Date('2026-09-16T09:00:00Z'),
+      }),
+    });
+
+    expect(html).toContain('سُحب هذا الملف');
+    expect(html).not.toContain('href="/settings/developers/webhooks"');
+  });
+
+  it('says in words that a firing followed a subscription, rather than printing its key', () => {
+    const html = decided([
+      {
+        actionKey: 'subscription',
+        actionType: 'WEBHOOK',
+        outcome: 'APPROVED',
+        delivered: true,
+        at: new Date('2026-09-16T09:00:00Z'),
+      },
+      {
+        actionKey: 'subscription',
+        actionType: 'NOTIFY',
+        outcome: 'APPROVED',
+        delivered: true,
+        at: new Date('2026-09-16T09:00:00Z'),
+      },
+    ]);
+
+    expect(html).toContain('اشتراككم في هذا الحدث');
+    expect(html).toContain('نداء نظامكم');
+    expect(html).toContain('تنبيه');
+    expect(html).not.toContain('data-role="no-actions"');
+    expect(actionKeyLabel('activate')).toBe('activate');
   });
 });

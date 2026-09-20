@@ -1,7 +1,8 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import { recordApiRequest } from '@nx-verify/core';
+import { DEFAULT_RATE_LIMIT_RPM, rateLimitRpmFor, recordApiRequest } from '@nx-verify/core';
 import { registerErrorHandler } from './errors.js';
+import { registerIdempotencyRecorder } from './idempotency.js';
 import { registerEvidenceRoutes, registerVerificationRoutes } from './routes/verifications.js';
 import { registerProductRoutes } from './routes/products.js';
 import { registerOperationsRoutes } from './routes/operations.js';
@@ -55,8 +56,44 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     return payload;
   });
 
+  /**
+   * The ceiling this workspace bought, not one ceiling for everybody (ADR-184).
+   *
+   * `packages.rate_limit_rpm` is sold at five different figures and was read by nothing: every
+   * caller met the same 120, so an ENTERPRISE subscriber who paid for 600 calls a minute was
+   * refused at a fifth of it, with a code that explained nothing. The plan's figure is read per
+   * request and cached briefly, because a limiter that opens a database connection on every
+   * call is a limiter that falls over exactly when it is needed.
+   *
+   * A request with no workspace yet (an unauthenticated one, or a bad key) keeps the process
+   * wide default: there is no plan to ask about, and the limiter is also what stops somebody
+   * guessing keys.
+   */
+  const ceilings = new Map<string, { rpm: number; expiresAt: number }>();
+  const ceilingFor = async (tenantId: string): Promise<number> => {
+    const cached = ceilings.get(tenantId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.rpm;
+    }
+    const rpm = await options.context
+      .withTenant(tenantId, (tx) => rateLimitRpmFor(tx))
+      .catch(() => options.rateLimitMax ?? DEFAULT_RATE_LIMIT_RPM);
+    ceilings.set(tenantId, { rpm, expiresAt: Date.now() + 60_000 });
+    return rpm;
+  };
+
   await app.register(rateLimit, {
-    max: options.rateLimitMax ?? 120,
+    max: async (request) => {
+      // An explicit ceiling is a test's or a deployment's, and it wins: somebody set it on
+      // purpose. Everything else is the plan's.
+      if (options.rateLimitMax !== undefined) {
+        return options.rateLimitMax;
+      }
+      const caller = request.caller;
+      return caller === undefined
+        ? DEFAULT_RATE_LIMIT_RPM
+        : await ceilingFor(caller.tenantId);
+    },
     timeWindow: '1 minute',
     keyGenerator: (request) => {
       const header = request.headers.authorization;
@@ -101,6 +138,11 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       // Deliberately swallowed. See above.
     }
   });
+
+  // Before the routes: an instance hook is not applied to a route registered earlier. The
+  // other half of rule 7, the claim, runs inside `requireAuth` for the ordering written out
+  // in idempotency.ts (ADR-183).
+  registerIdempotencyRecorder(app, options.context);
 
   registerErrorHandler(app, options.context.registry);
 

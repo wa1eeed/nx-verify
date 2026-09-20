@@ -25,6 +25,7 @@ export default async function OperatorHealthPage(): Promise<ReactElement> {
     slowestMs: row.slowestMs,
     balanceHalalas: row.balanceHalalas,
     heldHalalas: row.heldHalalas,
+    walletAvailableHalalas: row.walletAvailableHalalas,
     balanceLow: row.balanceLow,
     unhealthyProviders: row.unhealthyProviders,
   }));

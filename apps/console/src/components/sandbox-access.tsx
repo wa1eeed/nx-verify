@@ -53,13 +53,21 @@ export interface SandboxAccessView {
   /** The workspace name to sign in to, once one exists. */
   sandboxSlug: string | null;
   refusalCode: SandboxRefusal | null;
-  /** Whether the person looking holds developers.manage. */
-  canAsk: boolean;
   /** Why the last press did nothing, in Arabic, or null. */
   refusalAr?: string | null;
 }
 
-/** The subscriber's card: ask for a sandbox, or read what happened to the ask. */
+/**
+ * The subscriber's card: ask for a sandbox, or read what happened to the ask.
+ *
+ * Everybody who reaches this card may press the button, and that is not a permission decision
+ * made here: the screen it sits on answers `NoAccess` to anybody without `developers.manage`,
+ * and the navigation never offers them the tab. The card used to carry a third rule of its
+ * own, a line saying the ask «يحتاج صلاحية إدارة مفاتيح الربط», which no reader could ever
+ * see and whose test asserted a state the screen does not produce. A branch that cannot render
+ * is not a spare kindness, it is a rule that drifts out of step with the two that decide
+ * (ADR-180).
+ */
 export function SandboxAccess({
   view,
   requestAction,
@@ -123,18 +131,12 @@ export function SandboxAccess({
         <StatHint role="sandbox-refusal">{REFUSAL_AR[view.refusalCode]}</StatHint>
       ) : null}
 
-      {askable && view.canAsk ? (
+      {askable ? (
         <form action={requestAction}>
           <SubmitButton variant="secondary" data-role="request-sandbox" pendingLabel="جارٍ الإرسال">
             {view.status === 'REFUSED' ? 'اطلبها مرة أخرى' : 'اطلب مساحة اختبار'}
           </SubmitButton>
         </form>
-      ) : null}
-
-      {askable && !view.canAsk ? (
-        <StatHint role="sandbox-needs-capability">
-          طلب مساحة اختبار يحتاج صلاحية إدارة مفاتيح الربط.
-        </StatHint>
       ) : null}
     </Card>
   );

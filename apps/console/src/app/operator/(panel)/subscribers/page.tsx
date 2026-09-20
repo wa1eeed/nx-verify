@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import {
   EXPIRING_WINDOW_DAYS,
+  countPendingSandboxRequests,
   listPlans,
   operatorCan,
   slicePage,
@@ -9,7 +10,7 @@ import {
 import { pageRequestFrom, type SearchParams } from '../../../../lib/pagination';
 import { AdminSubscribers } from '../../../../components/admin-subscribers';
 import { SectionTabs } from '../../../../components/section-tabs';
-import { SUBSCRIBER_TABS } from '../../../../components/operator-shell';
+import { SUBSCRIBER_TABS, subscriberTabCounts } from '../../../../components/operator-shell';
 import { operatorOrSignIn, operatorQuery } from '../../../../lib/operator';
 import { createSubscriberAction } from './actions';
 
@@ -31,11 +32,19 @@ export default async function OperatorSubscribersPage({
   const data = await operatorQuery(async (db) => ({
     board: await subscribersBoard(db),
     plans: await listPlans(db),
+    // This is the screen the sidebar's count drops somebody on, and no ask appears on it. A
+    // counter, not a list (ADR-186): the tab that lists them carries the number instead.
+    waiting: await countPendingSandboxRequests(db),
   }));
 
   return (
     <div className="admin-screen">
-      <SectionTabs tabs={SUBSCRIBER_TABS} current="/operator/subscribers" label="أقسام المشتركين" />
+      <SectionTabs
+        tabs={SUBSCRIBER_TABS}
+        current="/operator/subscribers"
+        label="أقسام المشتركين"
+        counts={subscriberTabCounts(data.waiting)}
+      />
       <AdminSubscribers
         view={{
           board: data.board,

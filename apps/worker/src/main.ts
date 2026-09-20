@@ -5,6 +5,7 @@ import {
   getMailSettings,
   masterKeySourceFromEnv,
   pruneLoginCodes,
+  pruneSignupIntents,
   renewTerm,
   sweepStanding,
   type TenantKeyProvider,
@@ -274,6 +275,26 @@ async function main(): Promise<void> {
       role: 'retention',
       run: async ({ tx }) => {
         await pruneInboundEvents(tx);
+      },
+    },
+    {
+      /**
+       * Half finished registrations, which nothing was clearing (ADR-177).
+       *
+       * `pruneSignupIntents` said «called by the retention sweep» and no caller existed, so
+       * every form somebody started and never finished kept its legal name, unified number,
+       * contact name and phone for ever. A comment is not a schedule.
+       *
+       * Global because the table has no tenant and cannot have one: the row exists before any
+       * workspace does. It deletes, so it runs as the role that may, which migration 0058
+       * granted here in anticipation of this line.
+       */
+      name: 'signup-intents',
+      everySeconds: 24 * 60 * MINUTE,
+      scope: 'global',
+      role: 'retention',
+      run: async ({ tx }) => {
+        await pruneSignupIntents(tx);
       },
     },
     {

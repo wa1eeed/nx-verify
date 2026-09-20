@@ -93,7 +93,7 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
       },
     },
     security: [{ bearerAuth: [] }],
-    paths: {
+    paths: withIdempotencyDocumented({
       '/health': {
         get: {
           summary: 'Liveness',
@@ -465,8 +465,55 @@ export function buildOpenApiDocument(options: OpenApiOptions = {}): Record<strin
           responses: { '200': { description: 'The report' } },
         },
       },
-    },
+    }),
   };
+}
+
+/**
+ * The idempotency header, on every POST that honours it (ADR-183).
+ *
+ * Written over the document rather than into each path, for the same reason the claim is one
+ * function rather than a line in each handler: documentation maintained by remembering drifts
+ * from behaviour, and this is the exact drift that was found here. The header was documented
+ * on `/v1/verifications` alone, which was also the only endpoint that honoured it, and both
+ * halves were wrong together in a way that read as consistent.
+ */
+const IDEMPOTENCY_PARAMETER = {
+  name: 'Idempotency-Key',
+  in: 'header',
+  required: false,
+  schema: { type: 'string', maxLength: 255 },
+  description:
+    'The same key returns the same answer and does the work once. Send one for every request that costs money. A key reused with a different body is refused with NX-4092, and one still running with NX-4093.',
+};
+
+/** The callback is signed by a provider and repeats are settled by its own event id. */
+const UNDOCUMENTED_ON: ReadonlySet<string> = new Set(['/v1/callbacks/{slug}', '/v1/callbacks/:slug']);
+
+function withIdempotencyDocumented(paths: Record<string, unknown>): Record<string, unknown> {
+  for (const [route, item] of Object.entries(paths)) {
+    const operation = (item as Record<string, unknown>)['post'] as
+      | Record<string, unknown>
+      | undefined;
+    if (operation === undefined || UNDOCUMENTED_ON.has(route)) {
+      continue;
+    }
+
+    const parameters = Array.isArray(operation['parameters'])
+      ? (operation['parameters'] as Record<string, unknown>[])
+      : [];
+    if (!parameters.some((parameter) => parameter['name'] === 'Idempotency-Key')) {
+      operation['parameters'] = [...parameters, IDEMPOTENCY_PARAMETER];
+    }
+
+    const responses = (operation['responses'] ?? {}) as Record<string, unknown>;
+    responses['409'] ??= {
+      description:
+        'The key is held by a different request (NX-4092), or a request under it is still running (NX-4093).',
+    };
+    operation['responses'] = responses;
+  }
+  return paths;
 }
 
 function jsonRef(name: string): Record<string, unknown> {

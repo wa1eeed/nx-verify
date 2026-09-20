@@ -15,6 +15,8 @@ export type NxErrorCode =
   | 'NX-4031'
   | 'NX-4041'
   | 'NX-4091'
+  | 'NX-4092'
+  | 'NX-4093'
   | 'NX-5001'
   | 'NX-5002';
 
@@ -94,6 +96,23 @@ const CATALOG: Record<NxErrorCode, NxErrorShape> = {
     retryable: false,
     messageAr: 'المعرّف مرتبط بكيان آخر',
     messageEn: 'The identifier already belongs to another entity',
+  },
+  'NX-4092': {
+    status: 409,
+    // Never retryable: the same key on a different request is a bug in the integration, and
+    // answering the earlier request instead would be the platform deciding, on the caller's
+    // behalf, that the call they just made did not happen (ADR-183).
+    retryable: false,
+    messageAr: 'المفتاح نفسه استُخدم لطلب مختلف',
+    messageEn: 'This Idempotency-Key was already used for a different request',
+  },
+  'NX-4093': {
+    status: 409,
+    // Retryable on purpose: the first request is still running, and a retry in a moment gets
+    // its answer rather than causing a second execution.
+    retryable: true,
+    messageAr: 'طلب بهذا المفتاح ما زال جارياً، أعد المحاولة بعد قليل',
+    messageEn: 'A request with this Idempotency-Key is still running, retry shortly',
   },
   'NX-5001': {
     status: 500,

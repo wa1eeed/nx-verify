@@ -79,13 +79,16 @@ export function Developer({
             <Link className="btn btn-primary" href="/settings/developers">
               إصدار مفتاح
             </Link>
-          ) : (
-            // One primary per screen, and on a live workspace the useful one is not «issue a
-            // key»: that issues a live key from a screen headed «بيئة الاختبار».
-            <Link className="btn btn-primary" href="/settings/support">
-              اطلب مساحة اختبار
-            </Link>
-          )
+          ) : null
+          /*
+           * Nothing, on a live workspace.
+           *
+           * «إصدار مفتاح» is not it: that issues a live key from a screen headed «بيئة
+           * الاختبار». And the header used to carry «اطلب مساحة اختبار» pointing at the
+           * support page, which registers nothing, while the card above this screen registers
+           * the ask for real (ADR-173). Two buttons for one act, one of which works, is worse
+           * than one button: the reader presses the larger one and it does nothing.
+           */
         }
       />
 
@@ -157,11 +160,19 @@ export function Developer({
             {/*
               Not a form. On a live workspace its only possible outcome was a refusal, so it
               read as a broken button rather than as a thing that belongs elsewhere.
+
+              And «elsewhere» is named as it is: the card at the top of this screen, not the
+              support page. What follows the ask is what the card and the panel actually do
+              (ADR-173), so the sentence ends where the code ends: a separate workspace with
+              its own keys and its own test credit, entered by whoever asked for it, with a
+              first password they are made to change. It used to say «وتدخلها بنفس بريدك»,
+              which reads as the same sign in, and the reader would have tried theirs.
             */}
             <p className="muted" data-role="playground-elsewhere">
               التشغيل من هذه الصفحة متاح في بيئة الاختبار وحدها. زر يستطيع إنفاق مال العميل بنقرة
-              فضول ليس ميزة. اطلب مساحة اختبار من الدعم وستصلك مساحة منفصلة بمفاتيحها ورصيدها،
-              وتدخلها بنفس بريدك.
+              فضول ليس ميزة. مساحة الاختبار تُطلب من بطاقة «مساحة الاختبار» في هذه الصفحة، وتُنشأ من
+              لوحة المنصة بمفاتيحها ورصيدها التجريبي. يدخلها من طلبها ببريده نفسه، بكلمة مرور أولى
+              يُطلب تغييرها عند أول دخول، ومن عداه يحتاج حساباً فيها.
             </p>
           </div>
         </Panel>

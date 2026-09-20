@@ -41,6 +41,15 @@ export interface Entitlement {
    * subscriber outranks it.
    */
   overageUnitPriceHalalas: number | null;
+  /**
+   * The same rate, read without asking where this run falls: what a run past the capacity
+   * would be charged whether or not the capacity is spent yet. Null when it can never apply.
+   *
+   * It exists beside the field above because a screen quoting a whole selection needs both.
+   * Ten ticked operations with three left in the capacity are charged at two prices, and the
+   * one the entitlement names today is the cheaper of them (ADR-188).
+   */
+  overageRateHalalas: number | null;
   /** True when this product is on because somebody wrote a line for this subscriber. */
   negotiated: boolean;
   /** Transactions left in the term's capacity. Null when the plan sells no capacity. */
@@ -150,6 +159,14 @@ function decide(row: EntitlementRow): Entitlement {
   const pastCapacity =
     capacity !== null && capacityUsed >= capacity && row.overage_allowed === true;
 
+  /**
+   * The rate that waits on the other side of the capacity, read without asking whether this
+   * run is there yet. Everything that decides whether it can ever apply to this subscriber is
+   * here; the only thing left to `overageUnitPriceHalalas` is where this one run falls.
+   */
+  const overageRate =
+    row.overage_allowed === true && row.override_price === null ? row.overage_price : null;
+
   const base: Omit<Entitlement, 'allowed' | 'refusal' | 'remaining'> = {
     capacityRemaining,
     discountPct:
@@ -182,7 +199,8 @@ function decide(row: EntitlementRow): Entitlement {
      * overage rate is a plan figure and the discount is what this subscriber pays off any
      * figure that was not written for them.
      */
-    overageUnitPriceHalalas: pastCapacity && row.override_price === null ? row.overage_price : null,
+    overageUnitPriceHalalas: pastCapacity ? overageRate : null,
+    overageRateHalalas: overageRate,
     negotiated,
     periodStart: row.period_start,
     periodEnd: row.period_end,
@@ -262,6 +280,34 @@ export function chargedUnitPrice(entitlement: Entitlement, listPriceHalalas: num
   return entitlement.discountPct === null
     ? price
     : Math.round((price * (100 - entitlement.discountPct)) / 100);
+}
+
+/**
+ * The most one run of this product can be charged before the term's capacity is refilled.
+ *
+ * The same function a run is priced by, asked twice: once about this subscriber as they stand
+ * now, and once about them the moment the capacity runs out. The dearer answer wins.
+ *
+ * A screen that quotes a whole selection needs this and not `chargedUnitPrice`, because a
+ * selection is charged on both sides of the capacity at once: with three transactions left and
+ * ten ticked, the first three are included and the other seven are overage. Summing the
+ * included rate for all ten told the subscriber a smaller number than the wallet was about to
+ * hold, which is the one direction a figure printed before a button may never be wrong in
+ * (ADR-188). Where the two rates cannot differ this returns exactly what the run is charged,
+ * so nothing is inflated to be safe.
+ */
+export function ceilingUnitPrice(entitlement: Entitlement, listPriceHalalas: number): number {
+  const now = chargedUnitPrice(entitlement, listPriceHalalas);
+  if (entitlement.overageRateHalalas === null) {
+    return now;
+  }
+  const spent = chargedUnitPrice(
+    { ...entitlement, overageUnitPriceHalalas: entitlement.overageRateHalalas },
+    listPriceHalalas,
+  );
+  // Not always the overage rate: a plan may price an excess run below its included one, and
+  // the ceiling of a selection that straddles the capacity is then the included rate.
+  return Math.max(now, spent);
 }
 
 export async function resolveEntitlement(
@@ -592,4 +638,234 @@ export async function renewTerm(db: Queryable, tenantId: string): Promise<boolea
     [tenantId],
   );
   return (rowCount ?? 0) > 0;
+}
+
+/**
+ * The ceilings a plan sells by the count, and the one it sells by the minute (ADR-184).
+ *
+ * `packages` has carried `max_api_keys`, `max_monitors`, `max_users` and `rate_limit_rpm`
+ * since the table existed. Every plan set them, the operator panel edited them, `getCommitment`
+ * read them into `Commitment`, and nothing else in the platform ever looked at them again: keys
+ * and monitors were opened without a count, and the API applied one ceiling of a hundred and
+ * twenty calls a minute to every subscriber alike. An enterprise that bought six hundred was
+ * refused at a fifth of it; an essential plan that sold two keys handed out forty. This is the
+ * same defect that was fixed for the overage price: a figure set in the panel, shown to the
+ * buyer, and read by nobody.
+ *
+ * Three rules hold everywhere below.
+ *
+ *   - **Null is no ceiling.** It is the enterprise plan's answer and it is not zero. A zero
+ *     would be a plan that sells none of the thing, and the table's own CHECK forbids it.
+ *   - **A ceiling stops the next one, never the ones already there.** A workspace holding
+ *     twelve keys that moves onto a plan selling ten keeps its twelve: revoking a credential
+ *     somebody's integration is authenticating with, to enforce a number they have just agreed
+ *     to, would break a running system to make a screen tidy. It may open no thirteenth, the
+ *     screen says so in as many words, and the count comes down as they retire keys.
+ *   - **No commitment sells no ceiling.** A workspace with no plan behind it has bought
+ *     nothing to be capped at, and the entitlement layer already refuses it every verification.
+ */
+
+export type PlanLimitKind = 'API_KEYS' | 'MONITORS' | 'USERS';
+
+export interface PlanLimit {
+  kind: PlanLimitKind;
+  /** Calls the plan sells. Null is no ceiling, and is never zero. */
+  limit: number | null;
+  used: number;
+  /** What may still be opened. Null with no ceiling, and never below zero. */
+  remaining: number | null;
+  /** The next one is refused. */
+  atLimit: boolean;
+  /** Already above a ceiling acquired later. Nothing is taken away, nothing may be added. */
+  over: boolean;
+}
+
+export interface PlanLimits {
+  apiKeys: PlanLimit;
+  monitors: PlanLimit;
+  users: PlanLimit;
+  /** Calls a minute the plan sells. */
+  rateLimitRpm: number;
+  /** True when a plan is behind these figures at all. */
+  committed: boolean;
+}
+
+/**
+ * What the API layer applies to a caller with no plan behind the key.
+ *
+ * The same figure `apps/api` has hard coded since the rate limiter was registered, named here
+ * so that the floor and the plan's ceiling are read from one place rather than two.
+ */
+export const DEFAULT_RATE_LIMIT_RPM = 120;
+
+/**
+ * Which column sells each ceiling, and what counts against it.
+ *
+ * A revoked key is not a key: it authenticates nothing and holding one should not cost a slot.
+ * A disabled user is not a seat either, which is the same rule `computeTermExtras` bills on, so
+ * the number that is charged for and the number that is capped cannot drift apart. Every
+ * monitor counts, paused or exhausted included, because each is a row its owner can revive
+ * with one press and a cap that a pause walks around is not a cap.
+ *
+ * Both halves are compile time constants chosen by a closed union, never anything a caller
+ * supplies, which is what makes interpolating them into the statement safe.
+ */
+const PLAN_LIMIT_SOURCES: Record<PlanLimitKind, { column: string; counted: string }> = {
+  API_KEYS: {
+    column: 'max_api_keys',
+    counted: `SELECT count(*) FROM api_keys WHERE tenant_id = $1 AND revoked_at IS NULL`,
+  },
+  MONITORS: {
+    column: 'max_monitors',
+    counted: `SELECT count(*) FROM monitors WHERE tenant_id = $1`,
+  },
+  USERS: {
+    column: 'max_users',
+    counted: `SELECT count(*) FROM users WHERE tenant_id = $1 AND status = 'active'`,
+  },
+};
+
+const PLAN_LIMIT_NOUN_AR: Record<PlanLimitKind, string> = {
+  API_KEYS: 'مفاتيح',
+  MONITORS: 'مراقبة',
+  USERS: 'مستخدمين',
+};
+
+const PLAN_LIMIT_NOUN_EN: Record<PlanLimitKind, string> = {
+  API_KEYS: 'API keys',
+  MONITORS: 'monitors',
+  USERS: 'users',
+};
+
+/**
+ * The refusal, with the number in it.
+ *
+ * «ممنوع» tells somebody to open a support ticket. «You have reached your plan's limit: 10 API
+ * keys» tells them what to revoke or what to buy, which is the entire difference between a
+ * refusal that ends the afternoon and one that ends the sentence.
+ */
+export function planLimitRefusal(
+  kind: PlanLimitKind,
+  limit: number,
+): { ar: string; en: string } {
+  return {
+    ar: `بلغتَ حدّ باقتك: ${limit} ${PLAN_LIMIT_NOUN_AR[kind]}`,
+    en: `Plan limit reached: ${limit} ${PLAN_LIMIT_NOUN_EN[kind]}`,
+  };
+}
+
+function describeLimit(kind: PlanLimitKind, limit: number | null, used: number): PlanLimit {
+  if (limit === null) {
+    return { kind, limit: null, used, remaining: null, atLimit: false, over: false };
+  }
+  return {
+    kind,
+    limit,
+    used,
+    remaining: Math.max(0, limit - used),
+    atLimit: used >= limit,
+    over: used > limit,
+  };
+}
+
+/**
+ * One ceiling and what stands against it, in a single round trip.
+ *
+ * The plan's figure and the workspace's count are read together because they are one answer,
+ * and because this sits in front of an insert: asking twice would put two round trips on the
+ * path of every key, monitor and invitation to read a number that changes on neither.
+ */
+export async function planLimitFor(
+  tx: TenantTransaction,
+  kind: PlanLimitKind,
+): Promise<PlanLimit> {
+  const source = PLAN_LIMIT_SOURCES[kind];
+  const { rows } = await tx.query<{ ceiling: number | null; used: string }>(
+    `SELECT (SELECT p.${source.column}
+               FROM tenant_commitments s
+               JOIN packages p ON p.code = s.package_code
+              WHERE s.tenant_id = $1) AS ceiling,
+            (${source.counted}) AS used`,
+    [tx.tenantId],
+  );
+
+  return describeLimit(kind, rows[0]?.ceiling ?? null, Number(rows[0]?.used ?? 0));
+}
+
+/**
+ * Every ceiling at once, for the screen that shows them before anybody meets one.
+ *
+ * A limit a subscriber only discovers as a refusal is a limit they experience as a fault in
+ * the platform. This is the read behind «الباقة والرصيد», so the plan says what it grants in
+ * the same place it says what it costs.
+ */
+export async function planLimits(tx: TenantTransaction): Promise<PlanLimits> {
+  const { rows } = await tx.query<{
+    committed: boolean;
+    max_api_keys: number | null;
+    max_monitors: number | null;
+    max_users: number | null;
+    rate_limit_rpm: number | null;
+    api_keys: string;
+    monitors: string;
+    users: string;
+  }>(
+    // Outward from a single row, so a workspace with no commitment answers with counts and
+    // nulls rather than with nothing at all: the screen has to draw either way.
+    `SELECT (s.tenant_id IS NOT NULL) AS committed,
+            p.max_api_keys, p.max_monitors, p.max_users, p.rate_limit_rpm,
+            (${PLAN_LIMIT_SOURCES.API_KEYS.counted}) AS api_keys,
+            (${PLAN_LIMIT_SOURCES.MONITORS.counted}) AS monitors,
+            (${PLAN_LIMIT_SOURCES.USERS.counted}) AS users
+       FROM (SELECT 1) one
+       LEFT JOIN tenant_commitments s ON s.tenant_id = $1
+       LEFT JOIN packages p ON p.code = s.package_code`,
+    [tx.tenantId],
+  );
+
+  const row = rows[0];
+  return {
+    apiKeys: describeLimit('API_KEYS', row?.max_api_keys ?? null, Number(row?.api_keys ?? 0)),
+    monitors: describeLimit('MONITORS', row?.max_monitors ?? null, Number(row?.monitors ?? 0)),
+    users: describeLimit('USERS', row?.max_users ?? null, Number(row?.users ?? 0)),
+    rateLimitRpm: row?.rate_limit_rpm ?? DEFAULT_RATE_LIMIT_RPM,
+    committed: row?.committed ?? false,
+  };
+}
+
+/**
+ * Refuses the next one when the plan's ceiling is already met, and says the number.
+ *
+ * Called by the thing that inserts rather than by each screen that leads to it, because there
+ * are several ways to open a key, a monitor or a seat and a check written into one of them
+ * protects one of them.
+ */
+export async function assertUnderPlanLimit(
+  tx: TenantTransaction,
+  kind: PlanLimitKind,
+): Promise<PlanLimit> {
+  const limit = await planLimitFor(tx, kind);
+  if (limit.limit !== null && limit.atLimit) {
+    throw new NxError('NX-4003', { detail: planLimitRefusal(kind, limit.limit).en });
+  }
+  return limit;
+}
+
+/**
+ * The calls a minute this workspace bought.
+ *
+ * The API's rate limiter is registered once for the whole process, so this returns the figure
+ * rather than applying it: the layer that holds the limiter reads the tenant's ceiling here and
+ * applies it per key, and answers a caller past it with NX-4029, which is already the
+ * catalogue's retryable 429 and already carries Retry-After from the limiter.
+ */
+export async function rateLimitRpmFor(tx: TenantTransaction): Promise<number> {
+  const { rows } = await tx.query<{ rate_limit_rpm: number }>(
+    `SELECT p.rate_limit_rpm
+       FROM tenant_commitments s
+       JOIN packages p ON p.code = s.package_code
+      WHERE s.tenant_id = $1`,
+    [tx.tenantId],
+  );
+  return rows[0]?.rate_limit_rpm ?? DEFAULT_RATE_LIMIT_RPM;
 }

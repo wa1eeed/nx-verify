@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Queryable, TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
+import { assertUnderPlanLimit } from '../billing/entitlements.js';
 import { audit } from './audit.js';
 import { countAdministrators, withAdminRemaining } from './capabilities.js';
 
@@ -63,6 +64,12 @@ export async function createUser(
   input: CreateUserInput,
   actorId?: string,
 ): Promise<string> {
+  // How many seats the plan sells, applied where a seat is taken (ADR-184). Active users are
+  // counted, which is the same number `computeTermExtras` charges for, so what is billed and
+  // what is capped can never drift apart. A workspace being created has no commitment behind
+  // it yet, so the first administrator of a new subscriber is never refused here.
+  await assertUnderPlanLimit(tx, 'USERS');
+
   const { rows } = await tx
     .query<{ id: string }>(
       `INSERT INTO users (tenant_id, email, display_name, role)
@@ -229,6 +236,11 @@ export async function enableUser(
   userId: string,
   actorId: string,
 ): Promise<void> {
+  // Bringing somebody back takes a seat exactly as inviting somebody does, so it meets the
+  // same ceiling (ADR-184). Checked before the update rather than after: a cap a re-enable
+  // walks around is a cap anybody can walk around twice.
+  await assertUnderPlanLimit(tx, 'USERS');
+
   const { rowCount } = await tx.query(
     `UPDATE users SET status = 'active' WHERE tenant_id = $1 AND id = $2 AND status = 'disabled'`,
     [tx.tenantId, userId],

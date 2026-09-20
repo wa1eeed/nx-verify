@@ -33,6 +33,15 @@ export interface HealthRowView {
   slowestMs: number;
   balanceHalalas: number;
   heldHalalas: number;
+  /**
+   * What the wallet can pay for, as the domain works it out (`subscriberHealth`).
+   *
+   * Read rather than subtracted here. This column used to compute `balance − held` in the
+   * markup while `balanceLow` arrived already decided from the domain's own subtraction: one
+   * phrase, «الرصيد المتاح», defined twice, so a later change to what a hold means would have
+   * reached the tag and not the figure beside it.
+   */
+  walletAvailableHalalas: number;
   balanceLow: boolean;
   unhealthyProviders: string[];
 }
@@ -138,7 +147,7 @@ export function OperatorHealth({
                       )}
                     </td>
                     <td>
-                      <Ltr>{riyals(row.balanceHalalas - row.heldHalalas)}</Ltr>{' '}
+                      <Ltr>{riyals(row.walletAvailableHalalas)}</Ltr>{' '}
                       {row.balanceLow ? (
                         <StateTag state="LOW_BALANCE" role="low-balance">
                           منخفض

@@ -31,21 +31,27 @@ import {
 
 const product = (
   overrides: Partial<ProductData> & Pick<ProductData, 'productCode'>,
-): ProductData => ({
-  nameAr: 'منتج',
-  nameEn: 'Product',
-  summaryAr: 'حقول',
-  appliesTo: ['COMPANY', 'ESTABLISHMENT'],
-  availability: 'AVAILABLE',
-  unitPriceHalalas: 300,
-  allowed: true,
-  refusalAr: null,
-  perManager: false,
-  needsIban: false,
-  needsCertificate: false,
-  selectedByDefault: true,
-  ...overrides,
-});
+): ProductData => {
+  const unitPriceHalalas =
+    overrides.unitPriceHalalas === undefined ? 300 : overrides.unitPriceHalalas;
+  return {
+    nameAr: 'منتج',
+    nameEn: 'Product',
+    summaryAr: 'حقول',
+    appliesTo: ['COMPANY', 'ESTABLISHMENT'],
+    availability: 'AVAILABLE',
+    unitPriceHalalas,
+    // The quote says both, and they part company only on a plan that reprices an excess run.
+    ceilingUnitPriceHalalas: unitPriceHalalas,
+    allowed: true,
+    refusalAr: null,
+    perManager: false,
+    needsIban: false,
+    needsCertificate: false,
+    selectedByDefault: true,
+    ...overrides,
+  };
+};
 
 const PRODUCTS: ProductData[] = [
   product({
@@ -198,13 +204,14 @@ describe('the verification request of screen 02', () => {
     expect(row(html, 'ARTICLES_OF_ASSOCIATION')).toContain('>تحقق</button>');
   });
 
-  it('shows each price left to right, and the total with what stays in the balance', () => {
+  it('shows each price left to right, and the total as the ceiling it is', () => {
     expect(row(html, 'CR_FULL')).toContain(
       'data-role="product-price"><bdi dir="ltr" class="ltr">3.00</bdi> ر.س</span>',
     );
-    // A manager check is one operation for each of the three managers on file.
+    // A manager check is one operation for each of the three managers on file. The figure is
+    // the most those six can cost, and the balance after them the least it can be (ADR-178).
     expect(html).toContain(
-      'data-role="total">الإجمالي 21.50 ر.س · سيُخصم من الرصيد ويبقى 4,978.50 ر.س</p>',
+      'data-role="total">الحدّ الأعلى 21.50 ر.س من رصيدك · لا يقل الرصيد بعدها عن 4,978.50 ر.س</p>',
     );
   });
 
@@ -279,7 +286,12 @@ describe('the decisions behind a row, a count and a total', () => {
     });
     expect(withPackage.operations).toBe(6);
     expect(withPackage.affordable).toBe(true);
-    expect(withPackage.lineAr).toBe('الإجمالي 21.50 ر.س · سيُخصم من الرصيد ويبقى 1,835 عملية');
+    // No riyals leave the wallet while the package and the bundles have operations left, so
+    // the line names none, and what stays is a floor: a bundle's operation comes back when
+    // the run it was taken for costs nothing (ADR-178).
+    expect(withPackage.lineAr).toBe(
+      'تُحتسب من الباقة والحزم لا من رصيدك · لا يقل ما يبقى عن 1,835 عملية',
+    );
     // Past the package, the wallet pays the rest, and can refuse.
     expect(
       totalsOf(selected, FOUND, { capacityRemaining: 2, walletAvailableHalalas: 100 }).affordable,

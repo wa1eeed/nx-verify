@@ -82,6 +82,17 @@ export function chargedShareAr(share: number): string {
  */
 export const NOT_CHARGED_AR = 'الفشل التقني والخطوة المتخطاة لا تُحسبان';
 
+/**
+ * What a screen may say when it cannot name the shares: the half no price row can change,
+ * and where the rest is written.
+ *
+ * It belongs beside the shares and not beside each screen. Two screens spelled this sentence
+ * out for themselves, letter for letter, which is one rule in two wordings and precisely the
+ * fault ADR-170 exists to remove: the day «أسعار المنتجات» is renamed, one of the two copies
+ * starts pointing at a screen that is not there (ADR-188).
+ */
+export const OTHER_SHARES_AR = `${NOT_CHARGED_AR}، وما تُحسب به الحالات الأخرى في «أسعار المنتجات»`;
+
 /** The whole of it, in one sentence, from the shares in force. */
 export function chargedOutcomesSentenceAr(shares: ChargedOutcomes): string {
   return (

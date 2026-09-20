@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { errorCatalogue } from '../../../packages/core/src/errors.js';
 import {
   InMemorySecretStore,
   ProviderRegistry,
@@ -118,18 +119,15 @@ describe('the specification and the server', () => {
 
   it('gives an example error code the platform can actually return', () => {
     const document = JSON.stringify(buildOpenApiDocument());
-    // Every NX code in the document must be one of the nine in the catalogue.
-    const real = new Set([
-      'NX-4001',
-      'NX-4002',
-      'NX-4011',
-      'NX-4029',
-      'NX-4031',
-      'NX-4041',
-      'NX-4091',
-      'NX-5001',
-      'NX-5002',
-    ]);
+    /**
+     * Read from the catalogue, not copied beside it.
+     *
+     * This list used to be nine codes written out here, which made it a second catalogue with
+     * a standing chance of disagreeing with the first, and it did: it was missing NX-4003
+     * long before it refused NX-4092 and NX-4093. A guard that has to be edited whenever the
+     * thing it guards changes is a guard that gets edited to agree with the change.
+     */
+    const real = new Set<string>(errorCatalogue().map((entry) => entry.code));
     const quoted = [...document.matchAll(/NX-\d{4}/g)].map((match) => match[0]);
     expect(quoted.length).toBeGreaterThan(0);
     expect(quoted.filter((code) => !real.has(code))).toEqual([]);

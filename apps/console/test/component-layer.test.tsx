@@ -70,6 +70,7 @@ const healthRow: HealthRowView = {
   slowestMs: 900,
   balanceHalalas: 50_000,
   heldHalalas: 0,
+  walletAvailableHalalas: 50_000,
   balanceLow: true,
   unhealthyProviders: ['wathq-example-connector'],
 };
@@ -83,6 +84,7 @@ const quietRow: HealthRowView = {
   failures: 0,
   slowestMs: 0,
   balanceHalalas: 900_000,
+  walletAvailableHalalas: 900_000,
   balanceLow: false,
   unhealthyProviders: [],
 };
@@ -171,7 +173,11 @@ describe('an act with nothing to undo it', () => {
  */
 describe('what the screens knew and were not saying', () => {
   it('shows the balance the subscriber can actually spend, and what is held back', () => {
-    const held = health([{ ...healthRow, balanceHalalas: 50_000, heldHalalas: 20_000 }]);
+    // The available figure arrives worked out, from the same subtraction `balanceLow` is
+    // decided by, rather than being done a second time in the markup (ADR-181).
+    const held = health([
+      { ...healthRow, balanceHalalas: 50_000, heldHalalas: 20_000, walletAvailableHalalas: 30_000 },
+    ]);
     // 500.00 was the figure before, while the subscriber's own screen showed 300.00: support
     // and the customer read two different balances off two screens.
     expect(held).toContain('300.00');
@@ -181,6 +187,21 @@ describe('what the screens knew and were not saying', () => {
 
     // Nothing held, nothing said: a line reading «محجوز: 0.00» is noise on every other row.
     expect(health([healthRow])).not.toContain('data-role="held"');
+  });
+
+  it('prints the available figure it was given, rather than subtracting one of its own', () => {
+    /*
+     * The fixture above cannot tell the two apart: its three numbers agree, so a screen that
+     * subtracts and a screen that reads print the same thing. What the change is for is the
+     * day they disagree, which is the day «الرصيد المتاح» means something the markup does not
+     * know: the domain decides what a hold takes out of a wallet, and `balanceLow` beside the
+     * figure was already decided from that answer (ADR-181).
+     */
+    const disagreeing = health([
+      { ...healthRow, balanceHalalas: 50_000, heldHalalas: 20_000, walletAvailableHalalas: 10_000 },
+    ]);
+    expect(disagreeing).toContain('100.00');
+    expect(disagreeing).not.toContain('300.00');
   });
 
   it('tells a subscriber why a transfer was not accepted', () => {

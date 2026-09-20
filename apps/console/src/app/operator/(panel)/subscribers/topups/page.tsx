@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { listPendingTopUps } from '@nx-verify/core';
+import { countPendingSandboxRequests, listPendingTopUps } from '@nx-verify/core';
 import { PageHeader } from '../../../../../components/page-header';
 import {
   PendingTopUps,
@@ -11,7 +11,7 @@ import { confirmTopUpAction, rejectTopUpAction } from './actions';
 import { topUpNoticeAr } from './notice';
 import { Notice } from '../../../../../components/ui/notice';
 import { SectionTabs } from '../../../../../components/section-tabs';
-import { SUBSCRIBER_TABS } from '../../../../../components/operator-shell';
+import { SUBSCRIBER_TABS, subscriberTabCounts } from '../../../../../components/operator-shell';
 
 /** Never prerendered, and refuses to render without an operator token. */
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,12 @@ export default async function OperatorTopUpsPage({
     return typeof value === 'string' ? value : undefined;
   };
 
-  const pending = await operatorQuery((db) => listPendingTopUps(db));
+  const { pending, waiting } = await operatorQuery(async (db) => ({
+    pending: await listPendingTopUps(db),
+    // The other queue of this section, counted rather than listed, so its tab says how many
+    // are waiting on a screen that is not this one (ADR-186).
+    waiting: await countPendingSandboxRequests(db),
+  }));
   const notice = topUpNoticeAr({ refused: one('refused'), saved: one('saved') });
 
   const view: PendingTopUpView[] = pending.map((request) => ({
@@ -52,6 +57,7 @@ export default async function OperatorTopUpsPage({
         tabs={SUBSCRIBER_TABS}
         current="/operator/subscribers/topups"
         label="أقسام المشتركين"
+        counts={subscriberTabCounts(waiting)}
       />
       <PageHeader title="الحوالات" subtitle="طلبات شحن الرصيد بانتظار تأكيد وصول الحوالة." />
       {/*

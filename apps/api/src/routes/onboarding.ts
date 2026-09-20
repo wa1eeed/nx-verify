@@ -233,7 +233,12 @@ export function registerOnboardingRoutes(app: FastifyInstance, context: AppConte
         throw new NxError('NX-4041', { requestId: request.id });
       }
 
-      return reply.send(caseResponse(caller.environment, updated));
+      // Rule 5, on the one envelope of the four that was going out unchecked. Guard 06 tests
+      // the pure function rather than the routes, so it stayed green while this path could
+      // have carried a provider's name to a customer.
+      const response = caseResponse(caller.environment, updated);
+      assertNoProviderLeak(response, context.registry.names());
+      return reply.send(response);
     },
   );
 }

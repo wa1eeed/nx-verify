@@ -1,6 +1,7 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { NxError } from '../errors.js';
 import { audit } from '../auth/audit.js';
+import { assertUnderPlanLimit } from '../billing/entitlements.js';
 import { halalasToDecimalString, riyalsToHalalas } from '../billing/money.js';
 
 /**
@@ -39,6 +40,11 @@ export async function createMonitor(
   if (input.fieldPaths.length === 0) {
     throw new NxError('NX-4001', { detail: 'a monitor needs at least one field' });
   }
+  // How many monitors the plan sells (ADR-184). Checked here rather than on the screens that
+  // reach it, because a portfolio policy opens monitors too and a ceiling written into one
+  // caller is a ceiling the other walks around. A paused or exhausted monitor still counts:
+  // it is a row its owner revives with one press.
+  await assertUnderPlanLimit(tx, 'MONITORS');
 
   const { rows } = await tx.query<{ id: string }>(
     `INSERT INTO monitors

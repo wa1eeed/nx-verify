@@ -311,7 +311,7 @@ export function NewRequestScreen({
   const applicableCount = rows.filter(
     ({ product }) => product.appliesTo.includes(kind) && product.availability === 'AVAILABLE',
   ).length;
-  const totals = totalsOf(runnable, lookup, view.balance);
+  const totals = totalsOf(runnable, lookup, view.balance, view.outcomes ?? null);
 
   const accountOnFile = lookup?.account ?? draft?.iban ?? null;
   const certificateOnFile = lookup?.hasCertificate === true || draft?.hasCertificate === true;
@@ -693,9 +693,21 @@ export function NewRequestScreen({
                 الرصيد لا يكفي لهذه العمليات. اشحن الرصيد ثم أعد المحاولة.
               </p>
             ) : view.showPrices && runnable.length > 0 ? (
-              <p className="request-bar-line" data-role="total">
-                {totals.lineAr}
-              </p>
+              <>
+                <p className="request-bar-line" data-role="total">
+                  {totals.lineAr}
+                </p>
+                {/*
+                  Why the figure above is a ceiling, in the words of the price rows in force.
+                  Absent while the shares have not been read, and absent while the package
+                  pays, rather than guessed at (ADR-170).
+                */}
+                {totals.outcomesAr === null ? null : (
+                  <p className="request-bar-line" data-role="charged-outcomes">
+                    {totals.outcomesAr}
+                  </p>
+                )}
+              </>
             ) : null}
             {notice !== null ? (
               <p className="request-bar-line" role="status">

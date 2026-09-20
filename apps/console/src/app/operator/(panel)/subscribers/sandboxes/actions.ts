@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import type { QueryResult, QueryResultRow } from 'pg';
 import { withTenant } from '@nx-verify/db';
 import {
   NxError,
@@ -11,11 +10,7 @@ import {
   type SandboxRefusalCode,
 } from '@nx-verify/core';
 import { getPool } from '../../../../../lib/context';
-import {
-  operatorQuery,
-  operatorTransaction,
-  requireOperatorPermission,
-} from '../../../../../lib/operator';
+import { operatorTransaction, requireOperatorPermission } from '../../../../../lib/operator';
 import {
   NO_SANDBOX_ANSWER,
   type SandboxAnswerState,
@@ -35,18 +30,15 @@ import {
  * (SEC-10).
  */
 
-/** Reads on the operator connection, one statement at a time. */
-const operatorReads = {
-  query<R extends QueryResultRow>(
-    text: string,
-    values?: readonly unknown[],
-  ): Promise<QueryResult<R>> {
-    return operatorQuery((db) => db.query<R>(text, values));
-  },
-};
-
+/**
+ * The two connections, and nothing beside them.
+ *
+ * There was a pooled operator reader here as well, for the read that chose which ask was being
+ * answered. It is gone because that read belongs inside the transaction that answers: it takes
+ * the row with FOR UPDATE, so a second member of staff answering the same ask waits rather than
+ * racing, and no workspace is ever made for an ask that was closed while it was being made.
+ */
 const provision: SandboxProvisioner = {
-  operator: operatorReads,
   inOperatorTransaction: (run) => operatorTransaction(run),
   inTenant: (tenantId, run) => withTenant(getPool(), tenantId, run),
 };
@@ -79,13 +71,13 @@ export async function answerSandboxAction(
     } catch (error) {
       return { ...NO_SANDBOX_ANSWER, refusalAr: refusalAr(error) };
     }
-    revalidatePath('/operator/subscribers/sandboxes');
+    answered();
     return { ...NO_SANDBOX_ANSWER, doneAr: 'أُغلق الطلب، ويقرأ المشترك أنه لم يُقبل.' };
   }
 
   try {
     const made = await createSandboxForRequest(provision, actor, { requestId });
-    revalidatePath('/operator/subscribers/sandboxes');
+    answered();
     return {
       made: {
         legalName: made.legalName,
@@ -99,6 +91,30 @@ export async function answerSandboxAction(
   } catch (error) {
     return { ...NO_SANDBOX_ANSWER, refusalAr: refusalAr(error) };
   }
+}
+
+/**
+ * What an answer changes on the screens.
+ *
+ * The queue, and the frame around it. The number of asks waiting is drawn beside «المشتركون»
+ * in the panel's navigation, which lives in the layout, so revalidating the page on its own
+ * asks for the half that was already in front of the person who pressed.
+ *
+ * Two paths, because one of them is not enough. The queue's own path with `layout` redraws
+ * the screen that was pressed on, frame included. The panel's root with `layout` reaches every
+ * other panel screen, whose copy of that frame the router keeps from before this press: an
+ * answer given here would otherwise leave «المشتركون» claiming an ask that no longer waits
+ * for as long as that copy is reused.
+ *
+ * What neither can do is make the number arrive without a press. The panel's layout is not
+ * re-executed as a member of staff moves between its screens, so the count is as fresh as the
+ * last time the frame itself was drawn: it reaches somebody opening the panel, and it does not
+ * reach somebody who has been sitting in it. A number that has to arrive on its own is a
+ * different mechanism, and this is not it.
+ */
+function answered(): void {
+  revalidatePath('/operator/subscribers/sandboxes', 'layout');
+  revalidatePath('/operator', 'layout');
 }
 
 /**

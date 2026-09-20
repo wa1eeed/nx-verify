@@ -1,7 +1,12 @@
 import type { TenantTransaction } from '@nx-verify/db';
 import { NxError, masterKeySourceFromEnv } from '@nx-verify/core';
 import type { ProviderMode, ResolvedCredential } from './types.js';
-import { LayeredSecretStore, SealedFileSecretStore, describeMaterial } from './sealed-store.js';
+import {
+  LayeredSecretStore,
+  SealedFileSecretStore,
+  describeStored,
+  isStored,
+} from './sealed-store.js';
 
 /**
  * Credential resolution.
@@ -36,9 +41,24 @@ export interface SecretStore {
   put?(ref: string, material: Record<string, string>): Promise<void>;
   /**
    * What is stored under a reference, without the material: which fields, when, and a
-   * fingerprint of each. Null when nothing is stored there.
+   * fingerprint of each.
+   *
+   * Null means the store answered and there is nothing under the reference. It does not mean
+   * the store could not be asked: an endpoint that is unreachable, a variable that does not
+   * parse and an entry that will not open all raise instead (ADR-179). The two are one
+   * question apart on a screen and a world apart to the person reading it, because «nothing
+   * is stored here» sends somebody to put a secret in a store that may already hold it, and
+   * a store that cannot be reached is nobody's mistake but the deployment's. An
+   * implementation that catches its own failures and returns null tells that lie for every
+   * caller at once, so none of them do, LayeredSecretStore included (ADR-185).
+   *
+   * Required, unlike put. ADR-179 left it optional only because callers outside its reach
+   * tested it with `store.describe ?`, and a store that cannot describe is a fourth answer no
+   * screen has a word for: every caller invented one, and the honest words all came out as
+   * «the store did not answer», which is a failure that never happened. Every store here
+   * implements it, so the type now says so and the invented sentences are gone.
    */
-  describe?(ref: string): Promise<SecretDescription | null>;
+  describe(ref: string): Promise<SecretDescription | null>;
 }
 
 export interface SecretDescription {
@@ -162,7 +182,7 @@ export class InMemorySecretStore implements SecretStore {
 
   fetch(ref: string): Promise<Readonly<Record<string, string>>> {
     const material = this.#entries.get(ref);
-    if (!material) {
+    if (!isStored(material)) {
       // The reference is safe to name. The material never appears in an error.
       throw new NxError('NX-5001', { detail: `no secret stored for reference ${ref}` });
     }
@@ -170,8 +190,7 @@ export class InMemorySecretStore implements SecretStore {
   }
 
   describe(ref: string): Promise<SecretDescription | null> {
-    const material = this.#entries.get(ref);
-    return Promise.resolve(material ? describeMaterial(material, null) : null);
+    return Promise.resolve(describeStored(this.#entries.get(ref), null));
   }
 }
 
@@ -209,33 +228,48 @@ export class EnvSecretStore implements SecretStore {
     );
   }
 
-  fetch(ref: string): Promise<Readonly<Record<string, string>>> {
+  /**
+   * The variable, parsed. Raises when there is nothing to read rather than reading as empty:
+   * a variable that is not set and a variable that does not parse are both this store failing
+   * to answer, and neither is an answer about any one reference.
+   */
+  #entries(): Record<string, Record<string, string>> {
     const raw = process.env[this.#variable];
     if (!raw) {
       throw new NxError('NX-5001', { detail: `${this.#variable} is not set` });
     }
-
-    let parsed: Record<string, Record<string, string>>;
     try {
-      parsed = JSON.parse(raw) as Record<string, Record<string, string>>;
+      return JSON.parse(raw) as Record<string, Record<string, string>>;
     } catch {
       // The message names the variable and never its contents.
       throw new NxError('NX-5001', { detail: `${this.#variable} is not valid JSON` });
     }
-
-    const material = parsed[ref];
-    if (!material) {
-      throw new NxError('NX-5001', { detail: `no secret stored for reference ${ref}` });
-    }
-    return Promise.resolve(material);
   }
 
-  async describe(ref: string): Promise<SecretDescription | null> {
-    try {
-      return describeMaterial(await this.fetch(ref), null);
-    } catch {
-      return null;
+  /**
+   * Async for the same reason describe below is: #entries raises synchronously, and a method
+   * that throws before it returns a promise escapes every `.catch` written around it. Three
+   * callers do exactly that (the worker's mail job, the SSO action, the integration action),
+   * so a variable that is not set would have crashed them instead of reading as «nothing
+   * stored».
+   */
+  async fetch(ref: string): Promise<Readonly<Record<string, string>>> {
+    const material = this.#entries()[ref];
+    if (!isStored(material)) {
+      throw new NxError('NX-5001', { detail: `no secret stored for reference ${ref}` });
     }
+    return material;
+  }
+
+  /**
+   * Declared async on purpose. The failures above are raised from a synchronous helper, and
+   * an async function turns them into a rejection: a method that throws before it returns a
+   * promise escapes every `.catch` a caller wrote around it.
+   */
+  async describe(ref: string): Promise<SecretDescription | null> {
+    // An entry written as null in the variable, and one written as {}, are both the absence
+    // fetch treats them as, and neither is a crash inside describeMaterial (ADR-185).
+    return describeStored(this.#entries()[ref], null);
   }
 }
 
@@ -296,11 +330,36 @@ export class HttpSecretStore implements SecretStore {
       return cached.material;
     }
 
+    const material = await this.#load(ref);
+    if (material === null) {
+      // Not NX-5002: a reference the manager has nothing under is not a service that is
+      // temporarily unavailable, and NX-5002 is the retryable code. Retrying a reference
+      // that does not exist retries forever.
+      throw new NxError('NX-5001', { detail: `no material behind reference ${ref}` });
+    }
+    return material;
+  }
+
+  /**
+   * One request, and the answer separated from the failure to get one (ADR-179).
+   *
+   * Null is the manager saying there is nothing under this reference, which is what a 404 is
+   * and what an empty body is. Every other status raises, because a store that could not be
+   * asked has said nothing at all about the reference.
+   *
+   * An object with no fields is the third way of saying nothing, and it used to be the one way
+   * through: `{}` is truthy and is an object, so a manager answering `{"material":{}}` handed
+   * the panel a credential with no parts and the panel called it «محفوظ» (ADR-185).
+   */
+  async #load(ref: string): Promise<Readonly<Record<string, string>> | null> {
     const response = await this.#fetch(`${this.#endpoint}/${encodeURIComponent(ref)}`, {
       method: 'GET',
       headers: { authorization: `Bearer ${this.#token}`, accept: 'application/json' },
     });
 
+    if (response.status === 404) {
+      return null;
+    }
     if (response.status >= 400) {
       throw new NxError('NX-5002', {
         detail: `the secret manager answered ${response.status} for reference ${ref}`,
@@ -309,8 +368,8 @@ export class HttpSecretStore implements SecretStore {
 
     const body = (await response.json()) as { material?: unknown };
     const material = body.material;
-    if (!material || typeof material !== 'object') {
-      throw new NxError('NX-5001', { detail: `no material behind reference ${ref}` });
+    if (!material || typeof material !== 'object' || Array.isArray(material)) {
+      return null;
     }
 
     const entries = Object.fromEntries(
@@ -319,6 +378,9 @@ export class HttpSecretStore implements SecretStore {
         String(value),
       ]),
     );
+    if (!isStored(entries)) {
+      return null;
+    }
     // Held briefly. A call per verification would make the secret manager the slowest
     // thing in a run, and holding it forever would outlive a rotation.
     this.#cache.set(ref, { material: entries, expiresAt: this.#now() + this.#cacheMs });
@@ -358,11 +420,11 @@ export class HttpSecretStore implements SecretStore {
   }
 
   async describe(ref: string): Promise<SecretDescription | null> {
-    try {
-      return describeMaterial(await this.fetch(ref), null);
-    } catch {
-      return null;
+    const cached = this.#cache.get(ref);
+    if (cached && cached.expiresAt > this.#now()) {
+      return describeStored(cached.material, null);
     }
+    return describeStored(await this.#load(ref), null);
   }
 }
 

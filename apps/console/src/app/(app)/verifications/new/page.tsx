@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { ReactElement } from 'react';
 import { NoAccess } from '../../../../components/no-access';
 import {
+  OTHER_SHARES_AR,
   SUBJECT_PROBLEMS_AR,
+  chargedOutcomes,
+  chargedOutcomesSentenceAr,
   customerStandings,
   getPreferences,
   getRequest,
@@ -78,6 +81,13 @@ export default async function NewRequestPage({
       tx,
       catalogue.map((check) => check.productCode),
     );
+    // What each of them charges when the answer is not a plain success, from the price row in
+    // force for this subscriber. The screen states the total as a ceiling, and this is the
+    // half that says why it is one (ADR-170).
+    const shares = await chargedOutcomes(
+      tx,
+      catalogue.map((check) => check.productCode),
+    );
     const preferences = await getPreferences(tx);
     const drafts = await listDrafts(tx, keys, 5);
     const sandbox = await isSandbox(tx);
@@ -89,7 +99,7 @@ export default async function NewRequestPage({
       entityId === null
         ? null
         : await customerStandings(tx, keys, entityId, draft?.kind ?? requestedKind);
-    return { catalogue, quote, preferences, drafts, sandbox, draft, lookup };
+    return { catalogue, quote, shares, preferences, drafts, sandbox, draft, lookup };
   });
 
   const priceOf = new Map(data.quote.lines.map((line) => [line.productCode, line]));
@@ -109,6 +119,9 @@ export default async function NewRequestPage({
       appliesTo: check.appliesTo,
       availability: check.availability,
       unitPriceHalalas: line?.unitPriceHalalas ?? null,
+      // The price of this one operation and the most it can be charged, both from the quote:
+      // the screen adds several of them up and must not add up the cheaper one (ADR-188).
+      ceilingUnitPriceHalalas: line?.ceilingUnitPriceHalalas ?? null,
       allowed: line?.allowed ?? false,
       refusalAr: line?.refusalAr ?? null,
       perManager: check.requiredInputs.includes('manager_id'),
@@ -178,11 +191,33 @@ export default async function NewRequestPage({
         }))
       : [],
     problemsAr: SUBJECT_PROBLEMS_AR,
+    /*
+     * The wording is written here and not in the screen.
+     *
+     * The screen is a client component and cannot read a price row, and a sentence composed
+     * beside the shares rather than from them is the fault ADR-170 exists to remove. So each
+     * product carries the sentence `chargedOutcomesSentenceAr` wrote from its own two shares,
+     * a product with no price in force carries none, and `anyAr` is the half that holds for
+     * every price row, for a selection whose products do not agree on one sentence.
+     */
+    outcomes: {
+      perProductAr: Object.fromEntries(
+        [...data.shares].map(([productCode, share]) => [
+          productCode,
+          `${chargedOutcomesSentenceAr(share)}.`,
+        ]),
+      ),
+      anyAr: `${OTHER_SHARES_AR}.`,
+    },
   };
 
   return (
     <div className="request-screen">
-      <SectionTabs tabs={visible(VERIFICATION_TABS, actor.capabilities)} current="/verifications/new" label="أقسام التحقق" />
+      <SectionTabs
+        tabs={visible(VERIFICATION_TABS, actor.capabilities)}
+        current="/verifications/new"
+        label="أقسام التحقق"
+      />
       <PageHeader
         title="طلب تحقق جديد"
         subtitle="اختر المنتجات ثم اضغط «تحقق من الكل»، أو نفّذ كل منتج على حدة من زره الخاص"

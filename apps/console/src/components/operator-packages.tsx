@@ -33,10 +33,23 @@ export function planNoticeAr(params: {
         tone: 'refused',
         text: 'لم يُحفظ: السعر أقل من تكلفة هذا التحقق، والسعر لا ينزل عن التكلفة.',
       };
+    case 'retired':
+      // Said in its own words rather than through the catch all below, because nothing was
+      // typed wrongly here: the plan simply stopped being sold between the page being drawn
+      // and «انقله» being pressed.
+      return {
+        tone: 'refused',
+        text: 'لم يُنقل: هذه الباقة لم تعد معروضة للبيع. اختر باقة سارية.',
+      };
     default:
       return { tone: 'refused', text: 'لم يُحفظ. تحقق من القيم المدخلة.' };
   }
-  return params.saved === undefined ? null : { tone: 'done', text: 'حُفظت التغييرات.' };
+  if (params.saved === undefined) {
+    return null;
+  }
+  return params.saved === 'plan'
+    ? { tone: 'done', text: 'نُقل المشترك إلى الباقة الجديدة.' }
+    : { tone: 'done', text: 'حُفظت التغييرات.' };
 }
 
 /**

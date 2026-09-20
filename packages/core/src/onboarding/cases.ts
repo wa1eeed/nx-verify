@@ -594,14 +594,21 @@ export async function concludeCase(
  * A file that is approved but whose activation was never queued, because the process died
  * between two transactions, is the failure this avoids: the customer's system never hears,
  * and nothing in our data says anything is missing.
+ *
+ * And it fires on the move, not on the re-reading. A file that is already in review does
+ * not close, so running its remaining checks concludes it again and reaches the same
+ * conclusion. That is not a second decision, and announcing it again would put a second
+ * copy of the same file in the customer's CRM and a second message in somebody's inbox.
  */
 async function fireActions(
   tx: TenantTransaction,
   caseId: string,
-  fallback: OnboardingCase,
+  before: OnboardingCase,
 ): Promise<OnboardingCase> {
-  const decided = (await getCase(tx, caseId)) ?? fallback;
-  await dispatchCaseActions(tx, decided);
+  const decided = (await getCase(tx, caseId)) ?? before;
+  if (decided.status !== before.status) {
+    await dispatchCaseActions(tx, decided);
+  }
   return decided;
 }
 

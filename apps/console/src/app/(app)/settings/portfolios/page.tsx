@@ -9,13 +9,20 @@ import {
 } from '@nx-verify/core';
 import {
   Portfolios,
+  type PortfolioMemberView,
   type PortfolioRowView,
   type PortfolioTtlView,
 } from '../../../../components/portfolios';
 import { actingUser, query } from '../../../../lib/context';
 import { SectionTabs } from '../../../../components/section-tabs';
 import { SETTINGS_TABS, visible } from '../../../../components/nav';
-import { createPortfolioAction, setPortfolioTtlAction } from './actions';
+import {
+  addMemberAction,
+  createPortfolioAction,
+  removeMemberAction,
+  setPortfolioTtlAction,
+} from './actions';
+import { readMemberCandidates, readPortfolioMembers } from './members';
 
 /**
  * Never prerendered and never cached.
@@ -36,6 +43,10 @@ export default async function PortfoliosPage({
     return <NoAccess needs="settings.manage" />;
   }
   const { outcome } = await searchParams;
+  // Membership is an act on a customer, so the panel that changes it is shown to somebody
+  // who may see customers and to nobody else. The action asserts the same thing again: a
+  // hidden form is a courtesy, and the post still arrives.
+  const mayReadCustomers = actor.can('customers.read');
   const data = await query(async (tx) => {
     const portfolios = await listPortfolios(tx);
     const health = await portfolioHealth(tx);
@@ -78,8 +89,26 @@ export default async function PortfoliosPage({
       defaultProductCode: portfolio.defaultProductCode,
     }));
 
+    // Who is in which group, and the customers a new member can be picked from. Read only
+    // for somebody allowed to see customers at all: the names in both lists are customers.
+    const members = mayReadCustomers ? await readPortfolioMembers(tx) : { rows: [], total: 0 };
+    const candidates = mayReadCustomers
+      ? await readMemberCandidates(tx)
+      : { choices: [], total: 0 };
+
     return {
       rows,
+      memberTotal: members.total,
+      members: members.rows.map((member): PortfolioMemberView => ({
+        portfolioId: member.portfolioId,
+        entityId: member.entityId,
+        displayName: member.displayName,
+        addedByName: member.addedByName,
+        addedAt: member.addedAt,
+        monitorStatus: member.monitorStatus,
+      })),
+      candidates: candidates.choices,
+      candidateTotal: candidates.total,
       products: products.map((product) => ({ code: product.code, nameAr: product.nameAr })),
       rulesets: rulesets.map((ruleset) => ({ id: ruleset.id, nameAr: ruleset.nameAr })),
       fieldPaths: policy.map((entry) => entry.fieldPath),
@@ -94,7 +123,11 @@ export default async function PortfoliosPage({
 
   return (
     <div className="stack" style={{ gap: 'var(--s-4)' }}>
-      <SectionTabs tabs={visible(SETTINGS_TABS, actor.capabilities)} current="/settings/portfolios" label="أقسام الإعدادات" />
+      <SectionTabs
+        tabs={visible(SETTINGS_TABS, actor.capabilities)}
+        current="/settings/portfolios"
+        label="أقسام الإعدادات"
+      />
       <Portfolios
         rows={data.rows}
         outcome={outcome}
@@ -102,8 +135,13 @@ export default async function PortfoliosPage({
         rulesets={data.rulesets}
         fieldPaths={data.fieldPaths}
         ttls={data.ttls}
+        members={data.members}
+        memberTotal={data.memberTotal}
+        candidates={data.candidates}
+        candidateTotal={data.candidateTotal}
         createAction={createPortfolioAction}
         setTtlAction={setPortfolioTtlAction}
+        {...(mayReadCustomers ? { addMemberAction, removeMemberAction } : {})}
       />
     </div>
   );

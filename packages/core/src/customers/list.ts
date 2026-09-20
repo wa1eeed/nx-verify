@@ -436,6 +436,13 @@ export interface CustomerCounts {
    * changed after it was computed when we never wrote down which model computed it. The sweep
    * claims those rows anyway, which is the right asymmetry: the sweep is free to be suspicious,
    * and the screen may only say what is known.
+   *
+   * And only rows that hold a score. A file too incomplete to rate is stored with `risk_score`
+   * NULL (indicators.ts: no anchor fact and no signal is nothing to rate), and it was still
+   * counted here, so a workspace whose files are mostly half filled read «نموذج المخاطر تغيّر
+   * بعد حساب درجة ٤٠٠ عميلاً» when four hundred scores had never been computed at all. The
+   * count qualifies «مخاطر عالية», which is counted from scores; it must be counted from the
+   * same rows.
    */
   underOlderModel: number;
 }
@@ -478,7 +485,8 @@ export async function countCustomers(tx: TenantTransaction): Promise<CustomerCou
             count(*) FILTER (WHERE s.open_alerts > 0)::text AS alerts,
             count(*) FILTER (WHERE s.risk_score >= $2)::text AS high_risk,
             count(*) FILTER (
-              WHERE s.risk_model_version IS NOT NULL
+              WHERE s.risk_score IS NOT NULL
+                AND s.risk_model_version IS NOT NULL
                 AND s.risk_model_version <> (SELECT app.risk_model_version())
             )::text AS under_older_model
        FROM customer_standing s

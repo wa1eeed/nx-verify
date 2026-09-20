@@ -349,11 +349,77 @@ export async function completeSignup(
   };
 }
 
-/** Clears what was abandoned or spent. Called by the retention sweep. */
-export async function pruneSignupIntents(db: Queryable): Promise<number> {
-  const { rowCount } = await db.query(
+/**
+ * How long a spent registration is kept, in hours.
+ *
+ * An intent that was consumed made a workspace, and most of what it carried now lives in that
+ * workspace: the legal name on `tenants`, the contact name and the address on `users`, the
+ * activity and this intent's own id in its audit log. Not all of it, and the exception is
+ * worth stating rather than rounding off: `completeSignup` opens the payload, reads the
+ * unified number and the phone out of it and writes neither anywhere, so this row is the only
+ * copy of those two and the sweep destroys them with it. Nothing reads them today, and an
+ * unread copy of a company's unified number is a reason to clear the row sooner rather than a
+ * reason to keep it. If the platform ever wants that number it belongs on `tenants.cr_number`
+ * at the moment the workspace is made, not sealed in a pre-tenant table for ever.
+ *
+ * What is left is otherwise a duplicate, and a duplicate sitting in the one table that has no
+ * tenant and therefore no row level security over it. The sealed payload also still holds the
+ * passphrase the person typed, which is a reversible copy of a secret that `user_credentials`
+ * already holds properly hashed.
+ *
+ * The only reason not to delete the row the moment it is spent is somebody who presses back and
+ * submits the form a second time, and the retry of a request whose answer never arrived. An
+ * hour is both of those, and nothing longer is anything.
+ */
+export const CONSUMED_INTENT_KEPT_HOURS = 1;
+
+/**
+ * How long an abandoned registration is kept past the death of its code, in days.
+ *
+ * Nobody read the code, so there is nothing on the other side of this row: no workspace, no
+ * account, no relationship, and no evidence that the address wanted one. The day is the support
+ * window for «I registered and no code came», and it buys nothing else.
+ *
+ * Measured from `expires_at` rather than from `created_at` so that it keeps meaning the same
+ * thing if SIGNUP_TTL_MINUTES ever moves.
+ */
+export const ABANDONED_INTENT_GRACE_DAYS = 1;
+
+export interface PrunedSignupIntents {
+  /** Registrations that became a workspace, and whose row is now mostly a copy of it. */
+  consumed: number;
+  /** Registrations whose code nobody ever read. */
+  abandoned: number;
+}
+
+/**
+ * Clears what was abandoned and what was spent, by two rules rather than one.
+ *
+ * They are not the same thing and they are not deleted for the same reason, so they are not
+ * deleted by the same clause. This used to be one statement,
+ * `expires_at < now() - interval '1 day' OR consumed_at < now() - interval '7 days'`, and the
+ * first half had no `consumed_at IS NULL` on it: every consumed row expires within
+ * SIGNUP_TTL_MINUTES of being made, so the expiry clause always reached a spent row first and
+ * the seven day rule written beside it could never fire on anything. Two clocks, one of which
+ * was decoration.
+ *
+ * Runs on the `nx_retention` connection, which migration 0058 granted SELECT and DELETE here
+ * for exactly this. `nx_app` also holds DELETE, because starting a registration replaces the
+ * live intent for that address, so the role is a wiring decision rather than a wall: the sweep
+ * is registered in the worker with `role: 'retention'` alongside every other deletion.
+ */
+export async function pruneSignupIntents(db: Queryable): Promise<PrunedSignupIntents> {
+  const spent = await db.query(
     `DELETE FROM signup_intents
-      WHERE expires_at < now() - interval '1 day' OR consumed_at < now() - interval '7 days'`,
+      WHERE consumed_at IS NOT NULL
+        AND consumed_at < now() - make_interval(hours => $1::int)`,
+    [CONSUMED_INTENT_KEPT_HOURS],
   );
-  return rowCount ?? 0;
+  const abandoned = await db.query(
+    `DELETE FROM signup_intents
+      WHERE consumed_at IS NULL
+        AND expires_at < now() - make_interval(days => $1::int)`,
+    [ABANDONED_INTENT_GRACE_DAYS],
+  );
+  return { consumed: spent.rowCount ?? 0, abandoned: abandoned.rowCount ?? 0 };
 }

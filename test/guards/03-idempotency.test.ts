@@ -152,3 +152,51 @@ describe('guard 03: same key, same result, one charge', () => {
     expect(theirs.replayed).toBe(false);
   });
 });
+
+/**
+ * The half of rule 7 this guard was green without (ADR-183).
+ *
+ * Everything above tests `verify`, a domain function, and `verification_runs` holds its own
+ * key in a unique index. So this file proved the one endpoint that already worked, while the
+ * rule says «كل POST»: opening an onboarding file, advancing it, creating a batch, confirming
+ * it, starting a monitor, adding a member to a portfolio. Six of those spend money, and a
+ * retry after a network timeout charged twice.
+ *
+ * The behaviour is measured over HTTP in apps/api/test/idempotency-api.test.ts. What is
+ * measured here is the thing that cannot be measured there: that a POST added next month is
+ * covered without its author reading any of this. The claim lives inside `requireAuth`, so
+ * the structural question is whether every POST goes through it.
+ */
+describe('guard 03: and every POST is covered by construction', () => {
+  it('routes no POST around the function that claims the key', async () => {
+    const { readFile, readdir } = await import('node:fs/promises');
+    const { join } = await import('node:path');
+    const dir = new URL('../../apps/api/src/routes/', import.meta.url).pathname;
+
+    const uncovered: string[] = [];
+    for (const file of await readdir(dir)) {
+      if (!file.endsWith('.ts')) {
+        continue;
+      }
+      const source = await readFile(join(dir, file), 'utf8');
+      // Each `app.post(` and the ~6 lines after it, which is where the options object with
+      // its preHandler sits. A POST that authenticates is a POST that claims.
+      // `app.post` and `scope.post`: the callback route registers inside an encapsulated
+      // scope, and a guard that only knew one spelling would have declared it covered.
+      for (const match of source.matchAll(/\b\w+\.post(?:<[^>]*>)?\(\s*\n?\s*'([^']+)'/g)) {
+        const at = match.index ?? 0;
+        const window = source.slice(at, at + 400);
+        if (!window.includes('requireAuth')) {
+          uncovered.push(`${file}: ${match[1]}`);
+        }
+      }
+    }
+
+    /**
+     * The callback endpoint is the one POST with no API key by design: a provider signs it,
+     * and unit 60's own guard covers it. It carries an event id and is idempotent through
+     * `inbound_events`, not through a header a provider does not send.
+     */
+    expect(uncovered).toEqual(['callbacks.ts: /v1/callbacks/:slug']);
+  });
+});
